@@ -45,7 +45,7 @@ async function sendDiscordMessage(message) {
                 prayerListing += `**${name}**: ${time}\n`
             }
 
-            prayerListing += `\n${currentTime}`
+            prayerListing += `\n\`${currentTime}\``
         }            
 
         await fetch(DISCORD_WEBHOOK_URL, {
