@@ -43,7 +43,7 @@ async function sendDiscordMessage(message) {
 async function scheduleNextDay() {
     console.log("======================================");
     console.log("All today's prayer times have passed. Scheduling for the next day.");
-    const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day').add(1, 'minute');
+    const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day').add(2, 'hours');
     console.log(`Next date/time: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}`);
     sendDiscordMessage(
         `\`\`\`fix` + `\n` + 
