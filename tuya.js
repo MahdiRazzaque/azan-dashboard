@@ -4,7 +4,7 @@ const { config } = require('dotenv');
 const moment = require('moment-timezone');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
-const DISCORD_WEBHOOK_URL = 'https://discordapp.com/api/webhooks/1253114538534899712/_5Zw9yavHyxgNfCneFLLVR3qOklfQi8lfRCNUK3VT64cFVZAGeSaxC7vtEbpxWBIhrDs';
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
 async function sendDebugMessage(message) { 
     const currentDay = moment.tz('Europe/London');
@@ -78,7 +78,7 @@ async function switchOn(token) {
 
 async function playAzan() {
     const token = await getAccessToken();
-    //const token = "EUv051hf2210e54eu171921999509907XvbfiOQh2vwes";
+    //const token = "";
     console.log(`Token: ${token}`);
 
     const response = await switchOn(token);
