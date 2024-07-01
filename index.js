@@ -36,46 +36,40 @@ async function sendDiscordMessage(message) {
     await fetch(DISCORD_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: message.toString() + `\n${currentTime}` }),
+        body: JSON.stringify({ content: message.toString() /*+ `\n${currentTime}`*/ }),
+    });
+}
+
+async function scheduleNextDay() {
+    console.log("======================================");
+    console.log("All today's prayer times have passed. Scheduling for the next day.");
+    const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day').add(1, 'minute');
+    console.log(`Next date/time: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}`);
+    sendDiscordMessage(
+        `\`\`\`fix` + `\n` + 
+        `All today's prayer times have passed. Scheduling for the next day.`+ `\n\n` +
+        `Next update: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}` + `\n` +
+        `\`\`\``
+    );
+    
+    schedule.scheduleJob(nextDay.toDate(), async() => {
+        console.log("Fetching next day's namaz timings.");
+        await scheduleNamazTimers();
     });
 }
 
 async function sendPrayerTimes(prayerTimes) {
+    const currentTime = `\`${moment.tz('Europe/London').format('YYYY-MM-DD HH:mm:ss')}\``;
+
     prayerListing = "# __**Prayer timings**__ \n\n"
     for(var [name, time] of Object.entries(prayerTimes)) {
         name = name.charAt(0).toUpperCase() + name.slice(1)
         prayerListing += `**${name}**: ${time}\n`
     }
 
+    prayerListing += `\n${currentTime}`;
+
     await sendDiscordMessage(prayerListing);
-}
-
-async function sendDebugMessage(message) { 
-    const currentDay = moment.tz('Europe/London');
-    const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day').add(1, 'minute');
-    
-    const debugMessage = 
-    `\`\`\`` + `\n` +
-    `Current date/time: ${currentDay.format('HH:mm:ss DD-MM-YYYY')}` + `\n` +
-    `Next date/time: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}` + `\n` +
-    `\`\`\``;
-
-    await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: debugMessage }),
-    });
-}
-
-async function allPassed() {
-    console.log("All today's prayer times have passed. Scheduling for the next day.");
-    const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day').add(1, 'minute');
-    console.log(`Next date/time: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}`);
-
-    schedule.scheduleJob(nextDay.toDate(), async() => {
-        console.log("Fetching next day's namaz timings.");
-        await scheduleNamazTimers();
-    });
 }
 
 async function scheduleNamazTimers() {
@@ -119,29 +113,24 @@ async function scheduleNamazTimers() {
             schedule.scheduleJob(prayerTime.toDate(), async () => {
                 await sendDiscordMessage(`# It's time for ${prayerName} prayer.`);
                 await playAzan();
+                console.log("Azan played.")
+
                 console.log(`${prayerName} prayer time.`);
 
-                if (prayerName === 'isha') 
-                    allPassed = true
+                if (prayerName === 'isha') {
+                    await scheduleNextDay();
+                }
+
             });
         } else {
             console.log(`${prayerName} prayer time has already passed.`);
         }
     });
 
-    console.log(allPassed)
     if (allPassed) {
-        console.log("======================================");
-        console.log("All today's prayer times have passed. Scheduling for the next day.");
-        const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day').add(1, 'minute');
-        console.log(`Next date/time: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}`);
-    
-        schedule.scheduleJob(nextDay.toDate(), async() => {
-            console.log("Fetching next day's namaz timings.");
-            await scheduleNamazTimers();
-        });
+        await scheduleNextDay();
     }
-        
+    
     console.log("======================================");
 }
 
