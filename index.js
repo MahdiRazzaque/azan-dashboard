@@ -85,7 +85,7 @@ async function scheduleNamazTimers() {
         zuhr: timings.iqamah_Zuhr,
         asr: timings.iqamah_Asr,
         maghrib: timings.maghrib,
-        isha: timings.isha,
+        isha: timings.iqamah_Isha,
     };
 
     sendPrayerTimes(prayerTimes);
