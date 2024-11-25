@@ -1,7 +1,7 @@
 const moment = require('moment-timezone');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const schedule = require('node-schedule');
-const { playAzan } = require("./tuya.js");
+//const { playAzan } = require("./tuya.js");
 require('dotenv').config();
 const { config } = require('dotenv');
 
