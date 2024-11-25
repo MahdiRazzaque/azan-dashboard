@@ -112,7 +112,7 @@ async function scheduleNamazTimers() {
             console.log(`Scheduling ${prayerName} prayer at ${time}`);
             schedule.scheduleJob(prayerTime.toDate(), async () => {
                 await sendDiscordMessage(`# It's time for ${prayerName} prayer.`);
-                await playAzan();
+                //await playAzan();
                 console.log("Azan played.")
 
                 console.log(`${prayerName} prayer time.`);
@@ -134,4 +134,9 @@ async function scheduleNamazTimers() {
     console.log("======================================");
 }
 
-scheduleNamazTimers();
+async function playAzan() {
+    await fetch("https://api-v2.voicemonkey.io/trigger?token=c56f57a0f35bdcfd4b00074b5a026a4c_24fc5c3c65937d0d6c6fd82851587a30&device=azan-trigger-1");
+}
+
+//scheduleNamazTimers();
+playAzan();
