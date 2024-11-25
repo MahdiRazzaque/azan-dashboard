@@ -115,6 +115,7 @@ async function scheduleNamazTimers() {
             schedule.scheduleJob(prayerTime.toDate(), async () => {
                 await sendDiscordMessage(`# It's time for ${prayerName} prayer.`);
                 //await playAzan();
+                await playAzanAlexa();
                 console.log("Azan played.")
 
                 console.log(`${prayerName} prayer time.`);
@@ -138,8 +139,6 @@ async function scheduleNamazTimers() {
 
 async function playAzanAlexa() {
     await fetch(process.env.voiceMonkeyURL);
-    console.log("Azan played.");
 }
 
-//scheduleNamazTimers();
-playAzanAlexa();
+scheduleNamazTimers();
