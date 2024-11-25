@@ -2,6 +2,8 @@ const moment = require('moment-timezone');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 const schedule = require('node-schedule');
 const { playAzan } = require("./tuya.js");
+require('dotenv').config();
+const { config } = require('dotenv');
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 
@@ -135,7 +137,7 @@ async function scheduleNamazTimers() {
 }
 
 async function playAzan() {
-    await fetch("https://api-v2.voicemonkey.io/trigger?token=c56f57a0f35bdcfd4b00074b5a026a4c_24fc5c3c65937d0d6c6fd82851587a30&device=azan-trigger-1");
+    await fetch(process.env.voiceMonkeyURL);
 }
 
 //scheduleNamazTimers();
