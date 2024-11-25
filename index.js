@@ -138,6 +138,7 @@ async function scheduleNamazTimers() {
 
 async function playAzanAlexa() {
     await fetch(process.env.voiceMonkeyURL);
+    console.log("Azan played.");
 }
 
 //scheduleNamazTimers();
