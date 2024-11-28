@@ -115,7 +115,11 @@ async function scheduleNamazTimers() {
             schedule.scheduleJob(prayerTime.toDate(), async () => {
                 await sendDiscordMessage(`# It's time for ${prayerName} prayer.`);
                 //await playAzan();
-                await playAzanAlexa();
+                if (prayerName === 'fajr') {
+                    await playAzanAlexa(true);
+                } else {
+                    await playAzanAlexa(false);
+                }
                 console.log("Azan played.")
 
                 console.log(`${prayerName} prayer time.`);
@@ -137,8 +141,43 @@ async function scheduleNamazTimers() {
     console.log("======================================");
 }
 
-async function playAzanAlexa() {
-    await fetch(process.env.voiceMonkeyURL);
+async function playAzanAlexa(isFajr = false) {
+    const url = 'https://api-v2.voicemonkey.io/announcement';
+    const baseAudioUrl = 'https://la-ilaha-illa-allah.netlify.app';
+    
+    // Get token from environment variables
+    const voice_mokey_token = process.env.VOICEMONKEY_TOKEN;
+    
+    if (!voice_mokey_token) {
+        console.error("Error: Voice Monkey API token is missing!");
+        return;
+    }
+
+    const payload = {
+        token: voice_mokey_token, 
+        device: 'voice-monkey-speaker-1',
+        audio: baseAudioUrl + (isFajr ? '/mp3/fajr-azan.mp3' : '/mp3/azan.mp3'),
+    };
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Azan triggered successfully:', data);
+    })
+    .catch(error => {
+        console.error('Error triggering azan:', error);
+    });
 }
 
 scheduleNamazTimers();
