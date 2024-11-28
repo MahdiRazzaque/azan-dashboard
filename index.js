@@ -146,15 +146,15 @@ async function playAzanAlexa(isFajr = false) {
     const baseAudioUrl = 'https://la-ilaha-illa-allah.netlify.app';
     
     // Get token from environment variables
-    const voice_mokey_token = process.env.VOICEMONKEY_TOKEN;
+    const voice_monkey_token = process.env.VOICEMONKEY_TOKEN;
     
-    if (!voice_mokey_token) {
+    if (!voice_monkey_token) {
         console.error("Error: Voice Monkey API token is missing!");
         return;
     }
 
     const payload = {
-        token: voice_mokey_token, 
+        token: voice_monkey_token, 
         device: 'voice-monkey-speaker-1',
         audio: baseAudioUrl + (isFajr ? '/mp3/fajr-azan.mp3' : '/mp3/azan.mp3'),
     };
