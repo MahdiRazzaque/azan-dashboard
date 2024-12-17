@@ -6,7 +6,6 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url'
-import SSE from 'express-sse';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -329,8 +328,8 @@ app.get('/api/prayer-times', (req, res) => {
     });
 });
 
-// Initialize SSE
-const sse = new SSE();
+// Create a Set to store all active SSE clients
+const clients = new Set();
 
 // Store logs in memory
 const logStore = {
@@ -359,16 +358,16 @@ const logStore = {
             this.errors = this.errors.slice(-this.maxLogs);
         }
         
-        // Send to all connected clients
-        sse.send(logEntry);
-        
         return logEntry;
     },
     
     clear() {
         this.logs = [];
         this.errors = [];
-        this.addLog('system', 'Logs cleared');
+        broadcastLogs({
+            type: 'system',
+            message: 'Logs cleared'
+        });
     },
     
     getLast(n = 15) {
@@ -380,6 +379,25 @@ const logStore = {
     }
 };
 
+// Function to broadcast logs to all connected clients
+function broadcastLogs(logData) {
+    const deadClients = new Set();
+    
+    clients.forEach(client => {
+        try {
+            client.write(`data: ${JSON.stringify(logData)}\n\n`);
+        } catch (error) {
+            console.error('Error sending to client:', error.message);
+            deadClients.add(client);
+        }
+    });
+    
+    // Cleanup dead clients
+    deadClients.forEach(client => {
+        clients.delete(client);
+    });
+}
+
 // Override console.log to capture and broadcast logs
 const originalConsoleLog = console.log;
 console.log = function(...args) {
@@ -388,7 +406,8 @@ console.log = function(...args) {
         typeof arg === 'object' ? JSON.stringify(arg) : arg.toString()
     ).join(' ');
     
-    logStore.addLog('log', logMessage);
+    const logEntry = logStore.addLog('log', logMessage);
+    broadcastLogs(logEntry);
 };
 
 // Override console.error to capture and broadcast errors
@@ -399,11 +418,58 @@ console.error = function(...args) {
         typeof arg === 'object' ? JSON.stringify(arg) : arg.toString()
     ).join(' ');
     
-    logStore.addLog('error', logMessage);
+    const logEntry = logStore.addLog('error', logMessage);
+    broadcastLogs(logEntry);
 };
 
 // SSE endpoint for real-time logs
-app.get('/api/logs/stream', sse.init);
+app.get('/api/logs/stream', async (req, res) => {
+    // Set headers for SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable Nginx buffering
+    
+    // Send initial heartbeat
+    res.write('data: {"type":"connected","message":"Connected to log stream"}\n\n');
+    
+    // Send existing logs
+    logStore.logs.forEach(log => {
+        res.write(`data: ${JSON.stringify(log)}\n\n`);
+    });
+    
+    // Add client to the Set
+    clients.add(res);
+
+    // Set up ping interval
+    const pingInterval = setInterval(() => {
+        try {
+            res.write(': ping\n\n');
+        } catch (error) {
+            clearInterval(pingInterval);
+            clients.delete(res);
+        }
+    }, 30000); // Send ping every 30 seconds
+
+    // Handle client disconnect
+    req.on('close', () => {
+        clearInterval(pingInterval);
+        clients.delete(res);
+    });
+
+    // Handle connection errors
+    req.on('error', () => {
+        clearInterval(pingInterval);
+        clients.delete(res);
+    });
+
+    // Handle response errors
+    res.on('error', () => {
+        clearInterval(pingInterval);
+        clients.delete(res);
+    });
+});
 
 // Add new API endpoints for log management
 app.post('/api/logs/clear', (req, res) => {
@@ -457,10 +523,3 @@ setInterval(updateNextPrayer, 60000);
 
 // Start the scheduling
 scheduleNamazTimers();
-
-
-var counter = 0;
-setInterval(() => {
-    console.log(counter);
-    counter++;
-}, 1000);
