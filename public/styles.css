@@ -62,7 +62,7 @@ body {
 /* Prayer Times Table */
 table {
     width: 100%;
-    border-collapse: separate;
+    border-collapse: collapse; /* Changed to collapse for cleaner lines */
     border-spacing: 0;
 }
 
@@ -122,6 +122,8 @@ td {
     align-items: center;
     text-align: center;
     background: linear-gradient(145deg, var(--section-bg), var(--accent-color));
+    width: auto;
+    height: 100%;
 }
 
 .current-time h3, .countdown h3 {
@@ -212,6 +214,8 @@ td {
     margin-top: 0.5rem;
     font-family: 'Courier New', Courier, monospace;
     white-space: pre-wrap;
+    /* Added to make the log container scroll */
+    white-space: nowrap;
 }
 
 .log-line {
@@ -220,6 +224,9 @@ td {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
+    /* Remove the individual scrollbar from log lines */
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .log-line .message {
@@ -283,30 +290,35 @@ td {
 /* Responsive Design */
 @media (max-width: 768px) {
     .container {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto;
+        display: flex;
+        flex-direction: column;
         height: auto;
         min-height: 100vh;
+        padding: 0.5rem;
+    }
+
+    .section {
+        margin-bottom: 0.5rem;
+    }
+
+    .top-section {
+        width: 100%;
     }
 
     .prayer-times,
     .next-prayer,
     .logs {
-        grid-column: 1;
-    }
-
-    .prayer-times {
-        grid-row: 2;
+        width: 100%;
     }
 
     .next-prayer {
-        grid-row: 1;
-        padding: 2rem 1rem;
+        padding: 1.5rem 1rem;
+        height: auto;
     }
 
     .logs {
-        grid-row: 3;
         max-height: 30vh;
+        overflow-y: auto;
     }
 
     #current-time-display {
@@ -339,6 +351,48 @@ td {
     .log-btn {
         padding: 0.4rem 0.8rem;
         font-size: 0.9rem;
+    }
+    
+    /* Hide full text, show icons */
+    .log-btn .full-text {
+        display: none;
+    }
+    .log-btn .icon-only {
+        display: inline-block;
+    }
+    
+    /* Smaller log text */
+    #log-container {
+        font-size: 0.75rem;
+    }
+    
+    /* Show timestamp */
+    .log-line .timestamp {
+        display: inline-block;
+    }
+    
+    /* Force no-wrap on log lines, timestamp is now visible */
+    .log-line {
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    /* Smaller icons in log buttons */
+    .log-btn .icon-only i {
+        font-size: 0.9rem;
+    }
+}
+
+/* Hide icons on larger screens, show full text */
+@media (min-width: 769px) {
+    .log-btn .icon-only {
+        display: none;
+    }
+    .log-btn .full-text {
+        display: inline-block;
+    }
+    .log-btn .full-text .fa-arrow-down {
+        display: none;
     }
 }
 
@@ -473,4 +527,4 @@ td {
     100% {
         background-color: transparent;
     }
-} 
+}

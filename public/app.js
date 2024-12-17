@@ -300,7 +300,7 @@ function initializeLogStream() {
 // Initialize log container scroll handling
 function initializeLogScroll() {
     // Check if we should auto-scroll when user scrolls
-    logContainer.addEventListener('scroll', () => {
+    logContainer.addEventListener('touchmove', () => {
         const isAtBottom = Math.abs(
             logContainer.scrollHeight - logContainer.clientHeight - logContainer.scrollTop
         ) < 2;
