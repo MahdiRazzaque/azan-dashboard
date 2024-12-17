@@ -429,6 +429,7 @@ app.get('/api/logs/stream', async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable Nginx buffering
     
     // Send initial heartbeat
     res.write('data: {"type":"connected","message":"Connected to log stream"}\n\n');
@@ -441,34 +442,32 @@ app.get('/api/logs/stream', async (req, res) => {
     // Add client to the Set
     clients.add(res);
 
+    // Set up ping interval
+    const pingInterval = setInterval(() => {
+        try {
+            res.write(': ping\n\n');
+        } catch (error) {
+            clearInterval(pingInterval);
+            clients.delete(res);
+        }
+    }, 30000); // Send ping every 30 seconds
+
     // Handle client disconnect
     req.on('close', () => {
+        clearInterval(pingInterval);
         clients.delete(res);
-        console.log('Client disconnected from log stream');
     });
 
     // Handle connection errors
-    req.on('error', (error) => {
-        console.error('Client connection error:', error.message);
+    req.on('error', () => {
+        clearInterval(pingInterval);
         clients.delete(res);
-        // Don't throw the error, just log it
-        if (!res.headersSent) {
-            res.status(500).end();
-        }
     });
 
     // Handle response errors
-    res.on('error', (error) => {
-        console.error('Response error:', error.message);
+    res.on('error', () => {
+        clearInterval(pingInterval);
         clients.delete(res);
-        // Don't throw the error, just cleanup
-        try {
-            if (!res.headersSent) {
-                res.status(500).end();
-            }
-        } catch (e) {
-            console.error('Error while handling response error:', e.message);
-        }
     });
 });
 
