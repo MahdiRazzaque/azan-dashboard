@@ -1,11 +1,28 @@
-const moment = require('moment-timezone');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-const schedule = require('node-schedule');
-//const { playAzan } = require("./tuya.js");
-require('dotenv').config();
-const { config } = require('dotenv');
+import moment from 'moment-timezone';
+import fetch from 'node-fetch';
+import schedule from 'node-schedule';
+import { config } from 'dotenv';
+config();
 
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+
+// Utility function for consistent logging
+function logSection(title) {
+    console.log('\n' + '='.repeat(40));
+    console.log(`🕌 ${title.toUpperCase()} 🕌`);
+    console.log('='.repeat(40));
+}
+
+// Utility function to log prayer times in a table
+function logPrayerTimesTable(timings, title) {
+    console.log(`\n${title}:`);
+    console.table(
+        Object.entries(timings).map(([name, time]) => ({
+            'Prayer': name.charAt(0).toUpperCase() + name.slice(1),
+            'Time': time
+        }))
+    );
+}
 
 async function fetchMasjidTimings() {
     try {
@@ -14,7 +31,6 @@ async function fetchMasjidTimings() {
         const salahTimings = data.model.salahTimings;
 
         const today = moment.tz('Europe/London');
-
         const todayDay = today.date();
         const todayMonth = today.month() + 1;
 
@@ -23,30 +39,30 @@ async function fetchMasjidTimings() {
         if (todayTimings.length > 0) {
             return todayTimings[0];
         } else {
-            console.log("No timings found for today.");
+            console.error("❌ No timings found for today.");
             return null;
         }
     } catch (error) {
-        console.log("Error fetching data:", error);
+        console.error("❌ Error fetching data:", error);
         return null;
     }
 }
 
 async function sendDiscordMessage(message) {
-    const currentTime = `\`${moment.tz('Europe/London').format('YYYY-MM-DD HH:mm:ss')}\``;
-    
+  
     await fetch(DISCORD_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: message.toString() /*+ `\n${currentTime}`*/ }),
+        body: JSON.stringify({ content: message.toString() }),
     });
 }
 
 async function scheduleNextDay() {
-    console.log("======================================");
-    console.log("All today's prayer times have passed. Scheduling for the next day.");
+    logSection("Next Day Scheduling");
     const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day').add(2, 'hours');
-    console.log(`Next date/time: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}`);
+    
+    console.log(`📅 Next Update: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}`);
+    
     sendDiscordMessage(
         `\`\`\`fix` + `\n` + 
         `All today's prayer times have passed. Scheduling for the next day.`+ `\n\n` +
@@ -55,7 +71,7 @@ async function scheduleNextDay() {
     );
     
     schedule.scheduleJob(nextDay.toDate(), async() => {
-        console.log("Fetching next day's namaz timings.");
+        console.log("🔄 Fetching next day's namaz timings.");
         await scheduleNamazTimers();
     });
 }
@@ -63,7 +79,7 @@ async function scheduleNextDay() {
 async function sendPrayerTimes(prayerTimes) {
     const currentTime = `\`${moment.tz('Europe/London').format('YYYY-MM-DD HH:mm:ss')}\``;
 
-    prayerListing = "# __**Prayer timings**__ \n\n"
+    var prayerListing = "# __**Prayer timings**__ \n\n"
     for(var [name, time] of Object.entries(prayerTimes)) {
         name = name.charAt(0).toUpperCase() + name.slice(1)
         prayerListing += `**${name}**: ${time}\n`
@@ -78,7 +94,7 @@ async function scheduleNamazTimers() {
     const timings = await fetchMasjidTimings();
 
     if (!timings) {
-        console.log("Could not fetch today's timings.");
+        console.error("❌ Could not fetch today's timings.");
         return;
     }
 
@@ -90,62 +106,92 @@ async function scheduleNamazTimers() {
         isha: timings.iqamah_Isha,
     };
 
+    const prayerAnnouncementTimes = Object.entries(prayerTimes).reduce((acc, [prayerName, time]) => {
+        const updatedTime = moment(time, 'HH:mm').subtract(15, 'minutes').format('HH:mm');
+        acc[prayerName] = updatedTime; return acc; }, {});
+
     sendPrayerTimes(prayerTimes);
 
-    console.log("======================================");
-    console.log(Object.entries(prayerTimes).map(([name, time]) => `${name}: ${time}`).join('\n'));
-    console.log("======================================");
+    logSection("Today's Prayer Iqamah Timings");
+    logPrayerTimesTable(prayerTimes, "Iqamah Times");
+
+    logSection("Today's Prayer Times");
+    logPrayerTimesTable(prayerAnnouncementTimes, "Announcement Times");
 
     const now = moment.tz('Europe/London');
+    console.log(`⏰ Current Date/Time: ${now.format('HH:mm:ss DD-MM-YYYY')}`);
 
-    console.log(`Current date/time: ${now.format('HH:mm:ss DD-MM-YYYY')}`);
-    console.log("======================================");
+    logSection("Scheduling Prayer Iqamah Times");
+    await Promise.all(Object.entries(prayerTimes).map(([prayerName, time]) => 
+        scheduleAzanTimer(prayerName, time)
+    ));
+
+    logSection("Scheduling Prayer Announcement Times");
+    await Promise.all(Object.entries(prayerAnnouncementTimes).map(([prayerName, time]) => 
+        scheduleAzanAnnouncementTimer(prayerName, time)
+    ));
+}
+
+async function scheduleAzanTimer(prayerName, time) {
+    const [hour, minute] = time.split(':').map(Number);
+    const now = moment.tz('Europe/London');
+
+    const prayerTime = moment.tz('Europe/London');
+    prayerTime.set({ hour, minute, second: 0 });
 
     let allPassed = true;
 
-    Object.entries(prayerTimes).forEach(([prayerName, time]) => {
-        const [hour, minute] = time.split(':').map(Number);
+    if (prayerTime > now) {
+        allPassed = false;
+        console.log(`🕰️ Scheduling ${prayerName.toUpperCase()} prayer at ${time}`);
+        schedule.scheduleJob(prayerTime.toDate(), async () => {
+            await sendDiscordMessage(`# It's time for ${prayerName} prayer.`);
+            //await playAzan();
+            playAzanAlexa(prayerName === 'fajr');
 
-        const prayerTime = moment.tz('Europe/London');
-        prayerTime.set({ hour, minute, second: 0 });
+            console.log("Azan played.")
 
-        if (prayerTime > now) {
-            allPassed = false;
-            console.log(`Scheduling ${prayerName} prayer at ${time}`);
-            schedule.scheduleJob(prayerTime.toDate(), async () => {
-                await sendDiscordMessage(`# It's time for ${prayerName} prayer.`);
-                //await playAzan();
-                if (prayerName === 'fajr') {
-                    await playAzanAlexa(true);
-                } else {
-                    await playAzanAlexa(false);
-                }
-                console.log("Azan played.")
+            console.log(`${prayerName} prayer time.`);
 
-                console.log(`${prayerName} prayer time.`);
+            if (prayerName === 'isha') {
+                await scheduleNextDay();
+            }
 
-                if (prayerName === 'isha') {
-                    await scheduleNextDay();
-                }
-
-            });
-        } else {
-            console.log(`${prayerName} prayer time has already passed.`);
-        }
-    });
+        });
+    } else {
+        console.log(`⏩ ${prayerName.toUpperCase()} prayer time has already passed.`);
+    }
 
     if (allPassed) {
         await scheduleNextDay();
     }
+}
+
+async function scheduleAzanAnnouncementTimer(prayerName, time) {
+    const [hour, minute] = time.split(':').map(Number);
+    const now = moment.tz('Europe/London');
+
+    const prayerAnnouncementTime = moment.tz('Europe/London');
+    prayerAnnouncementTime.set({ hour, minute, second: 0 });
+
+    if(prayerAnnouncementTime < now) {
+        console.log(`⏩ ${prayerName.toUpperCase()} prayer announcement time has already passed.`);
+        return;
+    }
+
+    console.log(`📢 Scheduling ${prayerName.toUpperCase()} announcement at ${time}`);
     
-    console.log("======================================");
+    schedule.scheduleJob(prayerAnnouncementTime.toDate(), async () => {
+        await playPrayerAnnoucement(prayerName);
+
+        console.log(`📣 ${prayerName.toUpperCase()} announcement time.`);
+    });
 }
 
 async function playAzanAlexa(isFajr = false) {
     const url = 'https://api-v2.voicemonkey.io/announcement';
     const baseAudioUrl = 'https://la-ilaha-illa-allah.netlify.app';
     
-    // Get token from environment variables
     const voice_monkey_token = process.env.VOICEMONKEY_TOKEN;
     
     if (!voice_monkey_token) {
@@ -180,4 +226,51 @@ async function playAzanAlexa(isFajr = false) {
     });
 }
 
+async function playPrayerAnnoucement(prayerName) {
+    const prayerToAnnouncmentFile = {
+        fajr: 't-minus-15-fajr.mp3',
+        zuhr: 't-minus-15-dhuhr.mp3',
+        asr: 't-minus-15-asr.mp3',
+        maghrib: 't-minus-15-maghrib.mp3',
+        isha: 't-minus-15-isha.mp3',
+    };
+
+    const url = 'https://api-v2.voicemonkey.io/announcement';
+    const baseAudioUrl = 'https://la-ilaha-illa-allah.netlify.app/mp3/';
+
+    const voice_monkey_token = process.env.VOICEMONKEY_TOKEN;
+    
+    if (!voice_monkey_token) {
+        console.error("Error: Voice Monkey API token is missing!");
+        return;
+    }
+
+    const payload = {
+        token: voice_monkey_token, 
+        device: 'voice-monkey-speaker-1',
+        audio: baseAudioUrl + prayerToAnnouncmentFile[prayerName],
+    };
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Azan announcment triggered successfully:', data);
+    })
+    .catch(error => {
+        console.error('Error triggering azan announcment:', error);
+    });
+}
+
+// Start the scheduling
 scheduleNamazTimers();
