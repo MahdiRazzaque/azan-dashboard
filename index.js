@@ -120,6 +120,7 @@ async function scheduleNamazTimers() {
 
     const prayerTimes = {
         fajr: timings.iqamah_Fajr,
+        sunrise: timings.shouruq,
         zuhr: timings.iqamah_Zuhr,
         asr: timings.iqamah_Asr,
         maghrib: timings.maghrib,

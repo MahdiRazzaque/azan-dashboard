@@ -4,11 +4,12 @@ const LOGS_UPDATE_INTERVAL = 5000;
 
 // Prayer icons mapping
 const PRAYER_ICONS = {
-    fajr: 'fa-sun',
-    zuhr: 'fa-sun',
-    asr: 'fa-cloud-sun',
-    maghrib: 'fa-moon',
-    isha: 'fa-moon'
+    fajr: { type: 'fas', name: 'fa-sun' },
+    sunrise: { type: 'mdi', name: 'mdi-weather-sunset-up' },
+    zuhr: { type: 'fas', name: 'fa-sun' },
+    asr: { type: 'fas', name: 'fa-cloud-sun' },
+    maghrib: { type: 'mdi', name: 'mdi-weather-sunset' },
+    isha: { type: 'fas', name: 'fa-moon' }
 };
 
 // DOM Elements
@@ -56,12 +57,16 @@ function updatePrayerTable(prayerTimes, nextPrayer) {
         const row = document.createElement('tr');
         const isNext = nextPrayer && prayer === nextPrayer.name;
         const isPassed = moment(time, 'HH:mm').isBefore(moment());
+        const icon = PRAYER_ICONS[prayer];
         
         row.className = `prayer-row ${isNext ? 'next' : ''} ${isPassed ? 'passed' : ''}`;
         
         row.innerHTML = `
             <td class="prayer-name">
-                <i class="fas ${PRAYER_ICONS[prayer]} prayer-icon"></i>
+                ${icon.type === 'mdi' 
+                    ? `<i class="mdi ${icon.name} prayer-icon"></i>`
+                    : `<i class="${icon.type} ${icon.name} prayer-icon"></i>`
+                }
                 ${prayer.charAt(0).toUpperCase() + prayer.slice(1)}
             </td>
             <td>${time}</td>
@@ -97,8 +102,12 @@ function updateTimeAndNextPrayer(data) {
     
     if (data.nextPrayer) {
         const prayerName = data.nextPrayer.name;
+        const icon = PRAYER_ICONS[prayerName];
         nextPrayerName.innerHTML = `
-            <i class="fas ${PRAYER_ICONS[prayerName]}"></i>
+            ${icon.type === 'mdi' 
+                ? `<i class="mdi ${icon.name}"></i>`
+                : `<i class="${icon.type} ${icon.name}"></i>`
+            }
             ${prayerName.charAt(0).toUpperCase() + prayerName.slice(1)}
         `;
         
