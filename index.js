@@ -381,13 +381,20 @@ const logStore = {
 
 // Function to broadcast logs to all connected clients
 function broadcastLogs(logData) {
+    const deadClients = new Set();
+    
     clients.forEach(client => {
         try {
             client.write(`data: ${JSON.stringify(logData)}\n\n`);
         } catch (error) {
-            console.error('Error sending to client:', error);
-            clients.delete(client);
+            console.error('Error sending to client:', error.message);
+            deadClients.add(client);
         }
+    });
+    
+    // Cleanup dead clients
+    deadClients.forEach(client => {
+        clients.delete(client);
     });
 }
 
@@ -437,12 +444,31 @@ app.get('/api/logs/stream', async (req, res) => {
     // Handle client disconnect
     req.on('close', () => {
         clients.delete(res);
+        console.log('Client disconnected from log stream');
     });
 
     // Handle connection errors
     req.on('error', (error) => {
-        console.error('Client connection error:', error);
+        console.error('Client connection error:', error.message);
         clients.delete(res);
+        // Don't throw the error, just log it
+        if (!res.headersSent) {
+            res.status(500).end();
+        }
+    });
+
+    // Handle response errors
+    res.on('error', (error) => {
+        console.error('Response error:', error.message);
+        clients.delete(res);
+        // Don't throw the error, just cleanup
+        try {
+            if (!res.headersSent) {
+                res.status(500).end();
+            }
+        } catch (e) {
+            console.error('Error while handling response error:', e.message);
+        }
     });
 });
 
@@ -468,8 +494,29 @@ app.get('/', (req, res) => {
 });
 
 // Start the Express server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+});
+
+// Handle server errors
+server.on('error', (error) => {
+    console.error('Server error:', error.message);
+    if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use`);
+        process.exit(1);
+    }
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error.message);
+    // Keep the process running unless it's a critical error
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Keep the process running unless it's a critical error
 });
 
 // Update next prayer info every minute
