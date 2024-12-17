@@ -295,6 +295,7 @@ td {
         height: auto;
         min-height: 100vh;
         padding: 0.5rem;
+        overflow-y: auto;
     }
 
     .section {
@@ -317,7 +318,7 @@ td {
     }
 
     .logs {
-        max-height: 30vh;
+        max-height: none;
         overflow-y: auto;
     }
 
