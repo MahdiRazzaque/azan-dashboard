@@ -289,13 +289,17 @@ td {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+    html, body {
+        height: auto;
+        overflow-y: auto;
+    }
+
     .container {
         display: flex;
         flex-direction: column;
         height: auto;
         min-height: 100vh;
         padding: 0.5rem;
-        overflow-y: auto;
     }
 
     .section {
@@ -318,7 +322,7 @@ td {
     }
 
     .logs {
-        max-height: none;
+        height: auto;
         overflow-y: auto;
     }
 
