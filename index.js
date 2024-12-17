@@ -162,7 +162,11 @@ async function scheduleAzanTimer(prayerName, time) {
         console.log(`⏩ ${prayerName.toUpperCase()} prayer time has already passed.`);
     }
 
-    if (allPassed) {
+    // console.log(now.toDate());
+    // console.log(prayerName);
+    // console.log(allPassed);
+
+    if (allPassed && prayerName === 'isha') {
         await scheduleNextDay();
     }
 }
