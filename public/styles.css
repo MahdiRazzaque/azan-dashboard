@@ -386,6 +386,17 @@ td {
     .log-btn .icon-only i {
         font-size: 0.9rem;
     }
+
+    /* Hide timestamp on mobile */
+    .log-line .timestamp {
+        display: none !important;
+    }
+
+    /* Ensure all log lines scroll together */
+    #log-container {
+        white-space: nowrap;
+        overflow-x: auto;
+    }
 }
 
 /* Hide icons on larger screens, show full text */
