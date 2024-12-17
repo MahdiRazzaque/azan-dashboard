@@ -121,17 +121,45 @@ function updateTimeAndNextPrayer(data) {
 function updateLogs(logData) {
     if (!logData || !logData.message) return;
     
-    // Create a new div for the log line
     const logLine = document.createElement('div');
     logLine.className = `log-line ${logData.type}`;
     
-    // Add message first
     const message = document.createElement('span');
     message.className = 'message';
-    message.textContent = logData.message;
+    
+    // Clean up the message if it's a prayer time table
+    let cleanMessage = logData.message;
+    if (cleanMessage.includes('Prayer') && cleanMessage.includes('Time')) {
+        try {
+            // Try to parse if it's a JSON string
+            if (cleanMessage.includes('[{')) {
+                const tableData = JSON.parse(cleanMessage);
+                cleanMessage = tableData.map(row => 
+                    `${row.Prayer}: ${row.Time}`
+                ).join('\n');
+            } else {
+                // Otherwise just clean up the formatting
+                cleanMessage = cleanMessage
+                    .replace(/\u001b\[\d+m/g, '')  // Remove all ANSI color codes
+                    .replace(/□/g, '')             // Remove box characters
+                    .replace(/\|\s+\|/g, '|')      // Clean up extra spaces between pipes
+                    .replace(/\s+\|/g, ' |')       // Clean up spaces before pipes
+                    .replace(/\|\s+/g, '| ')       // Clean up spaces after pipes
+                    .replace(/\[|\]/g, '')         // Remove square brackets
+                    .trim();
+            }
+        } catch (e) {
+            // If parsing fails, just use basic cleanup
+            cleanMessage = cleanMessage
+                .replace(/\u001b\[\d+m/g, '')
+                .replace(/□/g, '')
+                .trim();
+        }
+    }
+    
+    message.textContent = cleanMessage;
     logLine.appendChild(message);
     
-    // Add timestamp if available
     if (logData.timestamp) {
         const timestamp = document.createElement('span');
         timestamp.className = 'timestamp';
@@ -140,15 +168,12 @@ function updateLogs(logData) {
         logLine.appendChild(timestamp);
     }
     
-    // Add to container
     logContainer.appendChild(logLine);
     
-    // Keep only the last 1000 lines
     while (logContainer.childNodes.length > 1000) {
         logContainer.removeChild(logContainer.firstChild);
     }
     
-    // Auto-scroll if enabled
     if (shouldAutoScroll) {
         logContainer.scrollTop = logContainer.scrollHeight;
     }
@@ -227,12 +252,8 @@ function initializeLogControls() {
                     logContainer.lastChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             } else {
-                // Just append the "no errors" message
-                updateLogs({
-                    type: 'system',
-                    message: 'No errors found in logs',
-                    timestamp: moment().format('YYYY-MM-DD HH:mm:ss')
-                });
+                // Show the no error modal
+                document.getElementById('no-error-modal').classList.add('show');
             }
         } catch (error) {
             console.error('Error fetching last error:', error);
@@ -315,3 +336,52 @@ const momentScript = document.createElement('script');
 momentScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js';
 momentScript.onload = initialize;
 document.head.appendChild(momentScript); 
+
+// Override console.log to capture and broadcast logs
+const originalConsoleLog = console.log;
+console.log = function(...args) {
+    originalConsoleLog.apply(console, args);
+    const logMessage = args.map(arg => {
+        if (typeof arg === 'object') {
+            if (arg instanceof Array && arg.length > 0 && 'Prayer' in arg[0]) {
+                // Format the table data nicely
+                const maxPrayerLength = Math.max(...arg.map(row => row.Prayer.length));
+                const maxTimeLength = Math.max(...arg.map(row => row.Time.length));
+                
+                const header = `| Prayer${' '.repeat(maxPrayerLength - 6)} | Time${' '.repeat(maxTimeLength - 4)} |`;
+                const separator = `|${'-'.repeat(maxPrayerLength + 2)}|${'-'.repeat(maxTimeLength + 2)}|`;
+                const rows = arg.map(row => 
+                    `| ${row.Prayer}${' '.repeat(maxPrayerLength - row.Prayer.length)} | ${row.Time}${' '.repeat(maxTimeLength - row.Time.length)} |`
+                );
+                
+                return [header, separator, ...rows].join('\n');
+            }
+            return JSON.stringify(arg);
+        }
+        return arg.toString();
+    }).join(' ');
+    
+    const logEntry = logStore.addLog('log', logMessage);
+    broadcastLogs(logEntry);
+}; 
+
+// Override console.error to capture and broadcast errors
+const originalConsoleError = console.error;
+console.error = function(...args) {
+    originalConsoleError.apply(console, args);
+    const logMessage = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg) : arg.toString()
+    ).join(' ');
+    
+    const logEntry = logStore.addLog('error', logMessage);
+    broadcastLogs(logEntry);
+}; 
+
+// Close modals if clicking outside
+document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('show');
+        }
+    });
+}); 
