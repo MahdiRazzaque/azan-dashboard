@@ -2,9 +2,29 @@ import moment from 'moment-timezone';
 import fetch from 'node-fetch';
 import schedule from 'node-schedule';
 import { config } from 'dotenv';
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 config();
 
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Enable CORS and JSON parsing
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
+
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+
+// Store the latest prayer times in memory
+let currentPrayerTimes = null;
+let nextPrayer = null;
 
 // Utility function for consistent logging
 function logSection(title) {
@@ -106,6 +126,9 @@ async function scheduleNamazTimers() {
         isha: timings.iqamah_Isha,
     };
 
+    currentPrayerTimes = prayerTimes;
+    updateNextPrayer();
+
     const prayerAnnouncementTimes = Object.entries(prayerTimes).reduce((acc, [prayerName, time]) => {
         const updatedTime = moment(time, 'HH:mm').subtract(15, 'minutes').format('HH:mm');
         acc[prayerName] = updatedTime; return acc; }, {});
@@ -161,10 +184,6 @@ async function scheduleAzanTimer(prayerName, time) {
     } else {
         console.log(`⏩ ${prayerName.toUpperCase()} prayer time has already passed.`);
     }
-
-    // console.log(now.toDate());
-    // console.log(prayerName);
-    // console.log(allPassed);
 
     if (allPassed && prayerName === 'isha') {
         await scheduleNextDay();
@@ -275,6 +294,186 @@ async function playPrayerAnnoucement(prayerName) {
         console.error('Error triggering azan announcment:', error);
     });
 }
+
+// Function to determine the next prayer
+function updateNextPrayer() {
+    if (!currentPrayerTimes) return;
+
+    const now = moment.tz('Europe/London');
+    let nextPrayerName = null;
+    let nextPrayerTime = null;
+
+    for (const [prayer, time] of Object.entries(currentPrayerTimes)) {
+        const prayerTime = moment.tz(time, 'HH:mm', 'Europe/London');
+        if (prayerTime.isAfter(now)) {
+            nextPrayerName = prayer;
+            nextPrayerTime = prayerTime;
+            break;
+        }
+    }
+
+    nextPrayer = nextPrayerName ? {
+        name: nextPrayerName,
+        time: nextPrayerTime.format('HH:mm'),
+        countdown: moment.duration(nextPrayerTime.diff(now)).asMilliseconds()
+    } : null;
+}
+
+// API Endpoints
+app.get('/api/prayer-times', (req, res) => {
+    res.json({
+        prayerTimes: currentPrayerTimes,
+        nextPrayer: nextPrayer,
+        currentTime: moment.tz('Europe/London').format('HH:mm:ss')
+    });
+});
+
+// Create a Set to store all active SSE clients
+const clients = new Set();
+
+// Store logs in memory
+const logStore = {
+    logs: [],
+    errors: [],
+    maxLogs: 1000, // Keep last 1000 logs
+    
+    addLog(type, message) {
+        const timestamp = moment().format('YYYY-MM-DD HH:mm:ss');
+        const logEntry = {
+            type,
+            message,
+            timestamp
+        };
+        
+        this.logs.push(logEntry);
+        if (type === 'error') {
+            this.errors.push(logEntry);
+        }
+        
+        // Keep only last maxLogs entries
+        if (this.logs.length > this.maxLogs) {
+            this.logs = this.logs.slice(-this.maxLogs);
+        }
+        if (this.errors.length > this.maxLogs) {
+            this.errors = this.errors.slice(-this.maxLogs);
+        }
+        
+        return logEntry;
+    },
+    
+    clear() {
+        this.logs = [];
+        this.errors = [];
+        broadcastLogs({
+            type: 'system',
+            message: 'Logs cleared'
+        });
+    },
+    
+    getLast(n = 15) {
+        return this.logs.slice(-n);
+    },
+    
+    getLastError() {
+        return this.errors[this.errors.length - 1];
+    }
+};
+
+// Function to broadcast logs to all connected clients
+function broadcastLogs(logData) {
+    clients.forEach(client => {
+        try {
+            client.write(`data: ${JSON.stringify(logData)}\n\n`);
+        } catch (error) {
+            console.error('Error sending to client:', error);
+            clients.delete(client);
+        }
+    });
+}
+
+// Override console.log to capture and broadcast logs
+const originalConsoleLog = console.log;
+console.log = function(...args) {
+    originalConsoleLog.apply(console, args);
+    const logMessage = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg) : arg.toString()
+    ).join(' ');
+    
+    const logEntry = logStore.addLog('log', logMessage);
+    broadcastLogs(logEntry);
+};
+
+// Override console.error to capture and broadcast errors
+const originalConsoleError = console.error;
+console.error = function(...args) {
+    originalConsoleError.apply(console, args);
+    const logMessage = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg) : arg.toString()
+    ).join(' ');
+    
+    const logEntry = logStore.addLog('error', logMessage);
+    broadcastLogs(logEntry);
+};
+
+// SSE endpoint for real-time logs
+app.get('/api/logs/stream', async (req, res) => {
+    // Set headers for SSE
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    
+    // Send initial heartbeat
+    res.write('data: {"type":"connected","message":"Connected to log stream"}\n\n');
+    
+    // Send existing logs
+    logStore.logs.forEach(log => {
+        res.write(`data: ${JSON.stringify(log)}\n\n`);
+    });
+    
+    // Add client to the Set
+    clients.add(res);
+
+    // Handle client disconnect
+    req.on('close', () => {
+        clients.delete(res);
+    });
+
+    // Handle connection errors
+    req.on('error', (error) => {
+        console.error('Client connection error:', error);
+        clients.delete(res);
+    });
+});
+
+// Add new API endpoints for log management
+app.post('/api/logs/clear', (req, res) => {
+    logStore.clear();
+    res.json({ success: true });
+});
+
+app.get('/api/logs/last', (req, res) => {
+    const count = parseInt(req.query.count) || 15;
+    res.json(logStore.getLast(count));
+});
+
+app.get('/api/logs/last-error', (req, res) => {
+    const lastError = logStore.getLastError();
+    res.json(lastError || { type: 'info', message: 'No errors found' });
+});
+
+// Serve the main page
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Start the Express server
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+
+// Update next prayer info every minute
+setInterval(updateNextPrayer, 60000);
 
 // Start the scheduling
 scheduleNamazTimers();

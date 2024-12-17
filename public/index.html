@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azan Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="section prayer-times">
+            <h2>Prayer Times</h2>
+            <table id="prayer-table">
+                <thead>
+                    <tr>
+                        <th>Prayer</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Prayer times will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section next-prayer">
+            <div class="current-time">
+                <h3>Current Time</h3>
+                <div id="current-time-display">--:--:--</div>
+            </div>
+            <div class="countdown">
+                <h3>Next Prayer</h3>
+                <div id="next-prayer-name">--</div>
+                <div id="countdown-display">--:--:--</div>
+            </div>
+        </div>
+
+        <div class="section logs">
+            <div class="logs-header">
+                <h2>System Logs</h2>
+                <div class="log-controls">
+                    <button id="clear-logs" class="log-btn">Clear Logs</button>
+                    <button id="scroll-bottom" class="log-btn">
+                        <i class="fas fa-arrow-down"></i> Scroll to Bottom
+                    </button>
+                    <button id="last-error" class="log-btn">Last Error</button>
+                </div>
+            </div>
+            <div id="log-container">
+                <!-- Logs will be inserted here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Custom Modal -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content">
+            <h3>Clear Logs</h3>
+            <p>Are you sure you want to clear all logs?</p>
+            <div class="modal-buttons">
+                <button id="modal-cancel" class="modal-btn cancel">Cancel</button>
+                <button id="modal-confirm" class="modal-btn confirm">Clear</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html> 
