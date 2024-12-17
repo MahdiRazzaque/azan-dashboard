@@ -79,7 +79,7 @@ async function sendDiscordMessage(message) {
 
 async function scheduleNextDay() {
     logSection("Next Day Scheduling");
-    const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day').add(2, 'hours');
+    const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day')
     
     console.log(`📅 Next Update: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}`);
     
