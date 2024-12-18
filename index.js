@@ -123,6 +123,9 @@ async function scheduleNamazTimers() {
 }
 
 async function scheduleAzanTimer(prayerName, time) {
+    if(["sunrise"].includes(prayerName)) 
+        return;
+
     const [hour, minute] = time.split(':').map(Number);
     const now = moment.tz('Europe/London');
 
@@ -130,7 +133,7 @@ async function scheduleAzanTimer(prayerName, time) {
     prayerTime.set({ hour, minute, second: 0 });
 
     let allPassed = true;
-
+    
     if (prayerTime > now) {
         allPassed = false;
         console.log(`🕰️ Scheduling ${prayerName.toUpperCase()} prayer at ${time}`);
@@ -156,6 +159,10 @@ async function scheduleAzanTimer(prayerName, time) {
 }
 
 async function scheduleAzanAnnouncementTimer(prayerName, time) {
+
+    if(["fajr", "sunrise"].includes(prayerName)) 
+        return;
+
     const [hour, minute] = time.split(':').map(Number);
     const now = moment.tz('Europe/London');
 
