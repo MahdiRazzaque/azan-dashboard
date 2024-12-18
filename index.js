@@ -20,8 +20,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-
 // Store the latest prayer times in memory
 let currentPrayerTimes = null;
 let nextPrayer = null;
@@ -68,46 +66,16 @@ async function fetchMasjidTimings() {
     }
 }
 
-async function sendDiscordMessage(message) {
-  
-    await fetch(DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: message.toString() }),
-    });
-}
-
 async function scheduleNextDay() {
     logSection("Next Day Scheduling");
-    const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day')
+    const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day');
     
     console.log(`📅 Next Update: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}`);
-    
-    sendDiscordMessage(
-        `\`\`\`fix` + `\n` + 
-        `All today's prayer times have passed. Scheduling for the next day.`+ `\n\n` +
-        `Next update: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}` + `\n` +
-        `\`\`\``
-    );
     
     schedule.scheduleJob(nextDay.toDate(), async() => {
         console.log("🔄 Fetching next day's namaz timings.");
         await scheduleNamazTimers();
     });
-}
-
-async function sendPrayerTimes(prayerTimes) {
-    const currentTime = `\`${moment.tz('Europe/London').format('YYYY-MM-DD HH:mm:ss')}\``;
-
-    var prayerListing = "# __**Prayer timings**__ \n\n"
-    for(var [name, time] of Object.entries(prayerTimes)) {
-        name = name.charAt(0).toUpperCase() + name.slice(1)
-        prayerListing += `**${name}**: ${time}\n`
-    }
-
-    prayerListing += `\n${currentTime}`;
-
-    await sendDiscordMessage(prayerListing);
 }
 
 async function scheduleNamazTimers() {
@@ -133,8 +101,6 @@ async function scheduleNamazTimers() {
     const prayerAnnouncementTimes = Object.entries(prayerTimes).reduce((acc, [prayerName, time]) => {
         const updatedTime = moment(time, 'HH:mm').subtract(15, 'minutes').format('HH:mm');
         acc[prayerName] = updatedTime; return acc; }, {});
-
-    sendPrayerTimes(prayerTimes);
 
     logSection("Today's Prayer Iqamah Timings");
     logPrayerTimesTable(prayerTimes, "Iqamah Times");
@@ -169,8 +135,6 @@ async function scheduleAzanTimer(prayerName, time) {
         allPassed = false;
         console.log(`🕰️ Scheduling ${prayerName.toUpperCase()} prayer at ${time}`);
         schedule.scheduleJob(prayerTime.toDate(), async () => {
-            await sendDiscordMessage(`# It's time for ${prayerName} prayer.`);
-            //await playAzan();
             playAzanAlexa(prayerName === 'fajr');
 
             console.log("Azan played.")
