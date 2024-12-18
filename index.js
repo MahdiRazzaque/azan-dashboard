@@ -35,7 +35,9 @@ function logSection(title) {
 function logPrayerTimesTable(timings, title) {
     console.log(`\n${title}:`);
     console.table(
-        Object.entries(timings).map(([name, time]) => ({
+        Object.entries(timings)
+            .filter(([name, time]) => name !== 'sunrise')
+            .map(([name, time]) => ({
             'Prayer': name.charAt(0).toUpperCase() + name.slice(1),
             'Time': time
         }))
