@@ -21,8 +21,14 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Store the latest prayer times in memory
-let currentPrayerTimes = null;
+let currentIqamahTimes = null;
+let currentPrayerStartTimes = null;
 let nextPrayer = null;
+
+// Test mode configuration - should match app.js
+const TEST_MODE = false;
+const TEST_START_TIME = moment.tz('02:00:00', 'HH:mm:ss', 'Europe/London');
+let timeOffset = TEST_MODE ? moment().diff(TEST_START_TIME) : 0;
 
 // Utility function for consistent logging
 function logSection(title) {
@@ -42,6 +48,14 @@ function logPrayerTimesTable(timings, title) {
             'Time': time
         }))
     );
+}
+
+// Add getCurrentTime utility function
+function getCurrentTime() {
+    if (TEST_MODE) {
+        return moment.tz('Europe/London').subtract(timeOffset, 'milliseconds');
+    }
+    return moment.tz('Europe/London');
 }
 
 async function fetchMasjidTimings() {
@@ -88,7 +102,7 @@ async function scheduleNamazTimers() {
         return;
     }
 
-    const prayerTimes = {
+    const iqamahTimes = {
         fajr: timings.iqamah_Fajr,
         sunrise: timings.shouruq,
         zuhr: timings.iqamah_Zuhr,
@@ -97,24 +111,34 @@ async function scheduleNamazTimers() {
         isha: timings.iqamah_Isha,
     };
 
-    currentPrayerTimes = prayerTimes;
+    const prayerStartTimes = {
+        fajr: timings.fajr,
+        sunrise: timings.shouruq,
+        zuhr: timings.zuhr,
+        asr: timings.asr,
+        maghrib: timings.maghrib,
+        isha: timings.isha,
+    };
+
+    currentIqamahTimes = iqamahTimes;
+    currentPrayerStartTimes = prayerStartTimes
     updateNextPrayer();
 
-    const prayerAnnouncementTimes = Object.entries(prayerTimes).reduce((acc, [prayerName, time]) => {
+    const prayerAnnouncementTimes = Object.entries(iqamahTimes).reduce((acc, [prayerName, time]) => {
         const updatedTime = moment(time, 'HH:mm').subtract(15, 'minutes').format('HH:mm');
         acc[prayerName] = updatedTime; return acc; }, {});
 
     logSection("Today's Prayer Iqamah Timings");
-    logPrayerTimesTable(prayerTimes, "Iqamah Times");
+    logPrayerTimesTable(iqamahTimes, "Iqamah Times");
 
     logSection("Today's Prayer Times");
     logPrayerTimesTable(prayerAnnouncementTimes, "Announcement Times");
 
-    const now = moment.tz('Europe/London');
+    const now = getCurrentTime();
     console.log(`⏰ Current Date/Time: ${now.format('HH:mm:ss DD-MM-YYYY')}`);
 
     logSection("Scheduling Prayer Iqamah Times");
-    await Promise.all(Object.entries(prayerTimes).map(([prayerName, time]) => 
+    await Promise.all(Object.entries(iqamahTimes).map(([prayerName, time]) => 
         scheduleAzanTimer(prayerName, time)
     ));
 
@@ -129,7 +153,7 @@ async function scheduleAzanTimer(prayerName, time) {
         return;
 
     const [hour, minute] = time.split(':').map(Number);
-    const now = moment.tz('Europe/London');
+    const now = getCurrentTime();
 
     const prayerTime = moment.tz('Europe/London');
     prayerTime.set({ hour, minute, second: 0 });
@@ -166,7 +190,7 @@ async function scheduleAzanAnnouncementTimer(prayerName, time) {
         return;
 
     const [hour, minute] = time.split(':').map(Number);
-    const now = moment.tz('Europe/London');
+    const now = getCurrentTime();
 
     const prayerAnnouncementTime = moment.tz('Europe/London');
     prayerAnnouncementTime.set({ hour, minute, second: 0 });
@@ -186,6 +210,8 @@ async function scheduleAzanAnnouncementTimer(prayerName, time) {
 }
 
 async function playAzanAlexa(isFajr = false) {
+    if(TEST_MODE) return;
+    
     const url = 'https://api-v2.voicemonkey.io/announcement';
     const baseAudioUrl = 'https://la-ilaha-illa-allah.netlify.app';
     
@@ -224,6 +250,8 @@ async function playAzanAlexa(isFajr = false) {
 }
 
 async function playPrayerAnnoucement(prayerName) {
+    if(TEST_MODE) return;
+
     const prayerToAnnouncmentFile = {
         fajr: 't-minus-15-fajr.mp3',
         zuhr: 't-minus-15-dhuhr.mp3',
@@ -271,13 +299,13 @@ async function playPrayerAnnoucement(prayerName) {
 
 // Function to determine the next prayer
 function updateNextPrayer() {
-    if (!currentPrayerTimes) return;
+    if (!currentIqamahTimes) return;
 
-    const now = moment.tz('Europe/London');
+    const now = getCurrentTime();
     let nextPrayerName = null;
     let nextPrayerTime = null;
 
-    for (const [prayer, time] of Object.entries(currentPrayerTimes)) {
+    for (const [prayer, time] of Object.entries(currentPrayerStartTimes)) {
         const prayerTime = moment.tz(time, 'HH:mm', 'Europe/London');
         if (prayerTime.isAfter(now)) {
             nextPrayerName = prayer;
@@ -296,9 +324,10 @@ function updateNextPrayer() {
 // API Endpoints
 app.get('/api/prayer-times', (req, res) => {
     res.json({
-        prayerTimes: currentPrayerTimes,
+        iqamahTimes: currentIqamahTimes,
+        startTimes: currentPrayerStartTimes,
         nextPrayer: nextPrayer,
-        currentTime: moment.tz('Europe/London').format('HH:mm:ss')
+        currentTime: getCurrentTime().format('HH:mm:ss')
     });
 });
 
@@ -469,6 +498,9 @@ app.get('/', (req, res) => {
 // Start the Express server
 const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    if (TEST_MODE) {
+        console.log(`🧪 Test Mode Enabled - Time set to ${TEST_START_TIME.format('HH:mm:ss')}`);
+    }
 });
 
 // Handle server errors

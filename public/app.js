@@ -2,6 +2,11 @@
 const UPDATE_INTERVAL = 1000;
 const LOGS_UPDATE_INTERVAL = 5000;
 
+// Test mode configuration
+const TEST_MODE = false;
+let TEST_START_TIME;
+let timeOffset;
+
 // Prayer icons mapping
 const PRAYER_ICONS = {
     fajr: { type: 'fas', name: 'fa-sun' },
@@ -18,12 +23,34 @@ const currentTimeDisplay = document.getElementById('current-time-display');
 const nextPrayerName = document.getElementById('next-prayer-name');
 const countdownDisplay = document.getElementById('countdown-display');
 const logContainer = document.getElementById('log-container');
+const logsContainer = document.querySelector('.logs-container');
+const container = document.querySelector('.container');
+const logControls = document.querySelector('.log-controls');
 
 // Store next prayer time globally
 let nextPrayerTime = null;
 
 // Add global variable to track auto-scroll state
 let shouldAutoScroll = true;
+
+// Add LogStore implementation
+const logStore = {
+    logs: [],
+    addLog(type, message) {
+        const logEntry = {
+            type,
+            message,
+            timestamp: moment().format('YYYY-MM-DD HH:mm:ss')
+        };
+        this.logs.push(logEntry);
+        return logEntry;
+    }
+};
+
+// Add broadcast function
+function broadcastLogs(logEntry) {
+    updateLogs(logEntry);
+}
 
 // Format time remaining
 function formatTimeRemaining(ms) {
@@ -32,7 +59,7 @@ function formatTimeRemaining(ms) {
     const hours = Math.floor(duration.asHours());
     const minutes = duration.minutes();
     const seconds = duration.seconds();
-    
+
     // Format parts
     const parts = [];
     if (hours === 1) {
@@ -40,38 +67,50 @@ function formatTimeRemaining(ms) {
     } else if (hours > 1) {
         parts.push(`${hours}h`);
     }
-    
+
     if (minutes > 0 || hours > 0) {
-        parts.push(`${minutes}min`);
+        parts.push(`${seconds > 0 ? minutes+1 : minutes}min`);
     }
-    
+
+    if (seconds > 0 && minutes <= 0) {
+        parts.push(`${seconds}sec`);
+    }
+
     return parts.join(' ');
 }
 
+// Add getCurrentTime utility function
+function getCurrentTime() {
+    if (!TEST_MODE) return moment();
+    return moment().subtract(timeOffset, 'milliseconds');
+}
+
 // Update prayer times table
-function updatePrayerTable(prayerTimes, nextPrayer) {
+function updatePrayerTable(iqamahTimes, startTimes, nextPrayer) {
     prayerTable.innerHTML = '';
-    const prayers = Object.entries(prayerTimes);
-    
+    const prayers = Object.entries(iqamahTimes);
+    const now = getCurrentTime();
+
     prayers.forEach(([prayer, time]) => {
         const row = document.createElement('tr');
         const isNext = nextPrayer && prayer === nextPrayer.name;
-        const isPassed = moment(time, 'HH:mm').isBefore(moment());
+        const isPassed = moment(time, 'HH:mm').isBefore(now);
         const icon = PRAYER_ICONS[prayer];
-        
+
         row.className = `prayer-row ${isNext ? 'next' : ''} ${isPassed ? 'passed' : ''}`;
-        
+
         row.innerHTML = `
             <td class="prayer-name">
-                ${icon.type === 'mdi' 
+                ${icon.type === 'mdi'
                     ? `<i class="mdi ${icon.name} prayer-icon"></i>`
                     : `<i class="${icon.type} ${icon.name} prayer-icon"></i>`
                 }
                 ${prayer.charAt(0).toUpperCase() + prayer.slice(1)}
             </td>
+            <td>${startTimes[prayer]}</td> <!-- New column for start times -->
             <td>${time}</td>
         `;
-        
+
         prayerTable.appendChild(row);
     });
 }
@@ -83,41 +122,41 @@ function updateCountdown() {
         return;
     }
 
-    const now = moment();
+    const now = getCurrentTime();
     const diff = nextPrayerTime.diff(now);
-    
+
     if (diff <= 0) {
         // Time to fetch new prayer times
         updatePrayerData();
         return;
     }
-    
+
     countdownDisplay.textContent = formatTimeRemaining(diff);
 }
 
 // Update current time and next prayer info
 function updateTimeAndNextPrayer(data) {
-    const now = moment();
+    const now = getCurrentTime();
     currentTimeDisplay.textContent = now.format('HH:mm:ss');
-    
+
     if (data.nextPrayer) {
         const prayerName = data.nextPrayer.name;
         const icon = PRAYER_ICONS[prayerName];
         nextPrayerName.innerHTML = `
-            ${icon.type === 'mdi' 
+            ${icon.type === 'mdi'
                 ? `<i class="mdi ${icon.name}"></i>`
                 : `<i class="${icon.type} ${icon.name}"></i>`
             }
             ${prayerName.charAt(0).toUpperCase() + prayerName.slice(1)}
         `;
-        
+
         // Update the global nextPrayerTime
         nextPrayerTime = moment(data.nextPrayer.time, 'HH:mm');
         // Ensure it's today or tomorrow
         if (nextPrayerTime.isBefore(now)) {
             nextPrayerTime.add(1, 'day');
         }
-        
+
         updateCountdown();
     } else {
         nextPrayerName.textContent = 'No more prayers today';
@@ -129,63 +168,50 @@ function updateTimeAndNextPrayer(data) {
 // Update logs with new content
 function updateLogs(logData) {
     if (!logData || !logData.message) return;
-    
+
     const logLine = document.createElement('div');
     logLine.className = `log-line ${logData.type}`;
     
     const message = document.createElement('span');
     message.className = 'message';
-    
-    // Clean up the message if it's a prayer time table
-    let cleanMessage = logData.message;
-    if (cleanMessage.includes('Prayer') && cleanMessage.includes('Time')) {
-        try {
-            // Try to parse if it's a JSON string
-            if (cleanMessage.includes('[{')) {
-                const tableData = JSON.parse(cleanMessage);
-                cleanMessage = tableData.map(row => 
-                    `${row.Prayer}: ${row.Time}`
-                ).join('\n');
-            } else {
-                // Otherwise just clean up the formatting
-                cleanMessage = cleanMessage
-                    .replace(/\u001b\[\d+m/g, '')  // Remove all ANSI color codes
-                    .replace(/□/g, '')             // Remove box characters
-                    .replace(/\|\s+\|/g, '|')      // Clean up extra spaces between pipes
-                    .replace(/\s+\|/g, ' |')       // Clean up spaces before pipes
-                    .replace(/\|\s+/g, '| ')       // Clean up spaces after pipes
-                    .replace(/\[|\]/g, '')         // Remove square brackets
-                    .trim();
-            }
-        } catch (e) {
-            // If parsing fails, just use basic cleanup
-            cleanMessage = cleanMessage
-                .replace(/\u001b\[\d+m/g, '')
-                .replace(/□/g, '')
-                .trim();
-        }
-    }
-    
-    message.textContent = cleanMessage;
+    message.textContent = cleanMessage(logData.message);
     logLine.appendChild(message);
-    
+
     if (logData.timestamp) {
         const timestamp = document.createElement('span');
         timestamp.className = 'timestamp';
-        const time = moment(logData.timestamp);
-        timestamp.textContent = time.format('HH:mm:ss DD.MM.YYYY');
+        timestamp.textContent = moment(logData.timestamp).format('HH:mm:ss DD.MM.YYYY');
         logLine.appendChild(timestamp);
     }
-    
+
     logContainer.appendChild(logLine);
-    
+
+    // Keep last 1000 logs
     while (logContainer.childNodes.length > 1000) {
         logContainer.removeChild(logContainer.firstChild);
     }
-    
+
     if (shouldAutoScroll) {
-        logContainer.scrollTop = logContainer.scrollHeight;
+        requestAnimationFrame(() => {
+            logContainer.scrollTop = logContainer.scrollHeight;
+        });
     }
+}
+
+// Helper function to clean log messages
+function cleanMessage(message) {
+    if (message.includes('Prayer') && message.includes('Time')) {
+        try {
+            if (message.includes('[{')) {
+                const tableData = JSON.parse(message);
+                return tableData.map(row => `${row.Prayer}: ${row.Time}`).join('\n');
+            }
+            return message.replace(/\u001b\[\d+m/g, '').replace(/□/g, '').trim();
+        } catch (e) {
+            return message.replace(/\u001b\[\d+m/g, '').replace(/□/g, '').trim();
+        }
+    }
+    return message;
 }
 
 // Initialize log controls
@@ -196,16 +222,16 @@ function initializeLogControls() {
     const modal = document.getElementById('confirm-modal');
     const modalConfirm = document.getElementById('modal-confirm');
     const modalCancel = document.getElementById('modal-cancel');
-    
+
     // Modal handling
     clearLogsBtn.addEventListener('click', () => {
         modal.classList.add('show');
     });
-    
+
     modalCancel.addEventListener('click', () => {
         modal.classList.remove('show');
     });
-    
+
     modalConfirm.addEventListener('click', async () => {
         try {
             await fetch('/api/logs/clear', { method: 'POST' });
@@ -220,14 +246,14 @@ function initializeLogControls() {
             console.error('Error clearing logs:', error);
         }
     });
-    
+
     // Close modal if clicking outside
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             modal.classList.remove('show');
         }
     });
-    
+
     // Scroll to bottom handler
     scrollBottomBtn.addEventListener('click', () => {
         shouldAutoScroll = true;
@@ -236,7 +262,7 @@ function initializeLogControls() {
             behavior: 'smooth'
         });
     });
-    
+
     lastErrorBtn.addEventListener('click', async () => {
         try {
             const response = await fetch('/api/logs/last-error');
@@ -244,10 +270,10 @@ function initializeLogControls() {
             if (error.type === 'error') {
                 // Find the error in existing logs
                 const errorLines = Array.from(logContainer.children);
-                const errorLine = errorLines.find(line => 
+                const errorLine = errorLines.find(line =>
                     line.textContent.includes(error.message)
                 );
-                
+
                 if (errorLine) {
                     // Scroll to the error
                     errorLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -273,7 +299,7 @@ function initializeLogControls() {
 // Initialize SSE connection for logs
 function initializeLogStream() {
     const eventSource = new EventSource('/api/logs/stream');
-    
+
     eventSource.onmessage = (event) => {
         try {
             const logData = JSON.parse(event.data);
@@ -286,25 +312,30 @@ function initializeLogStream() {
             console.error('Error parsing log data:', error);
         }
     };
-    
+
     eventSource.onerror = (error) => {
         console.error('SSE Error:', error);
         eventSource.close();
         // Try to reconnect after 5 seconds
         setTimeout(initializeLogStream, 5000);
     };
-    
+
     return eventSource;
 }
 
 // Initialize log container scroll handling
 function initializeLogScroll() {
-    // Check if we should auto-scroll when user scrolls
+    logContainer.addEventListener('scroll', () => {
+        const isAtBottom = Math.abs(
+            logContainer.scrollHeight - logContainer.clientHeight - logContainer.scrollTop
+        ) < 2;
+        shouldAutoScroll = isAtBottom;
+    });
+
     logContainer.addEventListener('touchmove', () => {
         const isAtBottom = Math.abs(
             logContainer.scrollHeight - logContainer.clientHeight - logContainer.scrollTop
         ) < 2;
-        
         shouldAutoScroll = isAtBottom;
     });
 }
@@ -314,29 +345,35 @@ async function updatePrayerData() {
     try {
         const response = await fetch('/api/prayer-times');
         const data = await response.json();
-        
-        updatePrayerTable(data.prayerTimes, data.nextPrayer);
+
+        updatePrayerTable(data.iqamahTimes, data.startTimes, data.nextPrayer);
         updateTimeAndNextPrayer(data);
     } catch (error) {
         console.error('Error fetching prayer times:', error);
     }
 }
 
-// Initialize and set up intervals
+// Initialize with logs hidden by default
 async function initialize() {
+    // Initialize test mode configuration after moment is loaded
+    TEST_START_TIME = moment('02:00:00', 'HH:mm:ss');
+    timeOffset = TEST_MODE ? moment().diff(TEST_START_TIME) : 0;
+
+    if (TEST_MODE) {
+        console.log(`🧪 Test Mode Enabled - Time set to ${TEST_START_TIME.format('HH:mm:ss')}`);
+    }
     await updatePrayerData();
     initializeLogStream();
     initializeLogControls();
     initializeLogScroll();
-    
-    // Update time and countdown every second
+
+    // Start intervals
     setInterval(() => {
-        const now = moment();
+        const now = getCurrentTime();
         currentTimeDisplay.textContent = now.format('HH:mm:ss');
         updateCountdown();
-    }, 1000);
-    
-    // Update prayer data every 30 seconds
+    }, UPDATE_INTERVAL);
+
     setInterval(updatePrayerData, 30000);
 }
 
@@ -344,7 +381,7 @@ async function initialize() {
 const momentScript = document.createElement('script');
 momentScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js';
 momentScript.onload = initialize;
-document.head.appendChild(momentScript); 
+document.head.appendChild(momentScript);
 
 // Override console.log to capture and broadcast logs
 const originalConsoleLog = console.log;
@@ -353,38 +390,49 @@ console.log = function(...args) {
     const logMessage = args.map(arg => {
         if (typeof arg === 'object') {
             if (arg instanceof Array && arg.length > 0 && 'Prayer' in arg[0]) {
-                // Format the table data nicely
-                const maxPrayerLength = Math.max(...arg.map(row => row.Prayer.length));
-                const maxTimeLength = Math.max(...arg.map(row => row.Time.length));
-                
-                const header = `| Prayer${' '.repeat(maxPrayerLength - 6)} | Time${' '.repeat(maxTimeLength - 4)} |`;
-                const separator = `|${'-'.repeat(maxPrayerLength + 2)}|${'-'.repeat(maxTimeLength + 2)}|`;
-                const rows = arg.map(row => 
-                    `| ${row.Prayer}${' '.repeat(maxPrayerLength - row.Prayer.length)} | ${row.Time}${' '.repeat(maxTimeLength - row.Time.length)} |`
-                );
-                
-                return [header, separator, ...rows].join('\n');
+                // Format table data
+                return formatPrayerTable(arg);
             }
             return JSON.stringify(arg);
         }
         return arg.toString();
     }).join(' ');
-    
-    const logEntry = logStore.addLog('log', logMessage);
-    broadcastLogs(logEntry);
-}; 
+
+    updateLogs({
+        type: 'log',
+        message: logMessage,
+        timestamp: moment().format('YYYY-MM-DD HH:mm:ss')
+    });
+};
 
 // Override console.error to capture and broadcast errors
 const originalConsoleError = console.error;
 console.error = function(...args) {
     originalConsoleError.apply(console, args);
-    const logMessage = args.map(arg => 
+    const logMessage = args.map(arg =>
         typeof arg === 'object' ? JSON.stringify(arg) : arg.toString()
     ).join(' ');
-    
-    const logEntry = logStore.addLog('error', logMessage);
-    broadcastLogs(logEntry);
-}; 
+
+    updateLogs({
+        type: 'error',
+        message: logMessage,
+        timestamp: moment().format('YYYY-MM-DD HH:mm:ss')
+    });
+};
+
+// Helper function for formatting prayer table
+function formatPrayerTable(data) {
+    const maxPrayerLength = Math.max(...data.map(row => row.Prayer.length));
+    const maxTimeLength = Math.max(...data.map(row => row.Time.length));
+
+    const header = `| Prayer${' '.repeat(maxPrayerLength - 6)} | Time${' '.repeat(maxTimeLength - 4)} |`;
+    const separator = `|${'-'.repeat(maxPrayerLength + 2)}|${'-'.repeat(maxTimeLength + 2)}|`;
+    const rows = data.map(row =>
+        `| ${row.Prayer}${' '.repeat(maxPrayerLength - row.Prayer.length)} | ${row.Time}${' '.repeat(maxTimeLength - row.Time.length)} |`
+    );
+
+    return [header, separator, ...rows].join('\n');
+}
 
 // Close modals if clicking outside
 document.querySelectorAll('.modal').forEach(modal => {
@@ -393,4 +441,4 @@ document.querySelectorAll('.modal').forEach(modal => {
             modal.classList.remove('show');
         }
     });
-}); 
+});

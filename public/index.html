@@ -30,7 +30,8 @@
                 <thead>
                     <tr>
                         <th>Prayer</th>
-                        <th>Time</th>
+                        <th>Start Time</th>
+                        <th>Iqamah time</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -38,30 +39,25 @@
                 </tbody>
             </table>
         </div>
-
-        <div class="section logs">
-            <div class="logs-header">
-                <h2>System Logs</h2>
-                <div class="log-controls">
-                    <button id="clear-logs" class="log-btn">
-                        <span class="full-text">Clear Logs</span>
-                        <span class="icon-only"><i class="fas fa-trash"></i></span>
-                    </button>
-                    <button id="scroll-bottom" class="log-btn">
-                        <span class="full-text">
-                            <i class="fas fa-arrow-down"></i> Scroll to Bottom
-                        </span>
-                        <span class="icon-only"><i class="fas fa-arrow-down"></i></span>
-                    </button>
-                    <button id="last-error" class="log-btn">
-                        <span class="full-text">Last Error</span>
-                        <span class="icon-only"><i class="fas fa-exclamation-triangle"></i></span>
-                    </button>
-                </div>
+    </div>
+    
+    <div class="logs-container">
+        <div class="logs-header">
+            <h2>System Logs</h2>
+            <div class="log-controls">
+                <button id="clear-logs" class="log-btn" data-tooltip="Clear Logs">
+                    <i class="fas fa-trash"></i>
+                </button>
+                <button id="scroll-bottom" class="log-btn" data-tooltip="Scroll to Bottom">
+                    <i class="fas fa-arrow-down"></i>
+                </button>
+                <button id="last-error" class="log-btn" data-tooltip="Last Error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </button>
             </div>
-            <div id="log-container">
-                <!-- Logs will be inserted here -->
-            </div>
+        </div>
+        <div id="log-container">
+            <!-- Logs will be inserted here -->
         </div>
     </div>
     
