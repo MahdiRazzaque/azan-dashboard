@@ -2,11 +2,6 @@
 const UPDATE_INTERVAL = 1000;
 const LOGS_UPDATE_INTERVAL = 5000;
 
-// Test mode configuration
-const TEST_MODE = false;
-let TEST_START_TIME;
-let timeOffset;
-
 // Prayer icons mapping
 const PRAYER_ICONS = {
     fajr: { type: 'fas', name: 'fa-sun' },
@@ -80,8 +75,28 @@ function formatTimeRemaining(ms) {
 }
 
 // Add getCurrentTime utility function
+let testMode = false;
+let testStartTime;
+let timeOffset;
+
+async function initializeTestMode() {
+    try {
+        const response = await fetch('/api/test-mode');
+        const config = await response.json();
+        testMode = config.enabled;
+        testStartTime = moment(config.startTime, 'HH:mm:ss');
+        timeOffset = testMode ? moment().diff(testStartTime) : 0;
+
+        if (testMode) {
+            console.log(`🧪 Test Mode Enabled - Time set to ${testStartTime.format('HH:mm:ss')}`);
+        }
+    } catch (error) {
+        console.error('Error fetching test mode configuration:', error);
+    }
+}
+
 function getCurrentTime() {
-    if (!TEST_MODE) return moment();
+    if (!testMode) return moment();
     return moment().subtract(timeOffset, 'milliseconds');
 }
 
@@ -355,13 +370,7 @@ async function updatePrayerData() {
 
 // Initialize with logs hidden by default
 async function initialize() {
-    // Initialize test mode configuration after moment is loaded
-    TEST_START_TIME = moment('02:00:00', 'HH:mm:ss');
-    timeOffset = TEST_MODE ? moment().diff(TEST_START_TIME) : 0;
-
-    if (TEST_MODE) {
-        console.log(`🧪 Test Mode Enabled - Time set to ${TEST_START_TIME.format('HH:mm:ss')}`);
-    }
+    await initializeTestMode();
     await updatePrayerData();
     initializeLogStream();
     initializeLogControls();

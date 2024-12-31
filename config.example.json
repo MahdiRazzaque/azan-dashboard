@@ -1,0 +1,13 @@
+{
+    "GuidId": "YOUR-MASJID-GUID-HERE",
+    "PORT": 3000,
+    "testMode": {
+        "enabled": false,
+        "startTime": "00:00:00",
+        "timezone": "Europe/London"
+    },
+    "features": {
+        "azanEnabled": true,
+        "announcementEnabled": true
+    }
+}

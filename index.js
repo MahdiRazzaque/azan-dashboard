@@ -6,14 +6,22 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url'
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 config();
 
+// Load config and validate required fields
+const appConfig = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
+if (!appConfig.GuidId) {
+    console.error("Error: GuidId is required in config.json");
+    process.exit(1);
+}
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = appConfig.PORT || process.env.PORT || 3000;
 
 // Enable CORS and JSON parsing
 app.use(cors());
@@ -25,9 +33,9 @@ let currentIqamahTimes = null;
 let currentPrayerStartTimes = null;
 let nextPrayer = null;
 
-// Test mode configuration - should match app.js
-const TEST_MODE = false;
-const TEST_START_TIME = moment.tz('02:00:00', 'HH:mm:ss', 'Europe/London');
+// Load config
+const TEST_MODE = appConfig.testMode.enabled;
+const TEST_START_TIME = moment.tz(appConfig.testMode.startTime, 'HH:mm:ss', appConfig.testMode.timezone);
 let timeOffset = TEST_MODE ? moment().diff(TEST_START_TIME) : 0;
 
 // Utility function for consistent logging
@@ -60,7 +68,7 @@ function getCurrentTime() {
 
 async function fetchMasjidTimings() {
     try {
-        const response = await fetch("https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=03b8d82c-5b0e-4cb9-ad68-8c7e204cae00");
+        const response = await fetch(`https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=${appConfig.GuidId}`);
         const data = await response.json();
         const salahTimings = data.model.salahTimings;
 
@@ -137,15 +145,25 @@ async function scheduleNamazTimers() {
     const now = getCurrentTime();
     console.log(`⏰ Current Date/Time: ${now.format('HH:mm:ss DD-MM-YYYY')}`);
 
-    logSection("Scheduling Prayer Iqamah Times");
-    await Promise.all(Object.entries(iqamahTimes).map(([prayerName, time]) => 
-        scheduleAzanTimer(prayerName, time)
-    ));
+    // Only schedule Azan if test mode is disabled and feature is enabled
+    if (!TEST_MODE && appConfig.features.azanEnabled) {
+        logSection("Scheduling Prayer Iqamah Times");
+        await Promise.all(Object.entries(iqamahTimes).map(([prayerName, time]) => 
+            scheduleAzanTimer(prayerName, time)
+        ));
+    } else {
+        console.log("⏩ Skipping Azan scheduling " + (TEST_MODE ? "(Test mode)" : "(Feature disabled)"));
+    }
 
-    logSection("Scheduling Prayer Announcement Times");
-    await Promise.all(Object.entries(prayerAnnouncementTimes).map(([prayerName, time]) => 
-        scheduleAzanAnnouncementTimer(prayerName, time)
-    ));
+    // Only schedule announcements if test mode is disabled and feature is enabled
+    if (!TEST_MODE && appConfig.features.announcementEnabled) {
+        logSection("Scheduling Prayer Announcement Times");
+        await Promise.all(Object.entries(prayerAnnouncementTimes).map(([prayerName, time]) => 
+            scheduleAzanAnnouncementTimer(prayerName, time)
+        ));
+    } else {
+        console.log("⏩ Skipping Announcements scheduling " + (TEST_MODE ? "(Test mode)" : "(Feature disabled)"));
+    }
 }
 
 async function scheduleAzanTimer(prayerName, time) {
@@ -210,7 +228,7 @@ async function scheduleAzanAnnouncementTimer(prayerName, time) {
 }
 
 async function playAzanAlexa(isFajr = false) {
-    if(TEST_MODE) return;
+    if(TEST_MODE || !appConfig.features.azanEnabled) return;
     
     const url = 'https://api-v2.voicemonkey.io/announcement';
     const baseAudioUrl = 'https://la-ilaha-illa-allah.netlify.app';
@@ -250,7 +268,7 @@ async function playAzanAlexa(isFajr = false) {
 }
 
 async function playPrayerAnnoucement(prayerName) {
-    if(TEST_MODE) return;
+    if(TEST_MODE || !appConfig.features.announcementEnabled) return;
 
     const prayerToAnnouncmentFile = {
         fajr: 't-minus-15-fajr.mp3',
@@ -488,6 +506,16 @@ app.get('/api/logs/last', (req, res) => {
 app.get('/api/logs/last-error', (req, res) => {
     const lastError = logStore.getLastError();
     res.json(lastError || { type: 'info', message: 'No errors found' });
+});
+
+// Add new API endpoint for test mode config
+app.get('/api/test-mode', (req, res) => {
+    res.json({
+        enabled: TEST_MODE,
+        startTime: TEST_START_TIME.format('HH:mm:ss'),
+        currentOffset: timeOffset,
+        timezone: appConfig.testMode.timezone
+    });
 });
 
 // Serve the main page

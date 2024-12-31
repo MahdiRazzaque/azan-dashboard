@@ -1,0 +1,13 @@
+{
+    "GuidId": "03b8d82c-5b0e-4cb9-ad68-8c7e204cae00",
+    "PORT": 3002,
+    "testMode": {
+        "enabled": false,
+        "startTime": "02:00:00",
+        "timezone": "Europe/London"
+    },
+    "features": {
+        "azanEnabled": true,
+        "announcementEnabled": true
+    }
+}
