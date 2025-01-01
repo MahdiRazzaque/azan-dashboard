@@ -1,0 +1,2 @@
+1) Make announcement timer and azan timer function invidiually.
+2) Add toggles to website for azanenabled and announcementenabled.
