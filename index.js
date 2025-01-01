@@ -145,25 +145,15 @@ async function scheduleNamazTimers() {
     const now = getCurrentTime();
     console.log(`⏰ Current Date/Time: ${now.format('HH:mm:ss DD-MM-YYYY')}`);
 
-    // Only schedule Azan if test mode is disabled and feature is enabled
-    if (!TEST_MODE && appConfig.features.azanEnabled) {
-        logSection("Scheduling Prayer Iqamah Times");
-        await Promise.all(Object.entries(iqamahTimes).map(([prayerName, time]) => 
-            scheduleAzanTimer(prayerName, time)
-        ));
-    } else {
-        console.log("⏩ Skipping Azan scheduling " + (TEST_MODE ? "(Test mode)" : "(Feature disabled)"));
-    }
+    logSection("Scheduling Prayer Iqamah Times");
+    await Promise.all(Object.entries(iqamahTimes).map(([prayerName, time]) => 
+        scheduleAzanTimer(prayerName, time)
+    ));
 
-    // Only schedule announcements if test mode is disabled and feature is enabled
-    if (!TEST_MODE && appConfig.features.announcementEnabled) {
-        logSection("Scheduling Prayer Announcement Times");
-        await Promise.all(Object.entries(prayerAnnouncementTimes).map(([prayerName, time]) => 
-            scheduleAzanAnnouncementTimer(prayerName, time)
-        ));
-    } else {
-        console.log("⏩ Skipping Announcements scheduling " + (TEST_MODE ? "(Test mode)" : "(Feature disabled)"));
-    }
+    logSection("Scheduling Prayer Announcement Times");
+    await Promise.all(Object.entries(prayerAnnouncementTimes).map(([prayerName, time]) => 
+        scheduleAzanAnnouncementTimer(prayerName, time)
+    ));
 }
 
 async function scheduleAzanTimer(prayerName, time) {
@@ -184,14 +174,11 @@ async function scheduleAzanTimer(prayerName, time) {
         schedule.scheduleJob(prayerTime.toDate(), async () => {
             playAzanAlexa(prayerName === 'fajr');
 
-            console.log("Azan played.")
-
             console.log(`${prayerName} prayer time.`);
 
             if (prayerName === 'isha') {
                 await scheduleNextDay();
             }
-
         });
     } else {
         console.log(`⏩ ${prayerName.toUpperCase()} prayer time has already passed.`);
@@ -228,7 +215,8 @@ async function scheduleAzanAnnouncementTimer(prayerName, time) {
 }
 
 async function playAzanAlexa(isFajr = false) {
-    if(TEST_MODE || !appConfig.features.azanEnabled) return;
+    if(TEST_MODE || !appConfig.features.azanEnabled) 
+        return console.log(`Azan not played - ${TEST_MODE ? 'Test Mode' : 'Azan feature disabled'}`);
     
     const url = 'https://api-v2.voicemonkey.io/announcement';
     const baseAudioUrl = 'https://la-ilaha-illa-allah.netlify.app';
@@ -268,7 +256,8 @@ async function playAzanAlexa(isFajr = false) {
 }
 
 async function playPrayerAnnoucement(prayerName) {
-    if(TEST_MODE || !appConfig.features.announcementEnabled) return;
+    if(TEST_MODE || !appConfig.features.announcementEnabled) 
+        return console.log(`Announcment not played - ${TEST_MODE ? 'Test Mode' : 'Announcement feature disabled'}`);
 
     const prayerToAnnouncmentFile = {
         fajr: 't-minus-15-fajr.mp3',
