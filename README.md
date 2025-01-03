@@ -1,74 +1,103 @@
-# Azan Script
+# Azan Dashboard
 
 ## Overview
 
-This project is a Node.js application designed to automate the playing of the Islamic call to prayer (Azan) at the correct times based on the user's location and a specific mosque's timings. It utilises the `moment-timezone` library to handle time calculations, `node-schedule` to schedule tasks, and optionally integrates with external services like Discord for notifications, Voice Monkey API, and Tuya Smart devices for playing the Azan.
+This project is a Node.js application designed to automate the playing of the Islamic call to prayer (Azan) at the correct times based on a specific mosque's timings. It features a web interface for monitoring and control, along with integrations for playing the Azan through various devices.
 
 ## Main Features
 
--   **Fetches Prayer Timings:** Retrieves daily prayer timings from the "time.my-masjid.com" API for a specific mosque.
--   **Schedules Azan:** Schedules the playing of the Azan for each prayer time (Fajr, Zuhr, Asr, Maghrib, Isha) using `node-schedule`.
--   **Discord Notifications:** Sends notifications to a Discord channel about prayer times and scheduling updates via a webhook.
--   **Voice Monkey Integration:** Plays the Azan through Amazon Alexa devices at the scheduled times via the Voice Monkey API.
--   **Tuya Smart Device Integration (Optional):** Optionally integrates with Tuya smart devices to trigger actions like turning on a speaker for the Azan.
--   **Error Handling:** Includes error handling for API requests and scheduling, with logging to the console and optional Discord notifications.
--   **Automatic Rescheduling:** If all prayer times for the day have passed, it automatically reschedules for the next day.
+- **Prayer Time Management**
+  - Fetches daily prayer timings from the "time.my-masjid.com" API
+  - Displays current time, next prayer, and countdown
+  - Shows prayer start times and Iqamah times in a clean interface
+  - Automatically schedules next day's timings at midnight
+
+- **Azan and Announcements**
+  - Plays Azan through Amazon Alexa devices at prayer times
+  - Optional 15-minute advance announcements before prayers
+  - Different Azan audio for Fajr prayer
+  - Toggleable Azan and announcement features
+
+- **System Management**
+  - Secure authentication system for administrative controls
+  - Real-time system logs with automatic updates
+  - Clear logs functionality with confirmation
+  - Test mode for timing verification
+  - Error tracking and display
 
 ## Setup Instructions
 
 1. **Clone the repository:**
-
-    ```bash
-    git clone <repository_url>
-    cd <repository_name>
-    ```
+   ```bash
+   git clone <repository_url>
+   cd azan-dashboard
+   ```
 
 2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-    ```bash
-    npm install
-    ```
+3. **Configuration:**
 
-3. **Environment Variables:**
+   a. Create a `config.json` file using the example:
+   ```bash
+   cp config.example.json config.json
+   ```
+   Edit `config.json` and set:
+   - `GuidId`: Your mosque's ID from my-masjid.com
+   - Other settings as needed
 
-    Create a `.env` file in the root directory and set the following environment variables:
+   b. Create a `.env` file using the example:
+   ```bash
+   cp .env.example .env
+   ```
+   Set the following:
+   - `ADMIN_USERNAME`: Admin username for the dashboard
+   - `ADMIN_PASSWORD_HASH`: Generated password hash (see below)
+   - `SALT`: Random salt for password security
+   - `VOICEMONKEY_TOKEN`: Your Voice Monkey API token (for Alexa integration)
 
-    ```
-    DISCORD_WEBHOOK_URL=<Your_Discord_Webhook_URL>
-    VOICEMONKEY_TOKEN=<Your_Voice_Monkey_API_Token>
-    user_name=<Your_Tuya_Username> (Optional for Tuya integration)
-    password=<Your_Tuya_Password> (Optional for Tuya integration)
-    ```
-    -   `DISCORD_WEBHOOK_URL`: The URL of your Discord webhook for sending notifications.
-    -   `VOICEMONKEY_TOKEN`: Your Voice Monkey API token for triggering Azan on Alexa devices.
-    -   `user_name`, `password`: (Optional) Your Tuya Smart Life app credentials if you intend to use Tuya device integration.
+4. **Generate Password Hash:**
+   ```bash
+   node -e "console.log(require('crypto').createHash('sha256').update('YOUR_PASSWORD' + 'YOUR_SALT').digest('hex'))"
+   ```
+   Replace `YOUR_PASSWORD` with your chosen password and `YOUR_SALT` with your salt value.
 
 ## Usage
 
-### Running the script
+1. **Start the server:**
+   ```bash
+   node index.js
+   ```
 
-You can run the script directly using Node.js:
+2. **Access the dashboard:**
+   Open `http://localhost:3000` in your web browser
 
-```bash
-node index.js
-```
+3. **Authentication:**
+   - Use the configured admin credentials to access protected features
+   - Session expires after 1 hour of inactivity
 
-### Functionality Breakdown and Notes
+## Protected Features
 
-- **Functionality Breakdown:**
+The following features require authentication:
+- Toggling Azan playback
+- Toggling announcements
+- Clearing system logs
 
-  - **`fetchMasjidTimings()`:** Fetches prayer timings from the specified mosque's API.
-  - **`sendDiscordMessage(message)`:** Sends a message to the configured Discord channel.
-  - **`scheduleNextDay()`:** Schedules the script to run again the next day at 2 AM.
-  - **`sendPrayerTimes(prayerTimes)`:** Sends the formatted prayer times for the day to the Discord channel.
-  - **`scheduleNamazTimers()`:** The main function that fetches timings, sends them to Discord, and schedules the Azan playing for each prayer.
-  - **`playAzanAlexa(isFajr)`:** Triggers the Azan on Alexa devices through the Voice Monkey API. The `isFajr` parameter determines whether to play the Fajr Azan or the regular Azan.
-  - **`playAzan()` (in `tuya.js`)**: (Optional) Turns on a Tuya smart device, potentially a speaker, to play the Azan.
-  - **`getAccessToken()` (in `tuya.js`)**: (Optional) Retrieves an access token for Tuya API calls.
-  - **`switchOn(token)` (in `tuya.js`)**: (Optional) Sends a command to turn on a Tuya device.
+## Technical Notes
 
-- **Notes:**
+- Built with Node.js and Express
+- Uses WebSocket for real-time updates
+- Implements secure session management
+- Supports timezone handling for accurate timing
+- Includes error handling and logging
+- Mobile-responsive interface
 
-  - The script is designed to be run continuously and will automatically reschedule itself for the next day after Isha prayer.
-  - The Azan audio files are assumed to be hosted at `https://la-ilaha-illa-allah.netlify.app/mp3/azan.mp3` and `https://la-ilaha-illa-allah.netlify.app/mp3/fajr-azan.mp3`.
-  - The Tuya integration is optional and requires setting the appropriate environment variables.
+## Security Features
+
+- Password hashing with salt
+- Session-based authentication
+- Environment variable-based configuration
+- Protected API endpoints
+- Automatic session expiry
