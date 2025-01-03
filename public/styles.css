@@ -405,3 +405,79 @@ th, td {
         max-height: calc(25vh - 4rem); /* Adjusted for new height */
     }
 }
+
+.control-separator {
+    display: inline-block;
+    width: 5px;
+    height: 100%;
+}
+
+.toggle-btn {
+    transition: all 0.3s ease;
+}
+
+.toggle-btn.disabled {
+    background-color: #ff4444 !important;
+    color: white !important;
+}
+
+.toggle-btn.enabled {
+    background-color: #00C851 !important;
+    color: white !important;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.login-form input {
+    padding: 0.75rem;
+    border-radius: 4px;
+    border: 1px solid var(--accent-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-size: 1rem;
+}
+
+.login-form input:focus {
+    outline: none;
+    border-color: var(--highlight-color);
+}
+
+.error-message {
+    color: #ff5555;
+    font-size: 0.9rem;
+    min-height: 1.2rem;
+    margin-top: -0.5rem;
+}
+
+/* Add logout button styles */
+.auth-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.auth-status {
+    font-size: 0.9rem;
+    color: var(--muted-text);
+}
+
+.logout-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    background-color: var(--accent-color);
+    color: var(--text-color);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+    background-color: #ff5555;
+    color: white;
+}

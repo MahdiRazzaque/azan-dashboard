@@ -45,6 +45,13 @@
         <div class="logs-header">
             <h2>System Logs</h2>
             <div class="log-controls">
+                <button id="azan-toggle" class="log-btn toggle-btn" data-tooltip="Toggle Azan">
+                    <i class="mdi mdi-bell-outline"></i>
+                </button>
+                <button id="announcement-toggle" class="log-btn toggle-btn" data-tooltip="Toggle Announcement">
+                    <i class="mdi mdi-bullhorn-outline"></i>
+                </button>
+                <span class="control-separator"></span>
                 <button id="clear-logs" class="log-btn" data-tooltip="Clear Logs">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -54,6 +61,12 @@
                 <button id="last-error" class="log-btn" data-tooltip="Last Error">
                     <i class="fas fa-exclamation-triangle"></i>
                 </button>
+                <span class="control-separator"></span>
+                <div class="auth-controls">
+                    <button id="logout-btn" class="logout-btn" style="display: none;">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
             </div>
         </div>
         <div id="log-container">
@@ -80,6 +93,22 @@
             <p>There are no errors in the logs.</p>
             <div class="modal-buttons">
                 <button class="modal-btn confirm" onclick="this.closest('.modal').classList.remove('show')">OK</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <h3>Authentication Required</h3>
+            <div class="login-form">
+                <input type="text" id="username" placeholder="Username" />
+                <input type="password" id="password" placeholder="Password" />
+                <div class="error-message" id="login-error"></div>
+                <div class="modal-buttons">
+                    <button class="modal-btn cancel" id="login-cancel">Cancel</button>
+                    <button class="modal-btn confirm" id="login-submit">Login</button>
+                </div>
             </div>
         </div>
     </div>

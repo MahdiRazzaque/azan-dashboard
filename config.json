@@ -9,5 +9,9 @@
     "features": {
         "azanEnabled": true,
         "announcementEnabled": true
+    },
+    "auth": {
+        "sessionTimeout": 3600000,
+        "maxSessions": 5
     }
 }

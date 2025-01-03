@@ -238,8 +238,13 @@ function initializeLogControls() {
     const modalConfirm = document.getElementById('modal-confirm');
     const modalCancel = document.getElementById('modal-cancel');
 
-    // Modal handling
     clearLogsBtn.addEventListener('click', () => {
+        if (!isAuthenticated) {
+            showLoginModal(() => {
+                modal.classList.add('show');
+            });
+            return;
+        }
         modal.classList.add('show');
     });
 
@@ -249,7 +254,12 @@ function initializeLogControls() {
 
     modalConfirm.addEventListener('click', async () => {
         try {
-            await fetch('/api/logs/clear', { method: 'POST' });
+            await fetch('/api/logs/clear', { 
+                method: 'POST',
+                headers: {
+                    'x-auth-token': authToken
+                }
+            });
             logContainer.innerHTML = '';
             updateLogs({
                 type: 'system',
@@ -370,11 +380,13 @@ async function updatePrayerData() {
 
 // Initialize with logs hidden by default
 async function initialize() {
+    await checkAuthStatus();
     await initializeTestMode();
     await updatePrayerData();
     initializeLogStream();
     initializeLogControls();
     initializeLogScroll();
+    initializeFeatureStates();
 
     // Start intervals
     setInterval(() => {
@@ -384,6 +396,9 @@ async function initialize() {
     }, UPDATE_INTERVAL);
 
     setInterval(updatePrayerData, 30000);
+    
+    // Check auth status periodically
+    setInterval(checkAuthStatus, 60000);
 }
 
 // Add moment.js from CDN
@@ -450,4 +465,198 @@ document.querySelectorAll('.modal').forEach(modal => {
             modal.classList.remove('show');
         }
     });
+});
+
+// Add feature toggle functionality
+const azanToggle = document.getElementById('azan-toggle');
+const announcementToggle = document.getElementById('announcement-toggle');
+
+// Initialize feature states
+async function initializeFeatureStates() {
+    try {
+        const response = await fetch('/api/features');
+        const features = await response.json();
+        
+        // Update azan toggle
+        azanToggle.classList.toggle('enabled', features.azanEnabled);
+        azanToggle.classList.toggle('disabled', !features.azanEnabled);
+        
+        // Update announcement toggle
+        announcementToggle.classList.toggle('enabled', features.announcementEnabled);
+        announcementToggle.classList.toggle('disabled', !features.announcementEnabled);
+    } catch (error) {
+        console.error('Error fetching feature states:', error);
+    }
+}
+
+// Toggle feature function
+async function toggleFeature(feature, button) {
+    if (!isAuthenticated) {
+        showLoginModal(async () => {
+            await toggleFeature(feature, button);
+        });
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/features/toggle/${feature}`, {
+            method: 'POST',
+            headers: {
+                'x-auth-token': authToken
+            }
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            button.classList.toggle('enabled', result.state);
+            button.classList.toggle('disabled', !result.state);
+        }
+    } catch (error) {
+        console.error(`Error toggling ${feature}:`, error);
+    }
+}
+
+// Add event listeners for toggles
+azanToggle.addEventListener('click', () => toggleFeature('azanEnabled', azanToggle));
+announcementToggle.addEventListener('click', () => toggleFeature('announcementEnabled', announcementToggle));
+
+// Initialize feature states on page load
+initializeFeatureStates();
+
+// Authentication state
+let authToken = localStorage.getItem('authToken');
+let isAuthenticated = false;
+
+// Authentication functions
+async function checkAuthStatus() {
+    if (!authToken) {
+        isAuthenticated = false;
+        updateAuthUI();
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/auth/status', {
+            headers: {
+                'x-auth-token': authToken
+            }
+        });
+        const data = await response.json();
+        isAuthenticated = data.authenticated;
+        
+        if (!isAuthenticated) {
+            authToken = null;
+            localStorage.removeItem('authToken');
+        }
+        updateAuthUI();
+    } catch (error) {
+        console.error('Error checking auth status:', error);
+        isAuthenticated = false;
+        updateAuthUI();
+    }
+}
+
+async function login(username, password) {
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            authToken = data.token;
+            localStorage.setItem('authToken', authToken);
+            isAuthenticated = true;
+            updateAuthUI();
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('Error logging in:', error);
+        return false;
+    }
+}
+
+async function logout() {
+    if (!authToken) return;
+
+    try {
+        await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: {
+                'x-auth-token': authToken
+            }
+        });
+    } catch (error) {
+        console.error('Error logging out:', error);
+    }
+
+    authToken = null;
+    localStorage.removeItem('authToken');
+    isAuthenticated = false;
+}
+
+// Show login modal
+function showLoginModal(onSuccess) {
+    const modal = document.getElementById('login-modal');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const errorMessage = document.getElementById('login-error');
+    const submitButton = document.getElementById('login-submit');
+    const cancelButton = document.getElementById('login-cancel');
+
+    modal.classList.add('show');
+    usernameInput.focus();
+
+    const handleSubmit = async () => {
+        errorMessage.textContent = '';
+        const success = await login(usernameInput.value, passwordInput.value);
+        
+        if (success) {
+            modal.classList.remove('show');
+            usernameInput.value = '';
+            passwordInput.value = '';
+            if (onSuccess) onSuccess();
+        } else {
+            errorMessage.textContent = 'Invalid username or password';
+        }
+    };
+
+    submitButton.onclick = handleSubmit;
+    cancelButton.onclick = () => {
+        modal.classList.remove('show');
+        usernameInput.value = '';
+        passwordInput.value = '';
+        errorMessage.textContent = '';
+    };
+
+    // Handle Enter key
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            handleSubmit();
+        }
+    };
+
+    usernameInput.onkeypress = handleKeyPress;
+    passwordInput.onkeypress = handleKeyPress;
+}
+
+// Add logout button handling
+const logoutBtn = document.getElementById('logout-btn');
+
+function updateAuthUI() {
+    if (isAuthenticated) {
+        logoutBtn.style.display = 'block';
+    } else {
+        logoutBtn.style.display = 'none';
+    }
+}
+
+logoutBtn.addEventListener('click', async () => {
+    await logout();
+    updateAuthUI();
 });

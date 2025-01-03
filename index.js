@@ -7,11 +7,26 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url'
 import fs from 'fs';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load environment variables
 config();
+
+// Validate required environment variables
+if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD_HASH) {
+    console.error("Error: ADMIN_USERNAME and ADMIN_PASSWORD_HASH are required in .env file");
+    process.exit(1);
+}
+
+// Hash function for password
+function hashPassword(password) {
+    return crypto.createHash('sha256')
+        .update(password + process.env.SALT || '')
+        .digest('hex');
+}
 
 // Load config and validate required fields
 const appConfig = JSON.parse(fs.readFileSync('./config.json', 'utf8'));
@@ -27,6 +42,84 @@ const PORT = appConfig.PORT || process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
+
+// Session management
+const sessions = new Map();
+
+// Generate session token
+function generateSessionToken() {
+    return crypto.randomBytes(32).toString('hex');
+}
+
+// Authentication middleware
+function requireAuth(req, res, next) {
+    const token = req.headers['x-auth-token'];
+    
+    if (!token) {
+        return res.status(401).json({ success: false, message: 'No token provided' });
+    }
+
+    const session = sessions.get(token);
+    if (!session) {
+        return res.status(401).json({ success: false, message: 'Invalid token' });
+    }
+
+    // Default session timeout to 1 hour if not configured
+    const sessionTimeout = appConfig.auth?.sessionTimeout || 3600000;
+
+    // Check if session has expired
+    if (Date.now() - session.timestamp > sessionTimeout) {
+        sessions.delete(token);
+        return res.status(401).json({ success: false, message: 'Session expired' });
+    }
+
+    // Update session timestamp
+    session.timestamp = Date.now();
+    next();
+}
+
+// Login endpoint
+app.post('/api/auth/login', (req, res) => {
+    const { username, password } = req.body;
+    const hashedPassword = hashPassword(password);
+
+    if (username === process.env.ADMIN_USERNAME && 
+        hashedPassword === process.env.ADMIN_PASSWORD_HASH) {
+        const token = generateSessionToken();
+        sessions.set(token, { 
+            username,
+            timestamp: Date.now()
+        });
+        res.json({ success: true, token });
+    } else {
+        res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+});
+
+// Logout endpoint
+app.post('/api/auth/logout', requireAuth, (req, res) => {
+    const token = req.headers['x-auth-token'];
+    sessions.delete(token);
+    res.json({ success: true });
+});
+
+// Check auth status endpoint
+app.get('/api/auth/status', (req, res) => {
+    const token = req.headers['x-auth-token'];
+    const isAuthenticated = token && sessions.has(token);
+    res.json({ authenticated: isAuthenticated });
+});
+
+// Clean up expired sessions periodically
+setInterval(() => {
+    const now = Date.now();
+    const sessionTimeout = appConfig.auth?.sessionTimeout || 3600000;
+    for (const [token, session] of sessions.entries()) {
+        if (now - session.timestamp > sessionTimeout) {
+            sessions.delete(token);
+        }
+    }
+}, 60000); // Clean up every minute
 
 // Store the latest prayer times in memory
 let currentIqamahTimes = null;
@@ -92,11 +185,10 @@ async function fetchMasjidTimings() {
 
 async function scheduleNextDay() {
     logSection("Next Day Scheduling");
-    const nextDay = moment.tz('Europe/London').add(1, 'day').startOf('day');
+    const nextMidnight = moment.tz('Europe/London').add(1, 'day').startOf('day');
+    console.log(`📅 Next Update: ${nextMidnight.format('HH:mm:ss DD-MM-YYYY')}`);
     
-    console.log(`📅 Next Update: ${nextDay.format('HH:mm:ss DD-MM-YYYY')}`);
-    
-    schedule.scheduleJob(nextDay.toDate(), async() => {
+    schedule.scheduleJob(nextMidnight.toDate(), async() => {
         console.log("🔄 Fetching next day's namaz timings.");
         await scheduleNamazTimers();
     });
@@ -145,15 +237,27 @@ async function scheduleNamazTimers() {
     const now = getCurrentTime();
     console.log(`⏰ Current Date/Time: ${now.format('HH:mm:ss DD-MM-YYYY')}`);
 
-    logSection("Scheduling Prayer Iqamah Times");
-    await Promise.all(Object.entries(iqamahTimes).map(([prayerName, time]) => 
-        scheduleAzanTimer(prayerName, time)
-    ));
 
-    logSection("Scheduling Prayer Announcement Times");
-    await Promise.all(Object.entries(prayerAnnouncementTimes).map(([prayerName, time]) => 
-        scheduleAzanAnnouncementTimer(prayerName, time)
-    ));
+    if (appConfig.features.azanEnabled) {
+        logSection("Scheduling Prayer Iqamah Times");
+        await Promise.all(Object.entries(iqamahTimes).map(([prayerName, time]) => 
+            scheduleAzanTimer(prayerName, time)
+        ));
+    } else {
+        console.log("⏸️ Azan timer is disabled");
+    }
+
+    if (appConfig.features.announcementEnabled) {
+        logSection("Scheduling Prayer Announcement Times");
+        await Promise.all(Object.entries(prayerAnnouncementTimes).map(([prayerName, time]) => 
+            scheduleAzanAnnouncementTimer(prayerName, time)
+        ));
+    } else {
+        console.log("⏸️ Announcement timer is disabled");
+    }
+
+    // Schedule next day's timings at midnight
+    await scheduleNextDay();
 }
 
 async function scheduleAzanTimer(prayerName, time) {
@@ -165,27 +269,15 @@ async function scheduleAzanTimer(prayerName, time) {
 
     const prayerTime = moment.tz('Europe/London');
     prayerTime.set({ hour, minute, second: 0 });
-
-    let allPassed = true;
     
     if (prayerTime > now) {
-        allPassed = false;
         console.log(`🕰️ Scheduling ${prayerName.toUpperCase()} prayer at ${time}`);
         schedule.scheduleJob(prayerTime.toDate(), async () => {
             playAzanAlexa(prayerName === 'fajr');
-
             console.log(`${prayerName} prayer time.`);
-
-            if (prayerName === 'isha') {
-                await scheduleNextDay();
-            }
         });
     } else {
         console.log(`⏩ ${prayerName.toUpperCase()} prayer time has already passed.`);
-    }
-
-    if (allPassed && prayerName === 'isha') {
-        await scheduleNextDay();
     }
 }
 
@@ -257,7 +349,7 @@ async function playAzanAlexa(isFajr = false) {
 
 async function playPrayerAnnoucement(prayerName) {
     if(TEST_MODE || !appConfig.features.announcementEnabled) 
-        return console.log(`Announcment not played - ${TEST_MODE ? 'Test Mode' : 'Announcement feature disabled'}`);
+        return console.log(`Announcement not played - ${TEST_MODE ? 'Test Mode' : 'Announcement feature disabled'}`);
 
     const prayerToAnnouncmentFile = {
         fajr: 't-minus-15-fajr.mp3',
@@ -482,7 +574,7 @@ app.get('/api/logs/stream', async (req, res) => {
 });
 
 // Add new API endpoints for log management
-app.post('/api/logs/clear', (req, res) => {
+app.post('/api/logs/clear', requireAuth, (req, res) => {
     logStore.clear();
     res.json({ success: true });
 });
@@ -505,6 +597,23 @@ app.get('/api/test-mode', (req, res) => {
         currentOffset: timeOffset,
         timezone: appConfig.testMode.timezone
     });
+});
+
+// Add new API endpoints for feature management
+app.get('/api/features', (req, res) => {
+    res.json(appConfig.features);
+});
+
+app.post('/api/features/toggle/:feature', requireAuth, (req, res) => {
+    const { feature } = req.params;
+    if (feature in appConfig.features) {
+        appConfig.features[feature] = !appConfig.features[feature];
+        fs.writeFileSync('./config.json', JSON.stringify(appConfig, null, 4));
+        scheduleNamazTimers();
+        res.json({ success: true, state: appConfig.features[feature] });
+    } else {
+        res.status(400).json({ success: false, message: 'Invalid feature' });
+    }
 });
 
 // Serve the main page
