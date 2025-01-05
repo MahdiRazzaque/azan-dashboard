@@ -163,7 +163,12 @@ async function fetchMasjidTimings() {
     try {
         const response = await fetch(`https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=${appConfig.GuidId}`);
         const data = await response.json();
+        
         const salahTimings = data.model.salahTimings;
+        if (!salahTimings || !Array.isArray(salahTimings)) {
+            console.error("❌ Invalid salahTimings data structure");
+            return null;
+        }
 
         const today = moment.tz('Europe/London');
         const todayDay = today.date();
@@ -179,22 +184,43 @@ async function fetchMasjidTimings() {
         }
     } catch (error) {
         console.error("❌ Error fetching data:", error);
+        if (error.response) {
+            console.error("Response status:", error.response.status);
+            console.error("Response data:", error.response.data);
+        }
         return null;
     }
 }
 
-async function scheduleNextDay() {
-    logSection("Next Day Scheduling");
-    const nextMidnight = moment.tz('Europe/London').add(1, 'day').startOf('day');
-    console.log(`📅 Next Update: ${nextMidnight.format('HH:mm:ss DD-MM-YYYY')}`);
+// Schedule management
+const activeSchedules = new Map();
+const lastExecutionTimes = new Map();
+const DEBOUNCE_INTERVAL = 60000; // 1 minute in milliseconds
+
+function clearExistingSchedules() {
+    for (const [name, job] of activeSchedules.entries()) {
+        job.cancel();
+        console.log(`🗑️ Cleared schedule for ${name}`);
+    }
+    activeSchedules.clear();
+}
+
+function canExecute(actionName) {
+    const lastExecution = lastExecutionTimes.get(actionName);
+    const now = Date.now();
     
-    schedule.scheduleJob(nextMidnight.toDate(), async() => {
-        console.log("🔄 Fetching next day's namaz timings.");
-        await scheduleNamazTimers();
-    });
+    if (!lastExecution || (now - lastExecution) > DEBOUNCE_INTERVAL) {
+        lastExecutionTimes.set(actionName, now);
+        return true;
+    }
+    console.log(`⏳ Skipping ${actionName} - too soon after last execution`);
+    return false;
 }
 
 async function scheduleNamazTimers() {
+    // Clear existing schedules before creating new ones
+    clearExistingSchedules();
+    
     const timings = await fetchMasjidTimings();
 
     if (!timings) {
@@ -221,12 +247,14 @@ async function scheduleNamazTimers() {
     };
 
     currentIqamahTimes = iqamahTimes;
-    currentPrayerStartTimes = prayerStartTimes
+    currentPrayerStartTimes = prayerStartTimes;
     updateNextPrayer();
 
     const prayerAnnouncementTimes = Object.entries(iqamahTimes).reduce((acc, [prayerName, time]) => {
         const updatedTime = moment(time, 'HH:mm').subtract(15, 'minutes').format('HH:mm');
-        acc[prayerName] = updatedTime; return acc; }, {});
+        acc[prayerName] = updatedTime;
+        return acc;
+    }, {});
 
     logSection("Today's Prayer Iqamah Timings");
     logPrayerTimesTable(iqamahTimes, "Iqamah Times");
@@ -237,76 +265,108 @@ async function scheduleNamazTimers() {
     const now = getCurrentTime();
     console.log(`⏰ Current Date/Time: ${now.format('HH:mm:ss DD-MM-YYYY')}`);
 
-
     if (appConfig.features.azanEnabled) {
         logSection("Scheduling Prayer Iqamah Times");
-        await Promise.all(Object.entries(iqamahTimes).map(([prayerName, time]) => 
-            scheduleAzanTimer(prayerName, time)
-        ));
+        for (const [prayerName, time] of Object.entries(iqamahTimes)) {
+            if (prayerName === 'sunrise') continue;
+            const job = await scheduleAzanTimer(prayerName, time);
+            if (job) {
+                activeSchedules.set(`azan_${prayerName}`, job);
+            }
+        }
     } else {
         console.log("⏸️ Azan timer is disabled");
     }
 
     if (appConfig.features.announcementEnabled) {
-        logSection("Scheduling Prayer Announcement Times");
-        await Promise.all(Object.entries(prayerAnnouncementTimes).map(([prayerName, time]) => 
-            scheduleAzanAnnouncementTimer(prayerName, time)
-        ));
+        logSection("Scheduling Prayer Announcements");
+        for (const [prayerName, time] of Object.entries(prayerAnnouncementTimes)) {
+            if (prayerName === 'sunrise') continue;
+            const job = await scheduleAnnouncementTimer(prayerName, time);
+            if (job) {
+                activeSchedules.set(`announcement_${prayerName}`, job);
+            }
+        }
     } else {
-        console.log("⏸️ Announcement timer is disabled");
+        console.log("⏸️ Announcements are disabled");
     }
 
-    // Schedule next day's timings at midnight
-    await scheduleNextDay();
-}
-
-async function scheduleAzanTimer(prayerName, time) {
-    if(["sunrise"].includes(prayerName)) 
-        return;
-
-    const [hour, minute] = time.split(':').map(Number);
-    const now = getCurrentTime();
-
-    const prayerTime = moment.tz('Europe/London');
-    prayerTime.set({ hour, minute, second: 0 });
-    
-    if (prayerTime > now) {
-        console.log(`🕰️ Scheduling ${prayerName.toUpperCase()} prayer at ${time}`);
-        schedule.scheduleJob(prayerTime.toDate(), async () => {
-            playAzanAlexa(prayerName === 'fajr');
-            console.log(`${prayerName} prayer time.`);
-        });
-    } else {
-        console.log(`⏩ ${prayerName.toUpperCase()} prayer time has already passed.`);
+    // Schedule next day's update
+    const nextDayJob = await scheduleNextDay();
+    if (nextDayJob) {
+        activeSchedules.set('next_day', nextDayJob);
     }
 }
 
-async function scheduleAzanAnnouncementTimer(prayerName, time) {
-
-    if(["fajr", "sunrise"].includes(prayerName)) 
-        return;
-
-    const [hour, minute] = time.split(':').map(Number);
-    const now = getCurrentTime();
-
-    const prayerAnnouncementTime = moment.tz('Europe/London');
-    prayerAnnouncementTime.set({ hour, minute, second: 0 });
-
-    if(prayerAnnouncementTime < now) {
-        console.log(`⏩ ${prayerName.toUpperCase()} prayer announcement time has already passed.`);
-        return;
-    }
-
-    console.log(`📢 Scheduling ${prayerName.toUpperCase()} announcement at ${time}`);
+async function scheduleNextDay() {
+    logSection("Next Day Scheduling");
+    const nextMidnight = moment.tz('Europe/London').add(1, 'day').startOf('day');
+    console.log(`📅 Next Update: ${nextMidnight.format('HH:mm:ss DD-MM-YYYY')}`);
     
-    schedule.scheduleJob(prayerAnnouncementTime.toDate(), async () => {
-        await playPrayerAnnoucement(prayerName);
-
-        console.log(`📣 ${prayerName.toUpperCase()} announcement time.`);
+    return schedule.scheduleJob(nextMidnight.toDate(), async() => {
+        if (!canExecute('next_day_update')) return;
+        console.log("🔄 Fetching next day's namaz timings.");
+        await scheduleNamazTimers();
     });
 }
 
-async function playAzanAlexa(isFajr = false) {
+async function scheduleAzanTimer(prayerName, time) {
+    try {
+        const scheduledTime = moment.tz(time, 'HH:mm', 'Europe/London');
+        if (TEST_MODE) {
+            scheduledTime.subtract(timeOffset, 'milliseconds');
+        }
+
+        if (scheduledTime.isBefore(getCurrentTime())) {
+            console.log(`⏩ ${prayerName.toUpperCase()} prayer time has already passed.`);
+            return null;
+        }
+
+        console.log(`🕰️ Scheduling ${prayerName.toUpperCase()} prayer at ${time}`);
+        return schedule.scheduleJob(scheduledTime.toDate(), async () => {
+            if (!canExecute(`azan_${prayerName}`)) return;
+            console.log(`${prayerName.toUpperCase()} prayer time.`);
+            try {
+                await playAzan();
+            } catch (error) {
+                console.error(`❌ Error playing azan for ${prayerName}:`, error);
+            }
+        });
+    } catch (error) {
+        console.error(`❌ Error scheduling azan for ${prayerName}:`, error);
+        return null;
+    }
+}
+
+async function scheduleAnnouncementTimer(prayerName, time) {
+    try {
+        const scheduledTime = moment.tz(time, 'HH:mm', 'Europe/London');
+        if (TEST_MODE) {
+            scheduledTime.subtract(timeOffset, 'milliseconds');
+        }
+
+        if (scheduledTime.isBefore(getCurrentTime())) {
+            console.log(`⏩ ${prayerName.toUpperCase()} prayer announcement time has already passed.`);
+            return null;
+        }
+
+        console.log(`📢 Scheduling ${prayerName.toUpperCase()} announcement at ${time}`);
+        return schedule.scheduleJob(scheduledTime.toDate(), async () => {
+            if (!canExecute(`announcement_${prayerName}`)) return;
+            console.log(`📢 ${prayerName.toUpperCase()} announcement time.`);
+            try {
+                await playPrayerAnnouncement(prayerName);
+            } catch (error) {
+                console.error(`❌ Error playing announcement for ${prayerName}:`, error);
+            }
+        });
+    } catch (error) {
+        console.error(`❌ Error scheduling announcement for ${prayerName}:`, error);
+        return null;
+    }
+}
+
+async function playAzan() {
     if(TEST_MODE || !appConfig.features.azanEnabled) 
         return console.log(`Azan not played - ${TEST_MODE ? 'Test Mode' : 'Azan feature disabled'}`);
     
@@ -323,7 +383,7 @@ async function playAzanAlexa(isFajr = false) {
     const payload = {
         token: voice_monkey_token, 
         device: 'voice-monkey-speaker-1',
-        audio: baseAudioUrl + (isFajr ? '/mp3/fajr-azan.mp3' : '/mp3/azan.mp3'),
+        audio: baseAudioUrl + '/mp3/azan.mp3',
     };
 
     fetch(url, {
@@ -347,7 +407,7 @@ async function playAzanAlexa(isFajr = false) {
     });
 }
 
-async function playPrayerAnnoucement(prayerName) {
+async function playPrayerAnnouncement(prayerName) {
     if(TEST_MODE || !appConfig.features.announcementEnabled) 
         return console.log(`Announcement not played - ${TEST_MODE ? 'Test Mode' : 'Announcement feature disabled'}`);
 
