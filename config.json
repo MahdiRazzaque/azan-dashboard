@@ -1,7 +1,7 @@
 {
     "PORT": 3002,
     "prayerData": {
-        "source": "local",
+        "source": "mymasjid",
         "mymasjid": {
             "guidId": "03b8d82c-5b0e-4cb9-ad68-8c7e204cae00"
         }
