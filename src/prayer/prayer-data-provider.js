@@ -21,15 +21,6 @@ async function validateMyMasjidGuidId(guidId) {
             return false;
         }
 
-        // Check if the year matches
-        const currentYear = new Date().getFullYear();
-        const masjidYear = data.model?.masjidDetails?.year;
-        
-        if (masjidYear !== currentYear) {
-            console.error(`Error: Prayer times are for year ${masjidYear}, but current year is ${currentYear}`);
-            return false;
-        }
-
         return true;
     } catch (error) {
         console.error("Error validating myMasjid GuidId:", error);
