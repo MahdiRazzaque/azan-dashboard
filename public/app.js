@@ -499,20 +499,36 @@ async function toggleFeature(feature, button) {
     }
 
     try {
-        const response = await fetch(`/api/features/toggle/${feature}`, {
+        const currentState = button.classList.contains('enabled');
+        const newState = !currentState;
+        
+        const response = await fetch('/api/features', {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 'x-auth-token': authToken
-            }
+            },
+            body: JSON.stringify({
+                [feature]: newState
+            })
         });
+        
         const result = await response.json();
         
         if (result.success) {
-            button.classList.toggle('enabled', result.state);
-            button.classList.toggle('disabled', !result.state);
+            button.classList.toggle('enabled', newState);
+            button.classList.toggle('disabled', !newState);
+        } else {
+            console.error(`Failed to toggle ${feature}:`, result.error);
+            // Revert button state if there was an error
+            button.classList.toggle('enabled', currentState);
+            button.classList.toggle('disabled', !currentState);
         }
     } catch (error) {
         console.error(`Error toggling ${feature}:`, error);
+        // Show error in logs
+        logStore.addLog('error', `Error toggling ${feature}: ${error.message}`);
+        broadcastLogs(logStore.logs[logStore.logs.length - 1]);
     }
 }
 
