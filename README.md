@@ -1,103 +1,159 @@
-# Azan Dashboard
+# Azan System
 
-## Overview
+A Node.js application for managing and announcing prayer times using Alexa devices.
 
-This project is a Node.js application designed to automate the playing of the Islamic call to prayer (Azan) at the correct times based on a specific mosque's timings. It features a web interface for monitoring and control, along with integrations for playing the Azan through various devices.
+## Features
 
-## Main Features
+- Real-time prayer time display
+- Automatic azan playback at prayer times
+- Prayer time announcements 15 minutes before each prayer
+- Test mode for verifying announcements
+- System logs for monitoring
+- Secure admin authentication
 
-- **Prayer Time Management**
-  - Fetches daily prayer timings from the "time.my-masjid.com" API
-  - Displays current time, next prayer, and countdown
-  - Shows prayer start times and Iqamah times in a clean interface
-  - Automatically schedules next day's timings at midnight
+## Configuration
 
-- **Azan and Announcements**
-  - Plays Azan through Amazon Alexa devices at prayer times
-  - Optional 15-minute advance announcements before prayers
-  - Different Azan audio for Fajr prayer
-  - Toggleable Azan and announcement features
+### Prayer Times Source
 
-- **System Management**
-  - Secure authentication system for administrative controls
-  - Real-time system logs with automatic updates
-  - Clear logs functionality with confirmation
-  - Test mode for timing verification
-  - Error tracking and display
+The system supports two sources for prayer times:
 
-## Setup Instructions
-
-1. **Clone the repository:**
-   ```bash
-   git clone <repository_url>
-   cd azan-dashboard
+1. **MyMasjid API** (Default):
+   ```json
+   {
+       "prayerData": {
+           "source": "mymasjid",
+           "mymasjid": {
+               "guidId": "your-guid-id-here"
+           }
+       }
+   }
    ```
 
-2. **Install dependencies:**
+2. **Local File**:
+   ```json
+   {
+       "prayerData": {
+           "source": "local"
+       }
+   }
+   ```
+
+   When using a local file:
+   - Create a `prayer_times.json` file in the root directory
+   - Use the MyMasjid API format:
+   ```json
+   {
+       "model": {
+           "masjidDetails": {
+               "name": "Your Masjid Name",
+               "website": null,
+               "year": 2025
+           },
+           "salahTimings": [
+               {
+                   "fajr": "06:04",
+                   "shouruq": "08:09",
+                   "zuhr": "12:14",
+                   "asr": "14:14",
+                   "maghrib": "16:01",
+                   "isha": "17:25",
+                   "day": 1,
+                   "month": 1,
+                   "iqamah_Fajr": "07:30",
+                   "iqamah_Zuhr": "13:00",
+                   "iqamah_Asr": "15:00",
+                   "iqamah_Maghrib": "16:06",
+                   "iqamah_Isha": "19:30"
+               }
+               // ... entries for all days of the year
+           ]
+       }
+   }
+   ```
+
+   Requirements for local file:
+   - Must be named `prayer_times.json`
+   - Must be in the root directory
+   - Year must match current year
+   - Must contain entries for all days of the year
+   - Each day must have all required prayer times
+   - Times must be in 24-hour format (HH:mm)
+
+### Environment Variables
+
+Create a `.env` file in the root directory with:
+
+```env
+ADMIN_USERNAME=your_username
+ADMIN_PASSWORD_HASH=your_password_hash
+VOICEMONKEY_TOKEN=your_voicemonkey_token
+```
+
+### Features Configuration
+
+In `config.json`:
+```json
+{
+    "PORT": 3002,
+    "features": {
+        "azanEnabled": true,
+        "announcementEnabled": true,
+        "systemLogsEnabled": true
+    },
+    "testMode": {
+        "enabled": false,
+        "startTime": "02:00:00",
+        "timezone": "Europe/London"
+    },
+    "auth": {
+        "sessionTimeout": 3600000,
+        "maxSessions": 5
+    }
+}
+```
+
+## Installation
+
+1. Clone the repository
+2. Install dependencies:
    ```bash
    npm install
    ```
-
-3. **Configuration:**
-
-   a. Create a `config.json` file using the example:
+3. Create `.env` file with required variables
+4. Create or modify `config.json` with your settings
+5. If using local prayer times, create `prayer_times.json`
+6. Start the server:
    ```bash
-   cp config.example.json config.json
+   npm start
    ```
-   Edit `config.json` and set:
-   - `GuidId`: Your mosque's ID from my-masjid.com
-   - Other settings as needed
-
-   b. Create a `.env` file using the example:
-   ```bash
-   cp .env.example .env
-   ```
-   Set the following:
-   - `ADMIN_USERNAME`: Admin username for the dashboard
-   - `ADMIN_PASSWORD_HASH`: Generated password hash (see below)
-   - `SALT`: Random salt for password security
-   - `VOICEMONKEY_TOKEN`: Your Voice Monkey API token (for Alexa integration)
-
-4. **Generate Password Hash:**
-   ```bash
-   node -e "console.log(require('crypto').createHash('sha256').update('YOUR_PASSWORD' + 'YOUR_SALT').digest('hex'))"
-   ```
-   Replace `YOUR_PASSWORD` with your chosen password and `YOUR_SALT` with your salt value.
 
 ## Usage
 
-1. **Start the server:**
-   ```bash
-   node index.js
-   ```
+1. Access the web interface at `http://localhost:3002` (or your configured port)
+2. Log in using your admin credentials
+3. Use the toggles to enable/disable azan and announcements
+4. Monitor system logs for any issues
 
-2. **Access the dashboard:**
-   Open `http://localhost:3000` in your web browser
+## Test Mode
 
-3. **Authentication:**
-   - Use the configured admin credentials to access protected features
-   - Session expires after 1 hour of inactivity
+Test mode allows you to verify announcements by setting a specific time:
 
-## Protected Features
+1. Enable test mode in config.json
+2. Set the desired test time
+3. Restart the server
+4. The system will use the test time instead of actual time
 
-The following features require authentication:
-- Toggling Azan playback
-- Toggling announcements
-- Clearing system logs
+## Security
 
-## Technical Notes
+- Admin authentication required for all control features
+- Session-based authentication with configurable timeout
+- Secure password hashing
+- Rate limiting on authentication endpoints
 
-- Built with Node.js and Express
-- Uses WebSocket for real-time updates
-- Implements secure session management
-- Supports timezone handling for accurate timing
-- Includes error handling and logging
-- Mobile-responsive interface
+## Troubleshooting
 
-## Security Features
-
-- Password hashing with salt
-- Session-based authentication
-- Environment variable-based configuration
-- Protected API endpoints
-- Automatic session expiry
+- Check system logs for detailed error messages
+- Verify prayer times source configuration
+- Ensure all required environment variables are set
+- Check file permissions for local prayer times file
+- Verify network connectivity for MyMasjid API
