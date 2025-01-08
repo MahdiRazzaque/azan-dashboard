@@ -41,7 +41,11 @@
         </div>
     </div>
     
-    <div class="logs-container">
+    <button id="show-logs-btn" class="show-logs-btn">
+        <i class="fas fa-terminal"></i> Show System Logs
+    </button>
+
+    <div class="logs-container hidden">
         <div class="logs-header">
             <h2>System Logs</h2>
             <div class="log-controls">
@@ -67,6 +71,9 @@
                         <i class="fas fa-sign-out-alt"></i> Logout
                     </button>
                 </div>
+                <button id="hide-logs-btn" class="log-btn" data-tooltip="Close Logs">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
         </div>
         <div id="log-container">

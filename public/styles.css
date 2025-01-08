@@ -40,8 +40,14 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
     padding: 1rem;
-    height: 75vh; /* Increased from 65vh */
+    height: calc(100vh - 4rem); /* Default height when logs are hidden, leaving space for button */
     min-height: 0;
+    transition: height 0.3s ease;
+}
+
+/* When logs are shown */
+.container.logs-visible {
+    height: 75vh;
 }
 
 .section {
@@ -56,6 +62,8 @@ body {
 .prayer-times {
     grid-column: 1 / 2;
     grid-row: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .prayer-times h2 {
@@ -68,12 +76,35 @@ body {
 table {
     width: 100%;
     border-collapse: collapse;
+    height: 100%;
+}
+
+tbody {
+    height: 100%;
+}
+
+/* Default sizes when logs are shown */
+.container.logs-visible th,
+.container.logs-visible td {
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+}
+
+/* Larger sizes when logs are hidden */
+.container:not(.logs-visible) th,
+.container:not(.logs-visible) td {
+    padding: 1.5rem 2rem;
+    font-size: 1.2rem;
+}
+
+.container:not(.logs-visible) .prayer-icon {
+    width: 1.5rem;
+    height: 1.5rem;
 }
 
 th, td {
     padding: 1rem 1.5rem;
     text-align: left;
-    border-bottom: 1px solid var(--accent-color);
 }
 
 .prayer-row {
@@ -155,13 +186,44 @@ th, td {
     letter-spacing: -1px;
 }
 
+/* Show Logs Button */
+.show-logs-btn {
+    display: block;
+    width: auto;
+    margin: 1rem auto;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    background-color: var(--section-bg);
+    border: 1px solid var(--accent-color);
+    color: var(--text-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.show-logs-btn i {
+    font-size: 1.1rem;
+}
+
+.show-logs-btn:hover {
+    background-color: var(--accent-color);
+}
+
 /* Logs Section */
 .logs-container {
-    height: 23vh; /* Reduced from 35vh */
+    height: 23vh;
     padding: 0 1rem;
     margin: 0;
     display: flex;
     flex-direction: column;
+    transition: opacity 0.3s ease;
+}
+
+.logs-container.hidden {
+    display: none;
 }
 
 .logs-header {
@@ -325,24 +387,38 @@ th, td {
     }
 
     .container {
-        height: auto;
         grid-template-columns: 1fr;
-        min-height: 0;
+        grid-template-rows: auto auto;
+        height: auto !important; /* Override the height calculation for mobile */
+        gap: 1rem;
+    }
+
+    .prayer-times {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    .next-prayer {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .show-logs-btn {
+        /* Remove display: block since it's handled globally now */
+    }
+
+    .logs-container {
+        height: auto;
+        max-height: 50vh;
+    }
+
+    #log-container {
+        max-height: 40vh;
     }
 
     .section {
         margin-bottom: 0.5rem;
         padding: 1rem;
-    }
-
-    .next-prayer {
-        grid-row: 1;
-        grid-column: 1;
-    }
-
-    .prayer-times {
-        grid-row: 2;
-        grid-column: 1;
     }
 
     #current-time-display {
@@ -480,4 +556,9 @@ th, td {
 .logout-btn:hover {
     background-color: #ff5555;
     color: white;
+}
+
+/* Add border to header row */
+thead tr {
+    border-bottom: 1px solid var(--accent-color);
 }

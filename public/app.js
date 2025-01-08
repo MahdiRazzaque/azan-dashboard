@@ -660,3 +660,28 @@ logoutBtn.addEventListener('click', async () => {
     await logout();
     updateAuthUI();
 });
+
+// Show/Hide Logs functionality
+document.addEventListener('DOMContentLoaded', () => {
+    const showLogsBtn = document.getElementById('show-logs-btn');
+    const hideLogsBtn = document.getElementById('hide-logs-btn');
+    const logsContainer = document.querySelector('.logs-container');
+    const container = document.querySelector('.container');
+    
+    // Ensure correct initial state
+    logsContainer.classList.add('hidden');
+    showLogsBtn.style.display = 'block';
+    container.classList.remove('logs-visible');
+    
+    showLogsBtn.addEventListener('click', () => {
+        logsContainer.classList.remove('hidden');
+        showLogsBtn.style.display = 'none';
+        container.classList.add('logs-visible');
+    });
+
+    hideLogsBtn.addEventListener('click', () => {
+        logsContainer.classList.add('hidden');
+        showLogsBtn.style.display = 'block';
+        container.classList.remove('logs-visible');
+    });
+});
