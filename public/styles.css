@@ -27,7 +27,6 @@ body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
@@ -40,7 +39,7 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
     padding: 1rem;
-    height: calc(100vh - 4rem); /* Default height when logs are hidden, leaving space for button */
+    height: calc(100vh - 4rem); /* Default height when logs are hidden */
     min-height: 0;
     transition: height 0.3s ease;
 }
@@ -70,71 +69,6 @@ body {
     font-size: 1.5rem;
     margin-bottom: 1rem;
     color: #fff;
-}
-
-/* Table Styles */
-table {
-    width: 100%;
-    border-collapse: collapse;
-    height: 100%;
-}
-
-tbody {
-    height: 100%;
-}
-
-/* Default sizes when logs are shown */
-.container.logs-visible th,
-.container.logs-visible td {
-    padding: 1rem 1.5rem;
-    font-size: 1rem;
-}
-
-/* Larger sizes when logs are hidden */
-.container:not(.logs-visible) th,
-.container:not(.logs-visible) td {
-    padding: 1.5rem 2rem;
-    font-size: 1.2rem;
-}
-
-.container:not(.logs-visible) .prayer-icon {
-    width: 1.5rem;
-    height: 1.5rem;
-}
-
-th, td {
-    padding: 1rem 1.5rem;
-    text-align: left;
-}
-
-.prayer-row {
-    transition: background-color 0.3s ease;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.prayer-row:hover {
-    background-color: var(--accent-color);
-}
-
-.prayer-row.passed {
-    color: var(--muted-text);
-}
-
-.prayer-row.next {
-    background-color: rgba(88, 101, 242, 0.15);
-    border-radius: 8px;
-}
-
-.prayer-name {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.prayer-icon {
-    width: 1.2rem;
-    height: 1.2rem;
-    opacity: 0.8;
 }
 
 /* Next Prayer Section */
@@ -184,6 +118,63 @@ th, td {
     font-variant-numeric: tabular-nums;
     line-height: 1;
     letter-spacing: -1px;
+}
+
+/* Table Styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    height: 100%;
+}
+
+th, td {
+    padding: 1rem 1.5rem;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.prayer-row {
+    transition: background-color 0.3s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    height: calc(100% / 6); /* Distribute height evenly among 6 rows */
+}
+
+.prayer-row:hover {
+    background-color: var(--accent-color);
+}
+
+.prayer-row.passed {
+    color: var(--muted-text);
+}
+
+.prayer-row.next {
+    background-color: rgba(88, 101, 242, 0.15);
+    border-radius: 8px;
+}
+
+.prayer-name {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    height: 100%;
+}
+
+.prayer-icon {
+    width: 1.2rem;
+    height: 1.2rem;
+    opacity: 0.8;
+}
+
+/* Center all text in time columns */
+td:nth-child(2), 
+td:nth-child(3) {
+    text-align: center;
+}
+
+/* Center header text */
+th:nth-child(2),
+th:nth-child(3) {
+    text-align: center;
 }
 
 /* Show Logs Button */
@@ -257,31 +248,6 @@ th, td {
 
 .log-btn:hover {
     background-color: var(--accent-color);
-}
-
-/* Tooltip Styling */
-.log-btn::before {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 0.5rem;
-    border-radius: 4px;
-    background-color: rgba(0, 0, 0, 0.8);
-    color: white;
-    font-size: 0.75rem;
-    white-space: nowrap;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease;
-    pointer-events: none;
-    margin-bottom: 5px;
-}
-
-.log-btn:hover::before {
-    opacity: 1;
-    visibility: visible;
 }
 
 #log-container {
@@ -382,39 +348,36 @@ th, td {
     body {
         overflow-y: auto;
         min-height: 100%;
-        display: block;  /* Change from flex to block */
-        padding-bottom: 1rem;  /* Add some padding at bottom */
+        display: block;
+        padding-bottom: 1rem;
     }
 
     .container {
         grid-template-columns: 1fr;
         grid-template-rows: auto auto;
-        height: auto !important; /* Override the height calculation for mobile */
+        height: auto !important;
         gap: 1rem;
     }
 
     .prayer-times {
         grid-column: 1;
         grid-row: 2;
+        min-height: 0;
+        height: auto;
     }
 
     .next-prayer {
         grid-column: 1;
         grid-row: 1;
-    }
-
-    .logs-container {
+        min-height: 0;
         height: auto;
-        max-height: 50vh;
-    }
-
-    #log-container {
-        max-height: 40vh;
     }
 
     .section {
         margin-bottom: 0.5rem;
         padding: 1rem;
+        height: auto;
+        min-height: 0;
     }
 
     #current-time-display {
@@ -430,51 +393,23 @@ th, td {
         font-size: 2.5rem;
     }
 
-    .logs-header {
-        flex-direction: row;
-        align-items: center;
+    .logs-container {
+        height: auto;
+        max-height: 30vh; /* Reduced from 50vh */
     }
 
-    .logs-header h2 {
-        font-size: 1.2rem;
-        flex: 1;
+    #log-container {
+        max-height: 25vh; /* Reduced from 40vh */
     }
 
-    .log-controls {
-        gap: 0.25rem;
-        padding: 0;
-        margin-left: auto;
-    }
-
-    .log-btn {
-        width: 28px !important;
-        height: 28px !important;
-        min-width: 28px !important;
-        border-radius: 6px;
-    }
-
-    .log-btn i {
-        font-size: 0.9rem;
-    }
-
+    /* Hide timestamps on mobile */
     .log-line .timestamp {
         display: none;
     }
 
-    .logs-container {
-        position: relative;  /* Reset position */
-        height: auto;
-        min-height: 200px;  /* Minimum height for logs */
-        max-height: 300px;  /* Maximum height for logs */
-    }
-
-    #log-container {
-        height: auto;
-        min-height: 150px;
-        max-height: 250px;
-        font-size: 0.75rem;
-        max-height: 25vh; /* Reduced from 35vh */
-        max-height: calc(25vh - 4rem); /* Adjusted for new height */
+    /* Adjust message width since timestamp is hidden */
+    .log-line .message {
+        width: 100%;
     }
 }
 
