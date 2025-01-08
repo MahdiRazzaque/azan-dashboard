@@ -22,15 +22,26 @@ function loadConfig() {
     const configPath = path.join(__dirname, '../../config.json');
     const appConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     
-    if (!appConfig.GuidId) {
-        console.error("Error: GuidId is required in config.json");
+    // Validate prayer data configuration
+    if (!appConfig.prayerData) {
+        console.error("Error: prayerData configuration is required in config.json");
+        process.exit(1);
+    }
+
+    if (!['mymasjid', 'local'].includes(appConfig.prayerData.source)) {
+        console.error("Error: prayerData.source must be either 'mymasjid' or 'local'");
+        process.exit(1);
+    }
+
+    if (appConfig.prayerData.source === 'mymasjid' && !appConfig.prayerData.mymasjid?.guidId) {
+        console.error("Error: guidId is required when using mymasjid as prayer data source");
         process.exit(1);
     }
 
     return appConfig;
 }
 
-// Initialize configuration
+// Initialise configuration
 validateEnv();
 const appConfig = loadConfig();
 

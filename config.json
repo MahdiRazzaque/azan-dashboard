@@ -1,6 +1,11 @@
 {
-    "GuidId": "03b8d82c-5b0e-4cb9-ad68-8c7e204cae00",
     "PORT": 3002,
+    "prayerData": {
+        "source": "local",
+        "mymasjid": {
+            "guidId": "03b8d82c-5b0e-4cb9-ad68-8c7e204cae00"
+        }
+    },
     "testMode": {
         "enabled": false,
         "startTime": "02:00:00",

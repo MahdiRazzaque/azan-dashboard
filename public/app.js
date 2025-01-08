@@ -79,7 +79,7 @@ let testMode = false;
 let testStartTime;
 let timeOffset;
 
-async function initializeTestMode() {
+async function initialiseTestMode() {
     try {
         const response = await fetch('/api/test-mode');
         const config = await response.json();
@@ -229,8 +229,8 @@ function cleanMessage(message) {
     return message;
 }
 
-// Initialize log controls
-function initializeLogControls() {
+// Initialise log controls
+function initialiseLogControls() {
     const clearLogsBtn = document.getElementById('clear-logs');
     const scrollBottomBtn = document.getElementById('scroll-bottom');
     const lastErrorBtn = document.getElementById('last-error');
@@ -321,8 +321,8 @@ function initializeLogControls() {
     });
 }
 
-// Initialize SSE connection for logs
-function initializeLogStream() {
+// Initialise SSE connection for logs
+function initialiseLogStream() {
     const eventSource = new EventSource('/api/logs/stream');
 
     eventSource.onmessage = (event) => {
@@ -342,14 +342,14 @@ function initializeLogStream() {
         console.error('SSE Error:', error);
         eventSource.close();
         // Try to reconnect after 5 seconds
-        setTimeout(initializeLogStream, 5000);
+        setTimeout(initialiseLogStream, 5000);
     };
 
     return eventSource;
 }
 
-// Initialize log container scroll handling
-function initializeLogScroll() {
+// Initialise log container scroll handling
+function initialiseLogScroll() {
     logContainer.addEventListener('scroll', () => {
         const isAtBottom = Math.abs(
             logContainer.scrollHeight - logContainer.clientHeight - logContainer.scrollTop
@@ -378,15 +378,15 @@ async function updatePrayerData() {
     }
 }
 
-// Initialize with logs hidden by default
-async function initialize() {
+// Initialise with logs hidden by default
+async function initialise() {
     await checkAuthStatus();
-    await initializeTestMode();
+    await initialiseTestMode();
     await updatePrayerData();
-    initializeLogStream();
-    initializeLogControls();
-    initializeLogScroll();
-    initializeFeatureStates();
+    initialiseLogStream();
+    initialiseLogControls();
+    initialiseLogScroll();
+    initialiseFeatureStates();
 
     // Start intervals
     setInterval(() => {
@@ -404,7 +404,7 @@ async function initialize() {
 // Add moment.js from CDN
 const momentScript = document.createElement('script');
 momentScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js';
-momentScript.onload = initialize;
+momentScript.onload = initialise;
 document.head.appendChild(momentScript);
 
 // Override console.log to capture and broadcast logs
@@ -471,8 +471,8 @@ document.querySelectorAll('.modal').forEach(modal => {
 const azanToggle = document.getElementById('azan-toggle');
 const announcementToggle = document.getElementById('announcement-toggle');
 
-// Initialize feature states
-async function initializeFeatureStates() {
+// Initialise feature states
+async function initialiseFeatureStates() {
     try {
         const response = await fetch('/api/features');
         const features = await response.json();
@@ -536,8 +536,8 @@ async function toggleFeature(feature, button) {
 azanToggle.addEventListener('click', () => toggleFeature('azanEnabled', azanToggle));
 announcementToggle.addEventListener('click', () => toggleFeature('announcementEnabled', announcementToggle));
 
-// Initialize feature states on page load
-initializeFeatureStates();
+// Initialise feature states on page load
+initialiseFeatureStates();
 
 // Authentication state
 let authToken = localStorage.getItem('authToken');

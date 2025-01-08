@@ -1,9 +1,14 @@
 {
-    "GuidId": "YOUR-GUID-HERE",
-    "PORT": 3000,
+    "PORT": 3002,
+    "prayerData": {
+        "source": "mymasjid",
+        "mymasjid": {
+            "guidId": "your-guid-id-here"
+        }
+    },
     "testMode": {
         "enabled": false,
-        "startTime": "00:00:00",
+        "startTime": "02:00:00",
         "timezone": "Europe/London"
     },
     "features": {

@@ -21,7 +21,7 @@ function broadcastLog(logEntry) {
         try {
             client.write(`data: ${JSON.stringify(logEntry)}\n\n`);
         } catch (error) {
-            console.error('Error sending to client:', error.message);
+            originalConsole.error('Error sending to client:', error.message);
             deadClients.add(client);
         }
     });
@@ -33,12 +33,11 @@ function broadcastLog(logEntry) {
 }
 
 // Add log entry
-function addLog(level, message) {
-    const timestamp = new Date().toISOString();
+function addLog(type, message) {
     const logEntry = {
-        timestamp,
-        level,
-        message: typeof message === 'object' ? JSON.stringify(message) : message
+        type,
+        message: typeof message === 'object' ? JSON.stringify(message) : message,
+        timestamp: new Date().toISOString()
     };
 
     logs.push(logEntry);
@@ -47,13 +46,14 @@ function addLog(level, message) {
     }
 
     broadcastLog(logEntry);
+    return logEntry;
 }
 
 // Override console methods
 function overrideConsole() {
     console.log = (...args) => {
         originalConsole.log(...args);
-        addLog('info', args.join(' '));
+        addLog('log', args.join(' '));
     };
 
     console.error = (...args) => {
@@ -68,7 +68,7 @@ function overrideConsole() {
 
     console.info = (...args) => {
         originalConsole.info(...args);
-        addLog('info', args.join(' '));
+        addLog('system', args.join(' '));
     };
 }
 
@@ -87,8 +87,13 @@ function setupLogRoutes(app) {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('X-Accel-Buffering', 'no'); // Disable Nginx buffering
         
-        // Send initial heartbeat
-        res.write('data: {"type":"connected","message":"Connected to log stream"}\n\n');
+        // Send initial connection message
+        const connectMessage = {
+            type: 'system',
+            message: 'Connected to log stream',
+            timestamp: new Date().toISOString()
+        };
+        res.write(`data: ${JSON.stringify(connectMessage)}\n\n`);
         
         // Send existing logs
         logs.forEach(log => {
@@ -141,16 +146,21 @@ function setupLogRoutes(app) {
             return res.status(403).json({ error: 'System logs are disabled' });
         }
         logs.length = 0;
+        addLog('system', 'All logs have been cleared');
         res.json({ success: true });
     });
-}
 
-// Initialize logging
-function initializeLogging() {
-    overrideConsole();
+    // Get last error
+    app.get('/api/logs/last-error', (req, res) => {
+        if (!appConfig.features.systemLogsEnabled) {
+            return res.status(403).json({ error: 'System logs are disabled' });
+        }
+        const lastError = [...logs].reverse().find(log => log.type === 'error');
+        res.json(lastError || { type: 'system', message: 'No errors found' });
+    });
 }
 
 export {
     setupLogRoutes,
-    initializeLogging
+    overrideConsole as initialiseLogging
 }; 

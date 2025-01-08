@@ -1,98 +1,15 @@
 import moment from 'moment-timezone';
-import fetch from 'node-fetch';
-import { appConfig } from '../config/config-validator.js';
-import { getCurrentTime, logSection, logPrayerTimesTable } from '../utils/utils.js';
-
-// Store the latest prayer times in memory
-let currentIqamahTimes = null;
-let currentPrayerStartTimes = null;
-let nextPrayer = null;
-
-// Fetch prayer times from API
-async function fetchMasjidTimings() {
-    try {
-        console.log(`🔍 Fetching prayer times for GuidId: ${appConfig.GuidId}`);
-        const response = await fetch(`https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=${appConfig.GuidId}`);
-        const data = await response.json();
-        
-        const salahTimings = data.model.salahTimings;
-        if (!salahTimings || !Array.isArray(salahTimings)) {
-            console.error("❌ Invalid salahTimings data structure");
-            return null;
-        }
-
-        const today = moment.tz('Europe/London');
-        const todayDay = today.date();
-        const todayMonth = today.month() + 1;
-
-        const todayTimings = salahTimings.filter(obj => obj.day === todayDay && obj.month === todayMonth);
-
-        if (todayTimings.length > 0) {
-            return todayTimings[0];
-        } else {
-            console.error("❌ No timings found for today.");
-            return null;
-        }
-    } catch (error) {
-        console.error("❌ Error fetching data:", error);
-        if (error.response) {
-            console.error("Response status:", error.response.status);
-            console.error("Response data:", error.response.data);
-        }
-        return null;
-    }
-}
-
-// Update prayer times
-async function updatePrayerTimes() {
-    const timings = await fetchMasjidTimings();
-    if (!timings) {
-        console.error("❌ Could not fetch today's timings.");
-        return null;
-    }
-
-    const iqamahTimes = {
-        fajr: timings.iqamah_Fajr,
-        sunrise: timings.shouruq,
-        zuhr: timings.iqamah_Zuhr,
-        asr: timings.iqamah_Asr,
-        maghrib: timings.maghrib,
-        isha: timings.iqamah_Isha,
-    };
-
-    const prayerStartTimes = {
-        fajr: timings.fajr,
-        sunrise: timings.shouruq,
-        zuhr: timings.zuhr,
-        asr: timings.asr,
-        maghrib: timings.maghrib,
-        isha: timings.isha,
-    };
-
-    currentIqamahTimes = iqamahTimes;
-    currentPrayerStartTimes = prayerStartTimes;
-    updateNextPrayer();
-
-    // Log the updated times
-    logSection("Today's Prayer Iqamah Timings");
-    logPrayerTimesTable(iqamahTimes, "Iqamah Times");
-
-    return {
-        iqamahTimes,
-        prayerStartTimes,
-        nextPrayer
-    };
-}
+import { getPrayerTimesData } from './prayer-data-provider.js';
+import { getCurrentTime } from '../utils/utils.js';
 
 // Calculate next prayer
-function updateNextPrayer() {
-    if (!currentIqamahTimes) return;
-
+function calculateNextPrayer(startTimes) {
     const now = getCurrentTime();
     let nextPrayerName = null;
     let nextPrayerTime = null;
 
-    for (const [prayer, time] of Object.entries(currentPrayerStartTimes)) {
+    for (const [prayer, time] of Object.entries(startTimes)) {
+        if (prayer === 'sunrise') continue; // Skip sunrise for next prayer calculation
         const prayerTime = moment.tz(time, 'HH:mm', 'Europe/London');
         if (prayerTime.isAfter(now)) {
             nextPrayerName = prayer;
@@ -101,39 +18,69 @@ function updateNextPrayer() {
         }
     }
 
-    nextPrayer = nextPrayerName ? {
+    return nextPrayerName ? {
         name: nextPrayerName,
-        time: nextPrayerTime.format('HH:mm'),
-        countdown: moment.duration(nextPrayerTime.diff(now)).asMilliseconds()
+        time: nextPrayerTime.format('HH:mm')
     } : null;
+}
+
+// Update prayer times
+async function updatePrayerTimes() {
+    try {
+        const now = getCurrentTime();
+        const data = await getPrayerTimesData(now);
+        
+        if (!data) {
+            console.error("❌ Failed to fetch prayer times");
+            return null;
+        }
+
+        const startTimes = {
+            fajr: data.fajr,
+            sunrise: data.sunrise,
+            zuhr: data.zuhr,
+            asr: data.asr,
+            maghrib: data.maghrib,
+            isha: data.isha
+        };
+
+        const iqamahTimes = {
+            fajr: data.fajr_iqamah || data.fajr,
+            sunrise: data.sunrise,
+            zuhr: data.zuhr_iqamah || data.zuhr,
+            asr: data.asr_iqamah || data.asr,
+            maghrib: data.maghrib_iqamah || data.maghrib,
+            isha: data.isha_iqamah || data.isha
+        };
+
+        const nextPrayer = calculateNextPrayer(startTimes);
+
+        return {
+            startTimes,
+            iqamahTimes,
+            nextPrayer
+        };
+    } catch (error) {
+        console.error("❌ Error updating prayer times:", error);
+        return null;
+    }
 }
 
 // Setup prayer time routes
 function setupPrayerRoutes(app) {
-    app.get('/api/prayer-times', (req, res) => {
+    app.get('/api/prayer-times', async (req, res) => {
+        const data = await updatePrayerTimes();
+        if (!data) {
+            return res.status(500).json({ error: 'Failed to fetch prayer times' });
+        }
         res.json({
-            iqamahTimes: currentIqamahTimes,
-            startTimes: currentPrayerStartTimes,
-            nextPrayer: nextPrayer,
+            ...data,
             currentTime: getCurrentTime().format('HH:mm:ss')
         });
     });
 }
 
-// Start the prayer time update interval
-function startPrayerTimeUpdates() {
-    // Update next prayer info every minute
-    setInterval(updateNextPrayer, 60000);
-    
-    // Initial update
-    return updatePrayerTimes();
-}
-
 export {
     updatePrayerTimes,
-    setupPrayerRoutes,
-    startPrayerTimeUpdates,
-    currentIqamahTimes,
-    currentPrayerStartTimes,
-    nextPrayer
+    setupPrayerRoutes
 }; 
