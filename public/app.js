@@ -662,13 +662,29 @@ logoutBtn.addEventListener('click', async () => {
 });
 
 // Show/Hide Logs functionality
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const showLogsBtn = document.getElementById('show-logs-btn');
     const hideLogsBtn = document.getElementById('hide-logs-btn');
     const logsContainer = document.querySelector('.logs-container');
     const container = document.querySelector('.container');
     
-    // Ensure correct initial state
+    // Check if system logs are enabled
+    try {
+        const response = await fetch('/api/features');
+        const features = await response.json();
+        
+        if (!features.systemLogsEnabled) {
+            // If logs are disabled, hide both the button and container
+            showLogsBtn.style.display = 'none';
+            logsContainer.style.display = 'none';
+            container.classList.remove('logs-visible');
+            return; // Exit early as we don't need to set up the event listeners
+        }
+    } catch (error) {
+        console.error('Error checking system logs status:', error);
+    }
+    
+    // Only set up event listeners if logs are enabled
     logsContainer.classList.add('hidden');
     showLogsBtn.style.display = 'block';
     container.classList.remove('logs-visible');

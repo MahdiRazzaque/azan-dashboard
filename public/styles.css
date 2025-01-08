@@ -403,10 +403,6 @@ th, td {
         grid-row: 1;
     }
 
-    .show-logs-btn {
-        /* Remove display: block since it's handled globally now */
-    }
-
     .logs-container {
         height: auto;
         max-height: 50vh;

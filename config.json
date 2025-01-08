@@ -8,7 +8,8 @@
     },
     "features": {
         "azanEnabled": true,
-        "announcementEnabled": true
+        "announcementEnabled": true,
+        "systemLogsEnabled": true
     },
     "auth": {
         "sessionTimeout": 3600000,
