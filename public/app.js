@@ -330,6 +330,10 @@ function initialiseLogStream() {
             const logData = JSON.parse(event.data);
             if (logData.type === 'connected') {
                 console.log('Connected to log stream');
+                // Scroll to bottom after initial connection
+                requestAnimationFrame(() => {
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                });
             } else {
                 updateLogs(logData);
             }
@@ -705,10 +709,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     showLogsBtn.style.display = 'block';
     container.classList.remove('logs-visible');
     
-    showLogsBtn.addEventListener('click', () => {
+    showLogsBtn.addEventListener('click', async () => {
         logsContainer.classList.remove('hidden');
         showLogsBtn.style.display = 'none';
         container.classList.add('logs-visible');
+        
+        // Fetch existing logs if container is empty
+        if (!logContainer.children.length) {
+            try {
+                const response = await fetch('/api/logs');
+                const logs = await response.json();
+                logs.forEach(log => updateLogs(log));
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+            }
+        }
+        
+        // Ensure we scroll to bottom after logs are loaded
+        requestAnimationFrame(() => {
+            logContainer.scrollTop = logContainer.scrollHeight;
+            shouldAutoScroll = true;
+        });
     });
 
     hideLogsBtn.addEventListener('click', () => {
