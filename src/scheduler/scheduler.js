@@ -60,7 +60,7 @@ async function scheduleAzanTimer(prayerName, time) {
             if (!canExecute(`azan_${prayerName}`)) return;
             console.log(`${prayerName.toUpperCase()} prayer time.`);
             try {
-                await playAzan();
+                await playAzan(prayerName === 'fajr');
             } catch (error) {
                 console.error(`❌ Error playing azan for ${prayerName}:`, error);
             }
@@ -98,7 +98,7 @@ async function scheduleAnnouncementTimer(prayerName, time) {
 }
 
 // Play azan through Voice Monkey
-async function playAzan() {
+async function playAzan(fajr = false) {
     if (!appConfig.features.azanEnabled) {
         return console.log("⏸️ Azan feature disabled");
     }
@@ -116,7 +116,7 @@ async function playAzan() {
     const payload = {
         token: voice_monkey_token, 
         device: 'voice-monkey-speaker-1',
-        audio: baseAudioUrl + '/mp3/azan.mp3',
+        audio: baseAudioUrl + "/mp3/" + fajr ? "fajr-azan.mp3" : "azan.mp3",
     };
 
     try {
