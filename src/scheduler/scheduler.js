@@ -113,10 +113,12 @@ async function playAzan(fajr = false) {
         return;
     }
 
+    var audioName = fajr ? "fajr-azan.mp3" : "azan.mp3";
+
     const payload = {
         token: voice_monkey_token, 
         device: 'voice-monkey-speaker-1',
-        audio: baseAudioUrl + "/mp3/" + fajr ? "fajr-azan.mp3" : "azan.mp3",
+        audio: baseAudioUrl + "/mp3/" + audioName,
     };
 
     try {
