@@ -113,12 +113,15 @@ async function playAzan(fajr = false) {
         return;
     }
 
-    var audioName = fajr ? "fajr-azan.mp3" : "azan.mp3";
+    const audioName = fajr ? "fajr-azan.mp3" : "azan.mp3";
+    const audio = `${baseAudioUrl}/mp3/${audioName}`;
+
+    console.log("Audio used: ", audio);
 
     const payload = {
         token: voice_monkey_token, 
         device: 'voice-monkey-speaker-1',
-        audio: baseAudioUrl + "/mp3/" + audioName,
+        audio
     };
 
     try {
@@ -133,7 +136,15 @@ async function playAzan(fajr = false) {
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        const data = await response.json();
+
+        let data;
+        try {
+            const text = await response.text();
+            data = JSON.parse(text);
+        } catch (parseError) {
+            console.error("Error parsing JSON:", parseError, "Response text:", text);
+            data = text;
+        }
         console.log('Azan triggered successfully:', data);
     } catch (error) {
         console.error('Error triggering azan:', error);
@@ -146,7 +157,7 @@ async function playPrayerAnnouncement(prayerName) {
         return console.log("⏸️ Announcement feature disabled");
     }
 
-    const prayerToAnnouncmentFile = {
+    const prayerToAnnouncementFile = {
         fajr: 't-minus-15-fajr.mp3',
         zuhr: 't-minus-15-dhuhr.mp3',
         asr: 't-minus-15-asr.mp3',
@@ -164,10 +175,13 @@ async function playPrayerAnnouncement(prayerName) {
         return;
     }
 
+    const audio = `${baseAudioUrl}${prayerToAnnouncementFile[prayerName]}`;
+    console.log("Audio used: ", audio);
+
     const payload = {
         token: voice_monkey_token, 
         device: 'voice-monkey-speaker-1',
-        audio: baseAudioUrl + prayerToAnnouncmentFile[prayerName],
+        audio
     };
 
     try {
@@ -182,7 +196,16 @@ async function playPrayerAnnouncement(prayerName) {
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        const data = await response.json();
+
+        let data;
+        try {
+            const text = await response.text();
+            data = JSON.parse(text);
+        } catch (parseError) {
+            console.error("Error parsing JSON:", parseError, "Response text:", text);
+            data = text;
+        }
+
         console.log('Prayer announcement triggered successfully:', data);
     } catch (error) {
         console.error('Error triggering prayer announcement:', error);
