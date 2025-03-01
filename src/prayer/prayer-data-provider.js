@@ -144,7 +144,7 @@ export async function getPrayerTimesData(date) {
                 fajr_iqamah: todayTimings.iqamah_Fajr,
                 zuhr_iqamah: todayTimings.iqamah_Zuhr,
                 asr_iqamah: todayTimings.iqamah_Asr,
-                maghrib_iqamah: todayTimings.maghrib,
+                maghrib_iqamah: todayTimings.iqamah_Maghrib,
                 isha_iqamah: todayTimings.iqamah_Isha
             };
 
@@ -177,7 +177,7 @@ export async function getPrayerTimesData(date) {
                     fajr_iqamah: todayTimings.iqamah_Fajr,
                     zuhr_iqamah: todayTimings.iqamah_Zuhr,
                     asr_iqamah: todayTimings.iqamah_Asr,
-                    maghrib_iqamah: todayTimings.maghrib,
+                    maghrib_iqamah: todayTimings.iqamah_Maghrib,
                     isha_iqamah: todayTimings.iqamah_Isha
                 };
 
