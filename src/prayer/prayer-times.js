@@ -45,7 +45,7 @@ async function updatePrayerTimes() {
         };
 
         const iqamahTimes = {
-            fajr: /*data.fajr_iqamah || */data.fajr,
+            fajr: data.fajr_iqamah || data.fajr,
             sunrise: data.sunrise,
             zuhr: data.zuhr_iqamah || data.zuhr,
             asr: data.asr_iqamah || data.asr,

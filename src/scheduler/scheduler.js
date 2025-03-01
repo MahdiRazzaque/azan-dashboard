@@ -219,7 +219,7 @@ async function scheduleNamazTimers() {
     const prayerData = await updatePrayerTimes();
     if (!prayerData) return;
 
-    const { iqamahTimes } = prayerData;
+    const { startTimes, iqamahTimes } = prayerData;
     const prayerAnnouncementTimes = Object.entries(iqamahTimes).reduce((acc, [prayerName, time]) => {
         const updatedTime = moment(time, 'HH:mm').subtract(15, 'minutes').format('HH:mm');
         acc[prayerName] = updatedTime;
@@ -228,8 +228,13 @@ async function scheduleNamazTimers() {
 
     if (appConfig.features.azanEnabled) {
         logSection("Scheduling Prayer Iqamah Times");
-        for (const [prayerName, time] of Object.entries(iqamahTimes)) {
+        for (var [prayerName, time] of Object.entries(iqamahTimes)) {
             if (prayerName === 'sunrise') continue;
+
+            // Set azan time to start time for fajr
+            if(prayerName === 'fajr') 
+                time = startTimes.fajr;
+
             const job = await scheduleAzanTimer(prayerName, time);
             if (job) {
                 activeSchedules.set(`azan_${prayerName}`, job);
