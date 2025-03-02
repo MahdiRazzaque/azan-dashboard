@@ -235,6 +235,10 @@ async function scheduleNamazTimers() {
             if(prayerName === 'fajr') 
                 time = startTimes.fajr;
 
+            // Set azan time to start time for magrib
+            if(prayerName === 'maghrib') 
+                time = startTimes.maghrib;
+
             const job = await scheduleAzanTimer(prayerName, time);
             if (job) {
                 activeSchedules.set(`azan_${prayerName}`, job);
