@@ -226,6 +226,10 @@ async function scheduleNamazTimers() {
         if(prayerName == "fajr")
             time = startTimes.fajr;
 
+        // Set announcement time to 15min before start time for magrib
+        if(prayerName === 'maghrib') 
+            time = startTimes.maghrib;
+
         const updatedTime = moment(time, 'HH:mm').subtract(15, 'minutes').format('HH:mm');
         acc[prayerName] = updatedTime;
         return acc;
