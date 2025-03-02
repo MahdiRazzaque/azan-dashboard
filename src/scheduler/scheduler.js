@@ -221,6 +221,11 @@ async function scheduleNamazTimers() {
 
     const { startTimes, iqamahTimes } = prayerData;
     const prayerAnnouncementTimes = Object.entries(iqamahTimes).reduce((acc, [prayerName, time]) => {
+
+        // Set announcement time to 15min before start time for fajr
+        if(prayerName == "fajr")
+            time = startTimes.fajr;
+
         const updatedTime = moment(time, 'HH:mm').subtract(15, 'minutes').format('HH:mm');
         acc[prayerName] = updatedTime;
         return acc;
