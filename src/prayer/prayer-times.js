@@ -49,7 +49,7 @@ async function updatePrayerTimes() {
             sunrise: data.sunrise,
             zuhr: data.zuhr_iqamah || data.zuhr,
             asr: data.asr_iqamah || data.asr,
-            maghrib: data.maghrib,
+            maghrib: data.maghrib_iqamah || data.maghrib,
             isha: data.isha_iqamah || data.isha
         };
 
