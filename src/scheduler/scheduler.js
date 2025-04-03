@@ -35,7 +35,7 @@ function canExecute(actionName) {
 // Schedule next day's update
 async function scheduleNextDay() {
     logSection("Next Day Scheduling");
-    const nextMidnight = moment.tz('Europe/London').add(1, 'day').startOf('day');
+    const nextMidnight = moment.tz('Europe/London').add(1, 'day').startOf('day').add(2, 'hour');
     console.log(`📅 Next Update: ${nextMidnight.format('HH:mm:ss DD-MM-YYYY')}`);
     
     return schedule.scheduleJob(nextMidnight.toDate(), async() => {
