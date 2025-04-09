@@ -7,6 +7,7 @@ import { setupLogRoutes, initialiseLogging } from '../logging/log-manager.js';
 import { scheduleNamazTimers } from '../scheduler/scheduler.js';
 import { initialisePrayerDataSource } from '../prayer/prayer-data-provider.js';
 import { setupPrayerRoutes } from '../prayer/prayer-times.js';
+import { setupPrayerSettingsRoutes } from '../prayer/prayer-settings.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,6 +27,7 @@ setupFeatureRoutes(app);
 setupAuthRoutes(app);
 setupLogRoutes(app);
 setupPrayerRoutes(app);
+setupPrayerSettingsRoutes(app);
 
 // Initialise server
 async function initialiseServer() {
@@ -47,4 +49,4 @@ async function initialiseServer() {
     }
 }
 
-export { app, initialiseServer }; 
+export { app, initialiseServer };

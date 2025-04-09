@@ -53,11 +53,8 @@
         <div class="logs-header">
             <h2>System Logs</h2>
             <div class="log-controls">
-                <button id="azan-toggle" class="log-btn toggle-btn" data-tooltip="Toggle Azan">
-                    <i class="mdi mdi-bell-outline"></i>
-                </button>
-                <button id="announcement-toggle" class="log-btn toggle-btn" data-tooltip="Toggle Announcement">
-                    <i class="mdi mdi-bullhorn-outline"></i>
+                <button id="settings-btn" class="log-btn" data-tooltip="Settings">
+                    <i class="fas fa-cog"></i>
                 </button>
                 <span class="control-separator"></span>
                 <button id="clear-logs" class="log-btn" data-tooltip="Clear Logs">
@@ -120,6 +117,56 @@
                     <button class="modal-btn cancel" id="login-cancel">Cancel</button>
                     <button class="modal-btn confirm" id="login-submit">Login</button>
                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content settings-content">
+            <h3>Prayer Settings</h3>
+            <div class="settings-form">
+                <div class="global-settings">
+                    <h4>Global Settings</h4>
+                    <div class="setting-row">
+                        <label>Global Azan</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="global-azan-toggle" class="toggle-input">
+                            <label for="global-azan-toggle" class="toggle-label"></label>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <label>Global Announcement</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="global-announcement-toggle" class="toggle-input">
+                            <label for="global-announcement-toggle" class="toggle-label"></label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="prayer-settings-container">
+                    <h4>Prayer-specific Settings</h4>
+                    <div id="prayer-settings">
+                        <!-- Prayer settings will be inserted here dynamically -->
+                    </div>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button class="modal-btn cancel" id="settings-cancel">Cancel</button>
+                    <button class="modal-btn confirm" id="settings-save">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div id="settings-confirm-modal" class="modal">
+        <div class="modal-content">
+            <h3>Apply Changes</h3>
+            <p>Are you sure you want to apply these settings changes?</p>
+            <div class="modal-buttons">
+                <button id="settings-confirm-cancel" class="modal-btn cancel">Cancel</button>
+                <button id="settings-confirm-apply" class="modal-btn confirm">Apply</button>
             </div>
         </div>
     </div>

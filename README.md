@@ -7,6 +7,8 @@ A Node.js application for managing and announcing prayer times using Alexa devic
 - Real-time prayer time display
 - Automatic azan playback at prayer times
 - Prayer time announcements 15 minutes before each prayer
+- Comprehensive settings panel for prayer-specific configurations
+- Smart dependency management between azan and announcement features
 - Test mode for verifying announcements
 - System logs for monitoring
 - Secure admin authentication
@@ -131,8 +133,33 @@ In `config.json`:
 
 1. Access the web interface at `http://localhost:3002` (or your configured port)
 2. Log in using your admin credentials
-3. Use the toggles to enable/disable azan and announcements
-4. Monitor system logs for any issues
+3. Access the settings panel by clicking the settings icon
+4. Configure global and prayer-specific settings:
+   - Enable/disable azan globally or for specific prayers
+   - Enable/disable announcements globally or for specific prayers
+   - Set azan timing to play at prayer start or iqamah time for each prayer
+5. Use the toggles to enable/disable azan and announcements
+6. Monitor system logs for any issues
+
+### Settings Panel
+
+The settings panel provides fine-grained control over the azan system:
+
+- **Global Settings**:
+  - **Azan Toggle**: Enable/disable all azan playback
+  - **Announcement Toggle**: Enable/disable all prayer announcements
+
+- **Prayer-Specific Settings**:
+  - Individual controls for each prayer (Fajr, Zuhr, Asr, Maghrib, Isha)
+  - Enable/disable azan for specific prayers
+  - Choose azan timing (prayer start or iqamah time)
+  - Enable/disable announcements for specific prayers
+
+- **Dependency Logic**:
+  - Announcement features depend on azan being enabled
+  - When global azan is disabled, all prayer-specific settings are disabled
+  - When a prayer's azan is disabled, its announcement is automatically disabled
+  - All settings remember their state when re-enabled
 
 ## Test Mode
 

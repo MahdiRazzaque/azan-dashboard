@@ -12,6 +12,15 @@ const PRAYER_ICONS = {
     isha: { type: 'fas', name: 'fa-moon' }
 };
 
+// Prayer display names
+const PRAYER_DISPLAY_NAMES = {
+    fajr: 'Fajr',
+    zuhr: 'Zuhr',
+    asr: 'Asr',
+    maghrib: 'Maghrib',
+    isha: 'Isha'
+};
+
 // DOM Elements
 const prayerTable = document.getElementById('prayer-table').getElementsByTagName('tbody')[0];
 const currentTimeDisplay = document.getElementById('current-time-display');
@@ -22,11 +31,28 @@ const logsContainer = document.querySelector('.logs-container');
 const container = document.querySelector('.container');
 const logControls = document.querySelector('.log-controls');
 
+// Settings-related DOM Elements
+const settingsBtn = document.getElementById('settings-btn');
+const settingsModal = document.getElementById('settings-modal');
+const settingsConfirmModal = document.getElementById('settings-confirm-modal');
+const prayerSettingsContainer = document.getElementById('prayer-settings');
+const globalAzanToggle = document.getElementById('global-azan-toggle');
+const globalAnnouncementToggle = document.getElementById('global-announcement-toggle');
+const settingsSaveBtn = document.getElementById('settings-save');
+const settingsCancelBtn = document.getElementById('settings-cancel');
+const settingsConfirmApplyBtn = document.getElementById('settings-confirm-apply');
+const settingsConfirmCancelBtn = document.getElementById('settings-confirm-cancel');
+
 // Store next prayer time globally
 let nextPrayerTime = null;
 
 // Add global variable to track auto-scroll state
 let shouldAutoScroll = true;
+
+// Store prayer data and settings
+let currentPrayerData = null;
+let currentPrayerSettings = null;
+let originalPrayerSettings = null; // For settings comparison when determining if changes were made
 
 // Add LogStore implementation
 const logStore = {
@@ -374,11 +400,482 @@ async function updatePrayerData() {
     try {
         const response = await fetch('/api/prayer-times');
         const data = await response.json();
+        
+        // Store the current prayer data
+        currentPrayerData = data;
 
         updatePrayerTable(data.iqamahTimes, data.startTimes, data.nextPrayer);
         updateTimeAndNextPrayer(data);
     } catch (error) {
         console.error('Error fetching prayer times:', error);
+    }
+}
+
+// Fetch prayer settings
+async function fetchPrayerSettings() {
+    try {
+        const response = await fetch('/api/prayer-settings');
+        const settings = await response.json();
+        
+        // Store the current prayer settings
+        currentPrayerSettings = settings;
+        originalPrayerSettings = JSON.parse(JSON.stringify(settings)); // Deep copy for comparison
+        
+        return settings;
+    } catch (error) {
+        console.error('Error fetching prayer settings:', error);
+        return null;
+    }
+}
+
+// Populate settings form with current settings
+function populateSettingsForm(settings, features) {
+    if (!settings) return;
+    
+    // Set global settings
+    globalAzanToggle.checked = features.azanEnabled;
+    globalAnnouncementToggle.checked = features.announcementEnabled;
+    
+    // Clear existing prayer settings
+    prayerSettingsContainer.innerHTML = '';
+    
+    // Add settings for each prayer
+    const prayers = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
+    prayers.forEach(prayer => {
+        const prayerSettings = settings.prayers[prayer] || {
+            azanEnabled: true,
+            announcementEnabled: true,
+            azanAtIqamah: false
+        };
+        
+        const prayerSettingDiv = document.createElement('div');
+        prayerSettingDiv.className = 'prayer-setting';
+        prayerSettingDiv.innerHTML = `
+            <h5>${PRAYER_DISPLAY_NAMES[prayer]}</h5>
+            <div class="setting-group">
+                <div class="setting-row">
+                    <label>Enable Azan</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="${prayer}-azan-toggle" class="toggle-input" ${prayerSettings.azanEnabled ? 'checked' : ''}>
+                        <label for="${prayer}-azan-toggle" class="toggle-label"></label>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label>Azan Timing</label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="${prayer}-azan-start" name="${prayer}-azan-timing" value="start" ${!prayerSettings.azanAtIqamah ? 'checked' : ''}>
+                            <label for="${prayer}-azan-start">Prayer Start</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="${prayer}-azan-iqamah" name="${prayer}-azan-timing" value="iqamah" ${prayerSettings.azanAtIqamah ? 'checked' : ''}>
+                            <label for="${prayer}-azan-iqamah">Iqamah Time</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-row">
+                    <label>Enable Announcement (15 min before prayer)</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="${prayer}-announcement-toggle" class="toggle-input" ${prayerSettings.announcementEnabled ? 'checked' : ''}>
+                        <label for="${prayer}-announcement-toggle" class="toggle-label"></label>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        prayerSettingsContainer.appendChild(prayerSettingDiv);
+    });
+    
+    // Initialize prayer-specific toggle states based on global settings
+    if (!features.azanEnabled) {
+        togglePrayerSpecificControls('azan', false);
+    }
+    
+    if (!features.announcementEnabled) {
+        togglePrayerSpecificControls('announcement', false);
+    }
+}
+
+// Gather settings from form
+function getSettingsFromForm() {
+    const settings = {
+        prayers: {},
+        globalAzanEnabled: globalAzanToggle.checked,
+        globalAnnouncementEnabled: globalAnnouncementToggle.checked
+    };
+    
+    const prayers = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
+    prayers.forEach(prayer => {
+        const azanEnabled = document.getElementById(`${prayer}-azan-toggle`).checked;
+        const announcementEnabled = document.getElementById(`${prayer}-announcement-toggle`).checked;
+        const azanAtIqamah = document.getElementById(`${prayer}-azan-iqamah`).checked;
+        
+        settings.prayers[prayer] = {
+            azanEnabled,
+            announcementEnabled,
+            azanAtIqamah
+        };
+    });
+    
+    return settings;
+}
+
+// Check if settings have changed
+function haveSettingsChanged(newSettings) {
+    if (!originalPrayerSettings) return true;
+    
+    // Check global settings
+    if (newSettings.globalAzanEnabled !== appConfig.features.azanEnabled) return true;
+    if (newSettings.globalAnnouncementEnabled !== appConfig.features.announcementEnabled) return true;
+    
+    // Check prayer-specific settings
+    const prayers = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
+    for (const prayer of prayers) {
+        const original = originalPrayerSettings.prayers[prayer];
+        const updated = newSettings.prayers[prayer];
+        
+        if (!original || !updated) return true;
+        
+        if (original.azanEnabled !== updated.azanEnabled) return true;
+        if (original.announcementEnabled !== updated.announcementEnabled) return true;
+        if (original.azanAtIqamah !== updated.azanAtIqamah) return true;
+    }
+    
+    return false;
+}
+
+// Save settings to server
+async function saveSettings(settings) {
+    try {
+        const response = await fetch('/api/prayer-settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-auth-token': authToken
+            },
+            body: JSON.stringify(settings)
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to save settings');
+        }
+        
+        const result = await response.json();
+        
+        // Update stored settings
+        currentPrayerSettings = result.settings;
+        originalPrayerSettings = JSON.parse(JSON.stringify(result.settings));
+        
+        // Update global feature flags
+        await initialiseFeatureStates();
+        
+        // Reschedule prayer timers with new settings
+        await fetch('/api/prayer-times/refresh', {
+            method: 'POST',
+            headers: {
+                'x-auth-token': authToken
+            }
+        });
+        
+        return true;
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        return false;
+    }
+}
+
+// Initialise settings panel
+async function initialiseSettingsPanel() {
+    // Settings button click handler
+    settingsBtn.addEventListener('click', async () => {
+        if (!isAuthenticated) {
+            showLoginModal(async () => {
+                await showSettingsModal();
+            });
+            return;
+        }
+        
+        await showSettingsModal();
+    });
+    
+    // Add event listeners for global toggles to disable/enable prayer-specific toggles
+    globalAzanToggle.addEventListener('change', (e) => {
+        togglePrayerSpecificControls('azan', e.target.checked);
+    });
+    
+    globalAnnouncementToggle.addEventListener('change', (e) => {
+        togglePrayerSpecificControls('announcement', e.target.checked);
+    });
+    
+    // Save button click handler
+    settingsSaveBtn.addEventListener('click', async () => {
+        const newSettings = getSettingsFromForm();
+        
+        // Check if settings have changed
+        if (haveSettingsChanged(newSettings)) {
+            // Show confirmation modal
+            settingsConfirmModal.classList.add('show');
+            
+            // Confirm button handler
+            settingsConfirmApplyBtn.onclick = async () => {
+                const success = await saveSettings(newSettings);
+                
+                if (success) {
+                    updateLogs({
+                        type: 'system',
+                        message: 'Prayer settings updated successfully',
+                        timestamp: moment().format('YYYY-MM-DD HH:mm:ss')
+                    });
+                    
+                    // Close both modals
+                    settingsConfirmModal.classList.remove('show');
+                    settingsModal.classList.remove('show');
+                    
+                    // Refresh prayer data
+                    await updatePrayerData();
+                } else {
+                    updateLogs({
+                        type: 'error',
+                        message: 'Failed to update prayer settings',
+                        timestamp: moment().format('YYYY-MM-DD HH:mm:ss')
+                    });
+                    settingsConfirmModal.classList.remove('show');
+                }
+            };
+            
+            // Cancel button handler
+            settingsConfirmCancelBtn.onclick = () => {
+                settingsConfirmModal.classList.remove('show');
+            };
+        } else {
+            // No changes, just close the modal
+            settingsModal.classList.remove('show');
+        }
+    });
+    
+    // Cancel button click handler
+    settingsCancelBtn.addEventListener('click', () => {
+        settingsModal.classList.remove('show');
+    });
+    
+    // Close modal if clicking outside
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+            settingsModal.classList.remove('show');
+        }
+    });
+    
+    // Close confirm modal if clicking outside
+    settingsConfirmModal.addEventListener('click', (e) => {
+        if (e.target === settingsConfirmModal) {
+            settingsConfirmModal.classList.remove('show');
+        }
+    });
+}
+
+// Toggle prayer-specific controls based on global toggle
+function togglePrayerSpecificControls(type, enabled) {
+    const prayers = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
+    
+    // If disabling global azan, also disable global announcement
+    if (type === 'azan' && !enabled && globalAnnouncementToggle) {
+        // Store original state to restore later
+        globalAnnouncementToggle.dataset.originalState = globalAnnouncementToggle.checked;
+        // Visually disable global announcement toggle
+        globalAnnouncementToggle.disabled = true;
+        const announcementLabel = globalAnnouncementToggle.nextElementSibling;
+        if (announcementLabel) {
+            announcementLabel.classList.add('disabled');
+            announcementLabel.title = "Announcements require Azan to be enabled globally";
+        }
+    }
+    
+    // If re-enabling global azan, re-enable global announcement toggle
+    if (type === 'azan' && enabled && globalAnnouncementToggle && globalAnnouncementToggle.disabled) {
+        globalAnnouncementToggle.disabled = false;
+        // Restore original state if it was saved
+        if (globalAnnouncementToggle.dataset.originalState !== undefined) {
+            globalAnnouncementToggle.checked = globalAnnouncementToggle.dataset.originalState === "true";
+            delete globalAnnouncementToggle.dataset.originalState;
+        }
+        const announcementLabel = globalAnnouncementToggle.nextElementSibling;
+        if (announcementLabel) {
+            announcementLabel.classList.remove('disabled');
+            announcementLabel.title = "";
+        }
+    }
+    
+    prayers.forEach(prayer => {
+        // Handle the toggle for the current type (azan or announcement)
+        const toggleElement = document.getElementById(`${prayer}-${type}-toggle`);
+        if (!toggleElement) return;
+        
+        // Get tooltip message based on disabled reason
+        let tooltipMessage = "";
+        if (type === 'azan' && !enabled) {
+            tooltipMessage = "Global Azan feature is disabled";
+        } else if (type === 'announcement' && !enabled) {
+            tooltipMessage = "Global Announcement feature is disabled";
+        }
+        
+        // If re-enabling, no need to change the checked status as it's preserved
+        
+        // If disabling, visually disable the toggle but keep its state
+        toggleElement.disabled = !enabled;
+        
+        // Add visual indicator and tooltip
+        const toggleLabel = toggleElement.nextElementSibling;
+        if (toggleLabel) {
+            if (enabled) {
+                toggleLabel.classList.remove('disabled');
+                toggleLabel.title = "";
+            } else {
+                toggleLabel.classList.add('disabled');
+                toggleLabel.title = tooltipMessage;
+            }
+        }
+        
+        // If this is azan, also handle the radio buttons and corresponding announcement toggle
+        if (type === 'azan') {
+            const startRadio = document.getElementById(`${prayer}-azan-start`);
+            const iqamahRadio = document.getElementById(`${prayer}-azan-iqamah`);
+            
+            if (startRadio && iqamahRadio) {
+                startRadio.disabled = !enabled;
+                iqamahRadio.disabled = !enabled;
+                
+                // Add visual styles to radio labels
+                const radioLabels = document.querySelectorAll(`label[for="${prayer}-azan-start"], label[for="${prayer}-azan-iqamah"]`);
+                radioLabels.forEach(label => {
+                    if (enabled) {
+                        label.classList.remove('disabled');
+                        label.title = "";
+                    } else {
+                        label.classList.add('disabled');
+                        label.title = tooltipMessage;
+                    }
+                });
+            }
+            
+            // Now handle the corresponding announcement toggle when azan toggle changes
+            const announcementToggle = document.getElementById(`${prayer}-announcement-toggle`);
+            if (announcementToggle) {
+                // If the prayer-specific azan toggle is checked and enabled
+                const azanToggleEnabled = toggleElement.checked && !toggleElement.disabled;
+                
+                // Store original state when disabling
+                if (!azanToggleEnabled && !announcementToggle.disabled) {
+                    announcementToggle.dataset.originalState = announcementToggle.checked;
+                }
+                
+                // If azan is disabled for this prayer (either unchecked or globally disabled)
+                const shouldDisableAnnouncement = !toggleElement.checked || toggleElement.disabled;
+                announcementToggle.disabled = shouldDisableAnnouncement;
+                
+                // Get the appropriate message
+                let announcementTooltipMessage = "";
+                if (toggleElement.disabled) {
+                    announcementTooltipMessage = "Global Azan feature is disabled";
+                } else if (!toggleElement.checked) {
+                    announcementTooltipMessage = `${PRAYER_DISPLAY_NAMES[prayer]} Azan is disabled`;
+                }
+                
+                // Update visual state of announcement toggle
+                const announcementLabel = announcementToggle.nextElementSibling;
+                if (announcementLabel) {
+                    if (shouldDisableAnnouncement) {
+                        announcementLabel.classList.add('disabled');
+                        announcementLabel.title = announcementTooltipMessage;
+                    } else {
+                        announcementLabel.classList.remove('disabled');
+                        announcementLabel.title = "";
+                        
+                        // Restore original state if it was saved and we're re-enabling
+                        if (announcementToggle.dataset.originalState !== undefined) {
+                            announcementToggle.checked = announcementToggle.dataset.originalState === "true";
+                            delete announcementToggle.dataset.originalState;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Add event listeners to prayer toggle switches
+function addPrayerToggleListeners() {
+    const prayers = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
+    
+    prayers.forEach(prayer => {
+        // Get the azan toggle for this prayer
+        const azanToggle = document.getElementById(`${prayer}-azan-toggle`);
+        
+        if (azanToggle) {
+            // Add change listener
+            azanToggle.addEventListener('change', (e) => {
+                const enabled = e.target.checked;
+                const announcementToggle = document.getElementById(`${prayer}-announcement-toggle`);
+                
+                if (!announcementToggle) return;
+                
+                if (!enabled) {
+                    // If disabling azan, also disable the announcement toggle
+                    // Store original state to restore later
+                    announcementToggle.dataset.originalState = announcementToggle.checked;
+                    announcementToggle.disabled = true;
+                    
+                    // Update the label with tooltip
+                    const announcementLabel = announcementToggle.nextElementSibling;
+                    if (announcementLabel) {
+                        announcementLabel.classList.add('disabled');
+                        announcementLabel.title = `${PRAYER_DISPLAY_NAMES[prayer]} Azan is disabled`;
+                    }
+                } else {
+                    // If enabling azan, re-enable the announcement toggle
+                    announcementToggle.disabled = false;
+                    
+                    // Restore original state if it was saved
+                    if (announcementToggle.dataset.originalState !== undefined) {
+                        announcementToggle.checked = announcementToggle.dataset.originalState === "true";
+                        delete announcementToggle.dataset.originalState;
+                    }
+                    
+                    // Update the label
+                    const announcementLabel = announcementToggle.nextElementSibling;
+                    if (announcementLabel) {
+                        announcementLabel.classList.remove('disabled');
+                        announcementLabel.title = "";
+                    }
+                }
+            });
+        }
+    });
+}
+
+// Show settings modal
+async function showSettingsModal() {
+    try {
+        // Fetch latest settings
+        const settings = await fetchPrayerSettings();
+        
+        // Always fetch fresh feature states directly from the server
+        const featuresResponse = await fetch('/api/features');
+        const features = await featuresResponse.json();
+        
+        // Store app config with fresh feature states
+        appConfig.features = features;
+        
+        // Populate form with settings
+        populateSettingsForm(settings, features);
+        
+        // Add event listeners to prayer toggle switches
+        addPrayerToggleListeners();
+        
+        // Show modal
+        settingsModal.classList.add('show');
+    } catch (error) {
+        console.error('Error showing settings modal:', error);
     }
 }
 
@@ -391,6 +888,8 @@ async function initialise() {
     initialiseLogControls();
     initialiseLogScroll();
     initialiseFeatureStates();
+    initialiseSettingsPanel();
+    addPrayerToggleListeners();
 
     // Start intervals
     setInterval(() => {
@@ -471,9 +970,8 @@ document.querySelectorAll('.modal').forEach(modal => {
     });
 });
 
-// Add feature toggle functionality
-const azanToggle = document.getElementById('azan-toggle');
-const announcementToggle = document.getElementById('announcement-toggle');
+// Store app config
+let appConfig = {};
 
 // Initialise feature states
 async function initialiseFeatureStates() {
@@ -481,67 +979,12 @@ async function initialiseFeatureStates() {
         const response = await fetch('/api/features');
         const features = await response.json();
         
-        // Update azan toggle
-        azanToggle.classList.toggle('enabled', features.azanEnabled);
-        azanToggle.classList.toggle('disabled', !features.azanEnabled);
-        
-        // Update announcement toggle
-        announcementToggle.classList.toggle('enabled', features.announcementEnabled);
-        announcementToggle.classList.toggle('disabled', !features.announcementEnabled);
+        // Store app config
+        appConfig = { features };
     } catch (error) {
         console.error('Error fetching feature states:', error);
     }
 }
-
-// Toggle feature function
-async function toggleFeature(feature, button) {
-    if (!isAuthenticated) {
-        showLoginModal(async () => {
-            await toggleFeature(feature, button);
-        });
-        return;
-    }
-
-    try {
-        const currentState = button.classList.contains('enabled');
-        const newState = !currentState;
-        
-        const response = await fetch('/api/features', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-auth-token': authToken
-            },
-            body: JSON.stringify({
-                [feature]: newState
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            button.classList.toggle('enabled', newState);
-            button.classList.toggle('disabled', !newState);
-        } else {
-            console.error(`Failed to toggle ${feature}:`, result.error);
-            // Revert button state if there was an error
-            button.classList.toggle('enabled', currentState);
-            button.classList.toggle('disabled', !currentState);
-        }
-    } catch (error) {
-        console.error(`Error toggling ${feature}:`, error);
-        // Show error in logs
-        logStore.addLog('error', `Error toggling ${feature}: ${error.message}`);
-        broadcastLogs(logStore.logs[logStore.logs.length - 1]);
-    }
-}
-
-// Add event listeners for toggles
-azanToggle.addEventListener('click', () => toggleFeature('azanEnabled', azanToggle));
-announcementToggle.addEventListener('click', () => toggleFeature('announcementEnabled', announcementToggle));
-
-// Initialise feature states on page load
-initialiseFeatureStates();
 
 // Authentication state
 let authToken = localStorage.getItem('authToken');

@@ -1,14 +1,16 @@
 import moment from 'moment-timezone';
 import schedule from 'node-schedule';
 import fetch from 'node-fetch';
-import { appConfig } from '../config/config-validator.js';
 import { getCurrentTime, logSection } from '../utils/utils.js';
 import { updatePrayerTimes } from '../prayer/prayer-times.js';
+import { getPrayerSettings } from '../prayer/prayer-settings.js';
+import { getFeatureStates } from '../features/feature-manager.js';
 
 // Schedule management
 const activeSchedules = new Map();
 const lastExecutionTimes = new Map();
 const DEBOUNCE_INTERVAL = 60000; // 1 minute in milliseconds
+const ANNOUNCEMENT_TIME_BEFORE = 15; // Fixed 15 minutes before prayer time
 
 // Clear existing schedules
 function clearExistingSchedules() {
@@ -46,8 +48,17 @@ async function scheduleNextDay() {
 }
 
 // Schedule azan for a prayer
-async function scheduleAzanTimer(prayerName, time) {
-    try {
+async function scheduleAzanTimer(prayerName, time, azanAtIqamah) {
+    try {    
+        const prayerSettings = await getPrayerSettings();
+        const prayerConfig = prayerSettings.prayers[prayerName];
+        
+        // Skip if this prayer's azan is disabled
+        if (!prayerConfig.azanEnabled) {
+            console.log(`⏭️ Azan for ${prayerName.toUpperCase()} is disabled in settings.`);
+            return null;
+        }
+
         const scheduledTime = moment.tz(time, 'HH:mm', 'Europe/London');
 
         if (scheduledTime.isBefore(getCurrentTime())) {
@@ -74,16 +85,66 @@ async function scheduleAzanTimer(prayerName, time) {
 // Schedule announcement for a prayer
 async function scheduleAnnouncementTimer(prayerName, time) {
     try {
-        const scheduledTime = moment.tz(time, 'HH:mm', 'Europe/London');
+        // // Get the current feature state in real time
+        // const features = getFeatureStates();
+        
+        // // If global azan is disabled, don't schedule announcements at all
+        // if (!features.azanEnabled) {
+        //     console.log(`⏸️ Global Azan feature is disabled, skipping ${prayerName.toUpperCase()} announcement`);
+        //     return null;
+        // }
+        
+        // // Check global announcement feature
+        // if (!features.announcementEnabled) {
+        //     console.log(`⏸️ Global Announcement feature is disabled, skipping ${prayerName.toUpperCase()} announcement`);
+        //     return null;
+        // }
+        
+        const prayerSettings = await getPrayerSettings();
+        const prayerConfig = prayerSettings.prayers[prayerName];
+        
+        // Skip if this prayer's azan is disabled (announcement depends on azan)
+        if (!prayerConfig.azanEnabled) {
+            console.log(`⏭️ Announcement for ${prayerName.toUpperCase()} is skipped because its Azan is disabled.`);
+            return null;
+        }
+        
+        // Skip if this prayer's announcement is disabled
+        if (!prayerConfig.announcementEnabled) {
+            console.log(`⏭️ Announcement for ${prayerName.toUpperCase()} is disabled in settings.`);
+            return null;
+        }
+        
+        // Calculate the announcement time (fixed at 15 minutes before prayer)
+        const announcementTime = moment.tz(time, 'HH:mm', 'Europe/London')
+            .subtract(ANNOUNCEMENT_TIME_BEFORE, 'minutes')
+            .format('HH:mm');
+        
+        const scheduledTime = moment.tz(announcementTime, 'HH:mm', 'Europe/London');
 
         if (scheduledTime.isBefore(getCurrentTime())) {
             console.log(`⏩ ${prayerName.toUpperCase()} prayer announcement time has already passed.`);
             return null;
         }
 
-        console.log(`📢 Scheduling ${prayerName.toUpperCase()} announcement at ${time}`);
+        console.log(`📢 Scheduling ${prayerName.toUpperCase()} announcement at ${announcementTime}`);
         return schedule.scheduleJob(scheduledTime.toDate(), async () => {
             if (!canExecute(`announcement_${prayerName}`)) return;
+            
+            // Check again at execution time if features are still enabled
+            const currentFeatures = getFeatureStates();
+            if (!currentFeatures.azanEnabled || !currentFeatures.announcementEnabled) {
+                console.log(`⏸️ Azan or Announcement feature is now disabled, skipping ${prayerName.toUpperCase()} announcement playback`);
+                return;
+            }
+            
+            // Also check if prayer-specific azan setting is still enabled
+            const currentSettings = await getPrayerSettings();
+            if (!currentSettings.prayers[prayerName].azanEnabled) {
+                console.log(`⏭️ ${prayerName.toUpperCase()} Azan is now disabled, skipping announcement playback`);
+                return;
+            }
+            
             console.log(`📢 ${prayerName.toUpperCase()} announcement time.`);
             try {
                 await playPrayerAnnouncement(prayerName);
@@ -99,7 +160,9 @@ async function scheduleAnnouncementTimer(prayerName, time) {
 
 // Play azan through Voice Monkey
 async function playAzan(fajr = false) {
-    if (!appConfig.features.azanEnabled) {
+    // Check current feature status before playing
+    const features = getFeatureStates();
+    if (!features.azanEnabled) {
         return console.log("⏸️ Azan feature disabled");
     }
     
@@ -116,7 +179,7 @@ async function playAzan(fajr = false) {
     const audioName = fajr ? "fajr-azan.mp3" : "azan.mp3";
     const audio = `${baseAudioUrl}/mp3/${audioName}`;
 
-    console.log("Audio used: ", audio);
+    //console.log("Audio used: ", audio);
 
     const payload = {
         token: voice_monkey_token, 
@@ -145,7 +208,7 @@ async function playAzan(fajr = false) {
             console.error("Error parsing JSON:", parseError, "Response text:", text);
             data = text;
         }
-        console.log('Azan triggered successfully:', data);
+        console.log('Azan triggered successfully:'/*, data*/);
     } catch (error) {
         console.error('Error triggering azan:', error);
     }
@@ -153,7 +216,9 @@ async function playAzan(fajr = false) {
 
 // Play prayer announcement through Voice Monkey
 async function playPrayerAnnouncement(prayerName) {
-    if (!appConfig.features.announcementEnabled) {
+    // Check current feature status before playing
+    const features = getFeatureStates();
+    if (!features.announcementEnabled) {
         return console.log("⏸️ Announcement feature disabled");
     }
 
@@ -176,7 +241,8 @@ async function playPrayerAnnouncement(prayerName) {
     }
 
     const audio = `${baseAudioUrl}${prayerToAnnouncementFile[prayerName]}`;
-    console.log("Audio used: ", audio);
+    
+    //console.log("Audio used: ", audio);
 
     const payload = {
         token: voice_monkey_token, 
@@ -206,7 +272,7 @@ async function playPrayerAnnouncement(prayerName) {
             data = text;
         }
 
-        console.log('Prayer announcement triggered successfully:', data);
+        console.log('Prayer announcement triggered successfully:'/*, data*/);
     } catch (error) {
         console.error('Error triggering prayer announcement:', error);
     }
@@ -218,56 +284,54 @@ async function scheduleNamazTimers() {
     
     const prayerData = await updatePrayerTimes();
     if (!prayerData) return;
-
+    
     const { startTimes, iqamahTimes } = prayerData;
-    const prayerAnnouncementTimes = Object.entries(iqamahTimes).reduce((acc, [prayerName, time]) => {
+    const prayerSettings = await getPrayerSettings();
+    
+    // Get fresh feature states
+    const features = getFeatureStates();
 
-        // Set announcement time to 15min before start time for fajr
-        if(prayerName == "fajr")
-            time = startTimes.fajr;
-
-        // Set announcement time to 15min before start time for magrib
-        if(prayerName === 'maghrib') 
-            time = startTimes.maghrib;
-
-        const updatedTime = moment(time, 'HH:mm').subtract(15, 'minutes').format('HH:mm');
-        acc[prayerName] = updatedTime;
-        return acc;
-    }, {});
-
-    if (appConfig.features.azanEnabled) {
-        logSection("Scheduling Prayer Iqamah Times");
-        for (var [prayerName, time] of Object.entries(iqamahTimes)) {
+    if (features.azanEnabled) {
+        logSection("Scheduling Prayer Azan Times");
+        for (const [prayerName, time] of Object.entries(startTimes)) {
             if (prayerName === 'sunrise') continue;
-
-            // Set azan time to start time for fajr
-            if(prayerName === 'fajr') 
-                time = startTimes.fajr;
-
-            // Set azan time to start time for magrib
-            if(prayerName === 'maghrib') 
-                time = startTimes.maghrib;
-
-            const job = await scheduleAzanTimer(prayerName, time);
+            
+            const prayerConfig = prayerSettings.prayers[prayerName];
+            if (!prayerConfig) continue;
+            
+            // Determine azan time based on prayer settings
+            const azanTime = prayerConfig.azanAtIqamah ? iqamahTimes[prayerName] : startTimes[prayerName];
+            
+            const job = await scheduleAzanTimer(prayerName, azanTime, prayerConfig.azanAtIqamah);
             if (job) {
                 activeSchedules.set(`azan_${prayerName}`, job);
             }
         }
     } else {
-        console.log("⏸️ Azan timer is disabled");
+        logSection("Scheduling Prayer Azan Times");
+        console.log("⏸️ Azan timer is globally disabled");
     }
 
-    if (appConfig.features.announcementEnabled) {
+    if (features.announcementEnabled && features.azanEnabled) {
+        // Schedule announcements only if azan is enabled
         logSection("Scheduling Prayer Announcements");
-        for (const [prayerName, time] of Object.entries(prayerAnnouncementTimes)) {
+        for (const [prayerName, time] of Object.entries(startTimes)) {
             if (prayerName === 'sunrise') continue;
+            
+            const prayerConfig = prayerSettings.prayers[prayerName];
+            if (!prayerConfig) continue;
+            
             const job = await scheduleAnnouncementTimer(prayerName, time);
             if (job) {
                 activeSchedules.set(`announcement_${prayerName}`, job);
             }
         }
-    } else {
-        console.log("⏸️ Announcements are disabled");
+    } else if (!features.azanEnabled && features.announcementEnabled) {
+        logSection("Scheduling Prayer Announcements");
+        console.log("⏸️ Azan timer is globally disabled, skipping announcements");
+    } else if (!features.announcementEnabled) {
+        logSection("Scheduling Prayer Announcements");
+        console.log("⏸️ Announcements are globally disabled");
     }
 
     // Schedule next day's update
@@ -280,4 +344,4 @@ async function scheduleNamazTimers() {
 export {
     scheduleNamazTimers,
     clearExistingSchedules
-}; 
+};

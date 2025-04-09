@@ -19,5 +19,36 @@
     "auth": {
         "sessionTimeout": 3600000,
         "maxSessions": 5
+    },
+    "prayerSettings": {
+        "prayers": {
+            "fajr": {
+                "azanEnabled": true,
+                "announcementEnabled": false,
+                "azanAtIqamah": true
+            },
+            "zuhr": {
+                "azanEnabled": true,
+                "announcementEnabled": true,
+                "azanAtIqamah": true
+            },
+            "asr": {
+                "azanEnabled": true,
+                "announcementEnabled": true,
+                "azanAtIqamah": true
+            },
+            "maghrib": {
+                "azanEnabled": true,
+                "announcementEnabled": true,
+                "azanAtIqamah": false
+            },
+            "isha": {
+                "azanEnabled": true,
+                "announcementEnabled": true,
+                "azanAtIqamah": true
+            }
+        },
+        "globalAzanEnabled": true,
+        "globalAnnouncementEnabled": true
     }
 }

@@ -1,6 +1,8 @@
 import moment from 'moment-timezone';
 import { getPrayerTimesData } from './prayer-data-provider.js';
 import { getCurrentTime } from '../utils/utils.js';
+import { scheduleNamazTimers } from '../scheduler/scheduler.js';
+import { requireAuth } from '../auth/auth.js';
 
 // Calculate next prayer
 function calculateNextPrayer(startTimes) {
@@ -78,9 +80,21 @@ function setupPrayerRoutes(app) {
             currentTime: getCurrentTime().format('HH:mm:ss')
         });
     });
+
+    // Add a new endpoint to refresh prayer timers
+    app.post('/api/prayer-times/refresh', requireAuth, async (req, res) => {
+        try {
+            await scheduleNamazTimers();
+            console.info('🔄 Prayer timers refreshed due to settings change');
+            res.json({ success: true });
+        } catch (error) {
+            console.error('Error refreshing prayer timers:', error);
+            res.status(500).json({ error: 'Failed to refresh prayer timers' });
+        }
+    });
 }
 
 export {
     updatePrayerTimes,
     setupPrayerRoutes
-}; 
+};
