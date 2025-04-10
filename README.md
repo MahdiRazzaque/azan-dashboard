@@ -9,11 +9,16 @@ A Node.js application for managing and announcing prayer times using Alexa devic
 - Prayer time announcements 15 minutes before each prayer
 - Comprehensive settings panel for prayer-specific configurations
 - Smart dependency management between azan and announcement features
+- Interactive configuration setup with validation
 - Test mode for verifying announcements
 - System logs for monitoring
 - Secure admin authentication
 
 ## Configuration
+
+### Initial Setup
+
+When you start the application for the first time, it will prompt you in the terminal to enter your myMasjid guildId. This ID will be validated against the myMasjid API to ensure it is correct. If validation fails, you will be prompted to enter it again until a valid ID is provided.
 
 ### Prayer Times Source
 
@@ -25,7 +30,7 @@ The system supports two sources for prayer times:
        "prayerData": {
            "source": "mymasjid",
            "mymasjid": {
-               "guidId": "your-guid-id-here"
+               "guildId": "your-guild-id-here"
            }
        }
    }
@@ -88,28 +93,60 @@ Create a `.env` file in the root directory with:
 ```env
 ADMIN_USERNAME=your_username
 ADMIN_PASSWORD_HASH=your_password_hash
+SALT=your_salt_value
 VOICEMONKEY_TOKEN=your_voicemonkey_token
+```
+
+To generate a password hash, you can use the included utility:
+```bash
+node src/utils/generate-password-hash.js
 ```
 
 ### Features Configuration
 
-In `config.json`:
+The system automatically manages configurations in MongoDB. Default settings include:
+
 ```json
 {
-    "PORT": 3002,
     "features": {
         "azanEnabled": true,
         "announcementEnabled": true,
         "systemLogsEnabled": true
     },
-    "testMode": {
-        "enabled": false,
-        "startTime": "02:00:00",
-        "timezone": "Europe/London"
-    },
     "auth": {
         "sessionTimeout": 3600000,
         "maxSessions": 5
+    },
+    "prayerSettings": {
+        "prayers": {
+            "fajr": {
+                "azanEnabled": false,
+                "announcementEnabled": false,
+                "azanAtIqamah": true
+            },
+            "zuhr": {
+                "azanEnabled": true,
+                "announcementEnabled": false,
+                "azanAtIqamah": true
+            },
+            "asr": {
+                "azanEnabled": true,
+                "announcementEnabled": true,
+                "azanAtIqamah": false
+            },
+            "maghrib": {
+                "azanEnabled": true,
+                "announcementEnabled": true,
+                "azanAtIqamah": false
+            },
+            "isha": {
+                "azanEnabled": true,
+                "announcementEnabled": true,
+                "azanAtIqamah": true
+            }
+        },
+        "globalAzanEnabled": true,
+        "globalAnnouncementEnabled": true
     }
 }
 ```
@@ -122,16 +159,16 @@ In `config.json`:
    npm install
    ```
 3. Create `.env` file with required variables
-4. Create or modify `config.json` with your settings
-5. If using local prayer times, create `prayer_times.json`
-6. Start the server:
+4. If using local prayer times, create `prayer_times.json`
+5. Start the server:
    ```bash
    npm start
    ```
+6. Follow the interactive setup process to enter your myMasjid guildId
 
 ## Usage
 
-1. Access the web interface at `http://localhost:3002` (or your configured port)
+1. Access the web interface at `http://localhost:3000` (or your configured port)
 2. Log in using your admin credentials
 3. Access the settings panel by clicking the settings icon
 4. Configure global and prayer-specific settings:
@@ -165,7 +202,7 @@ The settings panel provides fine-grained control over the azan system:
 
 Test mode allows you to verify announcements by setting a specific time:
 
-1. Enable test mode in config.json
+1. Enable test mode in utils.js
 2. Set the desired test time
 3. Restart the server
 4. The system will use the test time instead of actual time
@@ -174,7 +211,7 @@ Test mode allows you to verify announcements by setting a specific time:
 
 - Admin authentication required for all control features
 - Session-based authentication with configurable timeout
-- Secure password hashing
+- Secure password hashing using PBKDF2
 - Rate limiting on authentication endpoints
 
 ## Troubleshooting
@@ -184,3 +221,4 @@ Test mode allows you to verify announcements by setting a specific time:
 - Ensure all required environment variables are set
 - Check file permissions for local prayer times file
 - Verify network connectivity for MyMasjid API
+- If your guildId validation fails repeatedly, check if you can access the myMasjid API directly in a browser
