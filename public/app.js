@@ -569,15 +569,7 @@ async function saveSettings(settings) {
         
         // Update global feature flags
         await initialiseFeatureStates();
-        
-        // Reschedule prayer timers with new settings
-        await fetch('/api/prayer-times/refresh', {
-            method: 'POST',
-            headers: {
-                'x-auth-token': authToken
-            }
-        });
-        
+                
         return true;
     } catch (error) {
         console.error('Error saving settings:', error);

@@ -8,6 +8,10 @@ import { scheduleNamazTimers } from '../scheduler/scheduler.js';
 import { initialisePrayerDataSource } from '../prayer/prayer-data-provider.js';
 import { setupPrayerRoutes } from '../prayer/prayer-times.js';
 import { setupPrayerSettingsRoutes } from '../prayer/prayer-settings.js';
+import { connectToDatabase } from '../database/db-connection.js';
+import { TEST_MODE } from '../utils/utils.js';
+import { loadConfig, validateEnv } from '../config/config-validator.js';
+import configRoutes from '../config/config-routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,6 +27,7 @@ app.use(express.static(path.join(__dirname, '../../public')));
 initialiseLogging();
 
 // Setup routes
+app.use(configRoutes);  // Add the config routes
 setupFeatureRoutes(app);
 setupAuthRoutes(app);
 setupLogRoutes(app);
@@ -34,13 +39,29 @@ async function initialiseServer() {
     try {
         console.info('🚀 Initialising server...');
         
-        // Initialise prayer data source first
+        // Validate environment variables
+        validateEnv();
+        console.info('✅ Environment variables validated');
+        
+        // Connect to MongoDB database first
+        await connectToDatabase();
+       
+        // Load configuration from MongoDB
+        const configLoaded = await loadConfig();
+        if (!configLoaded) {            console.error("❌ Failed to load configuration from MongoDB");
+            console.info("💡 MongoDB doesn't have configuration data. Default values will be used on next startup.");
+            return false;
+        }
+        
+        // Initialise prayer data source
         await initialisePrayerDataSource();
-        console.info('✅ Prayer data source initialised');
         
         // Initialise components
         await scheduleNamazTimers();
-        console.info('✅ Prayer timers scheduled');
+
+        if(TEST_MODE) { 
+            console.log("🧪 TEST MODE enabled")
+        }
         
         return true;
     } catch (error) {

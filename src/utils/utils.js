@@ -1,8 +1,10 @@
 import moment from 'moment-timezone';
-import { appConfig } from '../config/config-validator.js';
 
-const TEST_MODE = appConfig.testMode.enabled;
-const TEST_START_TIME = moment.tz(appConfig.testMode.startTime, 'HH:mm:ss', appConfig.testMode.timezone);
+// Define TEST_MODE
+const TEST_MODE = true; // Set to true to enable test mode
+const TEST_START_TIME = TEST_MODE ? 
+  moment.tz('02:00:00', 'HH:mm:ss', 'Europe/London') : 
+  null;
 const timeOffset = TEST_MODE ? moment().diff(TEST_START_TIME) : 0;
 
 // Time utility functions

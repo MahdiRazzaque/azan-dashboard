@@ -108,6 +108,8 @@ export async function initialisePrayerDataSource() {
             process.exit(1);
         }
     }
+
+    console.info('✅ Prayer data source initialised');
 }
 
 // Get prayer times data

@@ -1,7 +1,7 @@
 import { app, initialiseServer } from './src/server/server.js';
-import { appConfig } from './src/config/config-validator.js';
 
-const PORT = appConfig.PORT || 3002;
+// Hardcoded port with explicit comment about configuration source
+const PORT = 3002; // Centrally configured here (not in MongoDB or .env)
 
 // Start the server
 async function startServer() {

@@ -97,6 +97,8 @@ async function scheduleNamazTimers() {
     if (nextDayJob) {
         activeSchedules.set('next_day', nextDayJob);
     }
+
+    console.info('✅ Prayer timers scheduled');
 }
 
 // Schedule next day's update
