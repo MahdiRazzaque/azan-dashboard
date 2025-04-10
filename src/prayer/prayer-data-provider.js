@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
-import { appConfig } from '../config/config-validator.js';
+import { getConfig } from '../config/config-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,10 +87,11 @@ function validateLocalPrayerTimes(filePath) {
 
 // Initialise prayer data source
 export async function initialisePrayerDataSource() {
-    const { source } = appConfig.prayerData;
+    const prayerData = getConfig('prayerData');
+    const { source } = prayerData;
 
     if (source === 'mymasjid') {
-        const guidId = appConfig.prayerData.mymasjid.guidId;
+        const guidId = prayerData.mymasjid.guidId;
         const isValid = await validateMyMasjidGuidId(guidId);
         if (!isValid) {
             console.error("Error: Invalid myMasjid GuidId. Please check your configuration.");

@@ -1,14 +1,15 @@
 import { requireAuth } from '../auth/auth.js';
 import { scheduleNamazTimers } from '../scheduler/scheduler.js';
-import { appConfig } from '../config/config-validator.js';
+import { getConfig } from '../config/config-manager.js';
 import { TEST_MODE, TEST_START_TIME } from '../utils/utils.js';
 
-// Feature state management - read from appConfig
+// Feature state management - read from config manager
 function getFeatureStates() {
+    const config = getConfig();
     return {
-        azanEnabled: appConfig?.features?.azanEnabled ?? true,
-        announcementEnabled: appConfig?.features?.announcementEnabled ?? true,
-        systemLogsEnabled: appConfig?.features?.systemLogsEnabled ?? false
+        azanEnabled: config?.features?.azanEnabled ?? true,
+        announcementEnabled: config?.features?.announcementEnabled ?? true,
+        systemLogsEnabled: config?.features?.systemLogsEnabled ?? false
     };
 }
 

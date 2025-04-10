@@ -10,7 +10,9 @@ import { setupPrayerRoutes } from '../prayer/prayer-times.js';
 import { setupPrayerSettingsRoutes } from '../prayer/prayer-settings.js';
 import { connectToDatabase } from '../database/db-connection.js';
 import { TEST_MODE } from '../utils/utils.js';
-import { loadConfig, validateEnv } from '../config/config-validator.js';
+import { validateEnv } from '../config/config-validator.js';
+import { initializeConfig } from '../config/config-manager.js';
+import { getConfig } from '../config/config-service.js';
 import configRoutes from '../config/config-routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,13 +44,26 @@ async function initialiseServer() {
         // Validate environment variables
         validateEnv();
         console.info('✅ Environment variables validated');
-        
-        // Connect to MongoDB database first
+          // Connect to MongoDB database first
         await connectToDatabase();
        
-        // Load configuration from MongoDB
-        const configLoaded = await loadConfig();
-        if (!configLoaded) {            console.error("❌ Failed to load configuration from MongoDB");
+        // Load configuration from MongoDB and initialize the config manager
+        try {
+            // Get configuration from database via service
+            const config = await getConfig();
+            
+            // Initialize the config manager with the loaded configuration
+            const configInitialized = initializeConfig(config);
+            
+            if (!configInitialized) {
+                console.error("❌ Failed to initialize configuration manager");
+                console.info("💡 Configuration validation failed. Check your configuration data.");
+                return false;
+            }
+            
+            console.info("✅ Configuration manager initialized successfully");
+        } catch (error) {
+            console.error("❌ Failed to load configuration from MongoDB:", error);
             console.info("💡 MongoDB doesn't have configuration data. Default values will be used on next startup.");
             return false;
         }

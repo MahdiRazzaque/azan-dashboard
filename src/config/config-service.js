@@ -1,6 +1,5 @@
 import Config from '../database/models/config-model.js';
-import { refreshAppConfig } from '../config/config-validator.js';
-
+import { refreshConfig, initializeConfig } from './config-manager.js';
 
 // Cache for config to avoid frequent database reads
 let configCache = null;
@@ -31,7 +30,7 @@ async function getConfig() {
     cacheTimestamp = now;
     
     // Also update the in-memory app config when we fetch fresh data
-    refreshAppConfig(configCache);
+    refreshConfig(configCache);
     
     return configCache;
   } catch (error) {
@@ -127,20 +126,19 @@ async function updateConfig(section, data) {
     if (!updatedConfig) {
       console.error(`❌ Failed to update ${section}: No document returned`);
       throw new Error(`Failed to update ${section}`);
-    }
-      // Force cache update with the entire new document
+    }    // Force cache update with the entire new document
     configCache = updatedConfig.toObject();
     cacheTimestamp = Date.now();
     
     // Refresh the in-memory app config
     try {      
-      // Refresh the appConfig with the new data and get a copy
-      refreshAppConfig(configCache);
+      // Update the centralized config with the new data
+      refreshConfig(configCache);
       
       // Log successful update
-      console.log(`✅ Updated ${section} in configuration and refreshed appConfig`);
+      console.log(`✅ Updated ${section} in configuration and refreshed config`);
     } catch (error) {
-      console.error('❌ Error updating appConfig:', error);
+      console.error('❌ Error updating config manager:', error);
     }
     
     return configCache;
