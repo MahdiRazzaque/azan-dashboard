@@ -1,7 +1,7 @@
 import moment from 'moment-timezone';
 
 // Define TEST_MODE
-const TEST_MODE = true; // Set to true to enable test mode
+const TEST_MODE = false; // Set to true to enable test mode
 const TEST_START_TIME = TEST_MODE ? 
   moment.tz('02:00:00', 'HH:mm:ss', 'Europe/London') : 
   null;
