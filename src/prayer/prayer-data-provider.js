@@ -10,20 +10,20 @@ const __dirname = path.dirname(__filename);
 // Cache for prayer times data
 let prayerTimesCache = null;
 
-// Validate myMasjid API GuidId
-async function validateMyMasjidGuidId(guidId) {
+// Validate myMasjid API GuildId
+async function validateMyMasjidGuildId(guildId) {
     try {
-        const response = await fetch(`https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=${guidId}`);
+        const response = await fetch(`https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=${guildId}`);
         const data = await response.json();
 
         if (!data.model?.salahTimings) {
-            console.error("Error: Invalid myMasjid GuidId response:", data);
+            //console.error("Error: Invalid myMasjid GuildId response:", data);
             return false;
         }
 
         return true;
     } catch (error) {
-        console.error("Error validating myMasjid GuidId:", error);
+        console.error("Error validating myMasjid GuildId:", error);
         return false;
     }
 }
@@ -86,7 +86,7 @@ function validateLocalPrayerTimes(filePath) {
 }
 
 // Initialise prayer data source
-export async function initialisePrayerDataSource() {
+async function initialisePrayerDataSource() {
     try {
         // Await the configuration to ensure we have the latest data
         const config = await getConfig();
@@ -99,15 +99,15 @@ export async function initialisePrayerDataSource() {
         const { source } = config.prayerData;
 
         if (source === 'mymasjid') {
-            if (!config.prayerData.mymasjid?.guidId) {
-                console.error("Error: mymasjid guidId is missing in configuration");
+            if (!config.prayerData.mymasjid?.guildId) {
+                console.error("Error: mymasjid guildId is missing in configuration");
                 process.exit(1);
             }
             
-            const guidId = config.prayerData.mymasjid.guidId;
-            const isValid = await validateMyMasjidGuidId(guidId);
+            const guildId = config.prayerData.mymasjid.guildId;
+            const isValid = await validateMyMasjidGuildId(guildId);
             if (!isValid) {
-                console.error("Error: Invalid myMasjid GuidId. Please check your configuration.");
+                console.error("Error: Invalid myMasjid GuildId. Please check your configuration.");
                 process.exit(1);
             }
         } else if (source === 'local') {
@@ -134,7 +134,7 @@ export async function initialisePrayerDataSource() {
 }
 
 // Get prayer times data
-export async function getPrayerTimesData(date) {
+async function getPrayerTimesData(date) {
     try {
         // Get fresh config with await to ensure it's loaded properly
         const config = await getConfig();
@@ -145,12 +145,12 @@ export async function getPrayerTimesData(date) {
         const { source } = config.prayerData;
 
         if (source === 'mymasjid') {
-            if (!config.prayerData.mymasjid?.guidId) {
-                throw new Error('mymasjid guidId is missing in configuration');
+            if (!config.prayerData.mymasjid?.guildId) {
+                throw new Error('mymasjid guildId is missing in configuration');
             }
             
-            const guidId = config.prayerData.mymasjid.guidId;
-            const response = await fetch(`https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=${guidId}`);
+            const guildId = config.prayerData.mymasjid.guildId;
+            const response = await fetch(`https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=${guildId}`);
             const data = await response.json();
 
             if (!data.model?.salahTimings) {
@@ -232,4 +232,11 @@ export async function getPrayerTimesData(date) {
         }
         throw error;
     }
-} 
+}
+
+// Export functions
+export { 
+    initialisePrayerDataSource, 
+    getPrayerTimesData,
+    validateMyMasjidGuildId  // Export the validation function
+}; 
