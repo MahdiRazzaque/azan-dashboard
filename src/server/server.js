@@ -47,21 +47,21 @@ async function initialiseServer() {
         // Connect to MongoDB database first
         await connectToDatabase();
        
-        // Load configuration from MongoDB and initialize the config system
+        // Load configuration from MongoDB and initialise the config system
         try {
-            // Get configuration from database - this will initialize the in-memory config as well
+            // Get configuration from database - this will initialise the in-memory config as well
             const config = await getConfig();
             
             // Configuration has been loaded into memory, now validate it
-            const configInitialized = initializeConfig(config);
+            const configInitialised = initializeConfig(config);
             
-            if (!configInitialized) {
+            if (!configInitialised) {
                 console.error("❌ Failed to validate configuration");
                 console.info("💡 Configuration validation failed. Check your configuration data.");
                 return false;
             }
             
-            console.info("✅ Configuration initialized and validated successfully");
+            console.info("✅ Configuration initialised and validated successfully");
         } catch (error) {
             console.error("❌ Failed to load configuration from MongoDB:", error);
             console.info("💡 Default values will be used. Please check database connection.");

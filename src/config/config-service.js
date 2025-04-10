@@ -70,10 +70,10 @@ function _updateInMemoryConfigSection(section, data) {
 }
 
 /**
- * Initializes the in-memory configuration and validates it
+ * Initialises the in-memory configuration and validates it
  * 
  * @param {Object} initialConfig - The initial configuration object
- * @returns {boolean} - Whether initialization was successful
+ * @returns {boolean} - Whether initialisation was successful
  */
 function initializeConfig(initialConfig) {
   try {
@@ -84,13 +84,13 @@ function initializeConfig(initialConfig) {
     const isValid = validateConfig(_appConfig);
     
     if (!isValid) {
-      console.error('❌ Configuration validation failed during initialization');
+      console.error('❌ Configuration validation failed during initialisation');
       return false;
     }
     
     return true;
   } catch (error) {
-    console.error('❌ Failed to initialize configuration:', error);
+    console.error('❌ Failed to initialise configuration:', error);
     return false;
   }
 }
@@ -142,7 +142,7 @@ async function _getConfigAsync(section = null) {
     // Try to get config from database
     let config = await Config.findOne();
     
-    // If no config exists, initialize from defaults
+    // If no config exists, initialise from defaults
     if (!config) {
       config = await initialiseNewConfig();
     }
@@ -191,7 +191,7 @@ function askQuestion(rl, question) {
 }
 
 /**
- * Initialize configuration with default values, prompting for guildId
+ * Initialise configuration with default values, prompting for guildId
  */
 async function initialiseNewConfig() {
   try {
@@ -292,10 +292,10 @@ async function initialiseNewConfig() {
     // Also update the in-memory config
     refreshConfig(defaultConfig);
     
-    console.log('✅ Configuration initialized with user-provided values');
+    console.log('✅ Configuration initialised with user-provided values');
     return newConfig;
   } catch (error) {
-    console.error('❌ Error initializing default configuration:', error);
+    console.error('❌ Error initialising default configuration:', error);
     throw error;
   }
 }
@@ -422,5 +422,5 @@ export {
   getConfig,        // Primary method for getting config (from DB, synced to memory)
   updateConfig,     // Primary method for updating config (in DB and memory)
   refreshConfig,    // Used by server.js and internal code to update in-memory config
-  initializeConfig  // Used by server.js to initialize config at startup
+  initializeConfig  // Used by server.js to initialise config at startup
 };

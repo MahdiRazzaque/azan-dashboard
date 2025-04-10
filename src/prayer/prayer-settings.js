@@ -37,7 +37,7 @@ async function getPrayerSettings() {
     try {
         const config = await getConfig();
         if (!config.prayerSettings) {
-            // If no prayer settings in MongoDB, initialize with defaults
+            // If no prayer settings in MongoDB, initialise with defaults
             await updateConfig('prayerSettings', DEFAULT_PRAYER_SETTINGS);
             return DEFAULT_PRAYER_SETTINGS;
         }
