@@ -1,4 +1,4 @@
-import { appConfig } from '../config/config-validator.js';
+import { getConfig } from '../config/config-service.js';
 
 // Store logs in memory
 const MAX_LOGS = 1000;
@@ -76,17 +76,16 @@ function overrideConsole() {
 function setupLogRoutes(app) {
     // SSE endpoint for real-time logs
     app.get('/api/logs/stream', (req, res) => {
-        if (!appConfig.features.systemLogsEnabled) {
-            return res.status(403).json({ error: 'System logs are disabled' });
-        }
-
+        // Use synchronous mode to avoid async issues
+        const config = getConfig(true);
+        
         // Set headers for SSE
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('X-Accel-Buffering', 'no'); // Disable Nginx buffering
-        
+
         // Send initial connection message
         const connectMessage = {
             type: 'system',
@@ -95,10 +94,20 @@ function setupLogRoutes(app) {
         };
         res.write(`data: ${JSON.stringify(connectMessage)}\n\n`);
         
-        // Send existing logs
-        logs.forEach(log => {
-            res.write(`data: ${JSON.stringify(log)}\n\n`);
-        });
+        // Check if logs are disabled, but keep connection open
+        if (!config?.features?.systemLogsEnabled) {
+            const disabledMessage = {
+                type: 'system',
+                message: 'System logs are currently disabled in settings',
+                timestamp: new Date().toISOString()
+            };
+            res.write(`data: ${JSON.stringify(disabledMessage)}\n\n`);
+        } else {
+            // Send existing logs
+            logs.forEach(log => {
+                res.write(`data: ${JSON.stringify(log)}\n\n`);
+            });
+        }
         
         // Add client to the Set
         clients.add(res);
@@ -134,7 +143,8 @@ function setupLogRoutes(app) {
 
     // Get all logs
     app.get('/api/logs', (req, res) => {
-        if (!appConfig.features.systemLogsEnabled) {
+        const config = getConfig(true);
+        if (!config?.features?.systemLogsEnabled) {
             return res.status(403).json({ error: 'System logs are disabled' });
         }
         res.json(logs);
@@ -142,7 +152,8 @@ function setupLogRoutes(app) {
 
     // Clear all logs
     app.post('/api/logs/clear', (req, res) => {
-        if (!appConfig.features.systemLogsEnabled) {
+        const config = getConfig(true);
+        if (!config?.features?.systemLogsEnabled) {
             return res.status(403).json({ error: 'System logs are disabled' });
         }
         logs.length = 0;
@@ -152,7 +163,8 @@ function setupLogRoutes(app) {
 
     // Get last error
     app.get('/api/logs/last-error', (req, res) => {
-        if (!appConfig.features.systemLogsEnabled) {
+        const config = getConfig(true);
+        if (!config?.features?.systemLogsEnabled) {
             return res.status(403).json({ error: 'System logs are disabled' });
         }
         const lastError = [...logs].reverse().find(log => log.type === 'error');

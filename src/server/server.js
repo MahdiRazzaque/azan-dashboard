@@ -10,9 +10,8 @@ import { setupPrayerRoutes } from '../prayer/prayer-times.js';
 import { setupPrayerSettingsRoutes } from '../prayer/prayer-settings.js';
 import { connectToDatabase } from '../database/db-connection.js';
 import { TEST_MODE } from '../utils/utils.js';
-import { validateEnv } from '../config/config-validator.js';
-import { initializeConfig } from '../config/config-manager.js';
-import { getConfig } from '../config/config-service.js';
+import { validateEnv, validateConfig } from '../config/config-validator.js';
+import { getConfig, initializeConfig } from '../config/config-service.js';
 import configRoutes from '../config/config-routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -44,27 +43,28 @@ async function initialiseServer() {
         // Validate environment variables
         validateEnv();
         console.info('✅ Environment variables validated');
-          // Connect to MongoDB database first
+          
+        // Connect to MongoDB database first
         await connectToDatabase();
        
-        // Load configuration from MongoDB and initialize the config manager
+        // Load configuration from MongoDB and initialize the config system
         try {
-            // Get configuration from database via service
+            // Get configuration from database - this will initialize the in-memory config as well
             const config = await getConfig();
             
-            // Initialize the config manager with the loaded configuration
+            // Configuration has been loaded into memory, now validate it
             const configInitialized = initializeConfig(config);
             
             if (!configInitialized) {
-                console.error("❌ Failed to initialize configuration manager");
+                console.error("❌ Failed to validate configuration");
                 console.info("💡 Configuration validation failed. Check your configuration data.");
                 return false;
             }
             
-            console.info("✅ Configuration manager initialized successfully");
+            console.info("✅ Configuration initialized and validated successfully");
         } catch (error) {
             console.error("❌ Failed to load configuration from MongoDB:", error);
-            console.info("💡 MongoDB doesn't have configuration data. Default values will be used on next startup.");
+            console.info("💡 Default values will be used. Please check database connection.");
             return false;
         }
         

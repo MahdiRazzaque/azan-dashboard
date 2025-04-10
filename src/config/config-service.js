@@ -1,40 +1,167 @@
+/**
+ * config-service.js - Unified configuration service for the application
+ * Handles both in-memory configuration state and database persistence
+ */
 import Config from '../database/models/config-model.js';
-import { refreshConfig, initializeConfig } from './config-manager.js';
+import { validateConfig } from './config-validator.js';
 
-// Cache for config to avoid frequent database reads
+// ----- IN-MEMORY CONFIGURATION MANAGEMENT -----
+
+// Private configuration object for in-memory storage
+let _appConfig = {};
+
+/**
+ * Retrieves the current in-memory configuration or a specific section
+ * This is for internal use - external modules should use getConfig() instead
+ * 
+ * @param {string} [section] - Optional specific section to retrieve (e.g., 'prayerData', 'general')
+ * @returns {Object} - The requested configuration or section
+ */
+function _getInMemoryConfig(section = null) {
+  if (section) {
+    return _appConfig[section] ? structuredClone(_appConfig[section]) : null;
+  }
+  // Return a copy to prevent direct mutation
+  return structuredClone(_appConfig);
+}
+
+/**
+ * Updates the internal in-memory configuration with a new version
+ * 
+ * @param {Object} newConfig - The new configuration to apply
+ * @returns {Object} - The updated configuration object (as a copy)
+ */
+function refreshConfig(newConfig) {
+  // Clear the existing config object
+  Object.keys(_appConfig).forEach(key => delete _appConfig[key]);
+  
+  // Copy all properties from the new config
+  Object.assign(_appConfig, newConfig);
+  
+  // Return a copy to prevent direct mutation
+  return structuredClone(_appConfig);
+}
+
+/**
+ * Updates a specific section of the in-memory configuration
+ * For internal use only - external modules should use updateConfig()
+ * 
+ * @param {string} section - The section to update
+ * @param {Object} data - The new data for the section
+ * @returns {Object} - The updated configuration
+ */
+function _updateInMemoryConfigSection(section, data) {
+  if (!section || !data) {
+    console.error('❌ Cannot update config section: missing section name or data');
+    return _appConfig;
+  }
+
+  // Create a deep copy of current config to avoid direct mutations
+  const updatedConfig = structuredClone(_appConfig);
+  updatedConfig[section] = data;
+  
+  // Update the internal config
+  refreshConfig(updatedConfig);
+  
+  return _getInMemoryConfig();
+}
+
+/**
+ * Initializes the in-memory configuration and validates it
+ * 
+ * @param {Object} initialConfig - The initial configuration object
+ * @returns {boolean} - Whether initialization was successful
+ */
+function initializeConfig(initialConfig) {
+  try {
+    // Set the config
+    refreshConfig(initialConfig);
+    
+    // Validate the configuration
+    const isValid = validateConfig(_appConfig);
+    
+    if (!isValid) {
+      console.error('❌ Configuration validation failed during initialization');
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to initialize configuration:', error);
+    return false;
+  }
+}
+
+// ----- DATABASE CONFIGURATION MANAGEMENT -----
+
+// Cache for database config to avoid frequent reads
 let configCache = null;
 let cacheTimestamp = null;
 const CACHE_LIFETIME = 60000; // 1 minute cache lifetime
 
 /**
- * Get the full configuration from database or initialize it
+ * Get the full configuration from database and sync with in-memory state
+ * This is the primary method other modules should use to get configuration
+ * 
+ * @param {string|boolean} [sectionOrSync] - Optional specific section to retrieve or boolean for sync mode
+ * @param {boolean} [sync] - When true, returns the in-memory config immediately without DB lookup
+ * @returns {Object|Promise<Object>} - The requested configuration or section
  */
-async function getConfig() {
+function getConfig(sectionOrSync = null, sync = false) {
+  // Handle the case where the first parameter is a boolean (sync flag)
+  if (typeof sectionOrSync === 'boolean') {
+    sync = sectionOrSync;
+    sectionOrSync = null;
+  }
+
+  // Handle synchronous mode - return from memory immediately
+  if (sync === true) {
+    return _getInMemoryConfig(typeof sectionOrSync === 'string' ? sectionOrSync : null);
+  }
+  
+  // Asynchronous implementation
+  return _getConfigAsync(typeof sectionOrSync === 'string' ? sectionOrSync : null);
+}
+  
+/**
+ * Internal async implementation of getConfig
+ * @private
+ */
+async function _getConfigAsync(section = null) {
   // Return from cache if valid
   const now = Date.now();
   if (configCache && cacheTimestamp && (now - cacheTimestamp < CACHE_LIFETIME)) {
-    return configCache;
+    // If the cache is valid, we can use the in-memory config which should be in sync
+    return section ? _getInMemoryConfig(section) : _getInMemoryConfig();
   }
   
   try {
     // Try to get config from database
     let config = await Config.findOne();
     
-    // If no config exists, initialize from file
+    // If no config exists, initialize from defaults
     if (!config) {
       config = await initialiseDefaultConfig();
     }
     
-    // Update cache
-    configCache = config.toObject();
+    // Update cache - use lean() to get a plain JavaScript object
+    // This avoids issues with Mongoose document serialization
+    const cleanConfig = config.toObject ? config.toObject() : config;
+    configCache = cleanConfig;
     cacheTimestamp = now;
     
-    // Also update the in-memory app config when we fetch fresh data
+    // Also update the in-memory app config
     refreshConfig(configCache);
     
-    return configCache;
+    // Return the requested section or full config
+    return section ? _getInMemoryConfig(section) : configCache;
   } catch (error) {
     console.error('Error retrieving configuration:', error);
+    // If we have an in-memory config, return that as fallback
+    if (Object.keys(_appConfig).length > 0) {
+      console.log('⚠️ Using in-memory configuration as fallback');
+      return section ? _getInMemoryConfig(section) : _getInMemoryConfig();
+    }
     throw error;
   }
 }
@@ -44,7 +171,7 @@ async function getConfig() {
  */
 async function initialiseDefaultConfig() {
   try {
-    // Create a new config document with default values
+    // Create a new config document with default values - no sensitive data
     const defaultConfig = {
       prayerData: {
         source: 'mymasjid',
@@ -98,6 +225,9 @@ async function initialiseDefaultConfig() {
     const newConfig = new Config(defaultConfig);
     await newConfig.save();
     
+    // Also update the in-memory config
+    refreshConfig(defaultConfig);
+    
     console.log('✅ Configuration initialized with default values');
     return newConfig;
   } catch (error) {
@@ -107,39 +237,114 @@ async function initialiseDefaultConfig() {
 }
 
 /**
- * Update a specific configuration section
+ * Update a specific configuration section in the database and in-memory
+ * This is the primary method other modules should use to update configuration
+ * 
+ * @param {string} section - The section to update (e.g., 'prayerData', 'features')
+ * @param {Object} data - The new data for the section
+ * @returns {Object} - The updated configuration
  */
 async function updateConfig(section, data) {
   try {
-    const updateData = {};
-    updateData[section] = data;
-    updateData.updatedAt = new Date();
+    // Deep clone and remove any MongoDB specific properties
+    const cleanData = JSON.parse(JSON.stringify(data));
+    
+    // Remove any _id fields from the data - these cause problems with Mongoose
+    const removeIds = (obj) => {
+      if (!obj || typeof obj !== 'object') return;
+      
+      // Remove _id from this level
+      delete obj._id;
+      
+      // Process each property recursively
+      Object.values(obj).forEach(value => {
+        if (value && typeof value === 'object') {
+          // If it's an array, process each item
+          if (Array.isArray(value)) {
+            value.forEach(item => {
+              if (item && typeof item === 'object') removeIds(item);
+            });
+          } else {
+            // If it's an object, process recursively
+            removeIds(value);
+          }
+        }
+      });
+    };
+    
+    // Clean out all _id fields
+    removeIds(cleanData);
     
     // Log the update attempt
     console.log(`⚙️ Updating configuration section: ${section}`);
     
-    const updatedConfig = await Config.findOneAndUpdate({}, updateData, { 
-      new: true,      // Return the updated document
-      upsert: true    // Create if doesn't exist
-    });
+    // Get all existing config documents - expected to be just one
+    const existingConfigs = await Config.find({});
+    
+    let updatedConfig;
+    
+    if (existingConfigs.length > 0) {
+      // Use the first document
+      const existingConfig = existingConfigs[0];
+      
+      // Determine how to update based on section
+      if (section === 'prayerSettings') {
+        // Special handling for prayerSettings to prevent ObjectId issues
+        
+        // Create a new clean prayers object if it exists in the data
+        if (cleanData.prayers) {
+          if (!existingConfig.prayerSettings) {
+            // If prayerSettings doesn't exist yet, create it
+            existingConfig.prayerSettings = { prayers: {} };
+          } else if (!existingConfig.prayerSettings.prayers) {
+            // If prayers doesn't exist yet, create it
+            existingConfig.prayerSettings.prayers = {};
+          }
+          
+          // Update each prayer individually to avoid ObjectId issues
+          Object.keys(cleanData.prayers).forEach(prayer => {
+            existingConfig.prayerSettings.prayers[prayer] = cleanData.prayers[prayer];
+          });
+        }
+        
+        // Update other properties of prayerSettings
+        Object.keys(cleanData).forEach(key => {
+          if (key !== 'prayers' && key !== '_id') {
+            existingConfig.prayerSettings[key] = cleanData[key];
+          }
+        });
+      } else {
+        // For other sections, simply replace the entire section
+        existingConfig[section] = cleanData;
+      }
+      
+      // Update the timestamp
+      existingConfig.updatedAt = new Date();
+      
+      // Save the updated document
+      updatedConfig = await existingConfig.save();
+    } else {
+      // If no config exists, create a new one with this section
+      const newConfig = { [section]: cleanData, updatedAt: new Date() };
+      const configDoc = new Config(newConfig);
+      updatedConfig = await configDoc.save();
+    }
     
     if (!updatedConfig) {
       console.error(`❌ Failed to update ${section}: No document returned`);
       throw new Error(`Failed to update ${section}`);
-    }    // Force cache update with the entire new document
-    configCache = updatedConfig.toObject();
+    }
+    
+    // Force cache update with a clean JavaScript object
+    const cleanConfig = updatedConfig.toObject();
+    configCache = cleanConfig;
     cacheTimestamp = Date.now();
     
-    // Refresh the in-memory app config
-    try {      
-      // Update the centralized config with the new data
-      refreshConfig(configCache);
-      
-      // Log successful update
-      console.log(`✅ Updated ${section} in configuration and refreshed config`);
-    } catch (error) {
-      console.error('❌ Error updating config manager:', error);
-    }
+    // Update the in-memory config
+    refreshConfig(configCache);
+    
+    // Log successful update
+    console.log(`✅ Updated ${section} in configuration and refreshed config`);
     
     return configCache;
   } catch (error) {
@@ -148,4 +353,10 @@ async function updateConfig(section, data) {
   }
 }
 
-export { getConfig, updateConfig };
+// Export the public API
+export {
+  getConfig,        // Primary method for getting config (from DB, synced to memory)
+  updateConfig,     // Primary method for updating config (in DB and memory)
+  refreshConfig,    // Used by server.js and internal code to update in-memory config
+  initializeConfig  // Used by server.js to initialize config at startup
+};

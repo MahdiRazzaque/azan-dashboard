@@ -3,18 +3,12 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/azan_app';
-
-// Connection options
-const options = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-};
-
 // Create connection
 async function connectToDatabase() {
   try {
-    await mongoose.connect(MONGODB_URI, options);
+    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/azan_app';
+    
+    await mongoose.connect(MONGODB_URI);
     console.log('✅ Connected to MongoDB database');
     return mongoose.connection;
   } catch (error) {

@@ -1,7 +1,14 @@
 import crypto from 'crypto';
-import { appConfig } from '../config/config-validator.js';
 import rateLimit from 'express-rate-limit';
 import { promisify } from 'util';
+import { getConfig } from '../config/config-service.js';
+import * as dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+// Default session timeout (1 hour)
+const DEFAULT_SESSION_TIMEOUT = 3600000;
 
 // Session management
 const sessions = new Map();
@@ -59,8 +66,14 @@ function requireAuth(req, res, next) {
         return res.status(401).json({ success: false, message: 'Invalid token' });
     }
 
-    // Default session timeout to 1 hour if not configured
-    const sessionTimeout = appConfig.auth?.sessionTimeout || 3600000;
+    // Try to get config from in-memory store first
+    let sessionTimeout = DEFAULT_SESSION_TIMEOUT;
+    try {
+        const config = getConfig(true);
+        sessionTimeout = config?.auth?.sessionTimeout || DEFAULT_SESSION_TIMEOUT;
+    } catch (error) {
+        console.warn('Error getting session timeout from config, using default:', error);
+    }
 
     // Check if session has expired
     if (Date.now() - session.timestamp > sessionTimeout) {
@@ -77,7 +90,16 @@ function requireAuth(req, res, next) {
 function startSessionCleanup() {
     setInterval(() => {
         const now = Date.now();
-        const sessionTimeout = appConfig.auth?.sessionTimeout || 3600000;
+        
+        // Try to get config from in-memory store
+        let sessionTimeout = DEFAULT_SESSION_TIMEOUT;
+        try {
+            const config = getConfig(true);
+            sessionTimeout = config?.auth?.sessionTimeout || DEFAULT_SESSION_TIMEOUT;
+        } catch (error) {
+            console.warn('Error getting session timeout from config, using default:', error);
+        }
+        
         for (const [token, session] of sessions.entries()) {
             if (now - session.timestamp > sessionTimeout) {
                 sessions.delete(token);

@@ -1,16 +1,26 @@
 import { requireAuth } from '../auth/auth.js';
 import { scheduleNamazTimers } from '../scheduler/scheduler.js';
-import { getConfig } from '../config/config-manager.js';
+import { getConfig, updateConfig } from '../config/config-service.js';
 import { TEST_MODE, TEST_START_TIME } from '../utils/utils.js';
 
-// Feature state management - read from config manager
+// Feature state management - read from memory config
 function getFeatureStates() {
-    const config = getConfig();
-    return {
-        azanEnabled: config?.features?.azanEnabled ?? true,
-        announcementEnabled: config?.features?.announcementEnabled ?? true,
-        systemLogsEnabled: config?.features?.systemLogsEnabled ?? false
-    };
+    try {
+        // Use the synchronous version of getConfig to get immediate in-memory values
+        const config = getConfig(true);
+        return {
+            azanEnabled: config?.features?.azanEnabled ?? true,
+            announcementEnabled: config?.features?.announcementEnabled ?? true,
+            systemLogsEnabled: config?.features?.systemLogsEnabled ?? false
+        };
+    } catch (error) {
+        console.error('Error getting feature states, using defaults:', error);
+        return {
+            azanEnabled: true,
+            announcementEnabled: true,
+            systemLogsEnabled: false
+        };
+    }
 }
 
 // TEST_MODE is now defined in utils.js, not in MongoDB
@@ -34,9 +44,6 @@ function setupFeatureRoutes(app) {
         const { azanEnabled, announcementEnabled, systemLogsEnabled } = req.body;
 
         try {
-            // Import updateConfig dynamically to avoid circular dependencies
-            const { updateConfig } = await import('../config/config-service.js');
-            
             // Create updated features object based on current state
             const currentFeatures = getFeatureStates();
             const updatedFeatures = { ...currentFeatures };

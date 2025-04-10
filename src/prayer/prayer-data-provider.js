@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
-import { getConfig } from '../config/config-manager.js';
+import { getConfig } from '../config/config-service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,39 +87,69 @@ function validateLocalPrayerTimes(filePath) {
 
 // Initialise prayer data source
 export async function initialisePrayerDataSource() {
-    const prayerData = getConfig('prayerData');
-    const { source } = prayerData;
-
-    if (source === 'mymasjid') {
-        const guidId = prayerData.mymasjid.guidId;
-        const isValid = await validateMyMasjidGuidId(guidId);
-        if (!isValid) {
-            console.error("Error: Invalid myMasjid GuidId. Please check your configuration.");
-            process.exit(1);
-        }
-    } else {
-        const prayerTimesPath = path.join(__dirname, '../../prayer_times.json');
-        if (!fs.existsSync(prayerTimesPath)) {
-            console.error("Error: prayer_times.json not found in root directory");
+    try {
+        // Await the configuration to ensure we have the latest data
+        const config = await getConfig();
+        
+        if (!config || !config.prayerData) {
+            console.error("Error: Configuration or prayerData section is missing");
             process.exit(1);
         }
         
-        const isValid = validateLocalPrayerTimes(prayerTimesPath);
-        if (!isValid) {
+        const { source } = config.prayerData;
+
+        if (source === 'mymasjid') {
+            if (!config.prayerData.mymasjid?.guidId) {
+                console.error("Error: mymasjid guidId is missing in configuration");
+                process.exit(1);
+            }
+            
+            const guidId = config.prayerData.mymasjid.guidId;
+            const isValid = await validateMyMasjidGuidId(guidId);
+            if (!isValid) {
+                console.error("Error: Invalid myMasjid GuidId. Please check your configuration.");
+                process.exit(1);
+            }
+        } else if (source === 'local') {
+            const prayerTimesPath = path.join(__dirname, '../../prayer_times.json');
+            if (!fs.existsSync(prayerTimesPath)) {
+                console.error("Error: prayer_times.json not found in root directory");
+                process.exit(1);
+            }
+            
+            const isValid = validateLocalPrayerTimes(prayerTimesPath);
+            if (!isValid) {
+                process.exit(1);
+            }
+        } else {
+            console.error(`Error: Invalid prayer data source '${source}'. Must be 'mymasjid' or 'local'.`);
             process.exit(1);
         }
-    }
 
-    console.info('✅ Prayer data source initialised');
+        console.info('✅ Prayer data source initialised');
+    } catch (error) {
+        console.error("Error initialising prayer data source:", error);
+        process.exit(1);
+    }
 }
 
 // Get prayer times data
 export async function getPrayerTimesData(date) {
     try {
-        const { source } = appConfig.prayerData;
+        // Get fresh config with await to ensure it's loaded properly
+        const config = await getConfig();
+        if (!config || !config.prayerData) {
+            throw new Error('Configuration or prayerData section is missing');
+        }
+        
+        const { source } = config.prayerData;
 
         if (source === 'mymasjid') {
-            const guidId = appConfig.prayerData.mymasjid.guidId;
+            if (!config.prayerData.mymasjid?.guidId) {
+                throw new Error('mymasjid guidId is missing in configuration');
+            }
+            
+            const guidId = config.prayerData.mymasjid.guidId;
             const response = await fetch(`https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=${guidId}`);
             const data = await response.json();
 

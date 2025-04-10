@@ -1,6 +1,5 @@
 import { requireAuth } from '../auth/auth.js';
-import { appConfig } from '../config/config-validator.js';
-import { updateConfig } from '../config/config-service.js';
+import { getConfig, updateConfig } from '../config/config-service.js';
 
 // Default prayer settings
 const DEFAULT_PRAYER_SETTINGS = {
@@ -35,11 +34,18 @@ const DEFAULT_PRAYER_SETTINGS = {
 
 // Get prayer settings from MongoDB
 async function getPrayerSettings() {
-    if (!appConfig.prayerSettings) {
-        // If no prayer settings in MongoDB, initialize with defaults
-        await updateConfig('prayerSettings', DEFAULT_PRAYER_SETTINGS);
+    try {
+        const config = await getConfig();
+        if (!config.prayerSettings) {
+            // If no prayer settings in MongoDB, initialize with defaults
+            await updateConfig('prayerSettings', DEFAULT_PRAYER_SETTINGS);
+            return DEFAULT_PRAYER_SETTINGS;
+        }
+        return config.prayerSettings;
+    } catch (error) {
+        console.error('Error getting prayer settings, using defaults:', error);
+        return DEFAULT_PRAYER_SETTINGS;
     }
-    return appConfig.prayerSettings;
 }
 
 // Setup prayer settings routes
@@ -57,6 +63,7 @@ export function setupPrayerSettingsRoutes(app) {
     app.post('/api/prayer-settings', requireAuth, async (req, res) => {
         try {
             const settings = req.body;
+            const config = await getConfig();
             
             // Validate settings
             if (!settings || !settings.prayers) {
@@ -65,10 +72,10 @@ export function setupPrayerSettingsRoutes(app) {
             
             // Prepare updated prayer settings
             const updatedPrayerSettings = {
-                ...appConfig.prayerSettings || DEFAULT_PRAYER_SETTINGS,
+                ...(config.prayerSettings || DEFAULT_PRAYER_SETTINGS),
                 ...settings,
                 prayers: {
-                    ...((appConfig.prayerSettings && appConfig.prayerSettings.prayers) || DEFAULT_PRAYER_SETTINGS.prayers),
+                    ...((config.prayerSettings && config.prayerSettings.prayers) || DEFAULT_PRAYER_SETTINGS.prayers),
                     ...settings.prayers
                 }
             };
@@ -78,7 +85,7 @@ export function setupPrayerSettingsRoutes(app) {
             
             // Update global feature toggles if provided
             if (settings.globalAzanEnabled !== undefined || settings.globalAnnouncementEnabled !== undefined) {
-                const features = {...appConfig.features};
+                const features = {...config.features};
                 
                 if (settings.globalAzanEnabled !== undefined) {
                     features.azanEnabled = settings.globalAzanEnabled;

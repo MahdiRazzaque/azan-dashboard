@@ -5,6 +5,7 @@ import { getCurrentTime, logSection, TEST_MODE } from '../utils/utils.js';
 import { updatePrayerTimes } from '../prayer/prayer-times.js';
 import { getPrayerSettings } from '../prayer/prayer-settings.js';
 import { getFeatureStates } from '../features/feature-manager.js';
+import { getConfig } from '../config/config-service.js';
 
 // Schedule management
 const activeSchedules = new Map();
