@@ -77,9 +77,9 @@ async function scheduleNamazTimers() {
             const prayerConfig = prayerSettings.prayers[prayerName];
             if (!prayerConfig) continue;
             
-            const time = prayerConfig.azanAtIqamah ? iqamahTimes[prayerName] : startTimes[prayerName];
+            const azanTime = prayerConfig.azanAtIqamah ? iqamahTimes[prayerName] : startTimes[prayerName];
             
-            const job = await scheduleAnnouncementTimer(prayerName, time);
+            const job = await scheduleAnnouncementTimer(prayerName, azanTime);
             if (job) {
                 activeSchedules.set(`announcement_${prayerName}`, job);
             }
