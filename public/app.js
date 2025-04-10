@@ -1035,12 +1035,17 @@ async function login(username, password) {
             localStorage.setItem('authToken', authToken);
             isAuthenticated = true;
             updateAuthUI();
-            return true;
+            return { success: true };
         }
-        return false;
+        
+        // Return the error message from the server if available
+        return { 
+            success: false, 
+            message: data.message || 'Invalid username or password'
+        };
     } catch (error) {
         console.error('Error logging in:', error);
-        return false;
+        return { success: false, message: 'Login failed' };
     }
 }
 
@@ -1073,19 +1078,17 @@ function showLoginModal(onSuccess) {
     const cancelButton = document.getElementById('login-cancel');
 
     modal.classList.add('show');
-    usernameInput.focus();
-
-    const handleSubmit = async () => {
+    usernameInput.focus();    const handleSubmit = async () => {
         errorMessage.textContent = '';
-        const success = await login(usernameInput.value, passwordInput.value);
+        const result = await login(usernameInput.value, passwordInput.value);
         
-        if (success) {
+        if (result.success) {
             modal.classList.remove('show');
             usernameInput.value = '';
             passwordInput.value = '';
             if (onSuccess) onSuccess();
         } else {
-            errorMessage.textContent = 'Invalid username or password';
+            errorMessage.textContent = result.message;
         }
     };
 
