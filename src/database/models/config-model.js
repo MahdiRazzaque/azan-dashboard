@@ -38,7 +38,7 @@ const ConfigSchema = new mongoose.Schema({
   prayerData: {
     source: { type: String, default: 'mymasjid' },
     mymasjid: {
-      guidId: { type: String, default: '03b8d82c-5b0e-4cb9-ad68-8c7e204cae00' }
+      guildId: { type: String, default: '03b8d82c-5b0e-4cb9-ad68-8c7e204cae00' }
     }
   },
   features: {

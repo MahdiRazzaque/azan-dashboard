@@ -33,8 +33,8 @@ function validateConfig(configToValidate) {
             return false;
         }
 
-        if (configToValidate.prayerData.source === 'mymasjid' && !configToValidate.prayerData.mymasjid?.guidId) {
-            console.error("Error: guidId is required when using mymasjid as prayer data source");
+        if (configToValidate.prayerData.source === 'mymasjid' && !configToValidate.prayerData.mymasjid?.guildId) {
+            console.error("Error: guildId is required when using mymasjid as prayer data source");
             return false;
         }
         

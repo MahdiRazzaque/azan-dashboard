@@ -4,6 +4,9 @@
  */
 import Config from '../database/models/config-model.js';
 import { validateConfig } from './config-validator.js';
+import readline from 'readline';
+import { promisify } from 'util';
+import { validateMyMasjidGuildId } from '../prayer/prayer-data-provider.js';
 
 // ----- IN-MEMORY CONFIGURATION MANAGEMENT -----
 
@@ -141,7 +144,7 @@ async function _getConfigAsync(section = null) {
     
     // If no config exists, initialize from defaults
     if (!config) {
-      config = await initialiseDefaultConfig();
+      config = await initialiseNewConfig();
     }
     
     // Update cache - use lean() to get a plain JavaScript object
@@ -167,16 +170,77 @@ async function _getConfigAsync(section = null) {
 }
 
 /**
- * Initialize configuration with default values
+ * Create readline interface for terminal input
  */
-async function initialiseDefaultConfig() {
+function createReadlineInterface() {
+  return readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+}
+
+/**
+ * Promisify the readline question
+ */
+function askQuestion(rl, question) {
+  return new Promise(resolve => {
+    rl.question(question, answer => {
+      resolve(answer);
+    });
+  });
+}
+
+/**
+ * Initialize configuration with default values, prompting for guildId
+ */
+async function initialiseNewConfig() {
   try {
-    // Create a new config document with default values - no sensitive data
+    console.log('\n===== CONFIGURATION SETUP =====');
+    console.log('No configuration found in the database. Let\'s set up your configuration.\n');
+    
+    // Create readline interface
+    const rl = createReadlineInterface();
+    
+    let guildId = '';
+    let isValid = false;
+    
+    // Keep prompting until a valid guildId is provided
+    while (!isValid) {
+      // Prompt for guildId
+      console.log('Your myMasjid guildId is required to fetch prayer times:');
+      guildId = await askQuestion(rl, 'Enter your myMasjid guildId: ');
+      
+      if (!guildId || guildId.trim() === '') {
+        console.error('❌ Error: No guildId provided. Please enter a valid guildId.');
+        continue;
+      }
+      
+      console.log(`\nValidating guildId: ${guildId}...`);
+      
+      // Validate the guildId with the myMasjid API
+      try {
+        isValid = await validateMyMasjidGuildId(guildId.trim());
+        if (!isValid) {
+          console.error('❌ Error: Invalid myMasjid guildId. The API did not return valid prayer data.');
+          console.log('Please check your guildId and try again.\n');
+        }
+      } catch (error) {
+        console.error(`❌ Error validating guildId: ${error.message}`);
+        console.log('Please check your internet connection and try again.\n');
+      }
+    }
+    
+    console.log('✅ guildId validated successfully!');
+    
+    // Close readline interface
+    rl.close();
+    
+    // Create a new config document with default values and the provided guildId
     const defaultConfig = {
       prayerData: {
         source: 'mymasjid',
         mymasjid: {
-          guidId: '03b8d82c-5b0e-4cb9-ad68-8c7e204cae00'
+          guildId: guildId.trim() 
         }
       },
       features: {
@@ -228,10 +292,10 @@ async function initialiseDefaultConfig() {
     // Also update the in-memory config
     refreshConfig(defaultConfig);
     
-    console.log('✅ Configuration initialized with default values');
+    console.log('✅ Configuration initialized with user-provided values');
     return newConfig;
   } catch (error) {
-    console.error('Error initializing default configuration:', error);
+    console.error('❌ Error initializing default configuration:', error);
     throw error;
   }
 }
