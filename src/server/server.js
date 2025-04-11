@@ -11,7 +11,7 @@ import { setupPrayerSettingsRoutes } from '../prayer/prayer-settings.js';
 import { connectToDatabase } from '../database/db-connection.js';
 import { TEST_MODE } from '../utils/utils.js';
 import { validateEnv, validateConfig } from '../config/config-validator.js';
-import { getConfig, initializeConfig } from '../config/config-service.js';
+import { getConfig } from '../config/config-service.js';
 import configRoutes from '../config/config-routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -51,11 +51,8 @@ async function initialiseServer() {
         try {
             // Get configuration from database - this will initialise the in-memory config as well
             const config = await getConfig();
-            
-            // Configuration has been loaded into memory, now validate it
-            const configInitialised = initializeConfig(config);
-            
-            if (!configInitialised) {
+                        
+            if (!validateConfig(config)) {
                 console.error("❌ Failed to validate configuration");
                 console.info("💡 Configuration validation failed. Check your configuration data.");
                 return false;
