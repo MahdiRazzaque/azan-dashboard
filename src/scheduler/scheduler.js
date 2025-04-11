@@ -88,7 +88,7 @@ async function scheduleNamazTimers() {
     } else if (!features.azanEnabled && features.announcementEnabled) {
         logSection("Scheduling Prayer Announcements");
         console.log("⏸️ Azan timer is globally disabled, skipping announcements");
-    } else if (features.announcementEnabled) {
+    } else {
         logSection("Scheduling Prayer Announcements");
         console.log("⏸️ Announcements are globally disabled");
     }
