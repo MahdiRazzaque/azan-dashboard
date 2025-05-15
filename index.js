@@ -1,7 +1,8 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 import { app, initialiseServer } from './src/server/server.js';
 
-// Hardcoded port with explicit comment about configuration source
-const PORT = 3002; // Centrally configured here (not in MongoDB or .env)
+const PORT = process.env.PORT || 3002;
 
 // Start the server
 async function startServer() {
