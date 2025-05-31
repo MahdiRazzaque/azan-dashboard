@@ -1,48 +1,77 @@
+// src/config/config-service.js
 /**
- * config-service.js - Minimalist configuration service for the application
- * Focused on direct database interaction with minimal state management
+ * config-service.js - Manages configuration from a local JSON file.
  */
-import Config from '../database/models/config-model.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import readline from 'readline';
-import { validateMyMasjidGuildId } from '../prayer/prayer-data-provider.js';
+import { validateMyMasjidGuildId } from '../prayer/prayer-data-provider.js'; // Keep this
 
-// For backward compatibility with existing code that uses sync mode
-// This is a minimal in-memory store for sync operations only
-let _appConfig = {};
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const CONFIG_FILE_PATH = path.join(__dirname, '../../config.json'); // Points to root/config.json
+
+let _appConfig = {}; // In-memory cache
 
 /**
- * Get the configuration from database
- * This is the primary method other modules should use to get configuration
- * 
- * @param {boolean} [sync=false] - If true, returns in-memory config immediately without DB lookup
- * @param {string} [section=null] - Optional specific section to retrieve
- * @returns {Object|Promise<Object>} - The requested configuration or section
+ * Helper function to read the config file.
+ * @private
+ */
+async function readConfigFile() {
+  try {
+    const data = await fs.readFile(CONFIG_FILE_PATH, 'utf-8');
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') { // File not found
+      console.log(`Config file not found at ${CONFIG_FILE_PATH}. Will attempt to initialize.`);
+      return null; // Indicate file not found, so initialisation can occur
+    }
+    console.error('Error reading config file:', error);
+    throw error; // Re-throw other errors
+  }
+}
+
+/**
+ * Helper function to write to the config file.
+ * @private
+ */
+async function writeConfigFile(configData) {
+  try {
+    const dataToWrite = JSON.stringify(configData, null, 2);
+    await fs.writeFile(CONFIG_FILE_PATH, dataToWrite, 'utf-8');
+    _appConfig = JSON.parse(JSON.stringify(configData)); // Update in-memory cache
+  } catch (error) {
+    console.error('Error writing config file:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get the configuration.
+ * @param {boolean} [sync=false] - If true, returns in-memory config immediately.
+ * @param {string} [section=null] - Optional specific section to retrieve.
+ * @returns {Object|Promise<Object>} - The requested configuration or section.
  */
 function getConfig(sync = false, section = null) {
-  // Parameters are now clearly defined - no type checking needed
-  // Handle synchronous mode - return from memory immediately
   if (sync === true) {
     return section ? 
       (_appConfig[section] ? structuredClone(_appConfig[section]) : null) :
       structuredClone(_appConfig);
   }
-  
-  // Asynchronous implementation - always get from database
+
   return (async () => {
-    try {
-      const config = await Config.findOne() || await initialiseNewConfig();
-      const cleanConfig = config.toObject ? config.toObject() : config;
-      _appConfig = cleanConfig; // Update memory reference
-      return section ? cleanConfig[section] || null : cleanConfig;
-    } catch (error) {
-      console.error('Error retrieving configuration:', error);
-      // Fallback to memory if available
-      if (Object.keys(_appConfig).length > 0) {
-        console.log('⚠️ Using in-memory configuration as fallback');
-        return section ? _appConfig[section] || null : structuredClone(_appConfig);
-      }
-      throw error;
+    if (Object.keys(_appConfig).length > 0 && !section) { // If fully cached and no specific section force reload
+        // return structuredClone(_appConfig); // Removed this to ensure fresh read or initialization
     }
+    
+    let configFromFile = await readConfigFile();
+    if (!configFromFile) {
+      configFromFile = await initialiseNewConfig(); // This will also write the file
+    }
+    _appConfig = structuredClone(configFromFile); // Deep clone to avoid mutation issues
+
+    return section ? _appConfig[section] || null : _appConfig;
   })();
 }
 
@@ -70,14 +99,13 @@ function askQuestion(rl, question) {
 }
 
 /**
- * Initialise configuration with default values, prompting for guildId
+ * Initialise configuration with default values, prompting for guildId, and save to file.
  */
 async function initialiseNewConfig() {
   try {
-    console.log('\n===== CONFIGURATION SETUP =====');
-    console.log('No configuration found in the database. Setting up configuration...\n');
+    console.log('\n===== CONFIGURATION SETUP (File Based) =====');
+    console.log(`No configuration file found or it's empty. Setting up default configuration at ${CONFIG_FILE_PATH}...\n`);
     
-    // Get and validate guildId
     const rl = createReadlineInterface();
     let guildId = '';
     let isValid = false;
@@ -106,7 +134,6 @@ async function initialiseNewConfig() {
     console.log('✅ guildId validated successfully!');
     rl.close();
     
-    // Create default configuration with the validated guildId
     const defaultConfig = {
       prayerData: {
         source: 'mymasjid',
@@ -131,93 +158,67 @@ async function initialiseNewConfig() {
         },
         globalAzanEnabled: true,
         globalAnnouncementEnabled: true
-      }
+      },
+      updatedAt: new Date().toISOString()
     };
     
-    // Create and save config document
-    const newConfig = new Config(defaultConfig);
-    await newConfig.save();
-    
-    // Update in-memory reference
-    _appConfig = defaultConfig;
-    
-    console.log('✅ Configuration initialised with user-provided values');
-    return newConfig;
+    await writeConfigFile(defaultConfig); // This also updates _appConfig
+    console.log('✅ Default configuration initialised and saved to config.json');
+    return defaultConfig;
   } catch (error) {
-    console.error('❌ Error initialising default configuration:', error);
-    throw error;
+    console.error('❌ Error initialising default configuration for file:', error);
+    // Fallback to a very basic in-memory config if file init fails, to prevent crashes
+    const minimalConfig = { prayerData: {}, features: {}, auth: {}, prayerSettings: { prayers: {} }, updatedAt: new Date().toISOString() };
+    _appConfig = minimalConfig;
+    return minimalConfig; 
   }
 }
 
 /**
- * Update a specific configuration section in the database and in-memory
- * This is the primary method other modules should use to update configuration
- * 
- * @param {string} section - The section to update (e.g., 'prayerData', 'features')
- * @param {Object} data - The new data for the section
- * @returns {Object} - The updated configuration
+ * Update a specific configuration section in the file and in-memory.
+ * @param {string} section - The section to update.
+ * @param {Object} data - The new data for the section.
+ * @returns {Object} - The updated configuration.
  */
 async function updateConfig(section, data) {
   try {
-    // Deep clone and remove MongoDB specific properties
-    const cleanData = JSON.parse(JSON.stringify(data));
+    console.log(`⚙️ Updating configuration section in file: ${section}`);
     
-    // Simple recursive function to remove _id fields
-    const removeIds = obj => {
-      if (!obj || typeof obj !== 'object') return;
-      delete obj._id;
-      Object.values(obj).forEach(val => {
-        if (val && typeof val === 'object') removeIds(val);
-      });
-    };
-    removeIds(cleanData);
-    
-    console.log(`⚙️ Updating configuration section: ${section}`);
-    
-    // Get or create config document
-    let config = await Config.findOne();
-    if (!config) {
-      config = new Config({ updatedAt: new Date() });
+    // Ensure current config is loaded into _appConfig
+    if (Object.keys(_appConfig).length === 0) {
+        await getConfig(); // Load from file if not already loaded
     }
+
+    const currentConfig = structuredClone(_appConfig); // Work with a copy
     
-    // Handle special case for prayerSettings
+    const cleanData = JSON.parse(JSON.stringify(data)); // Deep clone and remove Mongoose specifics if any residual
+
     if (section === 'prayerSettings' && cleanData.prayers) {
-      // Ensure the structure exists
-      if (!config.prayerSettings) config.prayerSettings = {};
-      if (!config.prayerSettings.prayers) config.prayerSettings.prayers = {};
-      
-      // Update prayers and other properties
-      Object.keys(cleanData.prayers).forEach(prayer => {
-        config.prayerSettings.prayers[prayer] = cleanData.prayers[prayer];
-      });
-      
-      Object.keys(cleanData).forEach(key => {
-        if (key !== 'prayers') config.prayerSettings[key] = cleanData[key];
-      });
+        if (!currentConfig.prayerSettings) currentConfig.prayerSettings = { prayers: {} };
+        if (!currentConfig.prayerSettings.prayers) currentConfig.prayerSettings.prayers = {};
+        
+        Object.keys(cleanData.prayers).forEach(prayer => {
+            currentConfig.prayerSettings.prayers[prayer] = cleanData.prayers[prayer];
+        });
+        Object.keys(cleanData).forEach(key => {
+            if (key !== 'prayers') currentConfig.prayerSettings[key] = cleanData[key];
+        });
     } else {
-      // For other sections, simply replace the entire section
-      config[section] = cleanData;
+        currentConfig[section] = cleanData;
     }
     
-    // Update timestamp and save
-    config.updatedAt = new Date();
-    const updatedConfig = await config.save();
+    currentConfig.updatedAt = new Date().toISOString();
+    await writeConfigFile(currentConfig);
     
-    if (!updatedConfig) throw new Error(`Failed to update ${section}`);
-    
-    // Update in-memory reference and return
-    const result = updatedConfig.toObject();
-    _appConfig = result;
-    console.log(`✅ Updated ${section} in configuration`);
-    return result;
+    console.log(`✅ Updated ${section} in config.json`);
+    return currentConfig;
   } catch (error) {
-    console.error(`❌ Error updating ${section} configuration:`, error);
+    console.error(`❌ Error updating ${section} in config.json:`, error);
     throw error;
   }
 }
 
-// Export the public API
 export {
-  getConfig,        // Primary method for getting config (from DB, synced to memory)
-  updateConfig      // Primary method for updating config (in DB and memory)
+  getConfig,
+  updateConfig
 };

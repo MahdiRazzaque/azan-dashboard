@@ -1,75 +1,67 @@
+// src/server/server.js
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { setupFeatureRoutes } from '../features/feature-manager.js';
-import { setupAuthRoutes } from '../auth/auth.js';
+import { setupAuthRoutes } from '../auth/auth.js'; // Keep startSessionCleanup if used
 import { setupLogRoutes, initialiseLogging } from '../logging/log-manager.js';
 import { scheduleNamazTimers } from '../scheduler/scheduler.js';
 import { initialisePrayerDataSource } from '../prayer/prayer-data-provider.js';
 import { setupPrayerRoutes } from '../prayer/prayer-times.js';
 import { setupPrayerSettingsRoutes } from '../prayer/prayer-settings.js';
-import { connectToDatabase } from '../database/db-connection.js';
+// import { connectToDatabase } from '../database/db-connection.js'; // REMOVE
 import { TEST_MODE } from '../utils/utils.js';
-import { validateEnv, validateConfig } from '../config/config-validator.js';
+import { validateEnv, validateConfig } from '../config/config-validator.js'; // Keep validateConfig
 import { getConfig } from '../config/config-service.js';
 import configRoutes from '../config/config-routes.js';
+// Import startSessionCleanup if you want to keep it, otherwise remove it from auth.js too
+import { startSessionCleanup } from '../auth/auth.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialise Express app
 const app = express();
 
-// Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../../public')));
 
-// Initialise logging first
 initialiseLogging();
 
-// Setup routes
-app.use(configRoutes);  // Add the config routes
+app.use(configRoutes);
 setupFeatureRoutes(app);
 setupAuthRoutes(app);
 setupLogRoutes(app);
 setupPrayerRoutes(app);
 setupPrayerSettingsRoutes(app);
 
-// Initialise server
 async function initialiseServer() {
     try {
-        console.info('🚀 Initialising server...');
+        console.info('🚀 Initialising server (File Based Config)...');
         
-        // Validate environment variables
         validateEnv();
         console.info('✅ Environment variables validated');
           
-        // Connect to MongoDB database first
-        await connectToDatabase();
+        // Connect to MongoDB database first - REMOVE
+        // await connectToDatabase(); // REMOVE
        
-        // Load configuration from MongoDB and initialise the config system
         try {
-            // Get configuration from database - this will initialise the in-memory config as well
-            const config = await getConfig();
+            const config = await getConfig(); // This will load from file or initialize
                         
-            if (!validateConfig(config)) {
-                console.error("❌ Failed to validate configuration");
-                console.info("💡 Configuration validation failed. Check your configuration data.");
+            if (!validateConfig(config)) { // Keep validateConfig, it checks structure
+                console.error("❌ Failed to validate configuration from file");
                 return false;
             }
             
-            console.info("✅ Configuration initialised and validated successfully");
+            console.info("✅ Configuration loaded/initialised from file and validated successfully");
         } catch (error) {
-            console.error("❌ Failed to load configuration from MongoDB:", error);
-            console.info("💡 Default values will be used. Please check database connection.");
+            console.error("❌ Failed to load/initialise configuration from file:", error);
             return false;
         }
         
-        // Initialise prayer data source
         await initialisePrayerDataSource();
-        
-        // Initialise components
         await scheduleNamazTimers();
+        startSessionCleanup(); // If you're keeping session cleanup
 
         if(TEST_MODE) { 
             console.log("🧪 TEST MODE enabled")
