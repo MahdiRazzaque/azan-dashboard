@@ -9,7 +9,7 @@ A Node.js application for managing and announcing prayer times using Alexa devic
 -   Prayer time announcements 15 minutes before each prayer
 -   Comprehensive settings panel for prayer-specific configurations
 -   Smart dependency management between azan and announcement features
--   Interactive configuration setup with validation
+-   Interactive configuration set-up with validation
 -   Test mode for verifying announcements
 -   System logs for monitoring
 -   Secure admin authentication
@@ -18,63 +18,52 @@ A Node.js application for managing and announcing prayer times using Alexa devic
 
 -   Node.js (version compatible with ES modules, e.g., v14.x, v16.x or higher)
 -   npm (usually comes with Node.js)
--   MongoDB (running and accessible)
 
 ## Configuration
 
-### Initial Setup
+### Initial Set-up
 
-When you start the application for the first time, it will prompt you in the terminal to enter your myMasjid guildId. This ID will be validated against the myMasjid API to ensure it is correct. If validation fails, you will be prompted to enter it again until a valid ID is provided. This guildId is then stored in the MongoDB configuration.
+When you start the application for the first time, if `config.json` is not present, it will prompt you in the terminal to enter your myMasjid guildId. This ID will be validated against the MyMasjid API to ensure it is correct. If validation fails, you will be prompted to enter it again until a valid ID is provided. This `guildId` is then stored in `config.json`.
 
 ### Prayer Times Source
 
-The system supports two sources for prayer times, configured in MongoDB (see "MongoDB Configuration" below):
+The system fetches prayer times once from the MyMasjid API and stores them locally in a `prayer_times.json` file in the project's root directory. This file is then used as the source for all subsequent prayer time lookups.
 
-1.  **MyMasjid API** (Default):
-    The application will use the `guildId` provided during initial setup to fetch times from MyMasjid.
+**Initial Set-up & `prayer_times.json`:**
 
-2.  **Local File**:
-    To use a local file, you would need to update the configuration in MongoDB to set `prayerData.source` to `"local"`.
-    When using a local file:
-    -   Create a `prayer_times.json` file in the root directory of the project.
-    -   Use the MyMasjid API format for this file:
-        ```json
-        {
-            "model": {
-                "masjidDetails": {
-                    "name": "Your Masjid Name",
-                    "website": null,
-                    "year": 2025 // Ensure this matches the current year
-                },
-                "salahTimings": [
-                    {
-                        "fajr": "06:04",
-                        "shouruq": "08:09",
-                        "zuhr": "12:14",
-                        "asr": "14:14",
-                        "maghrib": "16:01",
-                        "isha": "17:25",
-                        "day": 1,
-                        "month": 1,
-                        "iqamah_Fajr": "07:30",
-                        "iqamah_Zuhr": "13:00",
-                        "iqamah_Asr": "15:00",
-                        "iqamah_Maghrib": "16:06",
-                        "iqamah_Isha": "19:30"
-                    }
-                    // ... entries for all 365/366 days of the year
-                ]
+-   **On the first run (or if `prayer_times.json` is missing or invalid):**
+    -   The application will use the `myMasjid.guildId` (specified in `config.json`) to fetch the entire year's prayer times from the MyMasjid API.
+    -   This data, with the current year injected into `masjidDetails`, is then saved to `prayer_times.json`.
+    -   The file is validated (checks for correct year, structure, and all days). A `validated: true` flag is added internally to this JSON file to speed up subsequent start-up checks.
+-   **On subsequent runs:**
+    -   If `prayer_times.json` exists and is valid (correct year and `validated: true` flag present), it's loaded directly.
+    -   If the existing `prayer_times.json` is found to be for a previous year or otherwise invalid, it will be automatically deleted, and fresh data will be fetched from the MyMasjid API.
+
+**Format of `prayer_times.json` (managed by the application):**
+The `prayer_times.json` file stores the raw response from the MyMasjid API. It looks like this:
+
+```json
+{
+    "model": {
+        "masjidDetails": {
+            "name": "Your Masjid Name",
+            "website": null,
+            "year": 2025 // Automatically set to the current year of fetched data
+        },
+        "salahTimings": [
+            {
+                "fajr": "06:04", "shouruq": "08:09", "zuhr": "12:14", "asr": "14:14", 
+                "maghrib": "16:01", "isha": "17:25", "day": 1, "month": 1,
+                "iqamah_Fajr": "07:30", "iqamah_Zuhr": "13:00", "iqamah_Asr": "15:00",
+                "iqamah_Maghrib": "16:06", "iqamah_Isha": "19:30"
             }
-        }
-        ```
-    -   **Requirements for local file:**
-        -   Must be named `prayer_times.json`.
-        -   Must be in the project's root directory.
-        -   The `year` in `masjidDetails` must match the current year.
-        -   Must contain entries for all days of the current year.
-        -   Each day's entry must have all required prayer times (fajr, shouruq, zuhr, asr, maghrib, isha) and iqamah times.
-        -   Times must be in 24-hour format (HH:mm).
-        -   The system validates this file on first use. If valid, it adds a `"validated": true` flag within the JSON to speed up subsequent loads.
+            // ... entries for all 365/366 days of the year
+        ]
+    },
+    "validated": true // Added by the application after successful fetch & validation
+}
+```
+**Note:** `prayer_times.json` is included in `.gitignore` and should not be committed to your repository if it contains sensitive or large amounts of data not intended for version control. The application manages its creation and updates.
 
 ### Environment Variables
 
@@ -90,14 +79,11 @@ ADMIN_USERNAME=your_username
 # Password Security
 # Generate a password hash using: node src/utils/generate-password-hash.js
 ADMIN_PASSWORD_HASH=your_generated_password_hash
-# IMPORTANT: If you change SALT after setup, your password hash will no longer work!
+# IMPORTANT: If you change SALT after set-up, your password hash will no longer work!
 SALT=your_strong_random_salt_string
 
 # Voice Monkey API Token (for Alexa announcements)
 VOICEMONKEY_TOKEN=your_voicemonkey_api_token
-
-# MongoDB Connection String (optional, defaults to mongodb://localhost:27017/azan_app)
-MONGODB_URI=mongodb://user:pass@host:port/database_name
 
 # Server Port (optional, defaults to 3002 if not set)
 PORT=3000
@@ -109,16 +95,15 @@ node src/utils/generate-password-hash.js
 ```
 Follow the prompts, and then copy the generated hash into your `.env` file for `ADMIN_PASSWORD_HASH`.
 
-### MongoDB Configuration
+### Application Configuration (`config.json`)
 
-The system automatically manages its primary configuration in a MongoDB collection named `configs`. On first run, if no configuration exists, it will create a default one after prompting for the `myMasjid.guildId`.
+The system manages its primary configuration in `config.json` located in the project root. On the first run, if this file does not exist, the application will guide you through an interactive set-up in the terminal to enter your `myMasjid.guildId`. This ID is crucial for the initial fetch of prayer times if `prayer_times.json` is also missing.
 
-An example of the full configuration document stored in MongoDB (managed by the application):
+An example `config.json` (managed by the application):
 ```json
 {
-    "_id": "...", // MongoDB ObjectId
     "prayerData": {
-        "source": "mymasjid", // or "local"
+        "source": "mymasjid", 
         "mymasjid": {
             "guildId": "your-validated-guild-id-from-initial-setup"
         }
@@ -129,7 +114,7 @@ An example of the full configuration document stored in MongoDB (managed by the 
         "systemLogsEnabled": true
     },
     "auth": {
-        "sessionTimeout": 3600000, // 1 hour in ms
+        "sessionTimeout": 3600000, 
         "maxSessions": 5
     },
     "prayerSettings": {
@@ -143,10 +128,10 @@ An example of the full configuration document stored in MongoDB (managed by the 
         "globalAzanEnabled": true,
         "globalAnnouncementEnabled": true
     },
-    "updatedAt": "..." // Date of last update
+    "updatedAt": "..." 
 }
 ```
-You typically interact with these settings via the application's web UI rather than directly modifying the database.
+You typically interact with settings such as `features` and `prayerSettings` via the application's web UI. The `prayerData.mymasjid.guildId` is set during the initial configuration.
 
 ## Installation
 
@@ -160,13 +145,12 @@ You typically interact with these settings via the application's web UI rather t
     npm install
     ```
 3.  Create and populate your `.env` file as described in "Environment Variables".
-4.  If you plan to use a local prayer times file immediately, create `prayer_times.json` in the root directory.
-5.  Start the server:
+4.  Start the server:
     ```bash
     npm start
     ```
     (This will run `node index.js` by default).
-6.  On the first run, follow the interactive setup process in your terminal to enter and validate your myMasjid guildId.
+5.  On the first run, follow the interactive set-up process in your terminal to enter and validate your myMasjid `guildId` if `config.json` is not present. The application will then attempt to fetch and create `prayer_times.json` if needed.
 
 ## Usage
 
@@ -211,7 +195,7 @@ Test mode allows you to verify announcements and prayer timings by simulating a 
 ## Security
 
 -   Admin authentication required for all control features (settings, log clearing).
--   Session-based authentication with configurable timeout (via MongoDB config, default 1 hour).
+-   Session-based authentication with configurable timeout (via `config.json`, default 1 hour).
 -   Secure password hashing using PBKDF2 and a unique `SALT`.
 -   Rate limiting on authentication endpoints to prevent brute-force attacks.
 
@@ -236,8 +220,8 @@ The application exposes several API endpoints, primarily consumed by the fronten
 
 -   **Check system logs** in the web UI for detailed error messages or operational information.
 -   **Verify `.env` file:** Ensure all required environment variables are correctly set.
--   **MongoDB Connection:** Confirm MongoDB is running and accessible with the provided `MONGODB_URI`.
--   **Prayer Times Source:** Double-check your prayer times source. If using "local", ensure `prayer_times.json` is correctly formatted, in the root directory, and for the current year.
+-   **`prayer_times.json`**: If issues persist with prayer times, you can try deleting `prayer_times.json` from the project root. The application will attempt to re-fetch it from the MyMasjid API on the next start, using the `guildId` from `config.json`. Ensure `config.json` contains a valid `myMasjid.guildId`.
+-   **`config.json`**: Ensure `config.json` exists in the root and contains a valid `prayerData.mymasjid.guildId`. If `config.json` is missing, the application will prompt for the `guildId` on start-up.
 -   **VoiceMonkey Token:** Ensure `VOICEMONKEY_TOKEN` is valid for Alexa announcements.
--   **MyMasjid guildId:** If MyMasjid API is used, ensure the `guildId` (entered during initial setup and stored in MongoDB) is correct. You can test the MyMasjid API URL directly in a browser: `https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=YOUR_GUILD_ID`.
+-   **MyMasjid `guildId`:** Ensure the `guildId` in `config.json` is correct. You can test the MyMasjid API URL directly in a browser: `https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=YOUR_GUILD_ID`.
 -   **Port Conflicts:** If the server fails to start, check if the configured port (default 3002 or from `.env`) is already in use.
