@@ -41,20 +41,17 @@
     "globalAzan": false,
     "globalAnnouncement": false
   },
-  "updatedAt": "2025-06-04T00:30:13.279Z",
+  "updatedAt": "2025-06-04T00:29:46.925Z",
   "prayerData": {
     "source": "aladhan",
     "aladhan": {
-      "latitude": 34,
+      "latitude": 33,
       "longitude": 32,
       "timezone": "Europe/London",
       "calculationMethodId": 3,
-      "calculationMethodName": "Muslim World League (MWL)",
       "asrJuristicMethodId": 0,
-      "asrJuristicMethodName": "Standard/Shafi'i (Default)",
       "latitudeAdjustmentMethodId": 1,
       "midnightModeId": 0,
-      "midnightModeName": "Standard (Mid Sunset to Sunrise)",
       "iqamahOffsets": {
         "fajr": 20,
         "zuhr": 10,

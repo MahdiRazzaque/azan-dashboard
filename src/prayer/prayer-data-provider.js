@@ -1,8 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fetch from 'node-fetch';
 import { getConfig } from '../config/config-service.js';
+import { isPrayerTimesFileValid, deletePrayerTimesFile } from './prayer-file-validator.js';
+import { fetchAndSaveAladhanData, validateAladhanConfig } from './aladhan-provider.js';
+import { fetchAndSaveMyMasjidData, validateMyMasjidGuildId } from './mymasjid-provider.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,125 +12,11 @@ const __dirname = path.dirname(__filename);
 // Cache for the entire parsed prayer_times.json content
 let prayerTimesFileCache = null; 
 
-// Validate myMasjid API GuildId
-async function validateMyMasjidGuildId(guildId) {
-    try {
-        const response = await fetch(`https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=${guildId}`);
-        const data = await response.json();
-
-        if (!data.model?.salahTimings) {
-            return false;
-        }
-        return true;
-    } catch (error) {
-        console.error("Error validating myMasjid GuildId:", error);
-        return false;
-    }
-}
-
-// Validate local prayer times file and add 'validated: true' flag if checks pass
-// Returns true if valid, false otherwise.
-function validateAndFlagLocalPrayerTimesFile(filePath) {
-    try {
-        const fileContent = fs.readFileSync(filePath, 'utf8');
-        const data = JSON.parse(fileContent);
-
-        if (data.validated === true) {
-            console.info(`📄 Local prayer times file ${path.basename(filePath)} is already flagged as validated.`);
-            return true;
-        }
-
-        if (!data.model?.masjidDetails?.year || !data.model?.salahTimings) {
-            console.error(`Error: Invalid prayer times file format in ${path.basename(filePath)}. Missing model.masjidDetails.year or model.salahTimings.`);
-            console.error(`Content of masjidDetails: ${JSON.stringify(data.model?.masjidDetails)}`);
-            return false;
-        }
-
-        const currentYear = new Date().getFullYear();
-        const fileYear = data.model.masjidDetails.year;
-        
-        if (parseInt(fileYear) !== currentYear) {
-            console.error(`Error: Prayer times file ${path.basename(filePath)} is for year ${fileYear}, but current year is ${currentYear}`);
-            return false;
-        }
-
-        const daysInYear = ((currentYear % 4 === 0 && currentYear % 100 !== 0) || currentYear % 400 === 0) ? 366 : 365;
-        const days = data.model.salahTimings ? data.model.salahTimings.length : 0;
-        
-        if (days < 365) {
-            console.error(`Error: Prayer times file ${path.basename(filePath)} should contain at least 365 days, but found ${days} days`);
-            return false;
-        }
-
-        const requiredPrayers = ['fajr', 'shouruq', 'zuhr', 'asr', 'maghrib', 'isha'];
-        for (const dayEntry of data.model.salahTimings) {
-            for (const prayer of requiredPrayers) {
-                if (!dayEntry[prayer]) {
-                    console.error(`Error: Missing ${prayer} prayer time in ${path.basename(filePath)} for day ${dayEntry.day}/${dayEntry.month}`);
-                    return false;
-                }
-            }
-        }
-
-        data.validated = true;
-        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-        console.info(`✅ Local prayer times file ${path.basename(filePath)} validated and flagged.`);
-        return true;
-    } catch (error) {
-        console.error(`Error validating local prayer times file ${path.basename(filePath)}:`, error);
-        return false;
-    }
-}
-
-// Helper function to fetch full prayer data from MyMasjid and save it locally
-async function fetchAndSaveMyMasjidData(guildId, filePath) {
-    console.log(`📡 Fetching full prayer times data from MyMasjid for guildId: ${guildId}...`);
-    let fetchedData;
-    try {
-        const response = await fetch(`https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=${guildId}`);
-        if (!response.ok) {
-            throw new Error(`MyMasjid API request failed with status ${response.status}`);
-        }
-        fetchedData = await response.json();
-
-        // Basic structural validation of API response
-        if (!fetchedData || !fetchedData.model || !fetchedData.model.salahTimings || fetchedData.model.salahTimings.length === 0) {
-            console.error("Error: Invalid or empty data structure received from MyMasjid API.", JSON.stringify(fetchedData, null, 2));
-            throw new Error('Invalid or empty data structure received from MyMasjid API.');
-        }
-
-        // Ensure model.masjidDetails exists and inject/overwrite the year
-        if (!fetchedData.model.masjidDetails) {
-            fetchedData.model.masjidDetails = {}; 
-        }
-        fetchedData.model.masjidDetails.year = new Date().getFullYear();
-
-        // Write the enriched data (with year) to the file
-        fs.writeFileSync(filePath, JSON.stringify(fetchedData, null, 2), 'utf8');
-        console.log(`✅ Prayer times data successfully fetched from API and saved to ${path.basename(filePath)}.`);
-        
-        // Now validate the newly created file (this will also add the 'validated: true' flag and re-save)
-        if (!validateAndFlagLocalPrayerTimesFile(filePath)) {
-            // This error means the file we just wrote (with year) is still not passing validation.
-            // This could be due to other structural issues or incorrect year logic if API behavior changes.
-            throw new Error(`Failed to validate the newly created ${path.basename(filePath)} even after injecting the year. Check validation logic and API response structure.`);
-        }
-        return fetchedData; // Return the enriched data
-    } catch (error) {
-        console.error(`Error fetching or saving MyMasjid data for ${path.basename(filePath)}:`, error);
-        if (fs.existsSync(filePath)) {
-            try {
-                fs.unlinkSync(filePath);
-                console.log(`🗑️ Deleted potentially corrupt file: ${path.basename(filePath)}`);
-            } catch (delError) {
-                console.error(`Error deleting file ${path.basename(filePath)}:`, delError);
-            }
-        }
-        throw error;
-    }
-}
-
-// Initialise prayer data source
+/**
+ * Initializes the prayer data source based on configuration
+ * Loads data from API if needed and caches it
+ * @returns {Promise<boolean>} - True if initialization was successful
+ */
 async function initialisePrayerDataSource() {
     const prayerTimesFilePath = path.join(__dirname, '../../prayer_times.json');
     console.log(`ℹ️ Checking for prayer times file at: ${prayerTimesFilePath}`);
@@ -136,104 +24,236 @@ async function initialisePrayerDataSource() {
     try {
         const config = await getConfig();
         if (!config || !config.prayerData) {
-            console.error("❌ Error: Configuration or prayerData section is missing.");
-            process.exit(1);
+            console.warn("⚠️ Configuration or prayerData section is missing. This is expected during initial setup.");
+            return false;
         }
 
+        // Check if the prayer times file exists and is valid
         let fileExists = fs.existsSync(prayerTimesFilePath);
         let localFileIsValid = false;
 
         if (fileExists) {
-            console.log(`📄 File ${path.basename(prayerTimesFilePath)} found. Validating...`);
-            if (validateAndFlagLocalPrayerTimesFile(prayerTimesFilePath)) {
-                localFileIsValid = true;
-            } else {
+            localFileIsValid = isPrayerTimesFileValid(prayerTimesFilePath);
+            if (!localFileIsValid) {
                 console.warn(`⚠️ Existing ${path.basename(prayerTimesFilePath)} is invalid or outdated. Deleting and attempting to re-fetch.`);
-                try {
-                    fs.unlinkSync(prayerTimesFilePath);
-                    fileExists = false;
-                } catch (e) {
-                    console.error(`❌ Failed to delete invalid file ${path.basename(prayerTimesFilePath)}:`, e);
-                    process.exit(1);
-                }
+                deletePrayerTimesFile(prayerTimesFilePath);
+                fileExists = false;
             }
         }
 
         if (!fileExists || !localFileIsValid) {
-            console.log(fileExists ? `⚠️ ${path.basename(prayerTimesFilePath)} was invalid.` : `📄 ${path.basename(prayerTimesFilePath)} not found. Attempting to fetch from MyMasjid API.`);
+            console.log(fileExists ? `⚠️ ${path.basename(prayerTimesFilePath)} was invalid.` : `📄 ${path.basename(prayerTimesFilePath)} not found. Attempting to fetch from API.`);
             
-            const guildId = config.prayerData?.mymasjid?.guildId;
-            if (!guildId) {
-                console.error("❌ Error: mymasjid.guildId is missing in configuration. Cannot fetch prayer times.");
-                process.exit(1);
+            const source = config.prayerData.source;
+            
+            // Delegate to the appropriate provider based on the source
+            if (source === 'mymasjid') {
+                await initializeMyMasjidSource(config, prayerTimesFilePath);
+            } else if (source === 'aladhan') {
+                await initializeAladhanSource(config, prayerTimesFilePath);
+            } else {
+                console.error(`❌ Error: Unknown prayer data source: ${source}`);
+                return false;
             }
-            // Fetch, save (with year injected), and validate (which includes flagging)
-            await fetchAndSaveMyMasjidData(guildId, prayerTimesFilePath);
         }
 
         // At this point, prayer_times.json should exist and be valid. Load it into cache.
-        const fileContent = fs.readFileSync(prayerTimesFilePath, 'utf8');
-        prayerTimesFileCache = JSON.parse(fileContent);
+        loadPrayerTimesIntoCache(prayerTimesFilePath);
         
-        if (!prayerTimesFileCache || !prayerTimesFileCache.model || !prayerTimesFileCache.model.salahTimings) {
-             console.error(`❌ Error: ${path.basename(prayerTimesFilePath)} is valid but could not be properly loaded into cache.`);
-             process.exit(1);
-        }
-
         console.info(`✅ Prayer data source initialised using ${path.basename(prayerTimesFilePath)}.`);
+        return true;
     } catch (error) {
-        console.error("❌ Fatal error initialising prayer data source:", error);
-        process.exit(1);
+        console.error("❌ Error initialising prayer data source:", error);
+        return false;
     }
 }
 
-// Get prayer times data for a specific date from the cached file content
+/**
+ * Initializes the MyMasjid data source
+ * @param {Object} config - The application configuration
+ * @param {string} filePath - Path to save the prayer times file
+ * @returns {Promise<void>}
+ */
+async function initializeMyMasjidSource(config, filePath) {
+    const guildId = config.prayerData?.mymasjid?.guildId;
+    if (!guildId) {
+        console.error("❌ Error: mymasjid.guildId is missing in configuration. Cannot fetch prayer times.");
+        throw new Error("mymasjid.guildId is missing in configuration");
+    }
+    
+    // Fetch, save, and validate
+    await fetchAndSaveMyMasjidData(guildId, filePath);
+}
+
+/**
+ * Initializes the Aladhan data source
+ * @param {Object} config - The application configuration
+ * @param {string} filePath - Path to save the prayer times file
+ * @returns {Promise<void>}
+ */
+async function initializeAladhanSource(config, filePath) {
+    const aladhanConfig = config.prayerData?.aladhan;
+    
+    // Validate Aladhan configuration
+    const validation = validateAladhanConfig(aladhanConfig);
+    if (!validation.isValid) {
+        console.error(`❌ Error: ${validation.error}`);
+        throw new Error(validation.error);
+    }
+    
+    // Fetch, save, and validate Aladhan data
+    await fetchAndSaveAladhanData(aladhanConfig, filePath);
+}
+
+/**
+ * Loads the prayer times file into the cache
+ * @param {string} filePath - Path to the prayer times file
+ */
+function loadPrayerTimesIntoCache(filePath) {
+    try {
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        prayerTimesFileCache = JSON.parse(fileContent);
+        
+        if (!prayerTimesFileCache || !prayerTimesFileCache.salahTimings) {
+            console.error(`❌ Error: ${path.basename(filePath)} is valid but could not be properly loaded into cache.`);
+            throw new Error("Invalid prayer times file format");
+        }
+    } catch (error) {
+        console.error(`❌ Error loading prayer times into cache: ${error.message}`);
+        throw error;
+    }
+}
+
+/**
+ * Refreshes prayer data from the configured source
+ * Used when configuration changes
+ * @returns {Promise<boolean>} - True if refresh was successful
+ */
+export async function refreshPrayerData() {
+    const prayerTimesFilePath = path.join(__dirname, '../../prayer_times.json');
+    console.log(`🔄 Refreshing prayer data from configured source...`);
+    
+    try {
+        const config = await getConfig();
+        if (!config || !config.prayerData) {
+            console.error("❌ Error: Configuration or prayerData section is missing.");
+            return false;
+        }
+
+        const source = config.prayerData.source;
+        
+        // Delegate to the appropriate provider based on the source
+        if (source === 'mymasjid') {
+            await initializeMyMasjidSource(config, prayerTimesFilePath);
+        } else if (source === 'aladhan') {
+            await initializeAladhanSource(config, prayerTimesFilePath);
+        } else {
+            console.error(`❌ Error: Unknown prayer data source: ${source}`);
+            return false;
+        }
+
+        // Reload the cache with the new data
+        loadPrayerTimesIntoCache(prayerTimesFilePath);
+        console.log(`✅ Prayer data refreshed successfully.`);
+        return true;
+    } catch (error) {
+        console.error("❌ Error refreshing prayer data:", error);
+        return false;
+    }
+}
+
+/**
+ * Gets prayer times data for a specific date from the cached file content
+ * @param {Object} date - Moment.js date object
+ * @returns {Promise<Object>} - Formatted prayer times data
+ */
 async function getPrayerTimesData(date) {
     if (!prayerTimesFileCache) {
-        console.error("❌ Prayer times cache is not initialised. Call initialisePrayerDataSource first.");
-        // Attempt to re-initialize as a last resort, or throw.
-        await initialisePrayerDataSource();
-        if (!prayerTimesFileCache) {
-             throw new Error("Prayer times cache failed to initialise even after re-attempt.");
+        console.warn("⚠️ Prayer times cache is not initialised. Attempting to initialize...");
+        // Attempt to re-initialize
+        const initialized = await initialisePrayerDataSource();
+        if (!initialized || !prayerTimesFileCache) {
+            console.warn("⚠️ No prayer times available. This is expected during initial setup.");
+            return null;
         }
     }
 
     try {
-            const today = date.format('D'); // Day of the month (1-31)
-            const todayMonth = date.format('M'); // Month (1-12)
-            
-            const todayTimings = prayerTimesFileCache.model.salahTimings.find(
-                t => t.day === parseInt(today) && t.month === parseInt(todayMonth)
-            );
+        const today = date.format('D'); // Day of the month (1-31)
+        const todayMonth = date.format('M'); // Month (1-12)
+        
+        const todayTimings = prayerTimesFileCache.salahTimings.find(
+            t => t.day === parseInt(today) && t.month === parseInt(todayMonth)
+        );
 
-            if (!todayTimings) {
-                throw new Error(`No timings found for date ${date.format('YYYY-MM-DD')} (Day: ${today}, Month: ${todayMonth}) in cached file.`);
-            }
+        if (!todayTimings) {
+            console.warn(`⚠️ No timings found for date ${date.format('YYYY-MM-DD')} (Day: ${today}, Month: ${todayMonth}) in cached file.`);
+            return null;
+        }
 
-            const formattedData = {
-                fajr: todayTimings.fajr,
-                sunrise: todayTimings.shouruq,
-                zuhr: todayTimings.zuhr,
-                asr: todayTimings.asr,
-                maghrib: todayTimings.maghrib,
-                isha: todayTimings.isha,
-                fajr_iqamah: todayTimings.iqamah_Fajr,
-                zuhr_iqamah: todayTimings.iqamah_Zuhr,
-                asr_iqamah: todayTimings.iqamah_Asr,
-                maghrib_iqamah: todayTimings.iqamah_Maghrib,
-                isha_iqamah: todayTimings.iqamah_Isha
-            };
+        const formattedData = {
+            fajr: todayTimings.fajr,
+            sunrise: todayTimings.shouruq,
+            zuhr: todayTimings.zuhr,
+            asr: todayTimings.asr,
+            maghrib: todayTimings.maghrib,
+            isha: todayTimings.isha,
+            fajr_iqamah: todayTimings.iqamah_fajr,
+            zuhr_iqamah: todayTimings.iqamah_zuhr,
+            asr_iqamah: todayTimings.iqamah_asr,
+            maghrib_iqamah: todayTimings.iqamah_maghrib,
+            isha_iqamah: todayTimings.iqamah_isha
+        };
 
-            return formattedData;
+        return formattedData;
     } catch (error) {
         console.error(`Error extracting prayer times for date ${date.format('YYYY-MM-DD')} from cache:`, error);
         throw error;
     }
 }
 
+/**
+ * Gets information about the prayer data source
+ * @returns {Object} - Source information including type and details
+ */
+function getPrayerDataSourceInfo() {
+    if (!prayerTimesFileCache || !prayerTimesFileCache.details) {
+        return { 
+            sourceType: "setup_required",
+            message: "Prayer times setup required"
+        };
+    }
+    
+    const details = prayerTimesFileCache.details;
+    
+    if (details.sourceApi === "mymasjid") {
+        return {
+            sourceType: "mymasjid",
+            masjidName: details.masjidName || "Unknown Masjid",
+            guildId: details.guildId,
+            year: details.year
+        };
+    } else if (details.sourceApi === "aladhan") {
+        return {
+            sourceType: "aladhan",
+            latitude: details.latitude,
+            longitude: details.longitude,
+            timezone: details.timezone,
+            calculationMethod: details.calculationMethodName,
+            year: details.year
+        };
+    }
+    
+    return { 
+        sourceType: "unknown",
+        message: "Unknown prayer times source"
+    };
+}
+
 // Export functions
 export { 
     initialisePrayerDataSource, 
     getPrayerTimesData,
-    validateMyMasjidGuildId // Keep this export as config-service uses it
+    getPrayerDataSourceInfo,
+    validateMyMasjidGuildId
 };

@@ -129,6 +129,13 @@ function getCurrentTime() {
 // Update prayer times table
 function updatePrayerTable(iqamahTimes, startTimes, nextPrayer) {
     prayerTable.innerHTML = '';
+    
+    // Check if prayer times are available
+    if (!iqamahTimes || !startTimes) {
+        prayerTable.innerHTML = '<tr><td colspan="3" class="text-center">Prayer times not available. Please configure prayer source in settings.</td></tr>';
+        return;
+    }
+    
     const prayers = Object.entries(iqamahTimes);
     const now = getCurrentTime();
 
@@ -156,6 +163,15 @@ function updatePrayerTable(iqamahTimes, startTimes, nextPrayer) {
     });
 }
 
+/**
+ * Update prayer source information display
+ * @param {Object} sourceInfo - Information about the prayer time source
+ */
+function updatePrayerSourceInfo(sourceInfo) {
+    // Function disabled as prayer-source-info component has been removed
+    return;
+}
+
 // Update countdown display
 function updateCountdown() {
     if (!nextPrayerTime) {
@@ -179,31 +195,33 @@ function updateCountdown() {
 function updateTimeAndNextPrayer(data) {
     const now = getCurrentTime();
     currentTimeDisplay.textContent = now.format('HH:mm:ss');
-
-    if (data.nextPrayer) {
-        const prayerName = data.nextPrayer.name;
-        const icon = PRAYER_ICONS[prayerName];
-        nextPrayerName.innerHTML = `
-            ${icon.type === 'mdi'
-                ? `<i class="mdi ${icon.name}"></i>`
-                : `<i class="${icon.type} ${icon.name}"></i>`
-            }
-            ${prayerName.charAt(0).toUpperCase() + prayerName.slice(1)}
-        `;
-
-        // Update the global nextPrayerTime
-        nextPrayerTime = moment(data.nextPrayer.time, 'HH:mm');
-        // Ensure it's today or tomorrow
-        if (nextPrayerTime.isBefore(now)) {
-            nextPrayerTime.add(1, 'day');
-        }
-
-        updateCountdown();
-    } else {
-        nextPrayerName.textContent = 'No more prayers today';
+    
+    // Check if data is valid
+    if (!data || !data.nextPrayer) {
+        nextPrayerName.textContent = 'No prayer data available';
         nextPrayerTime = null;
         countdownDisplay.textContent = '--:--:--';
+        return;
     }
+
+    const prayerName = data.nextPrayer.name;
+    const icon = PRAYER_ICONS[prayerName];
+    nextPrayerName.innerHTML = `
+        ${icon.type === 'mdi'
+            ? `<i class="mdi ${icon.name}"></i>`
+            : `<i class="${icon.type} ${icon.name}"></i>`
+        }
+        ${prayerName.charAt(0).toUpperCase() + prayerName.slice(1)}
+    `;
+
+    // Update the global nextPrayerTime
+    nextPrayerTime = moment(data.nextPrayer.time, 'HH:mm');
+    // Ensure it's today or tomorrow
+    if (nextPrayerTime.isBefore(now)) {
+        nextPrayerTime.add(1, 'day');
+    }
+
+    updateCountdown();
 }
 
 // Update logs with new content
@@ -398,14 +416,21 @@ function initialiseLogScroll() {
 // Fetch prayer times and update UI
 async function updatePrayerData() {
     try {
+        // Fetch prayer times
         const response = await fetch('/api/prayer-times');
         const data = await response.json();
         
         // Store the current prayer data
         currentPrayerData = data;
 
+        // Update prayer times table and next prayer info
         updatePrayerTable(data.iqamahTimes, data.startTimes, data.nextPrayer);
         updateTimeAndNextPrayer(data);
+        
+        // Update prayer source information if available
+        if (data.source) {
+            updatePrayerSourceInfo(data.source);
+        }
     } catch (error) {
         console.error('Error fetching prayer times:', error);
     }
@@ -430,115 +455,191 @@ async function fetchPrayerSettings() {
 
 // Populate settings form with current settings
 function populateSettingsForm(settings, features) {
-    if (!settings) return;
+    // Populate global toggles
+    const globalAzanToggle = document.getElementById('global-azan-toggle');
+    const globalAnnouncementToggle = document.getElementById('global-announcement-toggle');
     
-    // Set global settings
-    globalAzanToggle.checked = features.azanEnabled;
-    globalAnnouncementToggle.checked = features.announcementEnabled;
-    
-    // Clear existing prayer settings
-    prayerSettingsContainer.innerHTML = '';
-    
-    // Add settings for each prayer
-    const prayers = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
-    prayers.forEach(prayer => {
-        const prayerSettings = settings.prayers[prayer] || {
-            azanEnabled: true,
-            announcementEnabled: true,
-            azanAtIqamah: false
-        };
-        
-        const prayerSettingDiv = document.createElement('div');
-        prayerSettingDiv.className = 'prayer-setting';
-        prayerSettingDiv.innerHTML = `
-            <h5>${PRAYER_DISPLAY_NAMES[prayer]}</h5>
-            <div class="setting-group">
-                <div class="setting-row">
-                    <label>Enable Azan</label>
-                    <div class="toggle-switch">
-                        <input type="checkbox" id="${prayer}-azan-toggle" class="toggle-input" ${prayerSettings.azanEnabled ? 'checked' : ''}>
-                        <label for="${prayer}-azan-toggle" class="toggle-label"></label>
-                    </div>
-                </div>
-                <div class="setting-row">
-                    <label>Azan Timing</label>
-                    <div class="radio-group">
-                        <div class="radio-option">
-                            <input type="radio" id="${prayer}-azan-start" name="${prayer}-azan-timing" value="start" ${!prayerSettings.azanAtIqamah ? 'checked' : ''}>
-                            <label for="${prayer}-azan-start">Prayer Start</label>
-                        </div>
-                        <div class="radio-option">
-                            <input type="radio" id="${prayer}-azan-iqamah" name="${prayer}-azan-timing" value="iqamah" ${prayerSettings.azanAtIqamah ? 'checked' : ''}>
-                            <label for="${prayer}-azan-iqamah">Iqamah Time</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="setting-row">
-                    <label>Enable Announcement (15 min before prayer)</label>
-                    <div class="toggle-switch">
-                        <input type="checkbox" id="${prayer}-announcement-toggle" class="toggle-input" ${prayerSettings.announcementEnabled ? 'checked' : ''}>
-                        <label for="${prayer}-announcement-toggle" class="toggle-label"></label>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        prayerSettingsContainer.appendChild(prayerSettingDiv);
-    });
-    
-    // Initialize prayer-specific toggle states based on global settings
-    if (!features.azanEnabled) {
-        togglePrayerSpecificControls('azan', false);
+    if (globalAzanToggle && settings.globalAzan !== undefined) {
+        globalAzanToggle.checked = settings.globalAzan;
     }
     
-    if (!features.announcementEnabled) {
-        togglePrayerSpecificControls('announcement', false);
+    if (globalAnnouncementToggle && settings.globalAnnouncement !== undefined) {
+        globalAnnouncementToggle.checked = settings.globalAnnouncement;
     }
+    
+    // Populate prayer-specific settings
+    const prayerSettingsContainer = document.getElementById('prayer-settings');
+    if (prayerSettingsContainer) {
+        prayerSettingsContainer.innerHTML = '';
+        
+        for (const prayer of ['fajr', 'zuhr', 'asr', 'maghrib', 'isha']) {
+            const prayerSetting = document.createElement('div');
+            prayerSetting.className = 'prayer-setting';
+            
+            const prayerName = PRAYER_DISPLAY_NAMES[prayer] || prayer.charAt(0).toUpperCase() + prayer.slice(1);
+            
+            prayerSetting.innerHTML = `
+                <h5>${prayerName}</h5>
+                <div class="setting-group">
+                    <div class="setting-row">
+                        <label>Azan</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="${prayer}-azan-toggle" class="toggle-input"
+                                ${settings.prayerSettings && settings.prayerSettings[prayer] && settings.prayerSettings[prayer].azan ? 'checked' : ''}>
+                            <label for="${prayer}-azan-toggle" class="toggle-label"></label>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <label>Azan Time</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="${prayer}-azan-start" name="${prayer}-azan-time" value="start"
+                                    ${settings.prayerSettings && settings.prayerSettings[prayer] && settings.prayerSettings[prayer].azanTime === 'start' ? 'checked' : ''}>
+                                <label for="${prayer}-azan-start">Start Time</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="${prayer}-azan-iqamah" name="${prayer}-azan-time" value="iqamah"
+                                    ${settings.prayerSettings && settings.prayerSettings[prayer] && settings.prayerSettings[prayer].azanTime === 'iqamah' ? 'checked' : ''}>
+                                <label for="${prayer}-azan-iqamah">Iqamah Time</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <label>Announcement</label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="${prayer}-announcement-toggle" class="toggle-input"
+                                ${settings.prayerSettings && settings.prayerSettings[prayer] && settings.prayerSettings[prayer].announcement ? 'checked' : ''}>
+                            <label for="${prayer}-announcement-toggle" class="toggle-label"></label>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            prayerSettingsContainer.appendChild(prayerSetting);
+        }
+    }
+    
+    // Initialize prayer-specific toggle states based on global toggles
+    togglePrayerSpecificControls('azan', settings.globalAzan);
+    togglePrayerSpecificControls('announcement', settings.globalAnnouncement);
+    
+    // Add event listeners to prayer-specific toggles
+    addPrayerToggleListeners();
 }
 
 // Gather settings from form
 function getSettingsFromForm() {
     const settings = {
-        prayers: {},
-        globalAzanEnabled: globalAzanToggle.checked,
-        globalAnnouncementEnabled: globalAnnouncementToggle.checked
+        globalAzan: document.getElementById('global-azan-toggle').checked,
+        globalAnnouncement: document.getElementById('global-announcement-toggle').checked,
+        prayerSettings: {},
+        prayerSource: {}
     };
     
-    const prayers = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
-    prayers.forEach(prayer => {
-        const azanEnabled = document.getElementById(`${prayer}-azan-toggle`).checked;
-        const announcementEnabled = document.getElementById(`${prayer}-announcement-toggle`).checked;
-        const azanAtIqamah = document.getElementById(`${prayer}-azan-iqamah`).checked;
+    // Get prayer-specific settings
+    for (const prayer of ['fajr', 'zuhr', 'asr', 'maghrib', 'isha']) {
+        const azanToggle = document.getElementById(`${prayer}-azan-toggle`);
+        const azanStartRadio = document.getElementById(`${prayer}-azan-start`);
+        const announcementToggle = document.getElementById(`${prayer}-announcement-toggle`);
         
-        settings.prayers[prayer] = {
-            azanEnabled,
-            announcementEnabled,
-            azanAtIqamah
+        if (azanToggle && azanStartRadio && announcementToggle) {
+            settings.prayerSettings[prayer] = {
+                azan: azanToggle.checked,
+                azanTime: azanStartRadio.checked ? 'start' : 'iqamah',
+                announcement: announcementToggle.checked
+            };
+        }
+    }
+    
+    // Get prayer source settings
+    const sourceMyMasjidRadio = document.getElementById('source-mymasjid');
+    
+    if (sourceMyMasjidRadio.checked) {
+        settings.prayerSource = {
+            source: 'mymasjid',
+            guildId: document.getElementById('mymasjid-guild-id').value
         };
-    });
+    } else {
+        settings.prayerSource = {
+            source: 'aladhan',
+            latitude: parseFloat(document.getElementById('aladhan-latitude').value),
+            longitude: parseFloat(document.getElementById('aladhan-longitude').value),
+            timezone: document.getElementById('settings-aladhan-timezone').value,
+            calculationMethodId: parseInt(document.getElementById('settings-calculation-method').value),
+            asrJuristicMethodId: parseInt(document.getElementById('settings-asr-method').value),
+            latitudeAdjustmentMethodId: parseInt(document.getElementById('settings-latitude-adjustment').value),
+            midnightModeId: parseInt(document.getElementById('settings-midnight-mode').value),
+            iqamahOffsets: {
+                fajr: parseInt(document.getElementById('settings-iqamah-fajr').value),
+                zuhr: parseInt(document.getElementById('settings-iqamah-zuhr').value),
+                asr: parseInt(document.getElementById('settings-iqamah-asr').value),
+                maghrib: parseInt(document.getElementById('settings-iqamah-maghrib').value),
+                isha: parseInt(document.getElementById('settings-iqamah-isha').value)
+            }
+        };
+    }
     
     return settings;
 }
 
 // Check if settings have changed
 function haveSettingsChanged(newSettings) {
-    if (!originalPrayerSettings) return true;
+    // Compare with current settings
+    if (!currentSettings) return true;
     
-    // Check global settings
-    if (newSettings.globalAzanEnabled !== appConfig.features.azanEnabled) return true;
-    if (newSettings.globalAnnouncementEnabled !== appConfig.features.announcementEnabled) return true;
+    // Compare global settings
+    if (newSettings.globalAzan !== currentSettings.globalAzan ||
+        newSettings.globalAnnouncement !== currentSettings.globalAnnouncement) {
+        return true;
+    }
     
-    // Check prayer-specific settings
-    const prayers = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
-    for (const prayer of prayers) {
-        const original = originalPrayerSettings.prayers[prayer];
-        const updated = newSettings.prayers[prayer];
+    // Compare prayer-specific settings
+    for (const prayer of ['fajr', 'zuhr', 'asr', 'maghrib', 'isha']) {
+        const newPrayer = newSettings.prayerSettings[prayer];
+        const currentPrayer = currentSettings.prayerSettings[prayer];
         
-        if (!original || !updated) return true;
+        if (!newPrayer || !currentPrayer) return true;
         
-        if (original.azanEnabled !== updated.azanEnabled) return true;
-        if (original.announcementEnabled !== updated.announcementEnabled) return true;
-        if (original.azanAtIqamah !== updated.azanAtIqamah) return true;
+        if (newPrayer.azan !== currentPrayer.azan ||
+            newPrayer.azanTime !== currentPrayer.azanTime ||
+            newPrayer.announcement !== currentPrayer.announcement) {
+            return true;
+        }
+    }
+    
+    // Compare prayer source settings
+    if (newSettings.prayerSource.source !== currentPrayerSource.source) {
+        return true;
+    }
+    
+    if (newSettings.prayerSource.source === 'mymasjid') {
+        if (newSettings.prayerSource.guildId !== currentPrayerSource.guildId) {
+            return true;
+        }
+    } else if (newSettings.prayerSource.source === 'aladhan') {
+        if (newSettings.prayerSource.latitude !== currentPrayerSource.latitude ||
+            newSettings.prayerSource.longitude !== currentPrayerSource.longitude ||
+            newSettings.prayerSource.timezone !== currentPrayerSource.timezone ||
+            newSettings.prayerSource.calculationMethodId !== currentPrayerSource.calculationMethodId ||
+            newSettings.prayerSource.asrJuristicMethodId !== currentPrayerSource.asrJuristicMethodId ||
+            newSettings.prayerSource.latitudeAdjustmentMethodId !== currentPrayerSource.latitudeAdjustmentMethodId ||
+            newSettings.prayerSource.midnightModeId !== currentPrayerSource.midnightModeId) {
+            return true;
+        }
+        
+        // Compare iqamah offsets
+        const newOffsets = newSettings.prayerSource.iqamahOffsets;
+        const currentOffsets = currentPrayerSource.iqamahOffsets;
+        
+        if (!newOffsets || !currentOffsets) return true;
+        
+        if (newOffsets.fajr !== currentOffsets.fajr ||
+            newOffsets.zuhr !== currentOffsets.zuhr ||
+            newOffsets.asr !== currentOffsets.asr ||
+            newOffsets.maghrib !== currentOffsets.maghrib ||
+            newOffsets.isha !== currentOffsets.isha) {
+            return true;
+        }
     }
     
     return false;
@@ -547,29 +648,45 @@ function haveSettingsChanged(newSettings) {
 // Save settings to server
 async function saveSettings(settings) {
     try {
-        const response = await fetch('/api/prayer-settings', {
+        // Save azan and announcement settings
+        const azanResponse = await fetch('/api/settings', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'x-auth-token': authToken
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify(settings)
+            body: JSON.stringify({
+                globalAzan: settings.globalAzan,
+                globalAnnouncement: settings.globalAnnouncement,
+                prayerSettings: settings.prayerSettings
+            })
         });
         
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to save settings');
+        if (!azanResponse.ok) {
+            throw new Error(`Failed to save azan settings: ${azanResponse.statusText}`);
         }
         
-        const result = await response.json();
+        // Save prayer source settings
+        const sourceResponse = await fetch('/api/prayer-source', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(settings.prayerSource)
+        });
         
-        // Update stored settings
-        currentPrayerSettings = result.settings;
-        originalPrayerSettings = JSON.parse(JSON.stringify(result.settings));
+        if (!sourceResponse.ok) {
+            throw new Error(`Failed to save prayer source settings: ${sourceResponse.statusText}`);
+        }
         
-        // Update global feature flags
-        await initialiseFeatureStates();
-                
+        // Update current settings cache
+        currentSettings = {
+            globalAzan: settings.globalAzan,
+            globalAnnouncement: settings.globalAnnouncement,
+            prayerSettings: settings.prayerSettings
+        };
+        
+        currentPrayerSource = settings.prayerSource;
+        
         return true;
     } catch (error) {
         console.error('Error saving settings:', error);
@@ -579,60 +696,181 @@ async function saveSettings(settings) {
 
 // Initialise settings panel
 async function initialiseSettingsPanel() {
-    // Settings button click handler
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsModal = document.getElementById('settings-modal');
+    const settingsSaveBtn = document.getElementById('settings-save');
+    const settingsCancelBtn = document.getElementById('settings-cancel');
+    const settingsConfirmModal = document.getElementById('settings-confirm-modal');
+    const settingsConfirmApplyBtn = document.getElementById('settings-confirm-apply');
+    const settingsConfirmCancelBtn = document.getElementById('settings-confirm-cancel');
+    
+    // Tab navigation elements
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    // Make sure the prayer source settings module is initialized
+    if (window.prayerSourceSettings) {
+        console.log("Initialising prayer source settings module...");
+        window.prayerSourceSettings.initialize();
+    } else {
+        console.error("Prayer source settings module not found!");
+    }
+    
+    // Initialize Azan Settings tab
+    if (window.azanSettings) {
+        window.azanSettings.initialize();
+    }
+    
+    // Tab switching functionality
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Remove active class from all buttons and contents
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Add active class to clicked button
+            button.classList.add('active');
+            
+            // Show corresponding content
+            const tabId = button.getAttribute('data-tab');
+            document.getElementById(`${tabId}-tab`).classList.add('active');
+        });
+    });
+    
+    // Show settings button click handler
     settingsBtn.addEventListener('click', async () => {
-        if (!isAuthenticated) {
-            showLoginModal(async () => {
-                await showSettingsModal();
-            });
-            return;
+        // Skip authentication check if already authenticated
+        if (isAuthenticated) {
+            showSettingsModal();
+        } else {
+            // Only show login modal if not already authenticated
+            const isAuth = await checkAuthStatus();
+            if (isAuth) {
+                showSettingsModal();
+            } else {
+                showLoginModal(showSettingsModal);
+            }
         }
-        
-        await showSettingsModal();
-    });
-    
-    // Add event listeners for global toggles to disable/enable prayer-specific toggles
-    globalAzanToggle.addEventListener('change', (e) => {
-        togglePrayerSpecificControls('azan', e.target.checked);
-    });
-    
-    globalAnnouncementToggle.addEventListener('change', (e) => {
-        togglePrayerSpecificControls('announcement', e.target.checked);
     });
     
     // Save button click handler
     settingsSaveBtn.addEventListener('click', async () => {
-        const newSettings = getSettingsFromForm();
+        // Get prayer source settings
+        let prayerSourceSettings = null;
+        let prayerSourceValid = true;
+        if (window.prayerSourceSettings) {
+            prayerSourceSettings = window.prayerSourceSettings.getSettings();
+            
+            // Validate prayer source settings
+            const validation = window.prayerSourceSettings.validate();
+            if (!validation.isValid) {
+                prayerSourceValid = false;
+                // Show error message
+                if (window.showErrorMessage) {
+                    window.showErrorMessage(validation.error);
+                } else {
+                    alert(validation.error);
+                }
+                return;
+            }
+        }
         
-        // Check if settings have changed
-        if (haveSettingsChanged(newSettings)) {
+        // Get azan settings
+        let azanSettings = null;
+        if (window.azanSettings) {
+            azanSettings = window.azanSettings.getSettings();
+        }
+        
+        // Check if any settings have changed
+        const sourceSettingsChanged = window.prayerSourceSettings && window.prayerSourceSettings.haveChanged(prayerSourceSettings);
+        const azanSettingsChanged = window.azanSettings && window.azanSettings.haveChanged();
+        
+        if ((sourceSettingsChanged || azanSettingsChanged) && prayerSourceValid) {
             // Show confirmation modal
             settingsConfirmModal.classList.add('show');
             
             // Confirm button handler
             settingsConfirmApplyBtn.onclick = async () => {
-                const success = await saveSettings(newSettings);
+                // Close the confirmation modal
+                settingsConfirmModal.classList.remove('show');
+                
+                // Add loading indicator
+                const loadingIndicator = document.createElement('div');
+                loadingIndicator.className = 'settings-loading';
+                loadingIndicator.innerHTML = `
+                    <div class="settings-loading-spinner"></div>
+                    <div class="settings-loading-text">Saving settings and updating prayer times...</div>
+                `;
+                document.querySelector('.settings-content').appendChild(loadingIndicator);
+                
+                let success = true;
+                let errorMessage = '';
+                
+                // Save azan settings if changed
+                if (azanSettingsChanged && window.azanSettings) {
+                    const saveResult = await window.azanSettings.save();
+                    if (!saveResult.success) {
+                        success = false;
+                        errorMessage = saveResult.error || 'Failed to save azan settings';
+                        console.error('Failed to save azan settings:', saveResult.error);
+                    }
+                }
+                
+                // Save prayer source settings if changed
+                if (sourceSettingsChanged && window.prayerSourceSettings) {
+                    const saveResult = await window.prayerSourceSettings.save(prayerSourceSettings);
+                    if (!saveResult.success) {
+                        success = false;
+                        errorMessage = saveResult.error || 'Failed to save prayer source settings';
+                        console.error('Failed to save prayer source settings:', saveResult.error);
+                    }
+                }
+                
+                // Remove loading indicator
+                loadingIndicator.remove();
                 
                 if (success) {
+                    // Show success message
+                    const successMessage = document.createElement('div');
+                    successMessage.className = 'success-message';
+                    successMessage.style.display = 'block';
+                    successMessage.textContent = 'Settings saved successfully!';
+                    document.querySelector('.settings-content').appendChild(successMessage);
+                    
+                    // Log success
                     updateLogs({
                         type: 'system',
                         message: 'Prayer settings updated successfully',
                         timestamp: moment().format('YYYY-MM-DD HH:mm:ss')
                     });
                     
-                    // Close both modals
-                    settingsConfirmModal.classList.remove('show');
-                    settingsModal.classList.remove('show');
-                    
-                    // Refresh prayer data
-                    await updatePrayerData();
+                    // Hide success message after 3 seconds and close modal
+                    setTimeout(() => {
+                        successMessage.remove();
+                        settingsModal.classList.remove('show');
+                        
+                        // Refresh prayer data
+                        updatePrayerData();
+                    }, 3000);
                 } else {
+                    // Show error message
+                    const errorMessageElement = document.createElement('div');
+                    errorMessageElement.className = 'error-message';
+                    errorMessageElement.style.display = 'block';
+                    errorMessageElement.textContent = errorMessage || 'Failed to update settings';
+                    document.querySelector('.settings-content').appendChild(errorMessageElement);
+                    
+                    // Log error
                     updateLogs({
                         type: 'error',
-                        message: 'Failed to update prayer settings',
+                        message: 'Failed to update settings: ' + errorMessage,
                         timestamp: moment().format('YYYY-MM-DD HH:mm:ss')
                     });
-                    settingsConfirmModal.classList.remove('show');
+                    
+                    // Hide error message after 5 seconds
+                    setTimeout(() => {
+                        errorMessageElement.remove();
+                    }, 5000);
                 }
             };
             
@@ -896,11 +1134,11 @@ async function initialise() {
     setInterval(checkAuthStatus, 60000);
 }
 
-// Add moment.js from CDN
-const momentScript = document.createElement('script');
-momentScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js';
-momentScript.onload = initialise;
-document.head.appendChild(momentScript);
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+    // Since moment.js is already loaded in the HTML head, we can just call initialize
+    initialise();
+});
 
 // Override console.log to capture and broadcast logs
 const originalConsoleLog = console.log;
@@ -1021,12 +1259,37 @@ async function login(username, password) {
             body: JSON.stringify({ username, password })
         });
         
+        // Check if the response is not OK (e.g. 401 Unauthorized)
+        if (!response.ok) {
+            // Try to get a more specific error message from the response if available
+            try {
+                const errorData = await response.json();
+                return { 
+                    success: false, 
+                    message: errorData.message || `Authentication failed (${response.status})`
+                };
+            } catch (parseError) {
+                // If we can't parse the JSON response, use a generic message with the status code
+                return { 
+                    success: false, 
+                    message: `Authentication failed (${response.status})`
+                };
+            }
+        }
+        
         const data = await response.json();
         if (data.success) {
             authToken = data.token;
             localStorage.setItem('authToken', authToken);
             isAuthenticated = true;
             updateAuthUI();
+            
+            // After successful login, initialize prayer source settings
+            if (window.prayerSourceSettings) {
+                console.log("Initialising prayer source settings after login...");
+                window.prayerSourceSettings.initialize();
+            }
+            
             return { success: true };
         }
         
@@ -1037,7 +1300,7 @@ async function login(username, password) {
         };
     } catch (error) {
         console.error('Error logging in:', error);
-        return { success: false, message: 'Login failed' };
+        return { success: false, message: 'Login failed: Network or server error' };
     }
 }
 
@@ -1069,10 +1332,27 @@ function showLoginModal(onSuccess) {
     const submitButton = document.getElementById('login-submit');
     const cancelButton = document.getElementById('login-cancel');
 
+    // Clear any previous error messages
+    errorMessage.textContent = '';
+    errorMessage.style.display = 'none';
+    
     modal.classList.add('show');
-    usernameInput.focus();    const handleSubmit = async () => {
+    usernameInput.focus();
+    
+    const handleSubmit = async () => {
+        // Clear previous error
         errorMessage.textContent = '';
+        errorMessage.style.display = 'none';
+        
+        // Show loading state
+        submitButton.disabled = true;
+        submitButton.textContent = 'Logging in...';
+        
         const result = await login(usernameInput.value, passwordInput.value);
+        
+        // Reset button state
+        submitButton.disabled = false;
+        submitButton.textContent = 'Login';
         
         if (result.success) {
             modal.classList.remove('show');
@@ -1080,7 +1360,9 @@ function showLoginModal(onSuccess) {
             passwordInput.value = '';
             if (onSuccess) onSuccess();
         } else {
-            errorMessage.textContent = result.message;
+            // Display error message
+            errorMessage.textContent = result.message || 'Login failed';
+            errorMessage.style.display = 'block';
         }
     };
 
@@ -1090,6 +1372,7 @@ function showLoginModal(onSuccess) {
         usernameInput.value = '';
         passwordInput.value = '';
         errorMessage.textContent = '';
+        errorMessage.style.display = 'none';
     };
 
     // Handle Enter key

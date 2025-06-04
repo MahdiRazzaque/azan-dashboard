@@ -36,11 +36,16 @@ const DEFAULT_PRAYER_SETTINGS = {
 async function getPrayerSettings() {
     try {
         const config = await getConfig();
-        if (!config.prayerSettings) {
-            // If no prayer settings in MongoDB, initialise with defaults
-            await updateConfig('prayerSettings', DEFAULT_PRAYER_SETTINGS);
+        
+        // If no config or no prayerSettings, return defaults
+        if (!config || !config.prayerSettings) {
+            // Only try to update if config exists
+            if (config && Object.keys(config).length > 0) {
+                await updateConfig('prayerSettings', DEFAULT_PRAYER_SETTINGS);
+            }
             return DEFAULT_PRAYER_SETTINGS;
         }
+        
         return config.prayerSettings;
     } catch (error) {
         console.error('Error getting prayer settings, using defaults:', error);

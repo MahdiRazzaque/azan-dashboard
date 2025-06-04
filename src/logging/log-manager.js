@@ -1,4 +1,5 @@
 import { getConfig } from '../config/config-service.js';
+import { requireAuth } from '../auth/auth.js';
 
 // Store logs in memory
 const MAX_LOGS = 1000;
@@ -150,8 +151,8 @@ function setupLogRoutes(app) {
         res.json(logs);
     });
 
-    // Clear all logs
-    app.post('/api/logs/clear', (req, res) => {
+    // Clear all logs - requires authentication
+    app.post('/api/logs/clear', requireAuth, (req, res) => {
         const config = getConfig(true);
         if (!config?.features?.systemLogsEnabled) {
             return res.status(403).json({ error: 'System logs are disabled' });
