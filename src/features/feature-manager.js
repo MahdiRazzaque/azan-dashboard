@@ -1,7 +1,7 @@
 import { requireAuth } from '../auth/auth.js';
 import { scheduleNamazTimers } from '../scheduler/scheduler.js';
 import { getConfig, updateConfig } from '../config/config-service.js';
-import { TEST_MODE, TEST_START_TIME } from '../utils/utils.js';
+import { getTestMode, getTestModeConfig } from '../utils/utils.js';
 
 // Feature state management - read from memory config
 function getFeatureStates() {
@@ -21,15 +21,6 @@ function getFeatureStates() {
             systemLogsEnabled: false
         };
     }
-}
-
-// TEST_MODE is now defined in utils.js, not in MongoDB
-function getTestModeConfig() {   
-    return {
-        enabled: TEST_MODE,
-        startTime: TEST_MODE ? '02:00:00' : "00:00:00",
-        timezone: "Europe/London"
-    };
 }
 
 // Setup feature routes
@@ -95,15 +86,14 @@ function setupFeatureRoutes(app) {
         
         return res.status(400).json({
             success: false,
-            message: 'TEST_MODE is now defined directly in src/utils/utils.js and cannot be modified via API'
+            message: 'TEST_MODE is now defined in environment variables (.env file) and cannot be modified via API'
         });
         
-        // Note: To modify TEST_MODE, edit the utils.js file directly
+        // Note: To modify TEST_MODE, edit the .env file directly
     });
 }
 
 export {
     setupFeatureRoutes,
-    getFeatureStates,
-    getTestModeConfig
+    getFeatureStates
 };

@@ -11,7 +11,7 @@ import { setupPrayerRoutes } from '../prayer/prayer-times.js';
 import { setupPrayerSettingsRoutes } from '../prayer/prayer-settings.js';
 import { setupPrayerSourceRoutes } from '../prayer/prayer-source-routes.js';
 // import { connectToDatabase } from '../database/db-connection.js'; // REMOVE
-import { TEST_MODE } from '../utils/utils.js';
+import { getTestMode } from '../utils/utils.js';
 import { validateEnv, validateConfig } from '../config/config-validator.js'; // Keep validateConfig
 import { getConfig, enableWebSetup } from '../config/config-service.js';
 import { setupConfigRoutes } from '../config/config-routes.js';
@@ -26,8 +26,8 @@ const CONFIG_FILE_PATH = path.join(__dirname, '../../config.json');
 const PRAYER_TIMES_FILE_PATH = path.join(__dirname, '../../prayer_times.json');
 
 const app = express();
-// Flag to track if prayer services have been initialized
-let prayerServicesInitialized = false;
+// Flag to track if prayer services have been initialised
+let prayerServicesinitialised = false;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../../public')));
@@ -46,13 +46,13 @@ setupPrayerSourceRoutes(app);
 // Add endpoint to initialize prayer services after setup
 app.post('/api/initialize-services', async (req, res) => {
     try {
-        if (prayerServicesInitialized) {
-            return res.json({ success: true, message: 'Prayer services already initialized' });
+        if (prayerServicesinitialised) {
+            return res.json({ success: true, message: 'Prayer services already initialised' });
         }
         
         const success = await initializePrayerServices();
         if (success) {
-            res.json({ success: true, message: 'Prayer services initialized successfully' });
+            res.json({ success: true, message: 'Prayer services initialised successfully' });
         } else {
             res.status(500).json({ success: false, error: 'Failed to initialize prayer services' });
         }
@@ -100,8 +100,8 @@ async function initializePrayerServices() {
             // Start session cleanup
             startSessionCleanup();
             
-            prayerServicesInitialized = true;
-            console.info("✅ Prayer services initialized successfully");
+            prayerServicesinitialised = true;
+            console.info("✅ Prayer services initialised successfully");
             return true;
         } catch (error) {
             console.error("❌ Failed to initialize prayer services:", error);
@@ -156,7 +156,7 @@ async function initialiseServer() {
             // Initialize prayer services if config exists and is valid
             await initializePrayerServices();
             
-            if(TEST_MODE) { 
+            if(getTestMode()) { 
                 console.log("🧪 TEST MODE enabled")
             }
         } catch (error) {

@@ -1,7 +1,7 @@
 import moment from 'moment-timezone';
 import schedule from 'node-schedule';
 import fetch from 'node-fetch';
-import { getCurrentTime, logSection, TEST_MODE } from '../utils/utils.js';
+import { getCurrentTime, logSection, getTestMode } from '../utils/utils.js';
 import { updatePrayerTimes } from '../prayer/prayer-times.js';
 import { getPrayerSettings } from '../prayer/prayer-settings.js';
 import { getFeatureStates } from '../features/feature-manager.js';
@@ -221,7 +221,7 @@ async function scheduleAnnouncementTimer(prayerName, time) {
 
 // Play azan through Voice Monkey
 async function playAzan(fajr = false) {
-    if(TEST_MODE) {
+    if(getTestMode()) {
         console.log("🧪 TEST MODE: Azan playback skipped");
         return;
     }
@@ -282,7 +282,7 @@ async function playAzan(fajr = false) {
 
 // Play prayer announcement through Voice Monkey
 async function playPrayerAnnouncement(prayerName) {
-    if(TEST_MODE) {
+    if(getTestMode()) {
         console.log("🧪 TEST MODE: Announcement playback skipped");
         return;
     }

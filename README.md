@@ -87,6 +87,11 @@ VOICEMONKEY_TOKEN=your_voicemonkey_api_token
 
 # Server Port (optional, defaults to 3002 if not set)
 PORT=3000
+
+# Test Mode Configuration (optional)
+TEST_MODE=false
+TEST_START_TIME=02:00:00
+TEST_TIMEZONE=Europe/London
 ```
 
 To generate a password hash, run the included utility from the project root:
@@ -186,11 +191,20 @@ The settings panel provides fine-grained control over the azan system:
 
 Test mode allows you to verify announcements and prayer timings by simulating a specific start time:
 
-1.  Edit `src/utils/utils.js`.
-2.  Set `const TEST_MODE = true;`.
-3.  Adjust `TEST_START_TIME` (e.g., `moment.tz('02:00:00', 'HH:mm:ss', 'Europe/London')`) to the desired simulation start time.
-4.  Restart the server.
-5.  The system will operate as if the current time initiated from your `TEST_START_TIME`. Remember to set `TEST_MODE = false;` for normal operation.
+1. Create or edit your `.env` file in the project root.
+2. Set the following TEST_MODE variables:
+   ```
+   TEST_MODE=true
+   TEST_START_TIME=02:00:00
+   TEST_TIMEZONE=Europe/London
+   ```
+3. Restart the server.
+4. The system will operate as if the current time initiated from your `TEST_START_TIME`.
+5. When TEST_MODE is enabled, the settings panel can be accessed without authentication, making testing easier.
+6. A visual indicator will appear in the top-right corner of the web UI to show that TEST_MODE is active.
+7. To disable test mode, set `TEST_MODE=false` in your `.env` file.
+
+Note: In TEST_MODE, Alexa announcements and azan playback are simulated but not actually sent to devices.
 
 ## Security
 
