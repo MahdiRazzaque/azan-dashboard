@@ -17,9 +17,9 @@ let originalAzanSettings = null;
 // No need to redeclare PRAYER_DISPLAY_NAMES here
 
 /**
- * Initialize the Azan Settings tab
+ * initialise the Azan Settings tab
  */
-function initializeAzanSettings() {
+function initialiseAzanSettings() {
     // Get DOM elements
     const globalAzanToggle = document.getElementById('global-azan-toggle');
     const globalAnnouncementToggle = document.getElementById('global-announcement-toggle');
@@ -169,7 +169,7 @@ function populateAzanSettingsForm(settings, features) {
         }
     }
     
-    // Initialize prayer-specific toggle states based on global toggles
+    // initialise prayer-specific toggle states based on global toggles
     const globalAzanEnabled = settings.globalAzanEnabled !== undefined ? 
         settings.globalAzanEnabled : 
         (settings.globalAzan !== undefined ? settings.globalAzan : false);
@@ -610,7 +610,7 @@ function showErrorMessage(message) {
 
 // Export functions for use in app.js
 window.azanSettings = {
-    initialize: initializeAzanSettings,
+    initialise: initialiseAzanSettings,
     refresh: fetchAzanSettings,  // Add refresh method
     getSettings: getAzanSettings,
     haveChanged: haveAzanSettingsChanged,

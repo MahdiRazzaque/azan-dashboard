@@ -738,22 +738,22 @@ async function initialiseSettingsPanel() {
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
     
-    // Initialize settings modules
-    console.log("Initializing settings modules...");
+    // initialise settings modules
+    console.log("initialising settings modules...");
     
     // Make sure the prayer source settings module is initialised
     if (window.prayerSourceSettings) {
         console.log("Initialising prayer source settings module...");
-        window.prayerSourceSettings.initialize();
-        window.prayerSourceSettingsInitialized = true;
+        window.prayerSourceSettings.initialise();
+        window.prayerSourceSettingsinitialised = true;
     } else {
         console.error("Prayer source settings module not found!");
     }
     
-    // Initialize Azan Settings tab
+    // initialise Azan Settings tab
     if (window.azanSettings) {
         console.log("Initialising azan settings module...");
-        window.azanSettings.initialize();
+        window.azanSettings.initialise();
     } else {
         console.error("Azan settings module not found!");
     }
@@ -984,9 +984,9 @@ async function initialise() {
     setInterval(checkAuthStatus, 60000);
 }
 
-// Initialize the application
+// initialise the application
 document.addEventListener('DOMContentLoaded', () => {
-    // Since moment.js is already loaded in the HTML head, we can just call initialize
+    // Since moment.js is already loaded in the HTML head, we can just call initialise
     initialise();
 });
 
@@ -1061,7 +1061,7 @@ async function initialiseFeatureStates() {
         // Store app config
         appConfig = { features };
     } catch (error) {
-        console.error('Error initializing feature states:', error);
+        console.error('Error initialising feature states:', error);
     }
 }
 
@@ -1137,7 +1137,7 @@ async function login(username, password) {
             if (window.prayerSourceSettings) {
                 console.log("Refreshing prayer source settings after login...");
                 await window.prayerSourceSettings.fetch();
-                window.prayerSourceSettingsInitialized = true;
+                window.prayerSourceSettingsinitialised = true;
             }
             
             return { success: true };

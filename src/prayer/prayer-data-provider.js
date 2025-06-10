@@ -13,9 +13,9 @@ const __dirname = path.dirname(__filename);
 let prayerTimesFileCache = null; 
 
 /**
- * Initializes the prayer data source based on configuration
+ * initialises the prayer data source based on configuration
  * Loads data from API if needed and caches it
- * @returns {Promise<boolean>} - True if initialization was successful
+ * @returns {Promise<boolean>} - True if initialisation was successful
  */
 async function initialisePrayerDataSource() {
     const prayerTimesFilePath = path.join(__dirname, '../../prayer_times.json');
@@ -89,9 +89,9 @@ async function initialisePrayerDataSource() {
             
             // Delegate to the appropriate provider based on the source
             if (source === 'mymasjid') {
-                await initializeMyMasjidSource(config, prayerTimesFilePath);
+                await initialiseMyMasjidSource(config, prayerTimesFilePath);
             } else if (source === 'aladhan') {
-                await initializeAladhanSource(config, prayerTimesFilePath);
+                await initialiseAladhanSource(config, prayerTimesFilePath);
             } else {
                 console.error(`❌ Error: Unknown prayer data source: ${source}`);
                 return false;
@@ -110,12 +110,12 @@ async function initialisePrayerDataSource() {
 }
 
 /**
- * Initializes the MyMasjid data source
+ * initialises the MyMasjid data source
  * @param {Object} config - The application configuration
  * @param {string} filePath - Path to save the prayer times file
  * @returns {Promise<void>}
  */
-async function initializeMyMasjidSource(config, filePath) {
+async function initialiseMyMasjidSource(config, filePath) {
     const guildId = config.prayerData?.mymasjid?.guildId;
     if (!guildId) {
         console.error("❌ Error: mymasjid.guildId is missing in configuration. Cannot fetch prayer times.");
@@ -127,12 +127,12 @@ async function initializeMyMasjidSource(config, filePath) {
 }
 
 /**
- * Initializes the Aladhan data source
+ * initialises the Aladhan data source
  * @param {Object} config - The application configuration
  * @param {string} filePath - Path to save the prayer times file
  * @returns {Promise<void>}
  */
-async function initializeAladhanSource(config, filePath) {
+async function initialiseAladhanSource(config, filePath) {
     const aladhanConfig = config.prayerData?.aladhan;
     
     // Validate Aladhan configuration
@@ -185,9 +185,9 @@ export async function refreshPrayerData() {
         
         // Delegate to the appropriate provider based on the source
         if (source === 'mymasjid') {
-            await initializeMyMasjidSource(config, prayerTimesFilePath);
+            await initialiseMyMasjidSource(config, prayerTimesFilePath);
         } else if (source === 'aladhan') {
-            await initializeAladhanSource(config, prayerTimesFilePath);
+            await initialiseAladhanSource(config, prayerTimesFilePath);
         } else {
             console.error(`❌ Error: Unknown prayer data source: ${source}`);
             return false;
@@ -210,8 +210,8 @@ export async function refreshPrayerData() {
  */
 async function getPrayerTimesData(date) {
     if (!prayerTimesFileCache) {
-        console.warn("⚠️ Prayer times cache is not initialised. Attempting to initialize...");
-        // Attempt to re-initialize
+        console.warn("⚠️ Prayer times cache is not initialised. Attempting to initialise...");
+        // Attempt to re-initialise
         const initialised = await initialisePrayerDataSource();
         if (!initialised || !prayerTimesFileCache) {
             console.warn("⚠️ No prayer times available. This is expected during initial setup.");

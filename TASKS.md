@@ -137,20 +137,20 @@ Test API endpoints with valid and invalid parameters. Verify admin authenticatio
   - 9.3: Add configuration save and data refresh logic - **Status:** done - **Dependencies:** [9.2]
   - 9.4: Ensure admin authentication protection - **Status:** done - **Dependencies:** [9.3]
 
-## Task 10: Server Initialization Logic Update
+## Task 10: Server initialisation Logic Update
 - **Status:** done
 - **Priority:** medium
 - **Dependencies:** [7, 9]
-- **Description:** Update server startup to handle missing config.json and defer scheduler initialization
+- **Description:** Update server startup to handle missing config.json and defer scheduler initialisation
 - **Details:**
-Modify server.js to detect missing config.json and serve setup modal instead of failing. Defer prayer scheduler and other config-dependent initializations until setup completion. Ensure graceful handling of missing or invalid configuration files.
+Modify server.js to detect missing config.json and serve setup modal instead of failing. Defer prayer scheduler and other config-dependent initialisations until setup completion. Ensure graceful handling of missing or invalid configuration files.
 - **Test Strategy:**
-Test server startup with missing config.json. Verify setup modal is served correctly. Test scheduler initialization after setup completion.
+Test server startup with missing config.json. Verify setup modal is served correctly. Test scheduler initialisation after setup completion.
 - **Subtasks:**
   - 10.1: Add config.json existence check at startup - **Status:** done - **Dependencies:** [7, 9]
-  - 10.2: Defer scheduler initialization - **Status:** done - **Dependencies:** [10.1]
+  - 10.2: Defer scheduler initialisation - **Status:** done - **Dependencies:** [10.1]
   - 10.3: Handle invalid prayer_times.json files - **Status:** done - **Dependencies:** [10.2]
-  - 10.4: Test complete initialization flow - **Status:** done - **Dependencies:** [10.3]
+  - 10.4: Test complete initialisation flow - **Status:** done - **Dependencies:** [10.3]
 
 ## Task 11: Frontend Prayer Display Updates
 - **Status:** done

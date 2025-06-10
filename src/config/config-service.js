@@ -105,7 +105,7 @@ function getConfig(sync = false, section = null) {
 
   return (async () => {
     if (Object.keys(_appConfig).length > 0 && !section) { // If fully cached and no specific section force reload
-        // return structuredClone(_appConfig); // Removed this to ensure fresh read or initialization
+        // return structuredClone(_appConfig); // Removed this to ensure fresh read or initialisation
     }
     
     let configFromFile = await readConfigFile();

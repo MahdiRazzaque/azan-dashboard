@@ -30,7 +30,7 @@ const PARAMETER_HELP_TEXT = {
 
 // Export prayer source settings interface
 window.prayerSourceSettings = {
-    initialize: initializePrayerSourceSettings,
+    initialise: initialisePrayerSourceSettings,
     fetch: fetchPrayerSourceSettings,
     getSettings: getPrayerSourceSettings,
     validate: validatePrayerSourceSettings,
@@ -39,9 +39,9 @@ window.prayerSourceSettings = {
 };
 
 /**
- * Initialize the Prayer Source Settings tab
+ * initialise the Prayer Source Settings tab
  */
-function initializePrayerSourceSettings() {
+function initialisePrayerSourceSettings() {
     console.log("Initialising prayer source settings...");
     
     // Get DOM elements
@@ -143,8 +143,8 @@ function initializePrayerSourceSettings() {
         }
     }
     
-    // Initialize dropdowns for Aladhan settings
-    initializeAladhanDropdowns();
+    // initialise dropdowns for Aladhan settings
+    initialiseAladhanDropdowns();
     
     // Add help text tooltips to form fields
     addHelpTextTooltips();
@@ -164,9 +164,9 @@ function initializePrayerSourceSettings() {
 }
 
 /**
- * Initialize dropdowns for Aladhan settings
+ * initialise dropdowns for Aladhan settings
  */
-function initializeAladhanDropdowns() {
+function initialiseAladhanDropdowns() {
     // Get dropdown elements
     const calculationMethodSelect = document.getElementById('settings-calculation-method');
     const asrMethodSelect = document.getElementById('settings-asr-method');

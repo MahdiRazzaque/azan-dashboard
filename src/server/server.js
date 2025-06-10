@@ -43,55 +43,55 @@ setupPrayerRoutes(app);
 setupPrayerSettingsRoutes(app);
 setupPrayerSourceRoutes(app);
 
-// Add endpoint to initialize prayer services after setup
-app.post('/api/initialize-services', async (req, res) => {
+// Add endpoint to initialise prayer services after setup
+app.post('/api/initialise-services', async (req, res) => {
     try {
         if (prayerServicesinitialised) {
             return res.json({ success: true, message: 'Prayer services already initialised' });
         }
         
-        const success = await initializePrayerServices();
+        const success = await initialisePrayerServices();
         if (success) {
             res.json({ success: true, message: 'Prayer services initialised successfully' });
         } else {
-            res.status(500).json({ success: false, error: 'Failed to initialize prayer services' });
+            res.status(500).json({ success: false, error: 'Failed to initialise prayer services' });
         }
     } catch (error) {
         console.error('Error Initialising prayer services:', error);
         res.status(500).json({ 
             success: false, 
-            error: 'Failed to initialize prayer services',
+            error: 'Failed to initialise prayer services',
             details: error.message
         });
     }
 });
 
 /**
- * Initialize prayer-dependent services (prayer data source and scheduler)
+ * initialise prayer-dependent services (prayer data source and scheduler)
  * Called either at startup or after setup completion
  * @returns {Promise<boolean>} Success status
  */
-async function initializePrayerServices() {
+async function initialisePrayerServices() {
     try {
         // Check if config exists and is valid before Initialising services
         if (!fs.existsSync(CONFIG_FILE_PATH)) {
-            console.info('❌ Cannot initialize prayer services: No configuration file found');
+            console.info('❌ Cannot initialise prayer services: No configuration file found');
             return false;
         }
         
-        // Check if prayer_times.json exists, if not try to initialize prayer data source
+        // Check if prayer_times.json exists, if not try to initialise prayer data source
         const prayerTimesExists = fs.existsSync(PRAYER_TIMES_FILE_PATH);
         
         try {
             const config = await getConfig();
             if (!validateConfig(config)) {
-                console.error("❌ Cannot initialize prayer services: Invalid configuration");
+                console.error("❌ Cannot initialise prayer services: Invalid configuration");
                 return false;
             }
             
             console.info("✅ Configuration validated, Initialising prayer services");
             
-            // Initialize prayer data source (this will create prayer_times.json if needed)
+            // initialise prayer data source (this will create prayer_times.json if needed)
             await initialisePrayerDataSource();
             
             // Schedule prayer timers
@@ -104,7 +104,7 @@ async function initializePrayerServices() {
             console.info("✅ Prayer services initialised successfully");
             return true;
         } catch (error) {
-            console.error("❌ Failed to initialize prayer services:", error);
+            console.error("❌ Failed to initialise prayer services:", error);
             return false;
         }
     } catch (error) {
@@ -153,8 +153,8 @@ async function initialiseServer() {
             
             console.info("✅ Configuration loaded and validated successfully");
             
-            // Initialize prayer services if config exists and is valid
-            await initializePrayerServices();
+            // initialise prayer services if config exists and is valid
+            await initialisePrayerServices();
             
             if(getTestMode()) { 
                 console.log("🧪 TEST MODE enabled")
@@ -172,4 +172,4 @@ async function initialiseServer() {
     }
 }
 
-export { app, initialiseServer, initializePrayerServices };
+export { app, initialiseServer, initialisePrayerServices };

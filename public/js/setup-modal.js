@@ -52,7 +52,7 @@ class SetupModalHandler {
     }
     
     /**
-     * Initialize the setup modal
+     * initialise the setup modal
      */
     init() {
         // Check if setup is needed
@@ -449,9 +449,9 @@ class SetupModalHandler {
             
             this.updateProgress(50, 'Configuration created. Initialising services...');
             
-            // Initialize prayer services
+            // initialise prayer services
             try {
-                const initResponse = await fetch('/api/initialize-services', {
+                const initResponse = await fetch('/api/initialise-services', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -459,11 +459,11 @@ class SetupModalHandler {
                 });
                 
                 if (!initResponse.ok) {
-                    console.warn('Warning: Failed to initialize services. Status:', initResponse.status);
+                    console.warn('Warning: Failed to initialise services. Status:', initResponse.status);
                 } else {
                     const initData = await initResponse.json();
                     if (!initData.success) {
-                        console.warn('Warning: Failed to initialize services:', initData.error);
+                        console.warn('Warning: Failed to initialise services:', initData.error);
                     }
                 }
             } catch (error) {
@@ -597,9 +597,9 @@ class SetupModalHandler {
             
             this.updateProgress(40, 'Configuration created. Initialising services...');
             
-            // Initialize prayer services
+            // initialise prayer services
             try {
-                const initResponse = await fetch('/api/initialize-services', {
+                const initResponse = await fetch('/api/initialise-services', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -607,11 +607,11 @@ class SetupModalHandler {
                 });
                 
                 if (!initResponse.ok) {
-                    console.warn('Warning: Failed to initialize services. Status:', initResponse.status);
+                    console.warn('Warning: Failed to initialise services. Status:', initResponse.status);
                 } else {
                     const initData = await initResponse.json();
                     if (!initData.success) {
-                        console.warn('Warning: Failed to initialize services:', initData.error);
+                        console.warn('Warning: Failed to initialise services:', initData.error);
                     }
                 }
             } catch (error) {
@@ -750,7 +750,7 @@ class SetupModalHandler {
     }
 }
 
-// Initialize the setup modal handler when the DOM is loaded
+// initialise the setup modal handler when the DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.setupModalHandler = new SetupModalHandler();
 }); 
