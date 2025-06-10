@@ -5,8 +5,8 @@
 
 // Global variables to store current azan settings
 let currentAzanSettings = {
-    globalAzan: false,
-    globalAnnouncement: false,
+    globalAzanEnabled: false,
+    globalAnnouncementEnabled: false,
     prayers: {}
 };
 
@@ -38,7 +38,7 @@ function initializeAzanSettings() {
 }
 
 /**
- * Fetch azan settings from the server
+ * Fetch azan settings and features from the server
  */
 async function fetchAzanSettings() {
     try {
@@ -47,53 +47,49 @@ async function fetchAzanSettings() {
         document.querySelector('#azan-settings-tab').appendChild(loadingIndicator);
         
         // First try to fetch with authentication if available
-        let response;
         const authToken = localStorage.getItem('authToken');
+        const headers = authToken ? { 'x-auth-token': authToken } : {};
         
-        if (authToken) {
-            // Try authenticated request
-            try {
-                response = await fetch('/api/prayer-settings', {
-                    headers: {
-                        'x-auth-token': authToken
-                    }
-                });
-                
-                // If unauthorized, we'll handle it in the main error handling
-                if (response.status === 401) {
-                    console.log('Authentication required for azan settings');
-                    // We'll let the main error handling deal with this
-                }
-            } catch (authError) {
-                console.warn('Error with authenticated azan settings request:', authError);
-                // We'll let the main error handling deal with this
-            }
-        } else {
-            // No auth token, make regular request
-            response = await fetch('/api/prayer-settings');
-        }
+        // Fetch both prayer settings and features in parallel
+        const [prayerResponse, featuresResponse] = await Promise.all([
+            fetch('/api/prayer-settings', { headers }),
+            fetch('/api/features', { headers })
+        ]);
         
         // Remove loading indicator
         loadingIndicator.remove();
         
-        if (!response || !response.ok) {
-            const errorMessage = response ? `Failed to fetch azan settings: ${response.statusText}` : 'Failed to fetch azan settings';
+        // Check prayer settings response
+        if (!prayerResponse || !prayerResponse.ok) {
+            const errorMessage = prayerResponse ? 
+                `Failed to fetch prayer settings: ${prayerResponse.statusText}` : 
+                'Failed to fetch prayer settings';
             throw new Error(errorMessage);
         }
         
-        // Try to parse the response
-        let data;
-        try {
-            data = await response.json();
-        } catch (parseError) {
-            throw new Error('Invalid response format from server');
+        // Check features response
+        if (!featuresResponse || !featuresResponse.ok) {
+            const errorMessage = featuresResponse ? 
+                `Failed to fetch features: ${featuresResponse.statusText}` : 
+                'Failed to fetch features';
+            throw new Error(errorMessage);
         }
         
-        currentAzanSettings = data;
-        originalAzanSettings = JSON.parse(JSON.stringify(data)); // Deep copy for comparison
+        // Parse responses
+        const prayerSettings = await prayerResponse.json();
+        const features = await featuresResponse.json();
+        
+        // Store settings
+        currentAzanSettings = {
+            ...prayerSettings,
+            globalAzanEnabled: features.azanEnabled,
+            globalAnnouncementEnabled: features.announcementEnabled
+        };
+        
+        originalAzanSettings = JSON.parse(JSON.stringify(currentAzanSettings)); // Deep copy for comparison
         
         // Populate form with fetched settings
-        populateAzanSettingsForm(data);
+        populateAzanSettingsForm(prayerSettings, features);
         
         // Add event listeners to prayer toggle switches after populating the form
         addPrayerToggleListeners();
@@ -105,19 +101,20 @@ async function fetchAzanSettings() {
 
 /**
  * Populate the azan settings form with settings
- * @param {Object} settings - Azan settings
+ * @param {Object} settings - Prayer settings
+ * @param {Object} features - Feature settings
  */
-function populateAzanSettingsForm(settings) {
-    // Populate global toggles
+function populateAzanSettingsForm(settings, features) {
+    // Populate global toggles from features
     const globalAzanToggle = document.getElementById('global-azan-toggle');
     const globalAnnouncementToggle = document.getElementById('global-announcement-toggle');
     
-    if (globalAzanToggle && settings.globalAzan !== undefined) {
-        globalAzanToggle.checked = settings.globalAzan;
+    if (globalAzanToggle) {
+        globalAzanToggle.checked = features.azanEnabled;
     }
     
-    if (globalAnnouncementToggle && settings.globalAnnouncement !== undefined) {
-        globalAnnouncementToggle.checked = settings.globalAnnouncement;
+    if (globalAnnouncementToggle) {
+        globalAnnouncementToggle.checked = features.announcementEnabled;
     }
     
     // Populate prayer-specific settings
@@ -173,8 +170,16 @@ function populateAzanSettingsForm(settings) {
     }
     
     // Initialize prayer-specific toggle states based on global toggles
-    togglePrayerSpecificControls('azan', settings.globalAzan);
-    togglePrayerSpecificControls('announcement', settings.globalAnnouncement);
+    const globalAzanEnabled = settings.globalAzanEnabled !== undefined ? 
+        settings.globalAzanEnabled : 
+        (settings.globalAzan !== undefined ? settings.globalAzan : false);
+        
+    const globalAnnouncementEnabled = settings.globalAnnouncementEnabled !== undefined ? 
+        settings.globalAnnouncementEnabled : 
+        (settings.globalAnnouncement !== undefined ? settings.globalAnnouncement : false);
+        
+    togglePrayerSpecificControls('azan', globalAzanEnabled);
+    togglePrayerSpecificControls('announcement', globalAnnouncementEnabled);
 }
 
 /**
@@ -372,8 +377,8 @@ function addPrayerToggleListeners() {
  */
 function getAzanSettings() {
     const azanSettings = {
-        globalAzan: document.getElementById('global-azan-toggle').checked,
-        globalAnnouncement: document.getElementById('global-announcement-toggle').checked,
+        globalAzanEnabled: document.getElementById('global-azan-toggle').checked,
+        globalAnnouncementEnabled: document.getElementById('global-announcement-toggle').checked,
         prayers: {}
     };
     
@@ -406,8 +411,8 @@ function haveAzanSettingsChanged() {
     if (!originalAzanSettings) return true;
     
     // Compare global settings
-    if (newSettings.globalAzan !== originalAzanSettings.globalAzan ||
-        newSettings.globalAnnouncement !== originalAzanSettings.globalAnnouncement) {
+    if (newSettings.globalAzanEnabled !== originalAzanSettings.globalAzanEnabled ||
+        newSettings.globalAnnouncementEnabled !== originalAzanSettings.globalAnnouncementEnabled) {
         return true;
     }
     
@@ -448,14 +453,39 @@ async function saveAzanSettings() {
             return { success: false, error: 'Authentication required' };
         }
         
-        // Save settings with authentication
+        console.log("Saving azan settings:", JSON.stringify(settings));
+        
+        // Save features and prayer settings separately
+        // 1. Save features first
+        const featuresResponse = await fetch('/api/features', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-auth-token': authToken
+            },
+            body: JSON.stringify({
+                azanEnabled: settings.globalAzanEnabled,
+                announcementEnabled: settings.globalAnnouncementEnabled
+            })
+        });
+        
+        if (!featuresResponse.ok) {
+            loadingIndicator.remove();
+            const errorMessage = `Failed to save features: ${featuresResponse.statusText}`;
+            showErrorMessage(errorMessage);
+            return { success: false, error: errorMessage };
+        }
+        
+        // 2. Save prayer-specific settings
         const response = await fetch('/api/prayer-settings', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'x-auth-token': authToken
             },
-            body: JSON.stringify(settings)
+            body: JSON.stringify({
+                prayers: settings.prayers
+            })
         });
         
         // Remove loading indicator
@@ -581,6 +611,7 @@ function showErrorMessage(message) {
 // Export functions for use in app.js
 window.azanSettings = {
     initialize: initializeAzanSettings,
+    refresh: fetchAzanSettings,  // Add refresh method
     getSettings: getAzanSettings,
     haveChanged: haveAzanSettingsChanged,
     save: saveAzanSettings
