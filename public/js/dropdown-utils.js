@@ -25,9 +25,9 @@ function populateDropdown(selectId, options, selectedValue = null) {
         optionElement.textContent = option.name;
         
         // Set selected if matching the selectedValue
-        if (selectedValue !== undefined && selectedValue !== null) {
+        if (selectedValue !== undefined) {
             if ((option.id === null && selectedValue === null) || 
-                option.id === selectedValue) {
+                (String(option.id) === String(selectedValue))) {
                 optionElement.selected = true;
             }
         }

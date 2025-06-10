@@ -153,17 +153,11 @@ export async function updatePrayerSourceConfig(settings) {
     
     if (settings.source === 'mymasjid') {
         prayerData = {
-            ...prayerData,
             source: 'mymasjid',
             mymasjid: {
                 guildId: settings.guildId
             }
         };
-        
-        // Preserve Aladhan settings if they exist
-        if (currentConfig.prayerData?.aladhan) {
-            prayerData.aladhan = currentConfig.prayerData.aladhan;
-        }
     } else if (settings.source === 'aladhan') {
         // Add method names from constants
         const calculationMethodName = CALCULATION_METHODS[settings.calculationMethodId] || 'Unknown Method';
@@ -171,7 +165,6 @@ export async function updatePrayerSourceConfig(settings) {
         const midnightModeName = MIDNIGHT_MODES[settings.midnightModeId] || 'Unknown Mode';
         
         prayerData = {
-            ...prayerData,
             source: 'aladhan',
             aladhan: {
                 latitude: settings.latitude,
@@ -187,11 +180,6 @@ export async function updatePrayerSourceConfig(settings) {
                 iqamahOffsets: settings.iqamahOffsets
             }
         };
-        
-        // Preserve MyMasjid settings if they exist
-        if (currentConfig.prayerData?.mymasjid) {
-            prayerData.mymasjid = currentConfig.prayerData.mymasjid;
-        }
     }
     
     // Step 5: Update config

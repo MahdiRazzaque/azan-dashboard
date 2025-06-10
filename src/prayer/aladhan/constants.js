@@ -34,6 +34,7 @@ export const ASR_JURISTIC_METHODS = { // Maps to 'school' parameter
 };
 
 export const LATITUDE_ADJUSTMENT_METHODS = {
+    null: "None",
     1: "Middle of the Night",
     2: "One Seventh of the Night",
     3: "Angle Based",

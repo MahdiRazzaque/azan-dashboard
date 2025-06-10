@@ -108,6 +108,11 @@ let timeOffset;
 async function initialiseTestMode() {
     try {
         const response = await fetch('/api/test-mode');
+        if (!response.ok) {
+            console.error('Failed to fetch test mode configuration:', response.status);
+            return;
+        }
+        
         const config = await response.json();
         testMode = config.enabled;
         testStartTime = moment(config.startTime, 'HH:mm:ss');
@@ -115,6 +120,59 @@ async function initialiseTestMode() {
 
         if (testMode) {
             console.log(`🧪 Test Mode Enabled - Time set to ${testStartTime.format('HH:mm:ss')}`);
+            
+            // Add visual indicator for test mode
+            const testModeIndicator = document.createElement('div');
+            testModeIndicator.className = 'test-mode-indicator';
+            testModeIndicator.innerHTML = '🧪 Test Mode';
+            document.body.appendChild(testModeIndicator);
+            
+            // Add CSS for the indicator if it doesn't exist
+            if (!document.getElementById('test-mode-style')) {
+                const style = document.createElement('style');
+                style.id = 'test-mode-style';
+                style.textContent = `
+                    .test-mode-indicator {
+                        position: fixed;
+                        top: 10px;
+                        right: 10px;
+                        background-color: rgba(255, 193, 7, 0.9);
+                        color: #000;
+                        padding: 5px 10px;
+                        border-radius: 4px;
+                        font-size: 0.8rem;
+                        font-weight: bold;
+                        z-index: 9999;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            // Auto-login in test mode if not already authenticated
+            if (!isAuthenticated) {
+                try {
+                    console.log("🧪 Test Mode: Attempting auto-login");
+                    const loginResponse = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username: 'test-user', password: 'test-password' })
+                    });
+                    
+                    if (loginResponse.ok) {
+                        const loginData = await loginResponse.json();
+                        if (loginData.success && loginData.token) {
+                            localStorage.setItem('authToken', loginData.token);
+                            isAuthenticated = true;
+                            console.log("🧪 Test Mode: Auto-login successful");
+                            updateAuthUI();
+                        }
+                    }
+                } catch (error) {
+                    console.error("🧪 Test Mode: Auto-login failed", error);
+                }
+            }
         }
     } catch (error) {
         console.error('Error fetching test mode configuration:', error);
@@ -283,11 +341,14 @@ function initialiseLogControls() {
     const modalCancel = document.getElementById('modal-cancel');
 
     clearLogsBtn.addEventListener('click', () => {
-        if (!isAuthenticated) {
+        if (!isAuthenticated && !testMode) {
             showLoginModal(() => {
                 modal.classList.add('show');
             });
             return;
+        }
+        if (testMode && !isAuthenticated) {
+            console.log("🧪 Test Mode: Bypassing authentication for log controls");
         }
         modal.classList.add('show');
     });
@@ -318,7 +379,7 @@ function initialiseLogControls() {
 
     // Close modal if clicking outside
     modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
+        if (e.target === modal && !modal.classList.contains('required-setup')) {
             modal.classList.remove('show');
         }
     });
@@ -708,10 +769,11 @@ async function initialiseSettingsPanel() {
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
     
-    // Make sure the prayer source settings module is initialized
+    // Make sure the prayer source settings module is initialised
     if (window.prayerSourceSettings) {
         console.log("Initialising prayer source settings module...");
         window.prayerSourceSettings.initialize();
+        window.prayerSourceSettingsInitialized = true;
     } else {
         console.error("Prayer source settings module not found!");
     }
@@ -739,11 +801,14 @@ async function initialiseSettingsPanel() {
     
     // Show settings button click handler
     settingsBtn.addEventListener('click', async () => {
-        // Skip authentication check if already authenticated
-        if (isAuthenticated) {
+        // Skip authentication check if already authenticated or in test mode
+        if (isAuthenticated || testMode) {
+            if (testMode && !isAuthenticated) {
+                console.log("🧪 Test Mode: Bypassing authentication for settings access");
+            }
             showSettingsModal();
         } else {
-            // Only show login modal if not already authenticated
+            // Only show login modal if not already authenticated and not in test mode
             const isAuth = await checkAuthStatus();
             if (isAuth) {
                 showSettingsModal();
@@ -891,14 +956,14 @@ async function initialiseSettingsPanel() {
     
     // Close modal if clicking outside
     settingsModal.addEventListener('click', (e) => {
-        if (e.target === settingsModal) {
+        if (e.target === settingsModal && !settingsModal.classList.contains('required-setup')) {
             settingsModal.classList.remove('show');
         }
     });
     
     // Close confirm modal if clicking outside
     settingsConfirmModal.addEventListener('click', (e) => {
-        if (e.target === settingsConfirmModal) {
+        if (e.target === settingsConfirmModal && !settingsConfirmModal.classList.contains('required-setup')) {
             settingsConfirmModal.classList.remove('show');
         }
     });
@@ -1194,7 +1259,7 @@ function formatPrayerTable(data) {
 // Close modals if clicking outside
 document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
+        if (e.target === modal && !modal.classList.contains('required-setup')) {
             modal.classList.remove('show');
         }
     });
@@ -1284,10 +1349,11 @@ async function login(username, password) {
             isAuthenticated = true;
             updateAuthUI();
             
-            // After successful login, initialize prayer source settings
+            // After successful login, refresh prayer source settings with authenticated data
             if (window.prayerSourceSettings) {
-                console.log("Initialising prayer source settings after login...");
-                window.prayerSourceSettings.initialize();
+                console.log("Refreshing prayer source settings after login...");
+                await window.prayerSourceSettings.fetch();
+                window.prayerSourceSettingsInitialized = true;
             }
             
             return { success: true };

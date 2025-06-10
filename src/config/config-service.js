@@ -347,11 +347,11 @@ async function initialiseNewConfig() {
       },
       prayerSettings: {
         prayers: {
-          fajr: { azanEnabled: false, announcementEnabled: false, azanAtIqamah: true },
-          zuhr: { azanEnabled: true, announcementEnabled: false, azanAtIqamah: true },
+          fajr: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false },
+          zuhr: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false },
           asr: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false },
           maghrib: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false },
-          isha: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: true }
+          isha: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false }
         },
         globalAzanEnabled: true,
         globalAnnouncementEnabled: true

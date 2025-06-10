@@ -46,7 +46,7 @@ class SetupModalHandler {
         const now = new Date();
         const timeString = now.toLocaleTimeString();
         const dateString = now.toLocaleDateString();
-        console.log(`[${dateString} ${timeString}] Setup modal elements initialized`);
+        console.log(`[${dateString} ${timeString}] Setup modal elements initialised`);
         
         this.init();
     }
@@ -66,6 +66,9 @@ class SetupModalHandler {
         
         // Try to detect user's timezone
         this.detectUserTimezone();
+        
+        // Add help icons to form fields
+        this.addHelpIcons();
     }
     
     /**
@@ -132,7 +135,10 @@ class SetupModalHandler {
             const defaults = data.defaultConfig;
             this.calculationMethod.value = defaults.calculationMethodId;
             this.asrMethod.value = defaults.asrJuristicMethodId;
-            this.latitudeAdjustment.value = defaults.latitudeAdjustmentId === null ? 'null' : defaults.latitudeAdjustmentId;
+            
+            // Set latitude adjustment to null (None) by default
+            this.latitudeAdjustment.value = 'null';
+            
             this.midnightMode.value = defaults.midnightModeId;
             
             this.iqamahFajr.value = defaults.iqamahOffsets.fajr;
@@ -182,6 +188,7 @@ class SetupModalHandler {
      */
     showModal() {
         this.modal.classList.add('show');
+        this.modal.classList.add('required-setup');
         this.showSourceSelection();
     }
     
@@ -231,6 +238,11 @@ class SetupModalHandler {
         this.mymasjidForm.classList.remove('hidden');
         this.aladhanForm.classList.add('hidden');
         this.setupProgress.classList.add('hidden');
+        
+        // Clear any error message
+        if (this.mymasjidError) {
+            this.mymasjidError.textContent = '';
+        }
         
         // Focus on guild ID input
         setTimeout(() => this.mymasjidGuildId.focus(), 100);
@@ -296,107 +308,62 @@ class SetupModalHandler {
         
         // Get the values directly from the inputs
         const latitudeStr = this.aladhanLatitude.value.trim();
-        console.log("Latitude string: '" + latitudeStr + "'");
         const longitudeStr = this.aladhanLongitude.value.trim();
-        console.log("Longitude string: '" + longitudeStr + "'");
         const timezone = this.aladhanTimezone.value.trim();
-        console.log("Timezone string: '" + timezone + "'");
         
-        const latitudeError = document.getElementById('latitude-error');
-        const longitudeError = document.getElementById('longitude-error');
-        const timezoneError = document.getElementById('timezone-error');
+        // Get error elements from the setup modal context
+        const latitudeError = this.modal.querySelector('#latitude-error');
+        const longitudeError = this.modal.querySelector('#longitude-error');
+        const timezoneError = this.modal.querySelector('#timezone-error');
         
-        // Reset all error messages and styling
+        // Reset all error messages
         latitudeError.textContent = '';
         longitudeError.textContent = '';
         timezoneError.textContent = '';
         
-        latitudeError.style.display = 'none';
-        longitudeError.style.display = 'none';
-        timezoneError.style.display = 'none';
-        
-        // Debug the DOM elements
-        console.log("Latitude input:", this.aladhanLatitude);
-        console.log("Longitude input:", this.aladhanLongitude);
-        console.log("Timezone input:", this.aladhanTimezone);
-        
         // Validate latitude
         if (!latitudeStr) {
-            console.log("Empty Latitude");
             latitudeError.textContent = 'Latitude is required';
-            latitudeError.style.display = 'block';
-            latitudeError.style.color = 'red';
             isValid = false;
         } else {
             const latitude = parseFloat(latitudeStr);
-            console.log("Parsed latitude:", latitude);
             if (isNaN(latitude)) {
-                console.log("Invalid Latitude");
                 latitudeError.textContent = 'Latitude must be a number';
-                latitudeError.style.display = 'block';
-                latitudeError.style.color = 'red';
                 isValid = false;
             } else if (latitude < -90 || latitude > 90) {
-                console.log("Invalid Latitude 2");
                 latitudeError.textContent = 'Latitude must be between -90 and 90';
-                latitudeError.style.display = 'block';
-                latitudeError.style.color = 'red';
                 isValid = false;
-            } else {
-                console.log("Valid Latitude: " + latitude);
             }
         }
         
         // Validate longitude
         if (!longitudeStr) {
-            console.log("Empty Longitude");
             longitudeError.textContent = 'Longitude is required';
-            longitudeError.style.display = 'block';
-            longitudeError.style.color = 'red';
             isValid = false;
         } else {
             const longitude = parseFloat(longitudeStr);
-            console.log("Parsed longitude:", longitude);
             if (isNaN(longitude)) {
-                console.log("Invalid Longitude");
                 longitudeError.textContent = 'Longitude must be a number';
-                longitudeError.style.display = 'block';
-                longitudeError.style.color = 'red';
                 isValid = false;
             } else if (longitude < -180 || longitude > 180) {
-                console.log("Invalid Longitude 2");
                 longitudeError.textContent = 'Longitude must be between -180 and 180';
-                longitudeError.style.display = 'block';
-                longitudeError.style.color = 'red';
                 isValid = false;
-            } else {
-                console.log("Valid Longitude: " + longitude);
             }
         }
         
         // Validate timezone
         if (!timezone) {
-            console.log("Invalid Timezone");
             timezoneError.textContent = 'Timezone is required';
-            timezoneError.style.display = 'block';
-            timezoneError.style.color = 'red';
             isValid = false;
         } else {
             try {
-                console.log("Testing Timezone: " + timezone);
                 Intl.DateTimeFormat(undefined, { timeZone: timezone });
-                console.log("Valid Timezone");
             } catch (e) {
-                console.log("Invalid Timezone 2: " + e.message);
                 timezoneError.textContent = 'Invalid timezone';
-                timezoneError.style.display = 'block';
-                timezoneError.style.color = 'red';
                 isValid = false;
             }
         }
         
-        // Final validation result
-        console.log("Form validation result: " + (isValid ? "VALID" : "INVALID"));
         return isValid;
     }
     
@@ -554,35 +521,14 @@ class SetupModalHandler {
      * Submit the Aladhan form
      */
     async submitAladhanForm() {
-        console.log("Submitting Aladhan Form");
         if (!this.validateAladhanForm()) {
-            console.log("Invalid Aladhan Form");
             return;
         }
         
-        console.log("Valid Aladhan Form");
         // Get form values - ensure we properly parse numeric values
         const latitude = parseFloat(this.aladhanLatitude.value.trim());
         const longitude = parseFloat(this.aladhanLongitude.value.trim());
         const timezone = this.aladhanTimezone.value.trim();
-        
-        // Log the values we're sending for debugging
-        console.log("Sending data:", {
-            latitude,
-            longitude,
-            timezone,
-            calculationMethodId: parseInt(this.calculationMethod.value),
-            asrJuristicMethodId: parseInt(this.asrMethod.value),
-            latitudeAdjustmentMethodId: this.latitudeAdjustment.value === 'null' ? null : parseInt(this.latitudeAdjustment.value),
-            midnightModeId: parseInt(this.midnightMode.value),
-            iqamahOffsets: {
-                fajr: parseInt(this.iqamahFajr.value),
-                zuhr: parseInt(this.iqamahZuhr.value),
-                asr: parseInt(this.iqamahAsr.value),
-                maghrib: parseInt(this.iqamahMaghrib.value),
-                isha: parseInt(this.iqamahIsha.value)
-            }
-        });
         
         const calculationMethodId = parseInt(this.calculationMethod.value);
         const asrJuristicMethodId = parseInt(this.asrMethod.value);
@@ -626,12 +572,9 @@ class SetupModalHandler {
             // Check if the response is not OK (e.g., 404, 500)
             if (!configResponse.ok) {
                 this.showAladhanForm();
-                const timezoneError = document.getElementById('timezone-error');
+                const timezoneError = this.modal.querySelector('#timezone-error');
                 timezoneError.textContent = 'Error creating configuration. Server returned: ' + 
                     configResponse.status + ' ' + configResponse.statusText;
-                timezoneError.style.display = 'block';
-                timezoneError.style.color = 'red';
-                console.error("Server error:", configResponse.status, configResponse.statusText);
                 return;
             }
             
@@ -640,21 +583,15 @@ class SetupModalHandler {
                 configData = await configResponse.json();
             } catch (e) {
                 this.showAladhanForm();
-                const timezoneError = document.getElementById('timezone-error');
+                const timezoneError = this.modal.querySelector('#timezone-error');
                 timezoneError.textContent = 'Invalid response from server. Please try again.';
-                timezoneError.style.display = 'block';
-                timezoneError.style.color = 'red';
-                console.error("JSON parse error:", e);
                 return;
             }
             
             if (!configData.success) {
                 this.showAladhanForm();
-                const timezoneError = document.getElementById('timezone-error');
+                const timezoneError = this.modal.querySelector('#timezone-error');
                 timezoneError.textContent = configData.error || 'Failed to create configuration';
-                timezoneError.style.display = 'block';
-                timezoneError.style.color = 'red';
-                console.error("Config error:", configData.error || 'Unknown error');
                 return;
             }
             
@@ -730,11 +667,86 @@ class SetupModalHandler {
         } catch (error) {
             console.error('Error submitting Aladhan form:', error);
             this.showAladhanForm();
-            const timezoneError = document.getElementById('timezone-error');
+            const timezoneError = this.modal.querySelector('#timezone-error');
             timezoneError.textContent = 'An error occurred: ' + error.message;
-            timezoneError.style.display = 'block';
-            timezoneError.style.color = 'red';
         }
+    }
+    
+    /**
+     * Add help icons to form fields
+     */
+    addHelpIcons() {
+        // Help text for each field
+        const helpTexts = {
+            latitude: 'Your geographical latitude coordinate (between -90 and 90)',
+            longitude: 'Your geographical longitude coordinate (between -180 and 180)',
+            timezone: 'Your timezone in IANA format (e.g., Europe/London, America/New_York)',
+            calculationMethod: 'Method used to calculate prayer times based on different schools of thought',
+            asrMethod: 'Method used to calculate Asr time (Standard or Hanafi)',
+            latitudeAdjustment: 'Method used to adjust prayer times for high latitudes',
+            midnightMode: 'Method used to calculate midnight (between Maghrib and Fajr)',
+            iqamahOffsets: 'Minutes added to prayer start time, then rounded to nearest 15 minutes.'
+        };
+        
+        // Add help icons to Aladhan form fields in setup modal
+        this.addHelpIcon('aladhan-latitude', helpTexts.latitude);
+        this.addHelpIcon('aladhan-longitude', helpTexts.longitude);
+        this.addHelpIcon('aladhan-timezone', helpTexts.timezone);
+        this.addHelpIcon('calculation-method', helpTexts.calculationMethod);
+        this.addHelpIcon('asr-method', helpTexts.asrMethod);
+        this.addHelpIcon('latitude-adjustment', helpTexts.latitudeAdjustment);
+        this.addHelpIcon('midnight-mode', helpTexts.midnightMode);
+
+        // Add help icon to Iqamah Offsets heading
+        const iqamahHeadings = this.modal.querySelectorAll('.settings-card h5');
+        iqamahHeadings.forEach(heading => {
+            if (heading.textContent.includes('Iqamah Offsets')) {
+                let helpIcon = heading.querySelector('.help-icon');
+                if (!helpIcon) {
+                    helpIcon = document.createElement('i');
+                    helpIcon.className = 'fas fa-question-circle help-icon';
+                    helpIcon.style.marginLeft = '8px';
+                    heading.appendChild(helpIcon);
+                }
+                helpIcon.title = helpTexts.iqamahOffsets;
+            }
+        });
+    }
+    
+    /**
+     * Add help icon with tooltip to a form field
+     * @param {string} elementId - ID of the form field
+     * @param {string} helpText - Help text to display in tooltip
+     */
+    addHelpIcon(elementId, helpText) {
+        // Make sure we're looking within the setup modal
+        const element = this.modal.querySelector(`#${elementId}`);
+        if (!element) return;
+        
+        // Find the parent form-group
+        const formGroup = element.closest('.form-group');
+        if (!formGroup) return;
+        
+        // Check if label already has a help icon
+        const label = formGroup.querySelector('label');
+        if (!label) return;
+        
+        // Check if help icon already exists
+        const existingHelpIcon = label.querySelector('.help-icon');
+        if (existingHelpIcon) {
+            // Just update the title if it already exists
+            existingHelpIcon.title = helpText;
+            return;
+        }
+        
+        // Create help icon
+        const helpIcon = document.createElement('i');
+        helpIcon.className = 'fas fa-question-circle help-icon';
+        helpIcon.title = helpText;
+        
+        // Add to the label
+        label.appendChild(document.createTextNode(' '));
+        label.appendChild(helpIcon);
     }
 }
 

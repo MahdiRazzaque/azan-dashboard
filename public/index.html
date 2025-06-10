@@ -140,95 +140,124 @@
                 <!-- Prayer Time Source Tab Content -->
                 <div class="tab-content active" id="prayer-source-tab">
                     <div class="source-settings">
-                        <h4>Prayer Time Source</h4>
-                        <div class="setting-row">
-                            <label>Source Type:</label>
-                            <div class="source-selector">
-                                <div class="radio-group">
-                                    <div class="radio-option">
-                                        <input type="radio" id="source-mymasjid" name="prayer-source" value="mymasjid">
-                                        <label for="source-mymasjid">MyMasjid API</label>
+                        <!-- Source Selection -->
+                        <div class="source-options-container">
+                            <div class="source-options">
+                                <div class="source-option" data-source="mymasjid">
+                                    <div class="source-icon"><i class="fas fa-mosque"></i></div>
+                                    <div class="source-details">
+                                        <h5>MyMasjid API</h5>
+                                        <p>Fetch prayer times from a specific mosque's schedule.</p>
                                     </div>
-                                    <div class="radio-option">
-                                        <input type="radio" id="source-aladhan" name="prayer-source" value="aladhan">
-                                        <label for="source-aladhan">Aladhan API</label>
+                                </div>
+                                <div class="source-option" data-source="aladhan">
+                                    <div class="source-icon"><i class="fas fa-globe"></i></div>
+                                    <div class="source-details">
+                                        <h5>Aladhan API</h5>
+                                        <p>Calculate prayer times based on geographical coordinates.</p>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <!-- Hidden radio buttons for internal state management -->
+                        <div class="radio-group" style="display: none;">
+                            <input type="radio" id="source-mymasjid" name="prayer-source" value="mymasjid">
+                            <input type="radio" id="source-aladhan" name="prayer-source" value="aladhan">
                         </div>
                         
                         <!-- MyMasjid Settings (shown when MyMasjid is selected) -->
                         <div class="source-specific-settings" id="mymasjid-settings">
-                            <div class="setting-row">
-                                <label for="mymasjid-guild-id">Guild ID:</label>
-                                <input type="text" id="mymasjid-guild-id" class="settings-input" placeholder="Enter MyMasjid Guild ID">
+                            <div class="settings-card">
+                                <h5><i class="fas fa-mosque"></i> MyMasjid Configuration</h5>
+                                <div class="setting-row">
+                                    <label for="mymasjid-guild-id"><i class="fas fa-id-card"></i> Guild ID:</label>
+                                    <input type="text" id="mymasjid-guild-id" class="settings-input" placeholder="Enter MyMasjid Guild ID">
+                                </div>
+                                <div class="help-text">You can find your Guild ID in the MyMasjid admin panel.</div>
+                                <div class="error-message" id="mymasjid-error"></div>
                             </div>
-                            <div class="help-text">You can find your Guild ID in the MyMasjid admin panel.</div>
                         </div>
                         
                         <!-- Aladhan Settings (shown when Aladhan is selected) -->
                         <div class="source-specific-settings" id="aladhan-settings" style="display: none;">
-                            <div class="setting-row">
-                                <label for="aladhan-latitude">Latitude:</label>
-                                <input type="number" step="0.0001" id="aladhan-latitude" class="settings-input" placeholder="Enter latitude (-90 to 90)">
-                            </div>
-                            <div class="setting-row">
-                                <label for="aladhan-longitude">Longitude:</label>
-                                <input type="number" step="0.0001" id="aladhan-longitude" class="settings-input" placeholder="Enter longitude (-180 to 180)">
-                            </div>
-                            <div class="setting-row">
-                                <label for="settings-aladhan-timezone">Timezone:</label>
-                                <input type="text" id="settings-aladhan-timezone" class="settings-input" placeholder="e.g., Europe/London">
-                            </div>
-                            <div class="setting-row">
-                                <label for="settings-calculation-method">Calculation Method:</label>
-                                <select id="settings-calculation-method" class="settings-select">
-                                    <!-- Will be populated via JavaScript -->
-                                </select>
-                            </div>
-                            <div class="setting-row">
-                                <label for="settings-asr-method">Asr Juristic Method:</label>
-                                <select id="settings-asr-method" class="settings-select">
-                                    <!-- Will be populated via JavaScript -->
-                                </select>
-                            </div>
-                            <div class="setting-row">
-                                <label for="settings-latitude-adjustment">High Latitude Adjustment:</label>
-                                <select id="settings-latitude-adjustment" class="settings-select">
-                                    <!-- Will be populated via JavaScript -->
-                                </select>
-                            </div>
-                            <div class="setting-row">
-                                <label for="settings-midnight-mode">Midnight Mode:</label>
-                                <select id="settings-midnight-mode" class="settings-select">
-                                    <!-- Will be populated via JavaScript -->
-                                </select>
-                            </div>
-                            <h5>Iqamah Offsets (minutes after Azan)</h5>
-                            <div class="form-row">
-                                <div class="form-group half">
-                                    <label for="settings-iqamah-fajr">Fajr:</label>
-                                    <input type="number" id="settings-iqamah-fajr" min="0" max="120" value="20">
+                            <!-- Location Settings Card -->
+                            <div class="settings-card">
+                                <h5><i class="fas fa-map-marker-alt"></i> Location Settings</h5>
+                                <div class="form-group">
+                                    <label for="aladhan-latitude">Latitude:</label>
+                                    <input type="number" step="0.0001" id="aladhan-latitude" class="settings-input" placeholder="Enter latitude (-90 to 90)">
+                                    <div class="error-message" id="latitude-error"></div>
                                 </div>
-                                <div class="form-group half">
-                                    <label for="settings-iqamah-zuhr">Zuhr:</label>
-                                    <input type="number" id="settings-iqamah-zuhr" min="0" max="120" value="10">
+                                <div class="form-group">
+                                    <label for="aladhan-longitude">Longitude:</label>
+                                    <input type="number" step="0.0001" id="aladhan-longitude" class="settings-input" placeholder="Enter longitude (-180 to 180)">
+                                    <div class="error-message" id="longitude-error"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="settings-aladhan-timezone">Timezone:</label>
+                                    <input type="text" id="settings-aladhan-timezone" class="settings-input" placeholder="e.g., Europe/London">
+                                    <div class="error-message" id="timezone-error"></div>
                                 </div>
                             </div>
-                            <div class="form-row">
-                                <div class="form-group half">
-                                    <label for="settings-iqamah-asr">Asr:</label>
-                                    <input type="number" id="settings-iqamah-asr" min="0" max="120" value="10">
+
+                            <!-- Calculation Settings Card -->
+                            <div class="settings-card">
+                                <h5><i class="fas fa-calculator"></i> Calculation Settings</h5>
+                                <div class="form-group">
+                                    <label for="settings-calculation-method">Calculation Method:</label>
+                                    <select id="settings-calculation-method">
+                                        <!-- Will be populated via JavaScript -->
+                                    </select>
                                 </div>
-                                <div class="form-group half">
-                                    <label for="settings-iqamah-maghrib">Maghrib:</label>
-                                    <input type="number" id="settings-iqamah-maghrib" min="0" max="120" value="5">
+                                <div class="form-group">
+                                    <label for="settings-asr-method">Asr Juristic Method:</label>
+                                    <select id="settings-asr-method">
+                                        <!-- Will be populated via JavaScript -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="settings-latitude-adjustment">High Latitude Adjustment Method:</label>
+                                    <select id="settings-latitude-adjustment">
+                                        <!-- Will be populated via JavaScript -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="settings-midnight-mode">Midnight Mode:</label>
+                                    <select id="settings-midnight-mode">
+                                        <!-- Will be populated via JavaScript -->
+                                    </select>
                                 </div>
                             </div>
-                            <div class="form-row">
-                                <div class="form-group half">
-                                    <label for="settings-iqamah-isha">Isha:</label>
-                                    <input type="number" id="settings-iqamah-isha" min="0" max="120" value="10">
+
+                            <!-- Iqamah Offsets Card -->
+                            <div class="settings-card">
+                                <h5><i class="fas fa-clock"></i> Iqamah Offsets</h5>
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label for="settings-iqamah-fajr">Fajr:</label>
+                                        <input type="number" id="settings-iqamah-fajr" min="0" max="120" value="30">
+                                    </div>
+                                    <div class="form-group half">
+                                        <label for="settings-iqamah-zuhr">Zuhr:</label>
+                                        <input type="number" id="settings-iqamah-zuhr" min="0" max="120" value="30">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label for="settings-iqamah-asr">Asr:</label>
+                                        <input type="number" id="settings-iqamah-asr" min="0" max="120" value="30">
+                                    </div>
+                                    <div class="form-group half">
+                                        <label for="settings-iqamah-maghrib">Maghrib:</label>
+                                        <input type="number" id="settings-iqamah-maghrib" min="0" max="120" value="5">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group half">
+                                        <label for="settings-iqamah-isha">Isha:</label>
+                                        <input type="number" id="settings-iqamah-isha" min="0" max="120" value="30">
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -287,25 +316,29 @@
     <div id="setup-modal" class="modal">
         <div class="modal-content setup-content">
             <h3>Welcome to Azan Dashboard</h3>
-            <p>It looks like this is your first time running the application. Let's set up your prayer time source.</p>
+            <p>Let's set up your prayer time source.</p>
             
             <div class="setup-form">
                 <!-- Source Selection -->
                 <div class="setup-section" id="source-selection">
-                    <h4>Select Prayer Time Source:</h4>
-                    <div class="source-options">
-                        <div class="source-option" data-source="mymasjid">
-                            <div class="source-icon"><i class="fas fa-mosque"></i></div>
-                            <div class="source-details">
-                                <h5>MyMasjid API</h5>
-                                <p>Fetch prayer times from a specific mosque's schedule.</p>
+                    <h4>Prayer Time Source</h4>
+                    
+                    <!-- Source Selection -->
+                    <div class="source-options-container">
+                        <div class="source-options">
+                            <div class="source-option" data-source="mymasjid">
+                                <div class="source-icon"><i class="fas fa-mosque"></i></div>
+                                <div class="source-details">
+                                    <h5>MyMasjid API</h5>
+                                    <p>Fetch prayer times from a specific mosque's schedule.</p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="source-option" data-source="aladhan">
-                            <div class="source-icon"><i class="fas fa-globe"></i></div>
-                            <div class="source-details">
-                                <h5>Aladhan API</h5>
-                                <p>Calculate prayer times based on geographical coordinates.</p>
+                            <div class="source-option" data-source="aladhan">
+                                <div class="source-icon"><i class="fas fa-globe"></i></div>
+                                <div class="source-details">
+                                    <h5>Aladhan API</h5>
+                                    <p>Calculate prayer times based on geographical coordinates.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -313,101 +346,117 @@
                 
                 <!-- MyMasjid Form -->
                 <div class="setup-section hidden" id="mymasjid-form">
-                    <h4>MyMasjid Configuration</h4>
-                    <div class="form-group">
-                        <label for="mymasjid-guildid">Guild ID:</label>
-                        <input type="text" id="mymasjid-guildid" placeholder="Enter your MyMasjid Guild ID">
-                        <div class="error-message" id="mymasjid-error"></div>
-                        <div class="help-text">You can find your Guild ID in the MyMasjid admin panel.</div>
-                    </div>
-                    <div class="form-buttons">
-                        <button class="modal-btn back" id="mymasjid-back">Back</button>
-                        <button class="modal-btn confirm" id="mymasjid-submit">Submit</button>
+                    <div class="settings-card">
+                        <h5><i class="fas fa-mosque"></i> MyMasjid Configuration</h5>
+                        <div class="form-group">
+                            <label for="mymasjid-guildid"><i class="fas fa-id-card"></i> Guild ID:</label>
+                            <input type="text" id="mymasjid-guildid" class="settings-input" placeholder="Enter your MyMasjid Guild ID">
+                            <div class="error-message" id="mymasjid-error"></div>
+                            <div class="help-text">You can find your Guild ID in the MyMasjid admin panel.</div>
+                        </div>
+                        <div class="form-buttons">
+                            <button class="modal-btn back" id="mymasjid-back">Back</button>
+                            <button class="modal-btn confirm" id="mymasjid-submit">Submit</button>
+                        </div>
                     </div>
                 </div>
                 
                 <!-- Aladhan Form -->
                 <div class="setup-section hidden" id="aladhan-form">
-                    <h4>Aladhan Configuration</h4>
-                    <div class="form-group">
-                        <label for="aladhan-latitude">Latitude:</label>
-                        <input type="number" step="0.0001" id="aladhan-latitude" placeholder="Enter latitude (-90 to 90)">
-                        <div class="error-message" id="latitude-error"></div>
-                    </div>
-                    <div class="form-group">
-                        <label for="aladhan-longitude">Longitude:</label>
-                        <input type="number" step="0.0001" id="aladhan-longitude" placeholder="Enter longitude (-180 to 180)">
-                        <div class="error-message" id="longitude-error"></div>
-                    </div>
-                    <div class="form-group">
-                        <label for="aladhan-timezone">Timezone:</label>
-                        <input type="text" id="aladhan-timezone" placeholder="e.g., Europe/London">
-                        <div class="error-message" id="timezone-error"></div>
-                    </div>
-                    <div class="form-group">
-                        <label for="calculation-method">Calculation Method:</label>
-                        <select id="calculation-method">
-                            <!-- Will be populated via JavaScript -->
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="asr-method">Asr Juristic Method:</label>
-                        <select id="asr-method">
-                            <!-- Will be populated via JavaScript -->
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="latitude-adjustment">High Latitude Adjustment Method:</label>
-                        <select id="latitude-adjustment">
-                            <!-- Will be populated via JavaScript -->
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="midnight-mode">Midnight Mode:</label>
-                        <select id="midnight-mode">
-                            <!-- Will be populated via JavaScript -->
-                        </select>
-                    </div>
-                    <h5>Iqamah Offsets (minutes after Azan)</h5>
-                    <div class="form-row">
-                        <div class="form-group half">
-                            <label for="iqamah-fajr">Fajr:</label>
-                            <input type="number" id="iqamah-fajr" min="0" max="120" value="20">
+                    <!-- Location Settings Card -->
+                    <div class="settings-card">
+                        <h5><i class="fas fa-map-marker-alt"></i> Location Settings</h5>
+                        <div class="form-group">
+                            <label for="aladhan-latitude">Latitude:</label>
+                            <input type="number" step="0.0001" id="aladhan-latitude" class="settings-input" placeholder="Enter latitude (-90 to 90)">
+                            <div class="error-message" id="latitude-error"></div>
                         </div>
-                        <div class="form-group half">
-                            <label for="iqamah-zuhr">Zuhr:</label>
-                            <input type="number" id="iqamah-zuhr" min="0" max="120" value="10">
+                        <div class="form-group">
+                            <label for="aladhan-longitude">Longitude:</label>
+                            <input type="number" step="0.0001" id="aladhan-longitude" class="settings-input" placeholder="Enter longitude (-180 to 180)">
+                            <div class="error-message" id="longitude-error"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="aladhan-timezone">Timezone:</label>
+                            <input type="text" id="aladhan-timezone" class="settings-input" placeholder="e.g., Europe/London">
+                            <div class="error-message" id="timezone-error"></div>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group half">
-                            <label for="iqamah-asr">Asr:</label>
-                            <input type="number" id="iqamah-asr" min="0" max="120" value="10">
+
+                    <!-- Calculation Settings Card -->
+                    <div class="settings-card">
+                        <h5><i class="fas fa-calculator"></i> Calculation Settings</h5>
+                        <div class="form-group">
+                            <label for="calculation-method">Calculation Method:</label>
+                            <select id="calculation-method" class="settings-select">
+                                <!-- Will be populated via JavaScript -->
+                            </select>
                         </div>
-                        <div class="form-group half">
-                            <label for="iqamah-maghrib">Maghrib:</label>
-                            <input type="number" id="iqamah-maghrib" min="0" max="120" value="5">
+                        <div class="form-group">
+                            <label for="asr-method">Asr Juristic Method:</label>
+                            <select id="asr-method" class="settings-select">
+                                <!-- Will be populated via JavaScript -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="latitude-adjustment">High Latitude Adjustment Method:</label>
+                            <select id="latitude-adjustment" class="settings-select">
+                                <!-- Will be populated via JavaScript -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="midnight-mode">Midnight Mode:</label>
+                            <select id="midnight-mode" class="settings-select">
+                                <!-- Will be populated via JavaScript -->
+                            </select>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group half">
-                            <label for="iqamah-isha">Isha:</label>
-                            <input type="number" id="iqamah-isha" min="0" max="120" value="10">
+
+                    <!-- Iqamah Offsets Card -->
+                    <div class="settings-card">
+                        <h5><i class="fas fa-clock"></i> Iqamah Offsets</h5>
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label for="iqamah-fajr">Fajr:</label>
+                                <input type="number" id="iqamah-fajr" class="settings-input" min="0" max="120" value="20">
+                            </div>
+                            <div class="form-group half">
+                                <label for="iqamah-zuhr">Zuhr:</label>
+                                <input type="number" id="iqamah-zuhr" class="settings-input" min="0" max="120" value="10">
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-buttons">
-                        <button class="modal-btn back" id="aladhan-back">Back</button>
-                        <button class="modal-btn confirm" id="aladhan-submit">Submit</button>
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label for="iqamah-asr">Asr:</label>
+                                <input type="number" id="iqamah-asr" class="settings-input" min="0" max="120" value="10">
+                            </div>
+                            <div class="form-group half">
+                                <label for="iqamah-maghrib">Maghrib:</label>
+                                <input type="number" id="iqamah-maghrib" class="settings-input" min="0" max="120" value="5">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label for="iqamah-isha">Isha:</label>
+                                <input type="number" id="iqamah-isha" class="settings-input" min="0" max="120" value="10">
+                            </div>
+                        </div>
+                        <div class="form-buttons">
+                            <button class="modal-btn back" id="aladhan-back">Back</button>
+                            <button class="modal-btn confirm" id="aladhan-submit">Submit</button>
+                        </div>
                     </div>
                 </div>
                 
                 <!-- Setup Progress -->
                 <div class="setup-section hidden" id="setup-progress">
-                    <h4>Setting up your configuration...</h4>
-                    <div class="progress-container">
-                        <div class="progress-bar"></div>
+                    <div class="settings-card">
+                        <h5><i class="fas fa-spinner fa-spin"></i> Setting up your configuration...</h5>
+                        <div class="progress-container">
+                            <div class="progress-bar"></div>
+                        </div>
+                        <div class="setup-message">Please wait while we fetch prayer times...</div>
                     </div>
-                    <div class="setup-message">Please wait while we fetch prayer times...</div>
                 </div>
             </div>
         </div>

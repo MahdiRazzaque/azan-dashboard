@@ -53,10 +53,10 @@ export const DEFAULT_ALADHAN_CONFIG = {
     latitudeAdjustmentMethodId: null, // None
     midnightModeId: 0, // Standard
     iqamahOffsets: {
-        fajr: 20,
-        zuhr: 10, 
-        asr: 10,
+        fajr: 30,
+        zuhr: 30, 
+        asr: 30,
         maghrib: 5,
-        isha: 10
+        isha: 30
     }
 }; 

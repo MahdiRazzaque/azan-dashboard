@@ -13,21 +13,25 @@ let currentPrayerSource = {
 // Store original settings for comparison
 let originalPrayerSource = null;
 
-// Help text for Aladhan parameters
+// Flag to track if help text tooltips have been added
+let helpTextTooltipsAdded = false;
+
+// Parameter help text
 const PARAMETER_HELP_TEXT = {
-    latitude: "Geographic latitude of your location (-90 to 90)",
-    longitude: "Geographic longitude of your location (-180 to 180)",
-    timezone: "Your IANA timezone (e.g., Europe/London, America/New_York)",
-    calculationMethod: "Method used to calculate prayer times based on different scholarly opinions",
-    asrMethod: "Juristic method for calculating Asr prayer time (Shafi'i or Hanafi)",
-    latitudeAdjustment: "Method to adjust times for locations in higher latitudes",
-    midnightMode: "Method to calculate midnight between sunset and sunrise",
-    iqamahOffsets: "Minutes to add to azan time to calculate iqamah time"
+    latitude: 'Your geographical latitude coordinate (between -90 and 90)',
+    longitude: 'Your geographical longitude coordinate (between -180 and 180)',
+    timezone: 'Your timezone in IANA format (e.g., Europe/London, America/New_York)',
+    calculationMethod: 'Method used to calculate prayer times based on different schools of thought',
+    asrMethod: 'Method used to calculate Asr time (Standard or Hanafi)',
+    latitudeAdjustment: 'Method used to adjust prayer times for high latitudes',
+    midnightMode: 'Method used to calculate midnight (between Maghrib and Fajr)',
+    iqamahOffsets: 'Minutes added to prayer start time, then rounded to nearest 15 minutes.'
 };
 
 // Export prayer source settings interface
 window.prayerSourceSettings = {
     initialize: initializePrayerSourceSettings,
+    fetch: fetchPrayerSourceSettings,
     getSettings: getPrayerSourceSettings,
     validate: validatePrayerSourceSettings,
     haveChanged: havePrayerSourceSettingsChanged,
@@ -45,10 +49,63 @@ function initializePrayerSourceSettings() {
     const sourceAladhanRadio = document.getElementById('source-aladhan');
     const myMasjidSettings = document.getElementById('mymasjid-settings');
     const aladhanSettings = document.getElementById('aladhan-settings');
+    const sourceOptions = document.querySelectorAll('.source-option');
+    
+    // Source option selection
+    sourceOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            const source = option.dataset.source;
+            
+            // Update radio buttons
+            if (source === 'mymasjid') {
+                sourceMyMasjidRadio.checked = true;
+            } else if (source === 'aladhan') {
+                sourceAladhanRadio.checked = true;
+            }
+            
+            // Update UI
+            updateSourceSelection(source);
+            
+            // Add selected class to clicked option and remove from others
+            sourceOptions.forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+        });
+    });
     
     // Source type selection event listeners
     sourceMyMasjidRadio.addEventListener('change', () => {
         if (sourceMyMasjidRadio.checked) {
+            updateSourceSelection('mymasjid');
+            
+            // Update source option selection
+            sourceOptions.forEach(opt => {
+                if (opt.dataset.source === 'mymasjid') {
+                    opt.classList.add('selected');
+                } else {
+                    opt.classList.remove('selected');
+                }
+            });
+        }
+    });
+    
+    sourceAladhanRadio.addEventListener('change', () => {
+        if (sourceAladhanRadio.checked) {
+            updateSourceSelection('aladhan');
+            
+            // Update source option selection
+            sourceOptions.forEach(opt => {
+                if (opt.dataset.source === 'aladhan') {
+                    opt.classList.add('selected');
+                } else {
+                    opt.classList.remove('selected');
+                }
+            });
+        }
+    });
+    
+    // Helper function to update UI based on source selection
+    function updateSourceSelection(source) {
+        if (source === 'mymasjid') {
             // Add transition classes
             myMasjidSettings.classList.add('settings-fade-in');
             aladhanSettings.classList.add('settings-fade-out');
@@ -63,14 +120,8 @@ function initializePrayerSourceSettings() {
                 aladhanSettings.classList.remove('settings-fade-out');
             }, 300);
             
-            // Update visual indicator
-            document.querySelector('label[for="source-mymasjid"]').classList.add('selected-source');
-            document.querySelector('label[for="source-aladhan"]').classList.remove('selected-source');
-        }
-    });
-    
-    sourceAladhanRadio.addEventListener('change', () => {
-        if (sourceAladhanRadio.checked) {
+            // No longer need to update label classes since they're hidden
+        } else if (source === 'aladhan') {
             // Add transition classes
             myMasjidSettings.classList.add('settings-fade-out');
             aladhanSettings.classList.add('settings-fade-in');
@@ -83,13 +134,14 @@ function initializePrayerSourceSettings() {
                 // Remove transition classes
                 myMasjidSettings.classList.remove('settings-fade-out');
                 aladhanSettings.classList.remove('settings-fade-in');
+                
+                // Try to detect user's timezone if field is empty
+                detectUserTimezone();
             }, 300);
             
-            // Update visual indicator
-            document.querySelector('label[for="source-mymasjid"]').classList.remove('selected-source');
-            document.querySelector('label[for="source-aladhan"]').classList.add('selected-source');
+            // No longer need to update label classes since they're hidden
         }
-    });
+    }
     
     // Initialize dropdowns for Aladhan settings
     initializeAladhanDropdowns();
@@ -99,6 +151,11 @@ function initializePrayerSourceSettings() {
     
     // Add real-time validation to input fields
     addInputValidation();
+    
+    // Try to detect user's timezone if Aladhan source is selected
+    if (sourceAladhanRadio.checked) {
+        detectUserTimezone();
+    }
     
     // Fetch current prayer source settings
     fetchPrayerSourceSettings();
@@ -126,7 +183,7 @@ function initializeAladhanDropdowns() {
     }
     
     if (window.populateLatitudeAdjustmentMethodDropdown && latitudeAdjustmentSelect) {
-        window.populateLatitudeAdjustmentMethodDropdown(latitudeAdjustmentSelect.id);
+        window.populateLatitudeAdjustmentMethodDropdown(latitudeAdjustmentSelect.id, null);
     }
     
     if (window.populateMidnightModeDropdown && midnightModeSelect) {
@@ -138,34 +195,58 @@ function initializeAladhanDropdowns() {
  * Add help text tooltips to form fields
  */
 function addHelpTextTooltips() {
-    // Add tooltips to Aladhan form fields
-    document.getElementById('aladhan-latitude').title = PARAMETER_HELP_TEXT.latitude;
-    document.getElementById('aladhan-longitude').title = PARAMETER_HELP_TEXT.longitude;
-    document.getElementById('settings-aladhan-timezone').title = PARAMETER_HELP_TEXT.timezone;
-    document.getElementById('settings-calculation-method').title = PARAMETER_HELP_TEXT.calculationMethod;
-    document.getElementById('settings-asr-method').title = PARAMETER_HELP_TEXT.asrMethod;
-    document.getElementById('settings-latitude-adjustment').title = PARAMETER_HELP_TEXT.latitudeAdjustment;
-    document.getElementById('settings-midnight-mode').title = PARAMETER_HELP_TEXT.midnightMode;
-    
-    // Add help icons with tooltips
-    addHelpIcon('aladhan-latitude', PARAMETER_HELP_TEXT.latitude);
-    addHelpIcon('aladhan-longitude', PARAMETER_HELP_TEXT.longitude);
-    addHelpIcon('settings-aladhan-timezone', PARAMETER_HELP_TEXT.timezone);
-    addHelpIcon('settings-calculation-method', PARAMETER_HELP_TEXT.calculationMethod);
-    addHelpIcon('settings-asr-method', PARAMETER_HELP_TEXT.asrMethod);
-    addHelpIcon('settings-latitude-adjustment', PARAMETER_HELP_TEXT.latitudeAdjustment);
-    addHelpIcon('settings-midnight-mode', PARAMETER_HELP_TEXT.midnightMode);
-    
-    // Add help text for iqamah offsets
-    const iqamahHelp = document.createElement('div');
-    iqamahHelp.className = 'help-text';
-    iqamahHelp.textContent = PARAMETER_HELP_TEXT.iqamahOffsets;
-    
-    // Insert after the iqamah offsets heading
-    const iqamahHeading = document.querySelector('#aladhan-settings h5');
-    if (iqamahHeading) {
-        iqamahHeading.parentNode.insertBefore(iqamahHelp, iqamahHeading.nextSibling);
+    if (helpTextTooltipsAdded) {
+        console.log("Help text tooltips already added, skipping...");
+        return;
     }
+    
+    // Add tooltips to Aladhan form fields in settings modal
+    const latitudeEl = document.getElementById('aladhan-latitude');
+    const longitudeEl = document.getElementById('aladhan-longitude');
+    const timezoneEl = document.getElementById('settings-aladhan-timezone');
+    const calculationMethodEl = document.getElementById('settings-calculation-method');
+    const asrMethodEl = document.getElementById('settings-asr-method');
+    const latitudeAdjustmentEl = document.getElementById('settings-latitude-adjustment');
+    const midnightModeEl = document.getElementById('settings-midnight-mode');
+    
+    // Only set title if element exists
+    if (latitudeEl) latitudeEl.title = PARAMETER_HELP_TEXT.latitude;
+    if (longitudeEl) longitudeEl.title = PARAMETER_HELP_TEXT.longitude;
+    if (timezoneEl) timezoneEl.title = PARAMETER_HELP_TEXT.timezone;
+    if (calculationMethodEl) calculationMethodEl.title = PARAMETER_HELP_TEXT.calculationMethod;
+    if (asrMethodEl) asrMethodEl.title = PARAMETER_HELP_TEXT.asrMethod;
+    if (latitudeAdjustmentEl) latitudeAdjustmentEl.title = PARAMETER_HELP_TEXT.latitudeAdjustment;
+    if (midnightModeEl) midnightModeEl.title = PARAMETER_HELP_TEXT.midnightMode;
+    
+    // Add help icons with tooltips to settings modal fields
+    if (latitudeEl) addHelpIcon('aladhan-latitude', PARAMETER_HELP_TEXT.latitude);
+    if (longitudeEl) addHelpIcon('aladhan-longitude', PARAMETER_HELP_TEXT.longitude);
+    if (timezoneEl) addHelpIcon('settings-aladhan-timezone', PARAMETER_HELP_TEXT.timezone);
+    if (calculationMethodEl) addHelpIcon('settings-calculation-method', PARAMETER_HELP_TEXT.calculationMethod);
+    if (asrMethodEl) addHelpIcon('settings-asr-method', PARAMETER_HELP_TEXT.asrMethod);
+    if (latitudeAdjustmentEl) addHelpIcon('settings-latitude-adjustment', PARAMETER_HELP_TEXT.latitudeAdjustment);
+    if (midnightModeEl) addHelpIcon('settings-midnight-mode', PARAMETER_HELP_TEXT.midnightMode);
+
+    // Add help icon to Iqamah Offsets heading
+    const iqamahHeadings = document.querySelectorAll('.settings-card h5');
+    iqamahHeadings.forEach(heading => {
+        if (heading.textContent.includes('Iqamah Offsets')) {
+            let helpIcon = heading.querySelector('.help-icon');
+            if (!helpIcon) {
+                helpIcon = document.createElement('i');
+                helpIcon.className = 'fas fa-question-circle help-icon';
+                helpIcon.style.marginLeft = '8px';
+                heading.appendChild(helpIcon);
+            }
+            helpIcon.title = PARAMETER_HELP_TEXT.iqamahOffsets;
+        }
+    });
+
+    // Add help icons to prayer settings panel
+    addPrayerSettingsHelpIcons();
+    
+    // Mark that tooltips have been added
+    helpTextTooltipsAdded = true;
 }
 
 /**
@@ -177,21 +258,30 @@ function addHelpIcon(elementId, helpText) {
     const element = document.getElementById(elementId);
     if (!element) return;
     
-    // Find the parent setting-row
-    const settingRow = element.closest('.setting-row');
-    if (!settingRow) return;
+    // Find the parent container (either setting-row or form-group)
+    const parentContainer = element.closest('.setting-row') || element.closest('.form-group');
+    if (!parentContainer) return;
+    
+    // Check if label already has a help icon
+    const label = parentContainer.querySelector('label');
+    if (!label) return;
+    
+    // Check if help icon already exists
+    const existingHelpIcon = label.querySelector('.help-icon');
+    if (existingHelpIcon) {
+        console.log('Help icon already exists');
+        // Just update the title if it already exists
+        existingHelpIcon.title = helpText;
+        return;
+    }
     
     // Create help icon
     const helpIcon = document.createElement('i');
     helpIcon.className = 'fas fa-question-circle help-icon';
     helpIcon.title = helpText;
     
-    // Add to the label
-    const label = settingRow.querySelector('label');
-    if (label) {
-        label.appendChild(document.createTextNode(' '));
-        label.appendChild(helpIcon);
-    }
+    // Add to the label (without random number)
+    label.appendChild(helpIcon);
 }
 
 /**
@@ -232,8 +322,14 @@ function addInputValidation() {
             timezoneInput.classList.add('invalid-input');
             showInlineError(timezoneInput, 'Timezone is required');
         } else {
-            timezoneInput.classList.remove('invalid-input');
-            clearInlineError(timezoneInput);
+            try {
+                Intl.DateTimeFormat(undefined, { timeZone: value });
+                timezoneInput.classList.remove('invalid-input');
+                clearInlineError(timezoneInput);
+            } catch (e) {
+                timezoneInput.classList.add('invalid-input');
+                showInlineError(timezoneInput, 'Invalid timezone');
+            }
         }
     });
     
@@ -344,11 +440,41 @@ async function fetchPrayerSourceSettings() {
         }
         
         const data = await response.json();
-        currentPrayerSource = data;
-        originalPrayerSource = JSON.parse(JSON.stringify(data)); // Deep copy for comparison
+                
+        // Create a properly structured settings object regardless of which endpoint was used
+        let settings = {
+            source: data.source || 'mymasjid'
+        };
         
+        // Handle MyMasjid data
+        if (data.source === 'mymasjid') {
+            settings.guildId = data.guildId || '';
+        } 
+        // Handle Aladhan data
+        else if (data.source === 'aladhan') {
+            settings.latitude = data.latitude !== undefined ? data.latitude : 0;
+            settings.longitude = data.longitude !== undefined ? data.longitude : 0;
+            settings.timezone = data.timezone || 'UTC';
+            settings.calculationMethodId = data.calculationMethodId !== undefined ? data.calculationMethodId : 2; // Default to ISNA
+            settings.asrJuristicMethodId = data.asrJuristicMethodId !== undefined ? data.asrJuristicMethodId : 0; // Default to Shafi'i
+            settings.latitudeAdjustmentMethodId = data.latitudeAdjustmentMethodId !== undefined ? data.latitudeAdjustmentMethodId : 3; // Default to Angle Based
+            settings.midnightModeId = data.midnightModeId !== undefined ? data.midnightModeId : 0; // Default to Standard
+            
+            // Ensure iqamahOffsets is properly structured
+            settings.iqamahOffsets = {
+                fajr: data.iqamahOffsets?.fajr !== undefined ? data.iqamahOffsets.fajr : 30,
+                zuhr: data.iqamahOffsets?.zuhr !== undefined ? data.iqamahOffsets.zuhr : 30,
+                asr: data.iqamahOffsets?.asr !== undefined ? data.iqamahOffsets.asr : 30,
+                maghrib: data.iqamahOffsets?.maghrib !== undefined ? data.iqamahOffsets.maghrib : 5,
+                isha: data.iqamahOffsets?.isha !== undefined ? data.iqamahOffsets.isha : 30
+            };
+        }
+        
+        currentPrayerSource = settings;
+        originalPrayerSource = JSON.parse(JSON.stringify(settings)); // Deep copy for comparison
+                
         // Populate form with fetched settings
-        populatePrayerSourceForm(data);
+        populatePrayerSourceForm(settings);
     } catch (error) {
         console.error('Error fetching prayer source settings:', error);
         showErrorMessage('Failed to load prayer source settings. Please try again later.');
@@ -364,16 +490,24 @@ function populatePrayerSourceForm(settings) {
     const sourceAladhanRadio = document.getElementById('source-aladhan');
     const myMasjidSettings = document.getElementById('mymasjid-settings');
     const aladhanSettings = document.getElementById('aladhan-settings');
+    const sourceOptions = document.querySelectorAll('.source-option');
     
-    // Set source type radio button
+    // Set source type radio button and update source options
     if (settings.source === 'mymasjid') {
         sourceMyMasjidRadio.checked = true;
         myMasjidSettings.style.display = 'block';
         aladhanSettings.style.display = 'none';
         
-        // Update visual indicator
-        document.querySelector('label[for="source-mymasjid"]').classList.add('selected-source');
-        document.querySelector('label[for="source-aladhan"]').classList.remove('selected-source');
+        // Update source option selection
+        sourceOptions.forEach(opt => {
+            if (opt.dataset.source === 'mymasjid') {
+                opt.classList.add('selected');
+            } else {
+                opt.classList.remove('selected');
+            }
+        });
+        
+        // No longer need to update label classes since they're hidden
         
         // Set MyMasjid guild ID - check for undefined to handle empty string values
         if (settings.guildId !== undefined) {
@@ -384,9 +518,16 @@ function populatePrayerSourceForm(settings) {
         myMasjidSettings.style.display = 'none';
         aladhanSettings.style.display = 'block';
         
-        // Update visual indicator
-        document.querySelector('label[for="source-mymasjid"]').classList.remove('selected-source');
-        document.querySelector('label[for="source-aladhan"]').classList.add('selected-source');
+        // Update source option selection
+        sourceOptions.forEach(opt => {
+            if (opt.dataset.source === 'aladhan') {
+                opt.classList.add('selected');
+            } else {
+                opt.classList.remove('selected');
+            }
+        });
+        
+        // No longer need to update label classes since they're hidden
         
         // Set Aladhan parameters - ensure numeric values are handled properly
         if (settings.latitude !== undefined) document.getElementById('aladhan-latitude').value = settings.latitude;
@@ -424,6 +565,8 @@ function populatePrayerSourceForm(settings) {
             if (settings.iqamahOffsets.isha !== undefined) document.getElementById('settings-iqamah-isha').value = settings.iqamahOffsets.isha;
         }
     }
+    
+    //console.log('Prayer source form populated with settings:', settings);
 }
 
 /**
@@ -489,6 +632,13 @@ function validatePrayerSourceSettings() {
         
         if (!timezone) {
             return { isValid: false, error: 'Timezone is required' };
+        }
+        
+        // Validate timezone format
+        try {
+            Intl.DateTimeFormat(undefined, { timeZone: timezone });
+        } catch (e) {
+            return { isValid: false, error: 'Invalid timezone format' };
         }
         
         // Validate iqamah offsets
@@ -734,4 +884,76 @@ function showSuccessMessage(message) {
     setTimeout(() => {
         successElement.style.display = 'none';
     }, 5000);
+}
+
+/**
+ * Add help icons to prayer settings panel
+ */
+function addPrayerSettingsHelpIcons() {
+    // Help text for prayer settings
+    const helpTexts = {
+        azan: 'Enable/disable the azan (call to prayer) for this prayer',
+        azanTime: 'Choose whether to play azan at the start time or iqamah time',
+        announcement: 'Enable/disable announcements for this prayer'
+    };
+    
+    // Add help icons to prayer settings
+    const prayerSettings = document.getElementById('prayer-settings');
+    if (!prayerSettings) return;
+    
+    // Find all prayer setting rows
+    const prayerSettingRows = prayerSettings.querySelectorAll('.setting-row');
+    prayerSettingRows.forEach(row => {
+        const label = row.querySelector('label');
+        if (!label) return;
+        
+        // Determine which help text to use based on the label text
+        let helpText = '';
+        const labelText = label.textContent.trim().toLowerCase();
+        
+        if (labelText.includes('azan') && !labelText.includes('time')) {
+            helpText = helpTexts.azan;
+        } else if (labelText.includes('azan time')) {
+            helpText = helpTexts.azanTime;
+        } else if (labelText.includes('announcement')) {
+            helpText = helpTexts.announcement;
+        }
+        
+        if (helpText) {
+            // Check if help icon already exists
+            const existingHelpIcon = label.querySelector('.help-icon');
+            if (existingHelpIcon) {
+                existingHelpIcon.title = helpText;
+                return;
+            }
+            
+            // Create help icon
+            const helpIcon = document.createElement('i');
+            helpIcon.className = 'fas fa-question-circle help-icon';
+            helpIcon.title = helpText;
+            
+            // Add to the label
+            label.appendChild(document.createTextNode(' '));
+            label.appendChild(helpIcon);
+        }
+    });
+}
+
+/**
+ * Try to detect user's timezone and set it in the timezone input field
+ */
+function detectUserTimezone() {
+    try {
+        const timezoneInput = document.getElementById('settings-aladhan-timezone');
+        if (timezoneInput && !timezoneInput.value) {
+            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (timezone) {
+                timezoneInput.value = timezone;
+                // Trigger validation
+                timezoneInput.dispatchEvent(new Event('input'));
+            }
+        }
+    } catch (error) {
+        console.error('Error detecting timezone:', error);
+    }
 } 

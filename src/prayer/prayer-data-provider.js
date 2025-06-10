@@ -28,21 +28,62 @@ async function initialisePrayerDataSource() {
             return false;
         }
 
-        // Check if the prayer times file exists and is valid
+        // Check if the prayer times file exists
         let fileExists = fs.existsSync(prayerTimesFilePath);
         let localFileIsValid = false;
+        let sourceChanged = false;
 
         if (fileExists) {
-            localFileIsValid = isPrayerTimesFileValid(prayerTimesFilePath);
-            if (!localFileIsValid) {
-                console.warn(`⚠️ Existing ${path.basename(prayerTimesFilePath)} is invalid or outdated. Deleting and attempting to re-fetch.`);
+            try {
+                // Read the file to check if the source matches the current configuration
+                const fileContent = fs.readFileSync(prayerTimesFilePath, 'utf8');
+                const data = JSON.parse(fileContent);
+                
+                // Check if the source in the file matches the source in the config
+                if (data.details && data.details.sourceApi && 
+                    ((data.details.sourceApi === 'mymasjid' && config.prayerData.source === 'mymasjid') ||
+                     (data.details.sourceApi === 'aladhan' && config.prayerData.source === 'aladhan'))) {            
+                    
+                    // For MyMasjid, check if the guild ID matches
+                    if (data.details.sourceApi === 'mymasjid' && 
+                        data.details.guildId !== config.prayerData.mymasjid?.guildId) {
+                        console.log(`⚠️ MyMasjid Guild ID has changed. Need to refresh prayer data.`);
+                        sourceChanged = true;
+                    }
+                    
+                    // For Aladhan, check if the coordinates or calculation method changed
+                    if (data.details.sourceApi === 'aladhan' && 
+                        (data.details.latitude !== config.prayerData.aladhan?.latitude ||
+                         data.details.longitude !== config.prayerData.aladhan?.longitude ||
+                         data.details.calculationMethodId !== config.prayerData.aladhan?.calculationMethodId)) {
+
+                        console.log(`⚠️ Aladhan configuration has changed. Need to refresh prayer data.`);
+                        sourceChanged = true;
+                    }
+                } else if (data.details && data.details.sourceApi) {
+                    console.log(`⚠️ Prayer data source has changed from ${data.details.sourceApi} to ${config.prayerData.source}. Need to refresh prayer data.`);
+                    sourceChanged = true;
+                }
+                
+                // Only validate if the source hasn't changed
+                if (!sourceChanged) {
+                    localFileIsValid = isPrayerTimesFileValid(prayerTimesFilePath);
+                }
+            } catch (error) {
+                console.error(`❌ Error reading or parsing prayer times file: ${error.message}`);
+                localFileIsValid = false;
+            }
+            
+            // Delete the file if it's invalid or the source changed
+            if (!localFileIsValid || sourceChanged) {
+                console.warn(`⚠️ Existing ${path.basename(prayerTimesFilePath)} is ${sourceChanged ? 'outdated due to configuration change' : 'invalid'}. Deleting and attempting to re-fetch.`);
                 deletePrayerTimesFile(prayerTimesFilePath);
                 fileExists = false;
             }
         }
 
-        if (!fileExists || !localFileIsValid) {
-            console.log(fileExists ? `⚠️ ${path.basename(prayerTimesFilePath)} was invalid.` : `📄 ${path.basename(prayerTimesFilePath)} not found. Attempting to fetch from API.`);
+        if (!fileExists || !localFileIsValid || sourceChanged) {
+            console.log(fileExists ? `⚠️ ${path.basename(prayerTimesFilePath)} was ${sourceChanged ? 'outdated' : 'invalid'}.` : `📄 ${path.basename(prayerTimesFilePath)} not found. Attempting to fetch from API.`);
             
             const source = config.prayerData.source;
             
@@ -171,8 +212,8 @@ async function getPrayerTimesData(date) {
     if (!prayerTimesFileCache) {
         console.warn("⚠️ Prayer times cache is not initialised. Attempting to initialize...");
         // Attempt to re-initialize
-        const initialized = await initialisePrayerDataSource();
-        if (!initialized || !prayerTimesFileCache) {
+        const initialised = await initialisePrayerDataSource();
+        if (!initialised || !prayerTimesFileCache) {
             console.warn("⚠️ No prayer times available. This is expected during initial setup.");
             return null;
         }
