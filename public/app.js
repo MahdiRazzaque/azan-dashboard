@@ -834,20 +834,32 @@ async function initialiseSettingsPanel() {
                 // Close the confirmation modal
                 settingsConfirmModal.classList.remove('show');
                 
-                // Add loading indicator
-                const loadingIndicator = document.createElement('div');
-                loadingIndicator.className = 'settings-loading';
-                loadingIndicator.innerHTML = `
-                    <div class="settings-loading-spinner"></div>
-                    <div class="settings-loading-text">Saving settings and updating prayer times...</div>
-                `;
-                document.querySelector('.settings-content').appendChild(loadingIndicator);
+                // Close the settings modal first
+                settingsModal.classList.remove('show');
+                
+                // Show the saving modal
+                const savingModal = document.getElementById('settings-saving-modal');
+                const progressBar = savingModal.querySelector('.progress-bar');
+                const setupMessage = savingModal.querySelector('.setup-message');
+                savingModal.classList.add('show');
+                
+                // Update progress function
+                const updateProgress = (percent, message) => {
+                    progressBar.style.width = `${percent}%`;
+                    if (message) {
+                        setupMessage.textContent = message;
+                    }
+                };
                 
                 let success = true;
                 let errorMessage = '';
                 
+                // Initial progress
+                updateProgress(10, 'Preparing to save settings...');
+                
                 // Save azan settings if changed
                 if (azanSettingsChanged && window.azanSettings) {
+                    updateProgress(30, 'Saving azan and announcement settings...');
                     const saveResult = await window.azanSettings.save();
                     if (!saveResult.success) {
                         success = false;
@@ -858,6 +870,7 @@ async function initialiseSettingsPanel() {
                 
                 // Save prayer source settings if changed
                 if (sourceSettingsChanged && window.prayerSourceSettings) {
+                    updateProgress(60, 'Saving prayer source settings...');
                     const saveResult = await window.prayerSourceSettings.save(prayerSourceSettings);
                     if (!saveResult.success) {
                         success = false;
@@ -866,17 +879,20 @@ async function initialiseSettingsPanel() {
                     }
                 }
                 
-                // Remove loading indicator
-                loadingIndicator.remove();
+                updateProgress(90, 'Updating prayer times...');
+                
+                // Add a small delay for better user experience
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                updateProgress(100, success ? 'Settings saved successfully!' : 'Error saving settings');
+                
+                // Add a delay before closing the modal
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Hide the saving modal
+                savingModal.classList.remove('show');
                 
                 if (success) {
-                    // Show success message
-                    const successMessage = document.createElement('div');
-                    successMessage.className = 'success-message';
-                    successMessage.style.display = 'block';
-                    successMessage.textContent = 'Settings saved successfully!';
-                    document.querySelector('.settings-content').appendChild(successMessage);
-                    
                     // Log success
                     updateLogs({
                         type: 'system',
@@ -884,14 +900,11 @@ async function initialiseSettingsPanel() {
                         timestamp: moment().format('YYYY-MM-DD HH:mm:ss')
                     });
                     
-                    // Hide success message after 3 seconds and close modal
-                    setTimeout(() => {
-                        successMessage.remove();
-                        settingsModal.classList.remove('show');
-                        
-                        // Refresh prayer data
-                        updatePrayerData();
-                    }, 3000);
+                    // Close settings modal
+                    settingsModal.classList.remove('show');
+                    
+                    // Refresh prayer data
+                    updatePrayerData();
                 } else {
                     // Show error message
                     const errorMessageElement = document.createElement('div');
