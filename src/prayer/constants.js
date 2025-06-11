@@ -33,15 +33,30 @@ export function getDropdownOptions(constantsObj) {
     }));
 }
 
-// Pre-formatted dropdown options
-export const CALCULATION_METHOD_OPTIONS = getDropdownOptions(CALCULATION_METHODS);
-export const ASR_JURISTIC_METHOD_OPTIONS = getDropdownOptions(ASR_JURISTIC_METHODS);
-export const MIDNIGHT_MODE_OPTIONS = getDropdownOptions(MIDNIGHT_MODES);
+/**
+ * Helper function to convert constants object to sorted array format for dropdowns
+ * @param {Object} constantsObj - Object with ID keys and name values
+ * @returns {Array} Array of {id, name} objects sorted alphabetically by name
+ */
+export function getSortedDropdownOptions(constantsObj) {
+    return Object.entries(constantsObj)
+        .map(([id, name]) => ({
+            id: parseInt(id, 10),
+            name
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+}
 
-// Special handling for latitude adjustment methods to include "None" option
+// Pre-formatted dropdown options - sorted alphabetically
+export const CALCULATION_METHOD_OPTIONS = getSortedDropdownOptions(CALCULATION_METHODS);
+export const ASR_JURISTIC_METHOD_OPTIONS = getSortedDropdownOptions(ASR_JURISTIC_METHODS);
+export const MIDNIGHT_MODE_OPTIONS = getSortedDropdownOptions(MIDNIGHT_MODES);
+
+// Special handling for latitude adjustment methods - sorted alphabetically
 export const LATITUDE_ADJUSTMENT_METHOD_OPTIONS = [
     { id: null, name: "None (Default)" },
-    ...getDropdownOptions(LATITUDE_ADJUSTMENT_METHODS)
+    ...getSortedDropdownOptions(LATITUDE_ADJUSTMENT_METHODS)
+        .filter(option => option.name !== "None") // Remove the duplicate "None" option
 ];
 
 /**
