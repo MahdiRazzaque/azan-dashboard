@@ -277,6 +277,20 @@ function addHelpIcon(elementId, helpText) {
  * Add real-time validation to input fields
  */
 function addInputValidation() {
+    // Validate MyMasjid Guild ID
+    const guildIdInput = document.getElementById('mymasjid-guild-id');
+    const guildIdError = document.getElementById('settings-mymasjid-error');
+
+    if (guildIdInput && guildIdError) {
+        guildIdInput.addEventListener('input', () => {
+            if (guildIdInput.value.trim() !== '') {
+                guildIdInput.classList.remove('invalid-input');
+                guildIdError.textContent = '';
+                guildIdError.style.display = 'none';
+            }
+        });
+    }
+
     // Validate latitude
     const latitudeInput = document.getElementById('aladhan-latitude');
     latitudeInput.addEventListener('input', () => {
@@ -788,6 +802,12 @@ async function savePrayerSourceSettings(settings) {
                 errorData = await response.json();
                 const errorMessage = errorData.error || `Failed to save settings (${response.status})`;
                 showErrorMessage(errorMessage);
+
+                // Check for guild ID validation error
+                if (errorData.details && errorData.details.type === 'validation' && errorData.details.details && errorData.details.details[0].field === 'guildId') {
+                    return { success: false, error: errorMessage, isGuildIdError: true };
+                }
+
                 return { success: false, error: errorMessage };
             } catch (parseError) {
                 // If can't parse JSON, use status text

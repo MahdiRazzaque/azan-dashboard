@@ -876,6 +876,40 @@ async function initialiseSettingsPanel() {
                         success = false;
                         errorMessage = saveResult.error || 'Failed to save prayer source settings';
                         console.error('Failed to save prayer source settings:', saveResult.error);
+
+                        // If it's a guild ID error, handle it specifically
+                        if (saveResult.isGuildIdError) {
+                            // Display error in the saving modal
+                            setupMessage.classList.add('error');
+                            updateProgress(100, 'Invalid Guild ID. Please try again.');
+                            
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                            
+                            // Clean up and hide modal
+                            setupMessage.classList.remove('error');
+                            savingModal.classList.remove('show');
+                            
+                            // Re-open settings modal and navigate to the correct tab
+                            showSettingsModal();
+                            const prayerSourceTab = document.querySelector('.tab-btn[data-tab="prayer-source"]');
+                            if (prayerSourceTab) {
+                                prayerSourceTab.click();
+                            }
+
+                            // Show error message under the input in the settings modal
+                            const guildIdInput = document.getElementById('mymasjid-guild-id');
+                            const guildIdError = document.getElementById('settings-mymasjid-error');
+
+                            if (guildIdInput) {
+                                guildIdInput.classList.add('invalid-input');
+                            }
+                            if (guildIdError) {
+                                guildIdError.textContent = saveResult.error || 'Invalid Guild ID. Please check and try again.';
+                                guildIdError.style.display = 'block';
+                            }
+                            
+                            return; // Stop further execution
+                        }
                     }
                 }
                 

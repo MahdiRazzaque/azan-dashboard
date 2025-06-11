@@ -819,15 +819,22 @@ label.disabled {
 }
 
 .setup-message {
-    margin-top: 1.5rem;
+    margin-top: 1rem;
     text-align: center;
-    font-size: 1.1rem;
-    color: var(--highlight-color);
+    color: var(--muted-text);
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+.setup-message.error {
+    color: #f87171; /* A nice red color */
+    font-weight: 500;
 }
 
 /* Settings Tabs */
 .settings-tabs {
-    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
 }
 
 .tab-nav {
