@@ -33,39 +33,76 @@ function validateEnv() {
  */
 function validateConfig(configToValidate) {
     try {
+        // Check if config exists
         if (!configToValidate) {
-            console.error("Error: Configuration object is null or undefined.");
+            console.error("❌ Error: Configuration object is null or undefined.");
             return false;
         }
+        
+        // Check if config is an empty object
+        if (Object.keys(configToValidate).length === 0) {
+            console.error("❌ Error: Configuration object is empty.");
+            return false;
+        }
+        
         // Validate prayer data configuration
         if (!configToValidate.prayerData) {
-            console.error("Error: prayerData configuration is missing");
+            console.error("❌ Error: prayerData configuration is missing");
             return false;
         }
 
-        if (!['mymasjid', 'local'].includes(configToValidate.prayerData.source)) {
-            console.error("Error: prayerData.source must be either 'mymasjid' or 'local'");
+        // Check if prayerData has a source property
+        if (!configToValidate.prayerData.source) {
+            console.error("❌ Error: prayerData.source is missing");
             return false;
         }
 
-        if (configToValidate.prayerData.source === 'mymasjid' &&
-            (!configToValidate.prayerData.mymasjid || !configToValidate.prayerData.mymasjid.guildId)) {
-            console.error("Error: guildId is required when using mymasjid as prayer data source");
+        // Check if source is valid
+        if (!['mymasjid', 'aladhan'].includes(configToValidate.prayerData.source)) {
+            console.error(`❌ Error: prayerData.source must be either 'mymasjid' or 'aladhan', got '${configToValidate.prayerData.source}'`);
             return false;
         }
 
-        // Add more checks for other sections if necessary
+        // Check MyMasjid specific configuration
+        if (configToValidate.prayerData.source === 'mymasjid') {
+            if (!configToValidate.prayerData.mymasjid) {
+                console.error("❌ Error: prayerData.mymasjid is missing");
+                return false;
+            }
+            if (!configToValidate.prayerData.mymasjid.guildId) {
+                console.error("❌ Error: prayerData.mymasjid.guildId is missing");
+                return false;
+            }
+        }
+        
+        // Check Aladhan specific configuration
+        if (configToValidate.prayerData.source === 'aladhan') {
+            if (!configToValidate.prayerData.aladhan) {
+                console.error("❌ Error: prayerData.aladhan is missing");
+                return false;
+            }
+            // We could add more specific checks here, but that's handled by aladhan-provider.js
+        }
+
+        // Check for features section (optional, create default if missing)
         if (!configToValidate.features) {
-             console.error("Error: features configuration is missing");
-             return false;
+            console.warn("⚠️ Warning: features configuration is missing, will use defaults");
+            // Don't return false, as we can use defaults
         }
+        
+        // Check for auth section (optional, create default if missing)
         if (!configToValidate.auth) {
-             console.error("Error: auth configuration is missing");
-             return false;
+            console.warn("⚠️ Warning: auth configuration is missing, will use defaults");
+            // Don't return false, as we can use defaults
         }
-        if (!configToValidate.prayerSettings || !configToValidate.prayerSettings.prayers) {
-             console.error("Error: prayerSettings or prayerSettings.prayers configuration is missing");
-             return false;
+        
+        // Check for prayerSettings section (optional, create default if missing)
+        if (!configToValidate.prayerSettings) {
+            console.warn("⚠️ Warning: prayerSettings configuration is missing, will use defaults");
+            // Don't return false, as we can use defaults
+        } else if (!configToValidate.prayerSettings.prayers) {
+            console.warn("⚠️ Warning: prayerSettings.prayers configuration is missing, will use defaults");
+            // Don't return false, as we can use defaults
         }
 
         return true;

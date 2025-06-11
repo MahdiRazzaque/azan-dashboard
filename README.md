@@ -1,227 +1,193 @@
-# Azan System
+# Azan Dashboard & Alexa Announcer
 
-A Node.js application for managing and announcing prayer times using Alexa devices.
+A modern, Node.js-based system for managing and announcing Islamic prayer times. It features a real-time web dashboard and integrates with Alexa devices via VoiceMonkey for automated Azan playback and prayer announcements.
 
-## Features
+![Dashboard Preview](https://snipboard.io/uOq7Jc.jpg)
 
--   Real-time prayer time display
--   Automatic azan playback at prayer times
--   Prayer time announcements 15 minutes before each prayer
--   Comprehensive settings panel for prayer-specific configurations
--   Smart dependency management between azan and announcement features
--   Interactive configuration set-up with validation
--   Test mode for verifying announcements
--   System logs for monitoring
--   Secure admin authentication
+## Key Features
+
+*   **Dual Prayer Time Sources:** Choose between two data sources:
+    *   **MyMasjid API:** Fetches a pre-set schedule directly from a specific mosque's MyMasjid account.
+    *   **Aladhan API:** Dynamically calculates prayer times based on geographical coordinates and a wide range of calculation methods.
+*   **Interactive Web-Based Setup:** A user-friendly, one-time setup wizard guides the administrator through the initial configuration process.
+*   **Real-Time Dashboard:** Displays the current time, daily prayer schedule (start and iqamah times), and a live countdown to the next prayer.
+*   **Automated Alexa Integration:** Plays the Azan and pre-prayer announcements automatically on configured Alexa devices using the VoiceMonkey service.
+*   **Modular Settings Panel:** A secure, web-based admin panel to configure:
+    *   The prayer time source and its specific parameters.
+    *   Global and prayer-specific toggles for Azan and announcements.
+    *   Azan timing (play at prayer start time or iqamah time).
+*   **Real-Time System Logging:** A live log stream is available in the dashboard for monitoring application activity and troubleshooting.
+*   **Secure Authentication:** The settings panel and administrative functions are protected by a secure login system with session management and rate limiting.
+*   **Robust Configuration Management:** All settings are stored in a local `config.json` file, which is managed by the application. The system intelligently handles configuration changes, backups, and data refreshes.
+*   **Test Mode:** A built-in test mode for developers to simulate different times of the day to verify scheduling and UI behavior without waiting.
+
+## Technology Stack
+
+*   **Backend:** Node.js, Express.js
+*   **Frontend:** Vanilla JavaScript (ES Modules), HTML5, CSS3
+*   **Scheduling:** `node-schedule`
+*   **Date/Time:** `moment-timezone`
+*   **Persistence:** Local file system (JSON files: `config.json`, `prayer_times.json`)
+*   **In-Memory Storage:** For active user sessions and temporary logs.
+*   **Key Libraries & Tools:**
+    *   `dotenv` for environment variables.
+    *   `node-fetch` for HTTP requests.
+    *   `express-rate-limit` for security.
+    *   `pm2` for production process management (development dependency).
+*   **External Services:**
+    *   MyMasjid API (for prayer times)
+    *   Aladhan API (for prayer times calculation)
+    *   VoiceMonkey API (for Alexa announcements)
 
 ## Prerequisites
 
--   Node.js (version compatible with ES modules, e.g., v14.x, v16.x or higher)
--   npm (usually comes with Node.js)
-
-## Configuration
-
-### Initial Set-up
-
-When you start the application for the first time, if `config.json` is not present, it will prompt you in the terminal to enter your myMasjid guildId. This ID will be validated against the MyMasjid API to ensure it is correct. If validation fails, you will be prompted to enter it again until a valid ID is provided. This `guildId` is then stored in `config.json`.
-
-### Prayer Times Source
-
-The system fetches prayer times once from the MyMasjid API and stores them locally in a `prayer_times.json` file in the project's root directory. This file is then used as the source for all subsequent prayer time lookups.
-
-**Initial Set-up & `prayer_times.json`:**
-
--   **On the first run (or if `prayer_times.json` is missing or invalid):**
-    -   The application will use the `myMasjid.guildId` (specified in `config.json`) to fetch the entire year's prayer times from the MyMasjid API.
-    -   This data, with the current year injected into `masjidDetails`, is then saved to `prayer_times.json`.
-    -   The file is validated (checks for correct year, structure, and all days). A `validated: true` flag is added internally to this JSON file to speed up subsequent start-up checks.
--   **On subsequent runs:**
-    -   If `prayer_times.json` exists and is valid (correct year and `validated: true` flag present), it's loaded directly.
-    -   If the existing `prayer_times.json` is found to be for a previous year or otherwise invalid, it will be automatically deleted, and fresh data will be fetched from the MyMasjid API.
-
-**Format of `prayer_times.json` (managed by the application):**
-The `prayer_times.json` file stores the raw response from the MyMasjid API. It looks like this:
-
-```json
-{
-    "model": {
-        "masjidDetails": {
-            "name": "Your Masjid Name",
-            "website": null,
-            "year": 2025 // Automatically set to the current year of fetched data
-        },
-        "salahTimings": [
-            {
-                "fajr": "06:04", "shouruq": "08:09", "zuhr": "12:14", "asr": "14:14", 
-                "maghrib": "16:01", "isha": "17:25", "day": 1, "month": 1,
-                "iqamah_Fajr": "07:30", "iqamah_Zuhr": "13:00", "iqamah_Asr": "15:00",
-                "iqamah_Maghrib": "16:06", "iqamah_Isha": "19:30"
-            }
-            // ... entries for all 365/366 days of the year
-        ]
-    },
-    "validated": true // Added by the application after successful fetch & validation
-}
-```
-**Note:** `prayer_times.json` is included in `.gitignore` and should not be committed to your repository if it contains sensitive or large amounts of data not intended for version control. The application manages its creation and updates.
-
-### Environment Variables
-
-Create a `.env` file in the root directory with the following variables:
-
-```env
-# .env - Azan System Configuration
-# Do NOT commit your actual .env file to version control.
-
-# Admin Credentials
-ADMIN_USERNAME=your_username
-
-# Password Security
-# Generate a password hash using: node src/utils/generate-password-hash.js
-ADMIN_PASSWORD_HASH=your_generated_password_hash
-# IMPORTANT: If you change SALT after set-up, your password hash will no longer work!
-SALT=your_strong_random_salt_string
-
-# Voice Monkey API Token (for Alexa announcements)
-VOICEMONKEY_TOKEN=your_voicemonkey_api_token
-
-# Server Port (optional, defaults to 3002 if not set)
-PORT=3000
-```
-
-To generate a password hash, run the included utility from the project root:
-```bash
-node src/utils/generate-password-hash.js
-```
-Follow the prompts, and then copy the generated hash into your `.env` file for `ADMIN_PASSWORD_HASH`.
-
-### Application Configuration (`config.json`)
-
-The system manages its primary configuration in `config.json` located in the project root. On the first run, if this file does not exist, the application will guide you through an interactive set-up in the terminal to enter your `myMasjid.guildId`. This ID is crucial for the initial fetch of prayer times if `prayer_times.json` is also missing.
-
-An example `config.json` (managed by the application):
-```json
-{
-    "prayerData": {
-        "source": "mymasjid", 
-        "mymasjid": {
-            "guildId": "your-validated-guild-id-from-initial-setup"
-        }
-    },
-    "features": {
-        "azanEnabled": true,
-        "announcementEnabled": true,
-        "systemLogsEnabled": true
-    },
-    "auth": {
-        "sessionTimeout": 3600000, 
-        "maxSessions": 5
-    },
-    "prayerSettings": {
-        "prayers": {
-            "fajr": { "azanEnabled": false, "announcementEnabled": false, "azanAtIqamah": true },
-            "zuhr": { "azanEnabled": true, "announcementEnabled": false, "azanAtIqamah": true },
-            "asr": { "azanEnabled": true, "announcementEnabled": true, "azanAtIqamah": false },
-            "maghrib": { "azanEnabled": true, "announcementEnabled": true, "azanAtIqamah": false },
-            "isha": { "azanEnabled": true, "announcementEnabled": true, "azanAtIqamah": true }
-        },
-        "globalAzanEnabled": true,
-        "globalAnnouncementEnabled": true
-    },
-    "updatedAt": "..." 
-}
-```
-You typically interact with settings such as `features` and `prayerSettings` via the application's web UI. The `prayerData.mymasjid.guildId` is set during the initial configuration.
+*   Node.js (v16.x or higher recommended)
+*   npm (included with Node.js)
+*   A VoiceMonkey account and API token.
 
 ## Installation
 
-1.  Clone the repository:
+1.  **Clone the repository:**
     ```bash
-    git clone <repository_url>
-    cd azan
+    git clone https://github.com/MahdiRazzaque/azan
     ```
-2.  Install dependencies:
+2.  **Install dependencies:**
     ```bash
     npm install
     ```
-3.  Create and populate your `.env` file as described in "Environment Variables".
-4.  Start the server:
+3.  **Configure Environment Variables:**
+    Create a `.env` file in the project root by copying `.env.example`. See the **Configuration** section below for details on how to populate it.
+
+4.  **Start the application:**
     ```bash
     npm start
     ```
-    (This will run `node index.js` by default).
-5.  On the first run, follow the interactive set-up process in your terminal to enter and validate your myMasjid `guildId` if `config.json` is not present. The application will then attempt to fetch and create `prayer_times.json` if needed.
+    For production environments, it is highly recommended to use a process manager like PM2:
+    ```bash
+    pm2 start index.js --name azan-dashboard
+    ```
 
-## Usage
+## Configuration
 
-1.  Access the web interface at `http://localhost:PORT` (e.g., `http://localhost:3000` if you set `PORT=3000` in `.env`, or `http://localhost:3002` if `PORT` is not set).
-2.  Log in using your admin credentials (from `.env`).
-3.  Access the settings panel by clicking the settings icon (cogwheel) in the System Logs section.
-4.  Configure global and prayer-specific settings:
-    -   Enable/disable azan globally or for specific prayers.
-    -   Enable/disable announcements globally or for specific prayers.
-    -   Set azan timing to play at prayer start or iqamah time for each prayer.
-5.  Use the toggles to enable/disable azan and announcements.
-6.  Monitor system logs for any issues or system events.
+The application uses two primary configuration mechanisms: environment variables for sensitive data and dynamic application settings managed via the web UI.
 
-### Settings Panel
+### 1. Environment Variables (`.env`)
 
-The settings panel provides fine-grained control over the azan system:
+This file stores secrets and crucial operational variables. **It must NOT be committed to version control.**
 
--   **Global Settings**:
-    -   **Global Azan Toggle**: Enable/disable all azan playback.
-    -   **Global Announcement Toggle**: Enable/disable all prayer announcements.
--   **Prayer-Specific Settings**:
-    -   Individual controls for each prayer (Fajr, Zuhr, Asr, Maghrib, Isha).
-    -   Enable/disable azan for specific prayers.
-    -   Choose azan timing (prayer start or iqamah time).
-    -   Enable/disable announcements for specific prayers.
--   **Dependency Logic**:
-    -   Announcement features depend on azan being enabled (either globally or for the specific prayer).
-    -   When global azan is disabled, all prayer-specific azan and announcement settings are effectively disabled.
-    -   When a prayer's azan is disabled, its announcement is automatically disabled.
-    -   Settings generally remember their state when re-enabled.
+```env
+# .env - Azan System Configuration
+
+# Admin Credentials
+# Username for accessing protected features in the web UI.
+ADMIN_USERNAME=admin
+
+# Password Security
+# The application uses PBKDF2 for secure password hashing.
+# Generate a password hash by running the provided utility.
+# Copy the generated hash here.
+ADMIN_PASSWORD_HASH=your_generated_pbkdf2_hash
+
+# You MUST set a SALT value for password hashing security.
+# This should be a strong, random string of characters (e.g., 16-32 random hex characters).
+# IMPORTANT: If you change this SALT after setting up your password,
+# your existing ADMIN_PASSWORD_HASH will no longer work, and you'll need to regenerate it!
+SALT=a_very_strong_and_random_salt_string_here
+
+# Voice Monkey API Token
+# Required for azan and prayer announcement playback via Alexa.
+# Register at https://voicemonkey.io to get your API token.
+VOICEMONKEY_TOKEN=your_voicemonkey_api_token
+
+# Server Port (Optional)
+# Port for the web server to listen on. If not specified, defaults to 3002.
+PORT=3000
+
+# Test Mode Configuration (Optional)
+# Set to 'true' to enable test mode. This simulates time, bypasses auth, and skips actual VoiceMonkey calls.
+TEST_MODE=false
+```
+
+**To generate your `ADMIN_PASSWORD_HASH`:**
+From the project root, run the following command:
+```bash
+node src/utils/generate-password-hash.js
+```
+
+Follow the prompts, then copy the output hash into your `.env` file.
+
+### 2. Application Settings (`config.json`)
+
+This file holds all other application configurations (prayer data source, feature toggles, prayer-specific settings, etc.). It is located in the project root and is **automatically created and updated by the application through the web UI.**
+
+**DO NOT MANUALLY EDIT `config.json`**. Changes should always be made via the dashboard's settings panel to ensure data integrity and proper application behavior.
+
+## Initial Setup & Usage Workflow
+
+1.  **Start the Application:**
+    *   Run `npm start` (or `pm2 start index.js --name azan-dashboard`).
+    *   Observe the terminal for initial log messages.
+
+2.  **Access the Dashboard:**
+    *   Open your web browser and navigate to `http://localhost:PORT` (e.g., `http://localhost:3000` if you set `PORT=3000` in `.env`, or `http://localhost:3002` by default).
+
+3.  **Initial Setup Wizard:**
+    *   If `config.json` is missing or invalid, a "Welcome to Azan Dashboard" modal will appear.
+    *   **Choose your prayer time source:**
+        *   **MyMasjid API:** Enter your mosque's Guild ID. The system will validate it against the MyMasjid API.
+        *   **Aladhan API:** Provide your geographical `latitude`, `longitude`, `timezone`, and select your preferred `calculation method`, `Asr juristic method`, `midnight mode`, and `Iqamah offsets`.
+    *   Click "Submit". The application will automatically:
+        *   Create `config.json` with your chosen settings.
+        *   Fetch the entire year's prayer times from the selected API.
+        *   Save the fetched data to `prayer_times.json`.
+        *   Initialize the prayer scheduling system.
+    *   The page will then reload, and the dashboard will populate with prayer times.
+
+4.  **Admin Dashboard Interaction:**
+    *   The main dashboard displays the current time, the daily prayer schedule (Start and Iqamah times), and a live countdown to the next prayer.
+    *   **System Logs:** Click the "Show System Logs" button to reveal a real-time log stream for monitoring application activity.
+
+5.  **Using the Settings Panel:**
+    *   Click the **cog icon** (<i class="fas fa-cog"></i>) in the System Logs panel to open the settings modal.
+    *   You will be prompted to log in using the `ADMIN_USERNAME` and `ADMIN_PASSWORD` you configured in your `.env` file.
+    *   **Prayer Time Source Tab:**
+        *   Change your prayer source (MyMasjid or Aladhan).
+        *   Update specific parameters for the chosen source (e.g., Guild ID, coordinates, calculation methods).
+        *   The system will automatically validate and, if successful, fetch new prayer data and reschedule events.
+    *   **Azan & Announcements Tab:**
+        *   Control global Azan and Announcement features with dedicated toggles.
+        *   Configure each of the five daily prayers individually:
+            *   Enable/disable Azan for a specific prayer.
+            *   Choose whether Azan plays at the prayer's start time or Iqamah time.
+            *   Enable/disable announcements for a specific prayer.
+        *   **Dependency Logic:** Announcements for a specific prayer are only active if Azan for that same prayer is enabled. Global toggles override individual prayer settings.
 
 ## Test Mode
 
-Test mode allows you to verify announcements and prayer timings by simulating a specific start time:
+Test mode allows developers to simulate different times of the day for testing scheduling and UI behavior without waiting for actual prayer times.
 
-1.  Edit `src/utils/utils.js`.
-2.  Set `const TEST_MODE = true;`.
-3.  Adjust `TEST_START_TIME` (e.g., `moment.tz('02:00:00', 'HH:mm:ss', 'Europe/London')`) to the desired simulation start time.
-4.  Restart the server.
-5.  The system will operate as if the current time initiated from your `TEST_START_TIME`. Remember to set `TEST_MODE = false;` for normal operation.
+1.  **Enable Test Mode:**
+    *   In your `.env` file, set `TEST_MODE=true`.
+    *   Optionally, set `TEST_START_TIME` (e.g., `02:00:00`) and `TEST_TIMEZONE` (e.g., `Europe/London`).
+    *   Restart the application.
 
-## Security
+2.  **Observe Test Mode:**
+    *   A "🧪 Test Mode" indicator will appear in the top-right corner of the web UI.
+    *   The application will operate as if the current time is offset from your `TEST_START_TIME`.
+    *   **Authentication Bypass:** When `TEST_MODE` is `true`, the settings panel can be accessed without providing credentials, simplifying testing.
+    *   **Simulated Playback:** VoiceMonkey calls for Azan and announcements will be logged in the system logs but **not actually sent to Alexa devices.**
 
--   Admin authentication required for all control features (settings, log clearing).
--   Session-based authentication with configurable timeout (via `config.json`, default 1 hour).
--   Secure password hashing using PBKDF2 and a unique `SALT`.
--   Rate limiting on authentication endpoints to prevent brute-force attacks.
-
-## Key API Endpoints
-
-The application exposes several API endpoints, primarily consumed by the frontend:
-
--   `/api/prayer-times`: (GET) Get current prayer times, next prayer, and countdown.
--   `/api/prayer-settings`: (GET, POST) Manage prayer configurations. (Auth required for POST)
--   `/api/features`: (GET, POST) Manage global feature flags. (Auth required for POST)
--   `/api/config`: (GET, POST) Manage parts of the main application configuration (e.g., features, prayerSettings). (Auth required)
--   `/api/logs/stream`: (GET) Server-Sent Events (SSE) for real-time system logs.
--   `/api/logs`: (GET) Retrieve all stored logs.
--   `/api/logs/clear`: (POST) Clear logs. (Auth required)
--   `/api/logs/last-error`: (GET) Retrieve the last recorded error log.
--   `/api/auth/login`: (POST) User login.
--   `/api/auth/logout`: (POST) User logout. (Auth required)
--   `/api/auth/status`: (GET) Check current authentication status.
--   `/api/test-mode`: (GET) Get current test mode configuration (read-only from `utils.js`).
+3.  **Disable Test Mode:**
+    *   Set `TEST_MODE=false` in your `.env` file and restart the application.
 
 ## Troubleshooting
 
--   **Check system logs** in the web UI for detailed error messages or operational information.
--   **Verify `.env` file:** Ensure all required environment variables are correctly set.
--   **`prayer_times.json`**: If issues persist with prayer times, you can try deleting `prayer_times.json` from the project root. The application will attempt to re-fetch it from the MyMasjid API on the next start, using the `guildId` from `config.json`. Ensure `config.json` contains a valid `myMasjid.guildId`.
--   **`config.json`**: Ensure `config.json` exists in the root and contains a valid `prayerData.mymasjid.guildId`. If `config.json` is missing, the application will prompt for the `guildId` on start-up.
--   **VoiceMonkey Token:** Ensure `VOICEMONKEY_TOKEN` is valid for Alexa announcements.
--   **MyMasjid `guildId`:** Ensure the `guildId` in `config.json` is correct. You can test the MyMasjid API URL directly in a browser: `https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=YOUR_GUILD_ID`.
--   **Port Conflicts:** If the server fails to start, check if the configured port (default 3002 or from `.env`) is already in use.
+*   **Check System Logs:** The primary tool for debugging. The live log stream in the web UI provides detailed error messages and operational information.
+*   **Verify `.env` file:** Double-check that all required environment variables (`ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH`, `SALT`, `VOICEMONKEY_TOKEN`) are correctly set.
+*   **`config.json` Issues:** If the application continuously prompts for setup or throws configuration errors, it might be due to a corrupt or invalid `config.json`. **Do not edit it manually.** Try deleting `config.json` (and `prayer_times.json` if it exists) from the project root. The application will then re-run the web-based setup wizard on the next restart.
+*   **Prayer Data Fetching:** If prayer times are not displayed, ensure your selected prayer source parameters in the settings panel are correct and validated.
+    *   **MyMasjid `guildId`:** You can test the MyMasjid API URL directly in a browser: `https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=YOUR_GUILD_ID`.
+    *   **Aladhan Parameters:** Verify `latitude`, `longitude`, and `timezone` are accurate.
+*   **VoiceMonkey Token:** Ensure your `VOICEMONKEY_TOKEN` is valid and active in your VoiceMonkey account.
+*   **Port Conflicts:** If the server fails to start, the configured port (default 3002 or from `.env`) might be in use. Change the `PORT` in your `.env` file.
+*   **Application Restart:** After making changes to `.env` or if the application crashes, always restart the Node.js process.

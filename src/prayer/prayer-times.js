@@ -1,5 +1,5 @@
 import moment from 'moment-timezone';
-import { getPrayerTimesData } from './prayer-data-provider.js';
+import { getPrayerTimesData, getPrayerDataSourceInfo } from './prayer-data-provider.js';
 import { getCurrentTime } from '../utils/utils.js';
 import { scheduleNamazTimers } from '../scheduler/scheduler.js';
 import { requireAuth } from '../auth/auth.js';
@@ -71,14 +71,66 @@ async function updatePrayerTimes() {
 // Setup prayer time routes
 function setupPrayerRoutes(app) {
     app.get('/api/prayer-times', async (req, res) => {
-        const data = await updatePrayerTimes();
-        if (!data) {
-            return res.status(500).json({ error: 'Failed to fetch prayer times' });
+        try {
+            // Get source information first
+            const sourceInfo = getPrayerDataSourceInfo();
+            
+            // If setup is required, return early with just the source info
+            if (sourceInfo.sourceType === "setup_required") {
+                return res.json({
+                    startTimes: null,
+                    iqamahTimes: null,
+                    nextPrayer: null,
+                    currentTime: getCurrentTime().format('HH:mm:ss'),
+                    source: sourceInfo,
+                    setupRequired: true
+                });
+            }
+            
+            const data = await updatePrayerTimes();
+            if (!data) {
+                return res.json({
+                    startTimes: null,
+                    iqamahTimes: null,
+                    nextPrayer: null,
+                    currentTime: getCurrentTime().format('HH:mm:ss'),
+                    source: sourceInfo,
+                    error: 'Failed to fetch prayer times'
+                });
+            }
+            
+            res.json({
+                startTimes: data.startTimes,
+                iqamahTimes: data.iqamahTimes,
+                nextPrayer: data.nextPrayer,
+                currentTime: getCurrentTime().format('HH:mm:ss'),
+                source: sourceInfo
+            });
+        } catch (error) {
+            console.error("Error in /api/prayer-times endpoint:", error);
+            res.json({
+                startTimes: null,
+                iqamahTimes: null,
+                nextPrayer: null,
+                currentTime: getCurrentTime().format('HH:mm:ss'),
+                source: { sourceType: "error", message: error.message },
+                error: 'Failed to fetch prayer times'
+            });
         }
-        res.json({
-            ...data,
-            currentTime: getCurrentTime().format('HH:mm:ss')
-        });
+    });
+
+    // Add a dedicated endpoint for prayer source information
+    app.get('/api/prayer-source-info', (req, res) => {
+        try {
+            const sourceInfo = getPrayerDataSourceInfo();
+            res.json(sourceInfo);
+        } catch (error) {
+            console.error("Error in /api/prayer-source-info endpoint:", error);
+            res.json({ 
+                sourceType: "error", 
+                message: error.message || 'Failed to fetch prayer source information' 
+            });
+        }
     });
 
     // Add a new endpoint to refresh prayer timers

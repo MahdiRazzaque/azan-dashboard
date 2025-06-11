@@ -19,5 +19,10 @@
     "node-fetch": "^3.3.2",
     "node-schedule": "^2.1.1",
     "pm2": "^5.4.3"
+  },
+  "devDependencies": {
+    "chromedriver": "^137.0.1",
+    "mocha": "^11.5.0",
+    "selenium-webdriver": "^4.33.0"
   }
 }

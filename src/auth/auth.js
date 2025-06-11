@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { promisify } from 'util';
 import { getConfig } from '../config/config-service.js';
 import * as dotenv from 'dotenv';
+import { getTestMode } from '../utils/utils.js';
 
 // Load environment variables
 dotenv.config();
@@ -55,6 +56,12 @@ function generateSessionToken() {
 
 // Authentication middleware
 function requireAuth(req, res, next) {
+    // Skip authentication if TEST_MODE is enabled
+    if (getTestMode()) {
+        console.log("🧪 TEST MODE: Authentication bypassed");
+        return next();
+    }
+    
     const token = req.headers['x-auth-token'];
     
     if (!token) {
@@ -113,6 +120,17 @@ function setupAuthRoutes(app) {
     // Login endpoint
     app.post('/api/auth/login', loginRateLimiter, async (req, res) => {
         try {
+            // If TEST_MODE is enabled, allow any login
+            if (getTestMode()) {
+                console.log("🧪 TEST MODE: Auto-login enabled");
+                const token = generateSessionToken();
+                sessions.set(token, { 
+                    username: 'test-user',
+                    timestamp: Date.now()
+                });
+                return res.json({ success: true, token });
+            }
+            
             const { username, password } = req.body;
 
             // Check username first
@@ -159,6 +177,12 @@ function setupAuthRoutes(app) {
 
     // Check auth status endpoint
     app.get('/api/auth/status', (req, res) => {
+        // If TEST_MODE is enabled, always return authenticated
+        if (getTestMode()) {
+            console.log("🧪 TEST MODE: Authentication status check bypassed");
+            return res.json({ authenticated: true });
+        }
+        
         const token = req.headers['x-auth-token'];
         const isAuthenticated = token && sessions.has(token);
         res.json({ authenticated: isAuthenticated });

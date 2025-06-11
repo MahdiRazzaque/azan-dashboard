@@ -1,4 +1,6 @@
 node_modules/
 .env
 prayer_times.json
-repomix-output.txt
+repomix-output.*
+backups/
+config.json

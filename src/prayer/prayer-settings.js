@@ -3,6 +3,8 @@ import { getConfig, updateConfig } from '../config/config-service.js';
 
 // Default prayer settings
 const DEFAULT_PRAYER_SETTINGS = {
+    globalAzanEnabled: true,
+    globalAnnouncementEnabled: true,
     prayers: {
         fajr: {
             azanEnabled: true,
@@ -36,12 +38,26 @@ const DEFAULT_PRAYER_SETTINGS = {
 async function getPrayerSettings() {
     try {
         const config = await getConfig();
-        if (!config.prayerSettings) {
-            // If no prayer settings in MongoDB, initialise with defaults
-            await updateConfig('prayerSettings', DEFAULT_PRAYER_SETTINGS);
+        
+        // If no config or no prayerSettings, return defaults
+        if (!config || !config.prayerSettings) {
+            // Only try to update if config exists
+            if (config && Object.keys(config).length > 0) {
+                await updateConfig('prayerSettings', DEFAULT_PRAYER_SETTINGS);
+            }
             return DEFAULT_PRAYER_SETTINGS;
         }
-        return config.prayerSettings;
+        
+        // Include global feature toggles from features section
+        const prayerSettings = { ...config.prayerSettings };
+        
+        // Add global feature toggles with consistent naming
+        if (config.features) {
+            prayerSettings.globalAzanEnabled = config.features.azanEnabled;
+            prayerSettings.globalAnnouncementEnabled = config.features.announcementEnabled;
+        }
+        
+        return prayerSettings;
     } catch (error) {
         console.error('Error getting prayer settings, using defaults:', error);
         return DEFAULT_PRAYER_SETTINGS;
@@ -73,32 +89,19 @@ export function setupPrayerSettingsRoutes(app) {
             // Prepare updated prayer settings
             const updatedPrayerSettings = {
                 ...(config.prayerSettings || DEFAULT_PRAYER_SETTINGS),
-                ...settings,
                 prayers: {
                     ...((config.prayerSettings && config.prayerSettings.prayers) || DEFAULT_PRAYER_SETTINGS.prayers),
                     ...settings.prayers
                 }
             };
             
+            // Note: Global settings are now handled by the /api/features endpoint
+
             // Update prayer settings in MongoDB
             await updateConfig('prayerSettings', updatedPrayerSettings);
             
-            // Update global feature toggles if provided
-            if (settings.globalAzanEnabled !== undefined || settings.globalAnnouncementEnabled !== undefined) {
-                const features = {...config.features};
-                
-                if (settings.globalAzanEnabled !== undefined) {
-                    features.azanEnabled = settings.globalAzanEnabled;
-                    //console.log(`📣 Global azan feature ${settings.globalAzanEnabled ? 'enabled' : 'disabled'}`);
-                }
-                
-                if (settings.globalAnnouncementEnabled !== undefined) {
-                    features.announcementEnabled = settings.globalAnnouncementEnabled;
-                    //console.log(`📣 Global announcement feature ${settings.globalAnnouncementEnabled ? 'enabled' : 'disabled'}`);
-                }
-                      // Update features in MongoDB
-                await updateConfig('features', features);
-            }
+            // Note: Global feature toggles are now handled by the /api/features endpoint
+            // This endpoint only handles prayer-specific settings
             
             // Reschedule prayer timers with new settings
             const { scheduleNamazTimers } = await import('../scheduler/scheduler.js');

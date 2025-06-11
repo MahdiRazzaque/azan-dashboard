@@ -304,6 +304,15 @@ th:nth-child(3) {
     justify-content: center;
 }
 
+/* Required setup modal - cannot be closed by clicking outside */
+.modal.required-setup {
+    pointer-events: none; /* Disable pointer events on the modal background */
+}
+
+.modal.required-setup .modal-content {
+    pointer-events: auto; /* Re-enable pointer events for the modal content */
+}
+
 .modal.show {
     display: flex;
 }
@@ -411,6 +420,87 @@ th:nth-child(3) {
     .log-line .message {
         width: 100%;
     }
+
+    /* Improve radio option display on mobile */
+    .radio-option {
+        white-space: nowrap;
+    }
+    
+    .radio-option label {
+        font-size: 0.9rem;
+    }
+
+    /* Fix toggle alignment on mobile */
+    .toggle-switch {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        height: 24px; /* Ensure consistent height */
+    }
+    
+    /* Ensure setting rows have consistent height */
+    .settings-card .setting-row {
+        min-height: 36px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    
+    /* Ensure radio group alignment matches toggle switches */
+    .radio-group {
+        margin-left: auto;
+        justify-content: flex-end;
+        height: auto;
+        min-height: 24px;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        max-width: 100%;
+        width: auto;
+    }
+    
+    /* Improve radio option display on mobile */
+    .radio-option {
+        white-space: nowrap;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .radio-option label {
+        font-size: 0.9rem;
+    }
+    
+    /* Make rows with radio buttons taller */
+    .settings-card .setting-row.radio-row {
+        min-height: auto;
+        padding: 0.75rem 0;
+        grid-template-columns: minmax(100px, 1fr) auto;
+        align-items: flex-start;
+    }
+}
+
+/* For very small screens, stack the radio options */
+@media (max-width: 480px) {
+    .radio-group {
+        flex-direction: column;
+        align-items: flex-end;
+        height: auto;
+        gap: 0.5rem;
+        width: auto;
+    }
+    
+    .settings-card .setting-row.radio-row {
+        min-height: 60px;
+        align-items: flex-start;
+        grid-template-columns: minmax(80px, 1fr) auto;
+    }
+    
+    .radio-option {
+        margin-left: auto;
+    }
 }
 
 .control-separator {
@@ -458,7 +548,26 @@ th:nth-child(3) {
     color: #ff5555;
     font-size: 0.9rem;
     min-height: 1.2rem;
-    margin-top: -0.5rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: rgba(255, 85, 85, 0.1);
+    border-left: 3px solid #ff5555;
+    border-radius: 2px;
+    font-weight: 500;
+    display: none;
+}
+
+.error-message:not(:empty) {
+    display: block;
+}
+
+/* Ensure error messages in setup modal are visible when they have text */
+#setup-modal .error-message {
+    display: none;
+}
+
+#setup-modal .error-message:not(:empty) {
+    display: block;
 }
 
 /* Add logout button styles */
@@ -512,16 +621,6 @@ thead tr {
     gap: 1.5rem;
 }
 
-.global-settings h4, .prayer-settings-container h4 {
-    margin-bottom: 1rem;
-}
-
-.global-settings, .prayer-settings-container {
-    background-color: rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-    padding: 1rem;
-}
-
 .setting-row {
     display: flex;
     justify-content: space-between;
@@ -534,23 +633,20 @@ thead tr {
     border-bottom: none;
 }
 
-.prayer-setting {
-    background-color: rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 1rem;
-}
-
-.prayer-setting h5 {
-    margin-bottom: 0.5rem;
-    font-size: 1.1rem;
-    color: var(--highlight-color);
-}
-
 .setting-group {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0;
+}
+
+.setting-group .setting-row {
+    padding: 0.5rem 0;
+    margin-bottom: 0.75rem;
+    border-bottom: none;
+}
+
+.setting-group .setting-row:last-child {
+    margin-bottom: 0;
 }
 
 /* Toggle Switch Styles */
@@ -559,6 +655,9 @@ thead tr {
     display: inline-block;
     width: 48px;
     height: 24px;
+    min-width: 48px; /* Ensure minimum width */
+    flex-shrink: 0; /* Prevent toggle from shrinking */
+    vertical-align: middle; /* Ensure vertical alignment */
 }
 
 .toggle-input {
@@ -577,6 +676,7 @@ thead tr {
     background-color: var(--accent-color);
     transition: .4s;
     border-radius: 24px;
+    box-sizing: border-box; /* Ensure consistent sizing */
 }
 
 .toggle-label:before {
@@ -589,6 +689,7 @@ thead tr {
     background-color: white;
     transition: .4s;
     border-radius: 50%;
+    box-sizing: border-box; /* Ensure consistent sizing */
 }
 
 .toggle-input:checked + .toggle-label {
@@ -599,30 +700,24 @@ thead tr {
     transform: translateX(24px);
 }
 
-/* Styles for disabled toggle switches */
 .toggle-label.disabled {
     opacity: 0.5;
-    cursor: not-allowed;
 }
 
 .toggle-input:disabled + .toggle-label {
-    opacity: 0.5;
     cursor: not-allowed;
+    opacity: 0.5;
 }
 
-/* Time Input Styles */
 .time-input {
-    width: 60px;
+    width: 100px;
     padding: 0.5rem;
     border-radius: 4px;
     border: 1px solid var(--accent-color);
     background-color: var(--bg-color);
     color: var(--text-color);
-    font-size: 0.9rem;
-    text-align: center;
 }
 
-/* Styles for disabled radio buttons */
 input[type="radio"]:disabled + label {
     opacity: 0.5;
     cursor: not-allowed;
@@ -636,29 +731,655 @@ label.disabled {
 .radio-group {
     display: flex;
     gap: 1rem;
+    justify-self: end;
+    align-items: center;
+    height: 24px;
 }
 
 .radio-option {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.5rem;
 }
 
-/* Responsive Settings Modal */
+.radio-option input[type="radio"] {
+    margin: 0;
+    min-width: 14px;
+    min-height: 14px;
+}
+
+/* Setup Modal Styles */
+.setup-content {
+    max-width: 700px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+.setup-content h3 {
+    margin-bottom: 0.5rem;
+    color: var(--highlight-color);
+}
+
+.setup-content > p {
+    margin-bottom: 1.5rem;
+    opacity: 0.9;
+}
+
+.setup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.setup-section {
+    padding: 0.5rem 0;
+}
+
+.setup-section h4 {
+    margin-bottom: 1.25rem;
+    color: var(--highlight-color);
+    font-size: 1.2rem;
+}
+
+.setup-section.hidden {
+    display: none;
+}
+
+.form-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1.5rem;
+}
+
+.modal-btn.back {
+    background-color: var(--accent-color);
+}
+
+.modal-btn.back:hover {
+    background-color: var(--border-color);
+}
+
+.progress-container {
+    width: 100%;
+    height: 10px;
+    background-color: var(--accent-color);
+    border-radius: 5px;
+    margin: 1.5rem 0;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: var(--highlight-color);
+    border-radius: 5px;
+    transition: width 0.5s ease;
+}
+
+.setup-message {
+    margin-top: 1rem;
+    text-align: center;
+    color: var(--muted-text);
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+.setup-message.error {
+    color: #f87171; /* A nice red color */
+    font-weight: 500;
+}
+
+/* Settings Tabs */
+.settings-tabs {
+    display: flex;
+    flex-direction: column;
+}
+
+.tab-nav {
+    display: flex;
+    border-bottom: 2px solid var(--accent-color);
+    margin-bottom: 1.5rem;
+}
+
+.tab-btn {
+    padding: 0.75rem 1.25rem;
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    opacity: 0.7;
+    transition: all 0.3s ease;
+    position: relative;
+    font-weight: 500;
+}
+
+.tab-btn:hover {
+    opacity: 1;
+}
+
+.tab-btn.active {
+    opacity: 1;
+    font-weight: 600;
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background-color: var(--highlight-color);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Source Selector Styles */
+.source-selector {
+    display: flex;
+    align-items: center;
+}
+
+.radio-option label {
+    position: relative;
+    padding-left: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.radio-option label.selected-source {
+    color: var(--highlight-color);
+    font-weight: 600;
+}
+
+.radio-option label.selected-source::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 0.5rem;
+    width: calc(100% - 0.5rem);
+    height: 2px;
+    background-color: var(--highlight-color);
+}
+
+/* Dynamic Form Transitions */
+.source-specific-settings {
+    margin-top: 20px;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.source-specific-settings .settings-card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--accent-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.source-specific-settings .settings-card h5 {
+    font-size: 1.1rem;
+    color: var(--highlight-color);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.settings-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.settings-fade-out {
+    animation: fadeOut 0.3s ease;
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+/* Help Text and Icons */
+.help-text {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin: 0.5rem 0 1rem;
+    padding-left: 0.25rem;
+}
+
+.help-icon {
+    font-size: 0.85rem;
+    margin-left: 0.5rem;
+    color: var(--highlight-color);
+    opacity: 0.8;
+    cursor: help;
+    transition: opacity 0.2s ease;
+}
+
+.help-icon:hover {
+    opacity: 1;
+    color: var(--highlight-color);
+}
+
+/* Form Validation Styles */
+.invalid-input {
+    border-color: #ff5555 !important;
+    background-color: rgba(255, 85, 85, 0.05) !important;
+}
+
+.inline-error {
+    color: #ff5555;
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background-color: rgba(255, 85, 85, 0.1);
+    border-left: 3px solid #ff5555;
+    border-radius: 2px;
+    display: none;
+}
+
+/* Success and Error Messages */
+.success-message {
+    color: #00C851;
+    font-size: 0.9rem;
+    min-height: 1.2rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: rgba(0, 200, 81, 0.1);
+    border-left: 3px solid #00C851;
+    border-radius: 2px;
+    font-weight: 500;
+    display: none;
+}
+
+.success-message:not(:empty) {
+    display: block;
+}
+
+/* Settings error messages */
+.settings-content .error-message {
+    color: #ff5555;
+    background-color: rgba(255, 85, 85, 0.1);
+    border: 1px solid #ff5555;
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Settings Loading Indicator */
+.settings-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    border-radius: 8px;
+}
+
+.settings-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top: 4px solid var(--highlight-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+.settings-loading-text {
+    color: white;
+    font-weight: 500;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Form Input Styles */
+.settings-input, .settings-select {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.settings-input:focus, .settings-select:focus {
+    border-color: var(--highlight-color);
+    box-shadow: 0 0 0 2px rgba(var(--highlight-color-rgb), 0.2);
+    outline: none;
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 4px;
+    border: 1px solid var(--accent-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-size: 0.95rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: var(--highlight-color);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.2);
+}
+
+/* Settings Card Styles */
+.settings-card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--accent-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.settings-card h5 {
+    font-size: 1.1rem;
+    color: var(--highlight-color);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.settings-card .setting-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    min-height: 36px;
+    border-bottom: none;
+}
+
+.settings-card .setting-row:last-child {
+    margin-bottom: 0;
+}
+
+.settings-card .setting-row label {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.iqamah-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+}
+
+.iqamah-grid .form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.iqamah-grid .form-group label {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--muted-text);
+}
+
 @media (max-width: 768px) {
     .settings-content {
-        padding: 1rem;
         width: 95%;
         max-height: 85vh;
     }
     
     .setting-row {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
         gap: 0.5rem;
     }
     
-    .prayer-setting {
-        padding: 0.75rem;
+    .settings-card .setting-row {
+        min-height: 36px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    
+    .settings-card .setting-row label {
+        margin-bottom: 0;
+    }
+    
+    /* Fix toggle alignment on mobile */
+    .toggle-switch {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        height: 24px; /* Ensure consistent height */
+    }
+    
+    /* Ensure radio group alignment matches toggle switches */
+    .radio-group {
+        margin-left: auto;
+        justify-content: flex-end;
+        height: auto;
+        min-height: 24px;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        max-width: 100%;
+        width: auto;
+    }
+    
+    /* Improve radio option display on mobile */
+    .radio-option {
+        white-space: nowrap;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .radio-option label {
+        font-size: 0.9rem;
+    }
+    
+    /* Make rows with radio buttons taller */
+    .settings-card .setting-row.radio-row {
+        min-height: auto;
+        padding: 0.75rem 0;
+        grid-template-columns: minmax(100px, 1fr) auto;
+        align-items: flex-start;
+    }
+    
+    .iqamah-grid {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    }
+}
+
+.settings-input, .settings-select {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Source Options Styles for Settings Modal */
+.source-options-container {
+    margin: 20px 0;
+}
+
+.source-options {
+    display: flex;
+    gap: 20px;
+    margin-top: 15px;
+}
+
+.source-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border: 1px solid var(--accent-color);
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.source-option:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+    border-color: var(--highlight-color);
+    background-color: rgba(88, 101, 242, 0.1);
+    box-shadow: 0 0 10px rgba(88, 101, 242, 0.2);
+}
+
+.source-option.selected {
+    background-color: rgba(88, 101, 242, 0.2);
+    border: 2px solid var(--highlight-color);
+    box-shadow: 0 0 15px rgba(88, 101, 242, 0.4);
+    transform: translateY(-3px);
+    position: relative;
+}
+
+.source-option.selected .source-icon {
+    color: var(--highlight-color);
+    opacity: 1;
+}
+
+.source-option.selected .source-details h5 {
+    color: var(--highlight-color);
+}
+
+.source-icon {
+    font-size: 1.8rem;
+    color: var(--highlight-color);
+    margin-right: 15px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.source-details h5 {
+    margin: 0 0 5px;
+    color: var(--highlight-color);
+}
+
+.source-details p {
+    margin: 0;
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+/* Source Type Styles */
+.source-type {
+    margin-bottom: 15px;
+}
+
+.source-type p {
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.setup-section .settings-card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--accent-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.setup-section .settings-card h5 {
+    font-size: 1.1rem;
+    color: var(--highlight-color);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.setup-section .form-group {
+    margin-bottom: 15px;
+}
+
+.setup-section .form-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+}
+
+.setup-section .help-text {
+    font-size: 0.85rem;
+    opacity: 0.8;
+    margin-top: 0.5rem;
+}
+
+/* Mobile responsiveness for setup modal */
+@media (max-width: 768px) {
+    .setup-section .source-options {
+        flex-direction: column;
+    }
+    
+    .setup-section .form-row {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .setup-section .form-group.half {
+        flex: 1 1 100%;
     }
 }
