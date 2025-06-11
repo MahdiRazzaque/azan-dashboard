@@ -266,28 +266,32 @@
                 
                 <!-- Azan & Announcements Tab Content -->
                 <div class="tab-content active" id="azan-settings-tab">
-                    <div class="global-settings">
-                        <h4>Global Settings</h4>
-                        <div class="setting-row">
-                            <label>Global Azan</label>
-                            <div class="toggle-switch">
-                                <input type="checkbox" id="global-azan-toggle" class="toggle-input">
-                                <label for="global-azan-toggle" class="toggle-label"></label>
+                    <div class="source-settings">
+                        <!-- Global Settings Card -->
+                        <div class="settings-card">
+                            <h5><i class="fas fa-globe"></i> Global Settings</h5>
+                            <div class="setting-row">
+                                <label for="global-azan-toggle"><i class="fas fa-volume-up"></i> Global Azan:</label>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="global-azan-toggle" class="toggle-input">
+                                    <label for="global-azan-toggle" class="toggle-label"></label>
+                                </div>
+                            </div>
+                            <div class="setting-row">
+                                <label for="global-announcement-toggle"><i class="fas fa-bullhorn"></i> Global Announcement:</label>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="global-announcement-toggle" class="toggle-input">
+                                    <label for="global-announcement-toggle" class="toggle-label"></label>
+                                </div>
                             </div>
                         </div>
-                        <div class="setting-row">
-                            <label>Global Announcement</label>
-                            <div class="toggle-switch">
-                                <input type="checkbox" id="global-announcement-toggle" class="toggle-input">
-                                <label for="global-announcement-toggle" class="toggle-label"></label>
+                        
+                        <!-- Prayer-specific Settings Card -->
+                        <div class="settings-card">
+                            <h5><i class="fas fa-pray"></i> Prayer-specific Settings</h5>
+                            <div id="prayer-settings">
+                                <!-- Prayer settings will be inserted here dynamically -->
                             </div>
-                        </div>
-                    </div>
-                    
-                    <div class="prayer-settings-container">
-                        <h4>Prayer-specific Settings</h4>
-                        <div id="prayer-settings">
-                            <!-- Prayer settings will be inserted here dynamically -->
                         </div>
                     </div>
                 </div>

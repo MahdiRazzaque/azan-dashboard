@@ -124,23 +124,31 @@ function populateAzanSettingsForm(settings, features) {
         
         for (const prayer of ['fajr', 'zuhr', 'asr', 'maghrib', 'isha']) {
             const prayerSetting = document.createElement('div');
-            prayerSetting.className = 'prayer-setting';
+            prayerSetting.className = 'settings-card';
             
             const prayerName = PRAYER_DISPLAY_NAMES[prayer] || prayer.charAt(0).toUpperCase() + prayer.slice(1);
             
+            // Select appropriate icon for each prayer
+            let prayerIcon = 'fa-pray';
+            if (prayer === 'fajr') prayerIcon = 'fa-sun';
+            else if (prayer === 'zuhr') prayerIcon = 'fa-sun';
+            else if (prayer === 'asr') prayerIcon = 'fa-cloud-sun';
+            else if (prayer === 'maghrib') prayerIcon = 'fa-sunset';
+            else if (prayer === 'isha') prayerIcon = 'fa-moon';
+            
             prayerSetting.innerHTML = `
-                <h5>${prayerName}</h5>
+                <h5><i class="fas ${prayerIcon}"></i> ${prayerName} Prayer Settings</h5>
                 <div class="setting-group">
                     <div class="setting-row">
-                        <label>Azan</label>
+                        <label for="${prayer}-azan-toggle"><i class="fas fa-volume-up"></i> Azan:</label>
                         <div class="toggle-switch">
                             <input type="checkbox" id="${prayer}-azan-toggle" class="toggle-input"
                                 ${settings.prayers && settings.prayers[prayer] && settings.prayers[prayer].azanEnabled ? 'checked' : ''}>
                             <label for="${prayer}-azan-toggle" class="toggle-label"></label>
                         </div>
                     </div>
-                    <div class="setting-row">
-                        <label>Azan Time</label>
+                    <div class="setting-row radio-row">
+                        <label><i class="fas fa-clock"></i> Azan Time:</label>
                         <div class="radio-group">
                             <div class="radio-option">
                                 <input type="radio" id="${prayer}-azan-start" name="${prayer}-azan-time" value="start"
@@ -155,15 +163,14 @@ function populateAzanSettingsForm(settings, features) {
                         </div>
                     </div>
                     <div class="setting-row">
-                        <label>Announcement</label>
+                        <label for="${prayer}-announcement-toggle"><i class="fas fa-bullhorn"></i> Announcement:</label>
                         <div class="toggle-switch">
                             <input type="checkbox" id="${prayer}-announcement-toggle" class="toggle-input"
                                 ${settings.prayers && settings.prayers[prayer] && settings.prayers[prayer].announcementEnabled ? 'checked' : ''}>
                             <label for="${prayer}-announcement-toggle" class="toggle-label"></label>
                         </div>
                     </div>
-                </div>
-            `;
+                </div>`;
             
             prayerSettingsContainer.appendChild(prayerSetting);
         }
@@ -553,7 +560,7 @@ function createLoadingIndicator(message) {
 }
 
 /**
- * Show success message in the settings modal
+ * Show success message in the azan settings tab
  * @param {string} message - Success message to display
  */
 function showSuccessMessage(message) {
@@ -564,10 +571,13 @@ function showSuccessMessage(message) {
         successElement.id = 'azan-settings-success';
         successElement.className = 'success-message';
         
-        // Insert after the global settings
-        const globalSettings = document.querySelector('.global-settings');
-        if (globalSettings) {
-            globalSettings.parentNode.insertBefore(successElement, globalSettings.nextSibling);
+        // Insert after the first settings-card in the azan settings tab
+        const firstSettingsCard = document.querySelector('#azan-settings-tab .settings-card');
+        if (firstSettingsCard) {
+            firstSettingsCard.parentNode.insertBefore(successElement, firstSettingsCard.nextSibling);
+        } else {
+            // Fallback if structure changes
+            document.querySelector('#azan-settings-tab').appendChild(successElement);
         }
     }
     
@@ -581,7 +591,7 @@ function showSuccessMessage(message) {
 }
 
 /**
- * Show error message in the settings modal
+ * Show error message in the azan settings tab
  * @param {string} message - Error message to display
  */
 function showErrorMessage(message) {
@@ -592,10 +602,13 @@ function showErrorMessage(message) {
         errorElement.id = 'azan-settings-error';
         errorElement.className = 'error-message';
         
-        // Insert after the global settings
-        const globalSettings = document.querySelector('.global-settings');
-        if (globalSettings) {
-            globalSettings.parentNode.insertBefore(errorElement, globalSettings.nextSibling);
+        // Insert after the first settings-card in the azan settings tab
+        const firstSettingsCard = document.querySelector('#azan-settings-tab .settings-card');
+        if (firstSettingsCard) {
+            firstSettingsCard.parentNode.insertBefore(errorElement, firstSettingsCard.nextSibling);
+        } else {
+            // Fallback if structure changes
+            document.querySelector('#azan-settings-tab').appendChild(errorElement);
         }
     }
     
