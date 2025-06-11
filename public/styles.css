@@ -1279,7 +1279,20 @@ label.disabled {
 }
 
 .source-option.selected {
-    /* Styles moved to hover state */
+    background-color: rgba(88, 101, 242, 0.2);
+    border: 2px solid var(--highlight-color);
+    box-shadow: 0 0 15px rgba(88, 101, 242, 0.4);
+    transform: translateY(-3px);
+    position: relative;
+}
+
+.source-option.selected .source-icon {
+    color: var(--highlight-color);
+    opacity: 1;
+}
+
+.source-option.selected .source-details h5 {
+    color: var(--highlight-color);
 }
 
 .source-icon {

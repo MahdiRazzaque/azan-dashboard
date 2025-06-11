@@ -82,7 +82,15 @@ function initialisePrayerSourceSettings() {
     
     // Helper function to update UI based on source selection
     function updateSourceSelection(source) {
+        // Get all source options
+        const myMasjidOption = document.querySelector('.source-option[data-source="mymasjid"]');
+        const aladhanOption = document.querySelector('.source-option[data-source="aladhan"]');
+        
         if (source === 'mymasjid') {
+            // Update selected state
+            myMasjidOption.classList.add('selected');
+            aladhanOption.classList.remove('selected');
+            
             // Add transition classes
             myMasjidSettings.classList.add('settings-fade-in');
             aladhanSettings.classList.add('settings-fade-out');
@@ -99,6 +107,10 @@ function initialisePrayerSourceSettings() {
             
             // No longer need to update label classes since they're hidden
         } else if (source === 'aladhan') {
+            // Update selected state
+            myMasjidOption.classList.remove('selected');
+            aladhanOption.classList.add('selected');
+            
             // Add transition classes
             myMasjidSettings.classList.add('settings-fade-out');
             aladhanSettings.classList.add('settings-fade-in');
@@ -467,7 +479,8 @@ function populatePrayerSourceForm(settings) {
     const sourceAladhanRadio = document.getElementById('source-aladhan');
     const myMasjidSettings = document.getElementById('mymasjid-settings');
     const aladhanSettings = document.getElementById('aladhan-settings');
-    const sourceOptions = document.querySelectorAll('.source-option');
+    const myMasjidOption = document.querySelector('.source-option[data-source="mymasjid"]');
+    const aladhanOption = document.querySelector('.source-option[data-source="aladhan"]');
     
     // Set source type radio button and update source options
     if (settings.source === 'mymasjid') {
@@ -475,7 +488,9 @@ function populatePrayerSourceForm(settings) {
         myMasjidSettings.style.display = 'block';
         aladhanSettings.style.display = 'none';
         
-        // No longer need to update label classes since they're hidden
+        // Update selected state for source options
+        myMasjidOption.classList.add('selected');
+        aladhanOption.classList.remove('selected');
         
         // Set MyMasjid guild ID - check for undefined to handle empty string values
         if (settings.guildId !== undefined) {
@@ -486,7 +501,9 @@ function populatePrayerSourceForm(settings) {
         myMasjidSettings.style.display = 'none';
         aladhanSettings.style.display = 'block';
         
-        // No longer need to update label classes since they're hidden
+        // Update selected state for source options
+        myMasjidOption.classList.remove('selected');
+        aladhanOption.classList.add('selected');
         
         // Set Aladhan parameters - ensure numeric values are handled properly
         if (settings.latitude !== undefined) document.getElementById('aladhan-latitude').value = settings.latitude;
