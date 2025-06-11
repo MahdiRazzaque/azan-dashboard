@@ -1148,12 +1148,12 @@ label.disabled {
     background-color: rgba(255, 255, 255, 0.1);
     transform: translateY(-2px);
     border-color: var(--highlight-color);
+    background-color: rgba(88, 101, 242, 0.1);
+    box-shadow: 0 0 10px rgba(88, 101, 242, 0.2);
 }
 
 .source-option.selected {
-    border-color: var(--highlight-color);
-    background-color: rgba(88, 101, 242, 0.1);
-    box-shadow: 0 0 10px rgba(88, 101, 242, 0.2);
+    /* Styles moved to hover state */
 }
 
 .source-icon {

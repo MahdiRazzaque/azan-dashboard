@@ -216,10 +216,7 @@ class SetupModalHandler {
         // Remove selected class from all options
         this.sourceOptions.forEach(opt => opt.classList.remove('selected'));
         
-        // Add selected class to clicked option
-        option.classList.add('selected');
-        
-        // Store selected source
+        // Store selected source without adding the selected class
         this.selectedSource = option.dataset.source;
         
         // Show appropriate form

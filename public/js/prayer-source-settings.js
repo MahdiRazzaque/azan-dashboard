@@ -51,12 +51,11 @@ function initialisePrayerSourceSettings() {
     const aladhanSettings = document.getElementById('aladhan-settings');
     const sourceOptions = document.querySelectorAll('.source-option');
     
-    // Source option selection
+    // Add click event listeners to source options
     sourceOptions.forEach(option => {
         option.addEventListener('click', () => {
             const source = option.dataset.source;
             
-            // Update radio buttons
             if (source === 'mymasjid') {
                 sourceMyMasjidRadio.checked = true;
             } else if (source === 'aladhan') {
@@ -65,10 +64,6 @@ function initialisePrayerSourceSettings() {
             
             // Update UI
             updateSourceSelection(source);
-            
-            // Add selected class to clicked option and remove from others
-            sourceOptions.forEach(opt => opt.classList.remove('selected'));
-            option.classList.add('selected');
         });
     });
     
@@ -76,30 +71,12 @@ function initialisePrayerSourceSettings() {
     sourceMyMasjidRadio.addEventListener('change', () => {
         if (sourceMyMasjidRadio.checked) {
             updateSourceSelection('mymasjid');
-            
-            // Update source option selection
-            sourceOptions.forEach(opt => {
-                if (opt.dataset.source === 'mymasjid') {
-                    opt.classList.add('selected');
-                } else {
-                    opt.classList.remove('selected');
-                }
-            });
         }
     });
     
     sourceAladhanRadio.addEventListener('change', () => {
         if (sourceAladhanRadio.checked) {
             updateSourceSelection('aladhan');
-            
-            // Update source option selection
-            sourceOptions.forEach(opt => {
-                if (opt.dataset.source === 'aladhan') {
-                    opt.classList.add('selected');
-                } else {
-                    opt.classList.remove('selected');
-                }
-            });
         }
     });
     
@@ -498,15 +475,6 @@ function populatePrayerSourceForm(settings) {
         myMasjidSettings.style.display = 'block';
         aladhanSettings.style.display = 'none';
         
-        // Update source option selection
-        sourceOptions.forEach(opt => {
-            if (opt.dataset.source === 'mymasjid') {
-                opt.classList.add('selected');
-            } else {
-                opt.classList.remove('selected');
-            }
-        });
-        
         // No longer need to update label classes since they're hidden
         
         // Set MyMasjid guild ID - check for undefined to handle empty string values
@@ -517,15 +485,6 @@ function populatePrayerSourceForm(settings) {
         sourceAladhanRadio.checked = true;
         myMasjidSettings.style.display = 'none';
         aladhanSettings.style.display = 'block';
-        
-        // Update source option selection
-        sourceOptions.forEach(opt => {
-            if (opt.dataset.source === 'aladhan') {
-                opt.classList.add('selected');
-            } else {
-                opt.classList.remove('selected');
-            }
-        });
         
         // No longer need to update label classes since they're hidden
         
