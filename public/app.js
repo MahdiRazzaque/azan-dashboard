@@ -73,28 +73,39 @@ function broadcastLogs(logEntry) {
     updateLogs(logEntry);
 }
 
-// Format time remaining
+/**
+ * Formats remaining milliseconds into a human-readable string.
+ * - If time is less than 1 minute, it shows seconds (e.g., "45sec").
+ * - If time is 1 minute or more, it shows a combination of hours and minutes,
+ *   truncating any remaining seconds (e.g., "1h 5min", "2min").
+ */
 function formatTimeRemaining(ms) {
+    // 1. Handle edge cases first
     if (ms < 0) return '--:--:--';
+    if (ms === 0) return '0sec'; // Consistent with the rule for < 1 min
+
+    // 2. Implement the primary rule: Show seconds ONLY if total time is less than a minute.
+    if (ms < 60000) { // 60,000 milliseconds = 1 minute
+        const seconds = moment.duration(ms).seconds();
+        return `${seconds}sec`;
+    }
+
+    // 3. If we are here, time is >= 1 minute. We will only show hours and minutes.
     const duration = moment.duration(ms);
     const hours = Math.floor(duration.asHours());
     const minutes = duration.minutes();
-    const seconds = duration.seconds();
 
-    // Format parts
     const parts = [];
-    if (hours === 1) {
-        parts.push('1h');
-    } else if (hours > 1) {
+
+    if (hours > 0) {
         parts.push(`${hours}h`);
     }
-
-    if (minutes > 0 || hours > 0) {
-        parts.push(`${seconds > 0 ? minutes+1 : minutes}min`);
-    }
-
-    if (seconds > 0 && minutes <= 0) {
-        parts.push(`${seconds}sec`);
+    
+    // Only add minutes if they are greater than 0.
+    // For a time like "1 hour and 5 seconds", this part will be skipped,
+    // resulting in a clean "1h" output.
+    if (minutes > 0) {
+        parts.push(`${minutes}min`);
     }
 
     return parts.join(' ');
