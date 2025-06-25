@@ -1,4 +1,4 @@
-# Azan Dashboard & Alexa Announcer
+# Azan Dashboard
 
 A modern, Node.js-based system for managing and announcing Islamic prayer times. It features a real-time web dashboard and integrates with Alexa devices via VoiceMonkey for automated Azan playback and prayer announcements.
 
