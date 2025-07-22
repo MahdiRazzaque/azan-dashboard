@@ -5,13 +5,19 @@ import { getCurrentTime, logSection, getTestMode } from '../utils/utils.js';
 import { updatePrayerTimes } from '../prayer/prayer-times.js';
 import { getPrayerSettings } from '../prayer/prayer-settings.js';
 import { getFeatureStates } from '../features/feature-manager.js';
-import { getConfig } from '../config/config-service.js';
 
 // Schedule management
 const activeSchedules = new Map();
 const lastExecutionTimes = new Map();
 const DEBOUNCE_INTERVAL = 60000; // 1 minute in milliseconds
 const ANNOUNCEMENT_TIME_BEFORE = 15; // Fixed 15 minutes before prayer time
+
+const voiceMonkeyConfig = {
+    url: 'https://api-v2.voicemonkey.io/announcement',
+    baseAudioUrl: 'https://la-ilaha-illa-allah.netlify.app/mp3/',
+    token: process.env.VOICEMONKEY_TOKEN,
+    device: 'voice-monkey-speaker-1'
+};
 
 // Clear existing schedules
 function clearExistingSchedules() {
@@ -219,42 +225,29 @@ async function scheduleAnnouncementTimer(prayerName, time) {
     }
 }
 
-// Play azan through Voice Monkey
-async function playAzan(fajr = false) {
-    if(getTestMode()) {
-        console.log("🧪 TEST MODE: Azan playback skipped");
-        return;
-    }
 
-    // Check current feature status before playing
-    const features = getFeatureStates();
-    if (!features.azanEnabled) {
-        return console.log("⏸️ Azan feature disabled");
-    }
-        
-    const url = 'https://api-v2.voicemonkey.io/announcement';
-    const baseAudioUrl = 'https://la-ilaha-illa-allah.netlify.app';
-    
-    const voice_monkey_token = process.env.VOICEMONKEY_TOKEN;
-    
-    if (!voice_monkey_token) {
+/**
+ * A reusable function to play an audio file through Voice Monkey.
+ * @param {string} audioFileName - The name of the audio file to play (e.g., "azan.mp3").
+ * @param {string} successLogMessage - The message to log on successful playback.
+ */
+async function playAudio(audioFileName, successLogMessage) {
+    if (!voiceMonkeyConfig.token) {
         console.error("Error: Voice Monkey API token is missing!");
         return;
     }
 
-    const audioName = fajr ? "fajr-azan.mp3" : "azan.mp3";
-    const audio = `${baseAudioUrl}/mp3/${audioName}`;
-
-    //console.log("Audio used: ", audio);
+    // Log which audio file is being played
+    console.log(`▶️ Attempting to play audio file: ${audioFileName}`);
 
     const payload = {
-        token: voice_monkey_token, 
-        device: 'voice-monkey-speaker-1',
-        audio
+        token: voiceMonkeyConfig.token,
+        device: voiceMonkeyConfig.device,
+        audio: `${voiceMonkeyConfig.baseAudioUrl}${audioFileName}`
     };
 
     try {
-        const response = await fetch(url, {
+        const response = await fetch(voiceMonkeyConfig.url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -266,23 +259,47 @@ async function playAzan(fajr = false) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
 
-        let data;
+        // Optional: Process the response if needed
         try {
             const text = await response.text();
-            data = JSON.parse(text);
+            const data = text ? JSON.parse(text) : {};
+            console.log(successLogMessage, data);
         } catch (parseError) {
-            console.error("Error parsing JSON:", parseError, "Response text:", text);
-            data = text;
+            console.error("Error parsing JSON response:", parseError, "Response text:", await response.text());
         }
-        console.log('Azan triggered successfully:'/*, data*/);
+
     } catch (error) {
-        console.error('Error triggering azan:', error);
+        console.error('Error triggering audio playback:', error);
     }
 }
 
-// Play prayer announcement through Voice Monkey
+/**
+ * Plays the Azan through Voice Monkey.
+ * @param {boolean} fajr - Whether to play the Fajr Azan.
+ */
+async function playAzan(fajr = false) {
+    if (getTestMode()) {
+        console.log("🧪 TEST MODE: Azan playback skipped");
+        return;
+    }
+
+    // Check current feature status before playing
+    const features = getFeatureStates();
+    if (!features.azanEnabled) {
+        console.log("⏸️ Azan feature disabled");
+        return;
+    }
+
+    const audioFileName = fajr ? "fajr-azan.mp3" : "azan.mp3";
+    playAudio(audioFileName, 'Azan triggered successfully:');
+}
+
+/**
+ * Plays a prayer announcement through Voice Monkey.
+ * @param {string} prayerName - The name of the prayer.
+ */
 async function playPrayerAnnouncement(prayerName) {
-    if(getTestMode()) {
+    if (getTestMode()) {
         console.log("🧪 TEST MODE: Announcement playback skipped");
         return;
     }
@@ -290,7 +307,8 @@ async function playPrayerAnnouncement(prayerName) {
     // Check current feature status before playing
     const features = getFeatureStates();
     if (!features.announcementEnabled) {
-        return console.log("⏸️ Announcement feature disabled");
+        console.log("⏸️ Announcement feature disabled");
+        return;
     }
 
     const prayerToAnnouncementFile = {
@@ -300,52 +318,12 @@ async function playPrayerAnnouncement(prayerName) {
         maghrib: 't-minus-15-maghrib.mp3',
         isha: 't-minus-15-isha.mp3',
     };
-    
-    const url = 'https://api-v2.voicemonkey.io/announcement';
-    const baseAudioUrl = 'https://la-ilaha-illa-allah.netlify.app/mp3/';
-    
-    const voice_monkey_token = process.env.VOICEMONKEY_TOKEN;
-    
-    if (!voice_monkey_token) {
-        console.error("Error: Voice Monkey API token is missing!");
-        return;
-    }
 
-    const audio = `${baseAudioUrl}${prayerToAnnouncementFile[prayerName]}`;
-    
-    //console.log("Audio used: ", audio);
-
-    const payload = {
-        token: voice_monkey_token, 
-        device: 'voice-monkey-speaker-1',
-        audio
-    };
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-
-        let data;
-        try {
-            const text = await response.text();
-            data = JSON.parse(text);
-        } catch (parseError) {
-            console.error("Error parsing JSON:", parseError, "Response text:", text);
-            data = text;
-        }
-
-        console.log('Prayer announcement triggered successfully:'/*, data*/);
-    } catch (error) {
-        console.error('Error triggering prayer announcement:', error);
+    const audioFileName = prayerToAnnouncementFile[prayerName];
+    if (audioFileName) {
+        playAudio(audioFileName, 'Prayer announcement triggered successfully:');
+    } else {
+        console.error(`Error: No announcement file found for prayer "${prayerName}"`);
     }
 }
 
