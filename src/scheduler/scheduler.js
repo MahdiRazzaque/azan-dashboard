@@ -263,7 +263,7 @@ async function playAudio(audioFileName, successLogMessage) {
         try {
             const text = await response.text();
             const data = text ? JSON.parse(text) : {};
-            console.log(successLogMessage, data);
+            console.log(`${successLogMessage} ${JSON.stringify(data, null, 2)}`);
         } catch (parseError) {
             console.error("Error parsing JSON response:", parseError, "Response text:", await response.text());
         }
