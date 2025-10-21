@@ -170,6 +170,21 @@ function populateAzanSettingsForm(settings, features) {
                             <label for="${prayer}-announcement-toggle" class="toggle-label"></label>
                         </div>
                     </div>
+                    <div class="setting-row radio-row">
+                        <label><i class="fas fa-clock"></i> Announcement Time:</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="${prayer}-announcement-start" name="${prayer}-announcement-time" value="start"
+                                    ${settings.prayers && settings.prayers[prayer] && !settings.prayers[prayer].announcementAtIqamah ? 'checked' : ''}>
+                                <label for="${prayer}-announcement-start">Start Time</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="${prayer}-announcement-iqamah" name="${prayer}-announcement-time" value="iqamah"
+                                    ${settings.prayers && settings.prayers[prayer] && settings.prayers[prayer].announcementAtIqamah ? 'checked' : ''}>
+                                <label for="${prayer}-announcement-iqamah">Iqamah Time</label>
+                            </div>
+                        </div>
+                    </div>
                 </div>`;
             
             prayerSettingsContainer.appendChild(prayerSetting);
@@ -265,18 +280,22 @@ function togglePrayerSpecificControls(type, enabled) {
             const iqamahRadio = document.getElementById(`${prayer}-azan-iqamah`);
             
             if (startRadio && iqamahRadio) {
-                startRadio.disabled = !enabled;
-                iqamahRadio.disabled = !enabled;
+                // Enable radio buttons only if global azan is enabled AND per-prayer azan is checked
+                const azanToggleChecked = toggleElement.checked;
+                const shouldEnableRadios = enabled && azanToggleChecked;
+                
+                startRadio.disabled = !shouldEnableRadios;
+                iqamahRadio.disabled = !shouldEnableRadios;
                 
                 // Add visual styles to radio labels
                 const radioLabels = document.querySelectorAll(`label[for="${prayer}-azan-start"], label[for="${prayer}-azan-iqamah"]`);
                 radioLabels.forEach(label => {
-                    if (enabled) {
+                    if (shouldEnableRadios) {
                         label.classList.remove('disabled');
                         label.title = "";
                     } else {
                         label.classList.add('disabled');
-                        label.title = tooltipMessage;
+                        label.title = !enabled ? "Global Azan feature is disabled" : `${PRAYER_DISPLAY_NAMES[prayer]} Azan is disabled`;
                     }
                 });
             }
@@ -323,6 +342,33 @@ function togglePrayerSpecificControls(type, enabled) {
                 }
             }
         }
+        
+        // If this is announcement, also handle the announcement time radio buttons
+        if (type === 'announcement') {
+            const startRadio = document.getElementById(`${prayer}-announcement-start`);
+            const iqamahRadio = document.getElementById(`${prayer}-announcement-iqamah`);
+            
+            if (startRadio && iqamahRadio) {
+                // Check if announcement toggle is also checked (not just globally enabled)
+                const announcementToggleChecked = toggleElement.checked;
+                const shouldEnableRadios = enabled && announcementToggleChecked;
+                
+                startRadio.disabled = !shouldEnableRadios;
+                iqamahRadio.disabled = !shouldEnableRadios;
+                
+                // Add visual styles to radio labels
+                const radioLabels = document.querySelectorAll(`label[for="${prayer}-announcement-start"], label[for="${prayer}-announcement-iqamah"]`);
+                radioLabels.forEach(label => {
+                    if (shouldEnableRadios) {
+                        label.classList.remove('disabled');
+                        label.title = "";
+                    } else {
+                        label.classList.add('disabled');
+                        label.title = !enabled ? "Global Announcement feature is disabled" : `${PRAYER_DISPLAY_NAMES[prayer]} Announcement is disabled`;
+                    }
+                });
+            }
+        }
     });
 }
 
@@ -341,6 +387,27 @@ function addPrayerToggleListeners() {
             azanToggle.addEventListener('change', (e) => {
                 const enabled = e.target.checked;
                 const announcementToggle = document.getElementById(`${prayer}-announcement-toggle`);
+                
+                // Handle azan time radio buttons
+                const azanStartRadio = document.getElementById(`${prayer}-azan-start`);
+                const azanIqamahRadio = document.getElementById(`${prayer}-azan-iqamah`);
+                
+                if (azanStartRadio && azanIqamahRadio) {
+                    azanStartRadio.disabled = !enabled;
+                    azanIqamahRadio.disabled = !enabled;
+                    
+                    // Update visual styles for azan time radio labels
+                    const azanRadioLabels = document.querySelectorAll(`label[for="${prayer}-azan-start"], label[for="${prayer}-azan-iqamah"]`);
+                    azanRadioLabels.forEach(label => {
+                        if (enabled) {
+                            label.classList.remove('disabled');
+                            label.title = "";
+                        } else {
+                            label.classList.add('disabled');
+                            label.title = `${PRAYER_DISPLAY_NAMES[prayer]} Azan is disabled`;
+                        }
+                    });
+                }
                 
                 if (!announcementToggle) return;
                 
@@ -375,6 +442,36 @@ function addPrayerToggleListeners() {
                 }
             });
         }
+        
+        // Get the announcement toggle for this prayer
+        const announcementToggle = document.getElementById(`${prayer}-announcement-toggle`);
+        
+        if (announcementToggle) {
+            // Add change listener for announcement toggle
+            announcementToggle.addEventListener('change', (e) => {
+                const enabled = e.target.checked;
+                const startRadio = document.getElementById(`${prayer}-announcement-start`);
+                const iqamahRadio = document.getElementById(`${prayer}-announcement-iqamah`);
+                
+                if (startRadio && iqamahRadio) {
+                    // Enable/disable the announcement time radio buttons based on toggle state
+                    startRadio.disabled = !enabled;
+                    iqamahRadio.disabled = !enabled;
+                    
+                    // Update visual styles
+                    const radioLabels = document.querySelectorAll(`label[for="${prayer}-announcement-start"], label[for="${prayer}-announcement-iqamah"]`);
+                    radioLabels.forEach(label => {
+                        if (enabled) {
+                            label.classList.remove('disabled');
+                            label.title = "";
+                        } else {
+                            label.classList.add('disabled');
+                            label.title = `${PRAYER_DISPLAY_NAMES[prayer]} Announcement is disabled`;
+                        }
+                    });
+                }
+            });
+        }
     });
 }
 
@@ -394,12 +491,14 @@ function getAzanSettings() {
         const azanToggle = document.getElementById(`${prayer}-azan-toggle`);
         const azanStartRadio = document.getElementById(`${prayer}-azan-start`);
         const announcementToggle = document.getElementById(`${prayer}-announcement-toggle`);
+        const announcementStartRadio = document.getElementById(`${prayer}-announcement-start`);
         
-        if (azanToggle && azanStartRadio && announcementToggle) {
+        if (azanToggle && azanStartRadio && announcementToggle && announcementStartRadio) {
             azanSettings.prayers[prayer] = {
                 azanEnabled: azanToggle.checked,
                 announcementEnabled: announcementToggle.checked,
-                azanAtIqamah: !azanStartRadio.checked
+                azanAtIqamah: !azanStartRadio.checked,
+                announcementAtIqamah: !announcementStartRadio.checked
             };
         }
     }
@@ -432,7 +531,8 @@ function haveAzanSettingsChanged() {
         
         if (newPrayer.azanEnabled !== originalPrayer.azanEnabled ||
             newPrayer.announcementEnabled !== originalPrayer.announcementEnabled ||
-            newPrayer.azanAtIqamah !== originalPrayer.azanAtIqamah) {
+            newPrayer.azanAtIqamah !== originalPrayer.azanAtIqamah ||
+            newPrayer.announcementAtIqamah !== originalPrayer.announcementAtIqamah) {
             return true;
         }
     }

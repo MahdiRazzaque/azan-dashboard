@@ -80,7 +80,8 @@ export const configSchema = {
             properties: {
               azanEnabled: { type: 'boolean', required: true },
               announcementEnabled: { type: 'boolean', required: true },
-              azanAtIqamah: { type: 'boolean', required: true }
+              azanAtIqamah: { type: 'boolean', required: true },
+              announcementAtIqamah: { type: 'boolean', required: true }
             }
           },
           zuhr: { 
@@ -89,7 +90,8 @@ export const configSchema = {
             properties: {
               azanEnabled: { type: 'boolean', required: true },
               announcementEnabled: { type: 'boolean', required: true },
-              azanAtIqamah: { type: 'boolean', required: true }
+              azanAtIqamah: { type: 'boolean', required: true },
+              announcementAtIqamah: { type: 'boolean', required: true }
             }
           },
           asr: { 
@@ -98,7 +100,8 @@ export const configSchema = {
             properties: {
               azanEnabled: { type: 'boolean', required: true },
               announcementEnabled: { type: 'boolean', required: true },
-              azanAtIqamah: { type: 'boolean', required: true }
+              azanAtIqamah: { type: 'boolean', required: true },
+              announcementAtIqamah: { type: 'boolean', required: true }
             }
           },
           maghrib: { 
@@ -107,7 +110,8 @@ export const configSchema = {
             properties: {
               azanEnabled: { type: 'boolean', required: true },
               announcementEnabled: { type: 'boolean', required: true },
-              azanAtIqamah: { type: 'boolean', required: true }
+              azanAtIqamah: { type: 'boolean', required: true },
+              announcementAtIqamah: { type: 'boolean', required: true }
             }
           },
           isha: { 
@@ -116,7 +120,8 @@ export const configSchema = {
             properties: {
               azanEnabled: { type: 'boolean', required: true },
               announcementEnabled: { type: 'boolean', required: true },
-              azanAtIqamah: { type: 'boolean', required: true }
+              azanAtIqamah: { type: 'boolean', required: true },
+              announcementAtIqamah: { type: 'boolean', required: true }
             }
           }
         }

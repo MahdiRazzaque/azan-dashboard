@@ -9,27 +9,32 @@ const DEFAULT_PRAYER_SETTINGS = {
         fajr: {
             azanEnabled: true,
             announcementEnabled: true,
-            azanAtIqamah: false
+            azanAtIqamah: false,
+            announcementAtIqamah: false
         },
         zuhr: {
             azanEnabled: true,
             announcementEnabled: true,
-            azanAtIqamah: false
+            azanAtIqamah: false,
+            announcementAtIqamah: false
         },
         asr: {
             azanEnabled: true,
             announcementEnabled: true,
-            azanAtIqamah: false
+            azanAtIqamah: false,
+            announcementAtIqamah: false
         },
         maghrib: {
             azanEnabled: true,
             announcementEnabled: true,
-            azanAtIqamah: false
+            azanAtIqamah: false,
+            announcementAtIqamah: false
         },
         isha: {
             azanEnabled: true,
             announcementEnabled: true,
-            azanAtIqamah: false
+            azanAtIqamah: false,
+            announcementAtIqamah: false
         }
     }
 };
@@ -86,13 +91,25 @@ export function setupPrayerSettingsRoutes(app) {
                 return res.status(400).json({ error: 'Invalid settings format' });
             }
             
+            // Get current prayer settings or defaults
+            const currentPrayerSettings = config.prayerSettings || DEFAULT_PRAYER_SETTINGS;
+            const currentPrayers = currentPrayerSettings.prayers || DEFAULT_PRAYER_SETTINGS.prayers;
+            
+            // Merge each prayer's settings individually to preserve all fields
+            const updatedPrayers = {};
+            const prayers = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
+            
+            for (const prayer of prayers) {
+                updatedPrayers[prayer] = {
+                    ...(currentPrayers[prayer] || DEFAULT_PRAYER_SETTINGS.prayers[prayer]),
+                    ...(settings.prayers[prayer] || {})
+                };
+            }
+            
             // Prepare updated prayer settings
             const updatedPrayerSettings = {
-                ...(config.prayerSettings || DEFAULT_PRAYER_SETTINGS),
-                prayers: {
-                    ...((config.prayerSettings && config.prayerSettings.prayers) || DEFAULT_PRAYER_SETTINGS.prayers),
-                    ...settings.prayers
-                }
+                ...currentPrayerSettings,
+                prayers: updatedPrayers
             };
             
             // Note: Global settings are now handled by the /api/features endpoint

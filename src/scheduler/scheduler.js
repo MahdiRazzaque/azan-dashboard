@@ -88,9 +88,7 @@ async function scheduleNamazTimers() {
                 const prayerConfig = prayerSettings.prayers[prayerName];
                 if (!prayerConfig) continue;
                 
-                const azanTime = prayerConfig.azanAtIqamah ? iqamahTimes[prayerName] : startTimes[prayerName];
-                
-                const job = await scheduleAnnouncementTimer(prayerName, azanTime);
+                const job = await scheduleAnnouncementTimer(prayerName, startTimes[prayerName], iqamahTimes[prayerName]);
                 if (job) {
                     activeSchedules.set(`announcement_${prayerName}`, job);
                 }
@@ -165,7 +163,7 @@ async function scheduleAzanTimer(prayerName, time) {
 }
 
 // Schedule announcement for a prayer
-async function scheduleAnnouncementTimer(prayerName, time) {
+async function scheduleAnnouncementTimer(prayerName, startTime, iqamahTime) {
     try {     
         const prayerSettings = await getPrayerSettings();
         const prayerConfig = prayerSettings.prayers[prayerName];
@@ -182,8 +180,12 @@ async function scheduleAnnouncementTimer(prayerName, time) {
             return null;
         }
         
-        // Calculate the announcement time (fixed at 15 minutes before prayer)
-        const announcementTime = moment.tz(time, 'HH:mm', 'Europe/London')
+        // Determine base time for announcement based on announcementAtIqamah setting
+        const baseTime = prayerConfig.announcementAtIqamah ? iqamahTime : startTime;
+        const baseTimeType = prayerConfig.announcementAtIqamah ? 'Iqamah' : 'Start';
+        
+        // Calculate the announcement time (fixed at 15 minutes before the selected base time)
+        const announcementTime = moment.tz(baseTime, 'HH:mm', 'Europe/London')
             .subtract(ANNOUNCEMENT_TIME_BEFORE, 'minutes')
             .format('HH:mm');
         
@@ -194,7 +196,7 @@ async function scheduleAnnouncementTimer(prayerName, time) {
             return null;
         }
 
-        console.log(`📢 Scheduling ${prayerName.toUpperCase()} announcement at ${announcementTime}`);
+        console.log(`📢 Scheduling ${prayerName.toUpperCase()} announcement at ${announcementTime} (${ANNOUNCEMENT_TIME_BEFORE} min before ${baseTimeType} Time: ${baseTime})`);
         return schedule.scheduleJob(scheduledTime.toDate(), async () => {
             if (!canExecute(`announcement_${prayerName}`)) return;
             

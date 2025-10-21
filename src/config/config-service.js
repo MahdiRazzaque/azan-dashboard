@@ -130,6 +130,25 @@ function getConfig(sync = false, section = null) {
         await writeConfigFile(configFromFile);
         console.log('✅ Migrated old config format to new format with source field');
       }
+
+      // Handle backward compatibility: Add announcementAtIqamah field if missing
+      let migrationNeeded = false;
+      const prayers = ['fajr', 'zuhr', 'asr', 'maghrib', 'isha'];
+      
+      if (configFromFile.prayerSettings && configFromFile.prayerSettings.prayers) {
+        prayers.forEach(prayer => {
+          if (configFromFile.prayerSettings.prayers[prayer] && 
+              configFromFile.prayerSettings.prayers[prayer].announcementAtIqamah === undefined) {
+            configFromFile.prayerSettings.prayers[prayer].announcementAtIqamah = false;
+            migrationNeeded = true;
+          }
+        });
+        
+        if (migrationNeeded) {
+          await writeConfigFile(configFromFile);
+          console.log('✅ Migrated config: Added announcementAtIqamah field (default: false) for all prayers');
+        }
+      }
     }
     _appConfig = structuredClone(configFromFile); // Deep clone to avoid mutation issues
 
@@ -347,11 +366,11 @@ async function initialiseNewConfig() {
       },
       prayerSettings: {
         prayers: {
-          fajr: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false },
-          zuhr: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false },
-          asr: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false },
-          maghrib: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false },
-          isha: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false }
+          fajr: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false, announcementAtIqamah: false },
+          zuhr: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false, announcementAtIqamah: false },
+          asr: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false, announcementAtIqamah: false },
+          maghrib: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false, announcementAtIqamah: false },
+          isha: { azanEnabled: true, announcementEnabled: true, azanAtIqamah: false, announcementAtIqamah: false }
         },
         globalAzanEnabled: true,
         globalAnnouncementEnabled: true
