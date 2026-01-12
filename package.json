@@ -1,0 +1,29 @@
+{
+  "name": "azan-dashboard-v2",
+  "version": "1.0.0",
+  "description": "Prayer time management dashboard with automated Alexa announcements",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "jest --runInBand"
+  },
+  "keywords": [
+    "azan",
+    "prayer",
+    "dashboard",
+    "alexa",
+    "muslim"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "luxon": "^3.7.2",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "supertest": "^7.2.2"
+  }
+}
