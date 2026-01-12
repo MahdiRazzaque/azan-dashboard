@@ -52,11 +52,15 @@ describe('Prayer Time Service', () => {
         fetchers.fetchAladhan.mockRejectedValue(new Error('Fail 1'));
         fetchers.fetchMyMasjid.mockRejectedValue(new Error('Fail 2'));
         
-        const cachedData = JSON.stringify({
-            date: '2023-01-01',
-            data: mockData,
-            source: 'aladhan'
-        });
+        const today = DateTime.now().toISODate();
+        const cacheObj = {};
+        cacheObj[today] = {
+            source: 'aladhan',
+            lastUpdated: '2023-01-01T00:00:00.000Z',
+            data: mockData
+        };
+        
+        const cachedData = JSON.stringify(cacheObj);
         
         fs.existsSync.mockReturnValue(true);
         fs.readFileSync.mockReturnValue(cachedData);

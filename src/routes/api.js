@@ -2,16 +2,16 @@ const express = require('express');
 const router = express.Router();
 const config = require('../config');
 const { getPrayerTimes } = require('../services/prayerTimeService');
-const { calculateIqamah } = require('../utils/calculations');
+const { calculateIqamah, calculateNextPrayer } = require('../utils/calculations');
 const { DateTime } = require('luxon');
 
 router.get('/prayers', async (req, res) => {
   try {
     const timezone = config.location.timezone;
-    const date = DateTime.now().setZone(timezone);
+    const now = DateTime.now().setZone(timezone);
     
-    // Fetch Data
-    const rawData = await getPrayerTimes(config, date);
+    // Fetch Data for Today
+    const rawData = await getPrayerTimes(config, now);
     
     // Process Prayers
     const prayers = {};
@@ -31,10 +31,30 @@ router.get('/prayers', async (req, res) => {
       
       prayers[name] = {
         start: startISO,
-        iqamah: iqamahISO,
-        nextChange: null 
+        iqamah: iqamahISO
       };
     });
+
+    // Calculate Next Prayer
+    let nextPrayer = calculateNextPrayer(prayers, now);
+
+    // If no next prayer today (post-Isha), fetch Tomorrow's Fajr
+    if (!nextPrayer) {
+        try {
+            const tomorrow = now.plus({ days: 1 });
+            const tomorrowData = await getPrayerTimes(config, tomorrow);
+            
+            if (tomorrowData.prayers && tomorrowData.prayers.fajr) {
+                nextPrayer = {
+                    name: 'fajr',
+                    time: tomorrowData.prayers.fajr,
+                    isTomorrow: true
+                };
+            }
+        } catch (tomorrowError) {
+            console.error(`Failed to fetch tomorrow's schedule: ${tomorrowError.message}`);
+        }
+    }
     
     res.json({
       meta: {
@@ -43,7 +63,8 @@ router.get('/prayers', async (req, res) => {
         source: rawData.meta.source,
         cached: rawData.meta.cached
       },
-      prayers
+      prayers,
+      nextPrayer
     });
     
   } catch (error) {

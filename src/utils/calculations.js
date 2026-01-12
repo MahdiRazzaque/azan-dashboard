@@ -50,6 +50,32 @@ function calculateIqamah(prayerStartISO, settings, timezone) {
   return iqamahTime.toISO();
 }
 
+/**
+ * Determine the next prayer based on current time and today's schedule.
+ * @param {object} prayers - Object with prayer times { fajr: { start: ISO }, ... }.
+ * @param {DateTime} now - Current DateTime object.
+ * @returns {object|null} Next prayer object { name, time: ISO } or null if all passed.
+ */
+function calculateNextPrayer(prayers, now) {
+  const prayerNames = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+  
+  for (const name of prayerNames) {
+    if (prayers[name] && prayers[name].start) {
+        const prayerTime = DateTime.fromISO(prayers[name].start);
+        if (prayerTime > now) {
+            return {
+                name: name,
+                time: prayers[name].start,
+                isTomorrow: false
+            };
+        }
+    }
+  }
+  
+  return null; // All prayers for today have passed
+}
+
 module.exports = {
   calculateIqamah,
+  calculateNextPrayer
 };
