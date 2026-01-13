@@ -49,9 +49,9 @@ describe('Audio Asset Service', () => {
 
         const expectedUrl = 'http://mock-python-service/generate-tts';
         const expectedBody = {
-            text: 'fifteen minutes till الفجر', // number-to-words "15" -> "fifteen"
+            text: 'fifteen minutes till فجر', // number-to-words "15" -> "fifteen"
             filename: 'tts_fajr_preAdhan.mp3',
-            voice: 'ar-SA-NaayfNeural'
+            voice: 'ar-DZ-IsmaelNeural'
         };
 
         expect(axios.post).toHaveBeenCalledWith(expectedUrl, expectedBody);

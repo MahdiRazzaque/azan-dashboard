@@ -11,6 +11,9 @@ jest.mock('../../src/services/audioAssetService');
 jest.mock('../../src/services/automationService');
 jest.mock('../../src/config', () => ({
     location: { timezone: 'UTC' },
+    prayers: {
+        dhuhr: { iqamahOffsetMinutes: 15 }
+    },
     automation: {
         triggers: {
             dhuhr: {
@@ -45,12 +48,12 @@ describe('Scheduler Service', () => {
         const now = DateTime.fromISO('2023-10-01T08:00:00Z');
         jest.spyOn(DateTime, 'now').mockReturnValue(now);
 
-        // Mock prayer times
+        // Mock prayer times (Use correct structure)
         prayerTimeService.getPrayerTimes.mockResolvedValue({
             prayers: {
-                dhuhr: {
-                    start: '2023-10-01T13:00:00Z',
-                    iqamah: '2023-10-01T13:15:00Z'
+                dhuhr: '2023-10-01T13:00:00Z',
+                iqamah: {
+                    dhuhr: '2023-10-01T13:15:00Z'
                 }
             }
         });

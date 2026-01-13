@@ -62,12 +62,12 @@ describe('Automation Service', () => {
             payload: {
                 prayer: 'fajr',
                 event: 'preAdhan',
-                url: '/audio/cache/tts_fajr_preAdhan.mp3'
+                url: '/public/audio/cache/tts_fajr_preAdhan.mp3'
             }
         }));
 
         // Check VoiceMonkey (Axios)
-        const expectedPublicUrl = 'http://my-dashboard.local/audio/cache/tts_fajr_preAdhan.mp3';
+        const expectedPublicUrl = 'http://my-dashboard.local/public/audio/cache/tts_fajr_preAdhan.mp3';
         expect(axios.get).toHaveBeenCalledWith('https://api.voicemonkey.io/trigger', expect.objectContaining({
             params: expect.objectContaining({
                 audio: expectedPublicUrl,
