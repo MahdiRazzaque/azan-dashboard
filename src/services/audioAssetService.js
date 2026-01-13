@@ -6,11 +6,11 @@ const config = require('../config');
 
 const CACHE_DIR = path.join(__dirname, '../../public/audio/cache');
 const ARABIC_NAMES = {
-    fajr: 'الفجر',
-    dhuhr: 'الظهر',
-    asr: 'العصر',
-    maghrib: 'المغرب',
-    isha: 'العشاء'
+    fajr: 'فجر',
+    dhuhr: 'ظُهْر',
+    asr: 'عصر',
+    maghrib: 'مغرب',
+    isha: 'عشاء'
 };
 
 const PRAYER_NAMES = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
@@ -67,21 +67,11 @@ const resolveTemplate = (template, prayerKey, offsetMinutes) => {
 const generateTTS = async (filename, text) => {
     try {
         const url = `${getPythonServiceUrl()}/generate-tts`;
-        // Voice could be configurable, defaulting to Arabic for mixed content or English?
-        // PRD US-1 says "Arabic pronunciation" for names but English text?
-        // "Fifteen minutes till Al-Fajr"
-        // Edge-TTS supports multi-lingual? Or just one voice.
-        // If the text is mixed "Fifteen minutes till الفجر", Arabic voices like 'ar-SA-NaayfNeural' usually read English with an accent, 
-        // while English voices might skip Arabic chars.
-        // Phase 3 PRD goals: "Generate natural-sounding Arabic audio... using Edge TTS"
-        // Task details: "Map English prayer names to Arabic".
-        // I'll stick to the default voice defined in Python service (Arabic) or user configured.
-        // We will send default voice if not specified.
-        
+                
         await axios.post(url, {
             text: text,
             filename: filename,
-            voice: "ar-SA-NaayfNeural" // Forcing Arabic voice as per requirement for proper name pronunciation, usually handles English too.
+            voice: "ar-DZ-IsmaelNeural" // Forcing Arabic voice as per requirement for proper name pronunciation, usually handles English too.
         });
         console.log(`[AudioService] Generated: ${filename}`);
     } catch (error) {
@@ -103,20 +93,43 @@ const prepareDailyAssets = async () => {
 
         // Iterate events: preAdhan, adhan, preIqamah, iqamah
         for (const [event, settings] of Object.entries(prayerTriggers)) {
+            //console.log(event, settings);
             if (!settings.enabled || settings.type !== 'tts' || !settings.template) {
+                //console.log(`[AudioService] Skipping ${prayer} - ${event} (disabled or not TTS)`);
                 continue;
             }
 
             const text = resolveTemplate(settings.template, prayer, settings.offsetMinutes);
             const filename = `tts_${prayer}_${event}.mp3`;
             const filePath = path.join(CACHE_DIR, filename);
+            const metaPath = filePath + '.json';
 
-            // Check if exists? 
-            // We regenerate daily to capture config changes (template/offset changes).
-            // Optimization: could check if file exists and config hasn't changed? 
-            // For now, allow overwrite. It's cheap.
+            let shouldGenerate = true;
+
+            // Check if file and metadata exist to verify if config changed
+            if (fs.existsSync(filePath) && fs.existsSync(metaPath)) {
+                try {
+                    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+                    if (meta.text === text) {
+                        // Config hasn't changed, reuse file
+                        // Touch file to prevent cleanup aging (update mtime)
+                        const now = new Date();
+                        fs.utimesSync(filePath, now, now);
+                        fs.utimesSync(metaPath, now, now);
+                        
+                        shouldGenerate = false;
+                        console.log(`[AudioService] Skipping ${prayer} - ${event} (Cached)`);
+                    }
+                } catch (e) {
+                    // Meta corrupt or read error, regenerate
+                }
+            }
             
-            await generateTTS(filename, text);
+            if (shouldGenerate) {
+                console.log(`[AudioService] Preparing TTS for ${prayer} - ${event}`);
+                await generateTTS(filename, text);
+                fs.writeFileSync(metaPath, JSON.stringify({ text, generatedAt: new Date().toISOString() }));
+            }
         }
     }
     

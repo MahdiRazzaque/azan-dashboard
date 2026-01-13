@@ -17,7 +17,7 @@ if not os.path.exists(CACHE_DIR):
 
 class TTSRequest(BaseModel):
     text: str
-    voice: str = "ar-SA-NaayfNeural"
+    voice: str = "ar-DZ-IsmaelNeural"
     filename: str
 
 @app.post("/generate-tts")
@@ -43,7 +43,8 @@ async def generate_tts(request: TTSRequest):
         "--voice", request.voice
     ]
     
-    print(f"Executing: {' '.join(cmd)}")
+    #print(f"Executing: {' '.join(cmd)}")
+    print(f"[TTS Service] Generating TTS: {request.text} with voice {request.voice}")
     
     try:
         process = await asyncio.create_subprocess_exec(

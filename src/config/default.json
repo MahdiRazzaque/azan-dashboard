@@ -18,6 +18,9 @@
     "primary": { "type": "aladhan" },
     "backup":  { "type": "mymasjid", "masjidId": "uuid-placeholder" }
   },
+  "data": {
+    "staleCheckDays": 7
+  },
   "automation": {
     "enabled": false,
     "baseUrl": "http://localhost:3000",
@@ -30,31 +33,31 @@
       "fajr": {
         "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes till {prayerArabic}", "targets": ["local"] },
         "adhan": { "enabled": false, "type": "file", "path": "custom/adhan.mp3", "targets": ["local"] },
-        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "Iqamah for {prayerEnglish} in {minutes} minutes", "targets": ["local"] },
+        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "إِقَامَة for {prayerArabic} in {minutes} minutes", "targets": ["local"] },
         "iqamah": { "enabled": false, "type": "file", "path": "custom/iqamah_beep.mp3", "targets": ["local"] }
       },
       "dhuhr": {
         "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes till {prayerArabic}", "targets": ["local"] },
         "adhan": { "enabled": false, "type": "file", "path": "custom/adhan.mp3", "targets": ["local"] },
-        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "Iqamah for {prayerEnglish} in {minutes} minutes", "targets": ["local"] },
+        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "إِقَامَة for {prayerArabic} in {minutes} minutes", "targets": ["local"] },
         "iqamah": { "enabled": false, "type": "file", "path": "custom/iqamah_beep.mp3", "targets": ["local"] }
       },
       "asr": {
         "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes till {prayerArabic}", "targets": ["local"] },
         "adhan": { "enabled": false, "type": "file", "path": "custom/adhan.mp3", "targets": ["local"] },
-        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "Iqamah for {prayerEnglish} in {minutes} minutes", "targets": ["local"] },
+        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "إِقَامَة for {prayerArabic} in {minutes} minutes", "targets": ["local"] },
         "iqamah": { "enabled": false, "type": "file", "path": "custom/iqamah_beep.mp3", "targets": ["local"] }
       },
       "maghrib": {
         "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes till {prayerArabic}", "targets": ["local"] },
         "adhan": { "enabled": false, "type": "file", "path": "custom/adhan.mp3", "targets": ["local"] },
-        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "Iqamah for {prayerEnglish} in {minutes} minutes", "targets": ["local"] },
+        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "إِقَامَة for {prayerArabic} in {minutes} minutes", "targets": ["local"] },
         "iqamah": { "enabled": false, "type": "file", "path": "custom/iqamah_beep.mp3", "targets": ["local"] }
       },
       "isha": {
         "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes till {prayerArabic}", "targets": ["local"] },
         "adhan": { "enabled": false, "type": "file", "path": "custom/adhan.mp3", "targets": ["local"] },
-        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "Iqamah for {prayerEnglish} in {minutes} minutes", "targets": ["local"] },
+        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "إِقَامَة for {prayerArabic} in {minutes} minutes", "targets": ["local"] },
         "iqamah": { "enabled": false, "type": "file", "path": "custom/iqamah_beep.mp3", "targets": ["local"] }
       }
     }

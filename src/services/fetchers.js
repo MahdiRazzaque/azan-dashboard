@@ -1,130 +1,222 @@
 const { z } = require('zod');
 const { DateTime } = require('luxon');
+const {
+  CALCULATION_METHODS,
+  ASR_JURISTIC_METHODS,
+  API_BASE_URL
+} = require('../utils/constants');
 
 // --- Schemas ---
 
-const AladhanResponseSchema = z.object({
+const AladhanDaySchema = z.any();
+
+// Response from /v1/calendar/:year
+// data is structured as { "1": [days...], "2": [days...] }
+const AladhanAnnualResponseSchema = z.object({
   code: z.number(),
   status: z.string(),
-  data: z.object({
-    timings: z.object({
-      Fajr: z.string(),
-      Dhuhr: z.string(),
-      Asr: z.string(),
-      Maghrib: z.string(),
-      Isha: z.string(),
-    }),
-    date: z.object({
-      gregorian: z.object({
-        date: z.string(), // DD-MM-YYYY
-        format: z.string(),
-      }),
-    }),
-  }),
+  data: z.any(), // keys are month numbers "1", "2" etc.
 });
 
-const MyMasjidResponseSchema = z.object({
-  // Placeholder schema based on common structure, adaptable
-  success: z.boolean(),
-  data: z.object({
-    prayers: z.object({
-      fajr: z.string(),
-      dhuhr: z.string(),
-      asr: z.string(),
-      maghrib: z.string(),
-      isha: z.string(),
-    })
-  })
+const MyMasjidBulkResponseSchema = z.object({
+  model: z.object({
+    salahTimings: z.array(z.object({
+        day: z.number(),
+        month: z.number(),
+        fajr: z.string(),
+        zuhr: z.string(),
+        asr: z.string(),
+        maghrib: z.string(),
+        isha: z.string(),
+        // Optional iqamah fields
+        iqamah_Fajr: z.string().optional(),
+        iqamah_Zuhr: z.string().optional(),
+        iqamah_Asr: z.string().optional(),
+        iqamah_Maghrib: z.string().optional(),
+        iqamah_Isha: z.string().optional(),
+    }).passthrough())
+  }).passthrough()
 });
+
+// --- Constants Helper ---
+const getCalculationMethodId = (methodName) => {
+    // Reverse lookup
+    for (const [id, name] of Object.entries(CALCULATION_METHODS)) {
+        if (name === methodName) return parseInt(id);
+        if (name.includes(methodName)) return parseInt(id);
+    }
+    return 2; // Default ISNA
+};
+
+const getMadhabId = (madhabName) => {
+    for (const [id, name] of Object.entries(ASR_JURISTIC_METHODS)) {
+        if (name.includes(madhabName)) return parseInt(id);
+    }
+    return 0; // Default Shafi
+};
 
 // --- Fetchers ---
 
 /**
- * Fetches from Aladhan API
- * @param {object} config - Application configuration
- * @param {DateTime} date - Date to fetch for (default today)
- * @returns {Promise<object>} Normalized prayer times { fajr: ISO, ... }
+ * Fetches Annual schedule from Aladhan API
+ * @param {object} config 
+ * @param {number} year 
+ * @returns {Promise<Object>} Map of "YYYY-MM-DD" -> { fajr, ... }
  */
-async function fetchAladhan(config, date = DateTime.now()) {
+async function fetchAladhanAnnual(config, year) {
   const { coordinates, timezone } = config.location;
   const { method, madhab } = config.calculation;
   
-  // Method mapping (basic)
-  let methodId = 2; // ISNA default or similar
-  if (config.calculation.method === 'MoonsightingCommittee') methodId = 15; // Example
-  // In a real app, we'd map string to ID properly.
-  
-  // Madhab: 0 = Shafi (Standard), 1 = Hanafi
-  const school = madhab === 'Hanafi' ? 1 : 0;
+  const methodId = getCalculationMethodId(method);
+  const school = getMadhabId(madhab);
 
-  const dateStr = date.toFormat('dd-MM-yyyy');
-  const url = `http://api.aladhan.com/v1/timings/${dateStr}?latitude=${coordinates.lat}&longitude=${coordinates.long}&method=${methodId}&school=${school}`;
+  const url = `${API_BASE_URL}/calendar/${year}?latitude=${coordinates.lat}&longitude=${coordinates.long}&method=${methodId}&school=${school}`; 
+
+  console.log(`[Aladhan] Fetching from URL: ${url}`);
 
   const response = await fetch(url);
+  console.log(`[Aladhan] Status: ${response.status} ${response.statusText}`);
+
   if (!response.ok) {
     throw new Error(`Aladhan API Error: ${response.statusText}`);
   }
 
   const json = await response.json();
-  const validData = AladhanResponseSchema.parse(json);
+  let validData;
+  try {
+    validData = AladhanAnnualResponseSchema.parse(json);
+    console.log('[Aladhan] Validation passed.');
+  } catch (error) {
+    console.error('[Aladhan] Validation FAILED:', error.issues || error.message);
+    console.log('[Aladhan] Raw JSON Dump for Debugging:', JSON.stringify(json, null, 2).substring(0, 2000));
+    throw new Error('Aladhan Schema Validation Failed');
+  }
 
-  const timings = validData.data.timings;
-  
-  // Normalize to ISO-8601 with configured Timezone
-  // Aladhan returns HH:mm (often local to the lat/long provided? No, it returns based on "method" but time is string. It doesn't imply zone unless strictly).
-  // Actually Aladhan results are "local time" for the coordinates.
-  // We should interpret them in the config.location.timezone.
-  
-  const toISO = (timeStr) => {
-    // timeStr is "05:00" or "05:00 (BST)"
-    const cleanTime = timeStr.split(' ')[0]; // Remove (BST) if present
-    const [hours, minutes] = cleanTime.split(':').map(Number);
-    return date.setZone(timezone).set({ hour: hours, minute: minutes, second: 0 }).toISO();
-  };
+  const resultMap = {};
 
-  return {
-    fajr: toISO(timings.Fajr),
-    dhuhr: toISO(timings.Dhuhr),
-    asr: toISO(timings.Asr),
-    maghrib: toISO(timings.Maghrib),
-    isha: toISO(timings.Isha),
-  };
+  // Iterate over months
+  Object.values(validData.data).forEach(monthDays => {
+    monthDays.forEach(dayInfo => {
+        // Date from Aladhan is DD-MM-YYYY
+        const dateStr = dayInfo.date.gregorian.date;
+        const [d, m, y] = dateStr.split('-');
+        
+        const dateObj = DateTime.fromObject({ day: d, month: m, year: y }, { zone: timezone });
+        const isoDateKey = dateObj.toISODate(); // YYYY-MM-DD
+
+        const cleanTime = (timeStr) => {
+            if (!timeStr) return null;
+            const t = timeStr.split(' ')[0]; // Remove (BST)
+            const [hours, minutes] = t.split(':').map(Number);
+            return dateObj.set({ hour: hours, minute: minutes, second: 0 }).toISO();
+        };
+
+        resultMap[isoDateKey] = {
+            fajr: cleanTime(dayInfo.timings.Fajr),
+            dhuhr: cleanTime(dayInfo.timings.Dhuhr),
+            asr: cleanTime(dayInfo.timings.Asr),
+            maghrib: cleanTime(dayInfo.timings.Maghrib),
+            isha: cleanTime(dayInfo.timings.Isha),
+            iqamah: {} 
+        };
+    });
+  });
+
+  return resultMap;
 }
 
 /**
- * Fetches from MyMasjid API
+ * Fetches Bulk schedule from MyMasjid API
  * @param {object} config 
+ * @returns {Promise<Object>} Map of "YYYY-MM-DD" -> { fajr, ... }
  */
-async function fetchMyMasjid(config) {
-  const { sources } = config;
-  const backup = sources.backup || {};
+async function fetchMyMasjidBulk(config) {
+  const { sources, location } = config;
   
-  if (backup.type !== 'mymasjid' || !backup.masjidId) {
-    throw new Error('MyMasjid not configured or missing ID');
+  // Find the valid MyMasjid configuration (Primary or Backup)
+  let sourceConfig = null;
+  if (sources.primary && sources.primary.type === 'mymasjid') {
+      sourceConfig = sources.primary;
+  } else if (sources.backup && sources.backup.type === 'mymasjid') {
+      sourceConfig = sources.backup;
+  }
+  
+  if (!sourceConfig || !sourceConfig.masjidId) {
+    console.warn("[MyMasjid] Fetch requested but no valid configuration or masjidId found.");
+    return {};
   }
 
-  const url = `https://time.my-masjid.com/api/timings/${backup.masjidId}`;
+  const url = `https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=${sourceConfig.masjidId}`; 
   
-  // Mocking implementation note: Since I don't have the live API specs, 
-  // I will implement the fetch/validate/normalize pattern.
-  
+  console.log(`[MyMasjid] Fetching from URL: ${url}`);
+
   const response = await fetch(url);
+  console.log(`[MyMasjid] Status: ${response.status} ${response.statusText}`);
+
   if (!response.ok) {
      throw new Error(`MyMasjid API Error: ${response.statusText}`);
   }
   
   const json = await response.json();
-  // Validating against presumed schema
-  const validData = MyMasjidResponseSchema.parse(json);
+  // console.log('[MyMasjid] Raw Response (preview):', JSON.stringify(json).substring(0, 200) + '...');
+
+  let validData;
+  try {
+    validData = MyMasjidBulkResponseSchema.parse(json);
+    console.log('[MyMasjid] Validation passed.');
+  } catch (error) {
+    console.error('[MyMasjid] Validation FAILED:', error.issues || error.message);
+    console.log('[MyMasjid] Raw JSON Dump for Debugging:', JSON.stringify(json, null, 2));
+    throw new Error('MyMasjid Schema Validation Failed');
+  }
   
-  // Normalize...
-  // Assuming keys are ISOs or times.
-  return validData.data.prayers; 
+  if (!validData.model || !validData.model.salahTimings) {
+      console.warn('[MyMasjid] headings/timings missing in response.');
+      return {};
+  }
+
+  const resultMap = {};
+  const currentYear = DateTime.now().setZone(location.timezone).year;
+
+  validData.model.salahTimings.forEach(day => {
+      // Construct date from day/month using current year
+      const dateObj = DateTime.fromObject(
+          { day: day.day, month: day.month, year: currentYear }, 
+          { zone: location.timezone }
+      );
+      
+      if (!dateObj.isValid) return;
+
+      const isoDateKey = dateObj.toISODate();
+      
+      const formatTime = (t, dateBase) => {
+          if (!t) return null;
+          const [h, m] = t.split(':').map(Number);
+          return dateBase.set({ hour: h, minute: m, second: 0 }).toISO();
+      };
+
+      resultMap[isoDateKey] = {
+          fajr: formatTime(day.fajr, dateObj),
+          dhuhr: formatTime(day.zuhr, dateObj), // API uses 'zuhr'
+          asr: formatTime(day.asr, dateObj),
+          maghrib: formatTime(day.maghrib, dateObj),
+          isha: formatTime(day.isha, dateObj),
+          iqamah: {
+              fajr: formatTime(day.iqamah_Fajr, dateObj),
+              dhuhr: formatTime(day.iqamah_Zuhr, dateObj),
+              asr: formatTime(day.iqamah_Asr, dateObj),
+              maghrib: formatTime(day.iqamah_Maghrib, dateObj),
+              isha: formatTime(day.iqamah_Isha, dateObj),
+          }
+      }
+  });
+
+  return resultMap;
 }
 
 module.exports = {
-  fetchAladhan,
-  fetchMyMasjid,
-  AladhanResponseSchema,
-  MyMasjidResponseSchema
+  fetchAladhanAnnual,
+  fetchMyMasjidBulk,
+  AladhanAnnualResponseSchema,
+  MyMasjidBulkResponseSchema
 };

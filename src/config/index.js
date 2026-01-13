@@ -48,6 +48,10 @@ const automationSchema = z.object({
   }),
 });
 
+const dataSchema = z.object({
+  staleCheckDays: z.number().default(7),
+});
+
 const configSchema = z.object({
   location: z.object({
     timezone: z.string(),
@@ -68,9 +72,16 @@ const configSchema = z.object({
     isha: prayerSettingSchema,
   }),
   sources: z.object({
-    primary: z.object({ type: z.string() }),
-    backup: z.object({ type: z.string(), masjidId: z.string().optional() }).optional(),
+    primary: z.object({ 
+      type: z.string(),
+      masjidId: z.string().optional() 
+    }).passthrough(),
+    backup: z.object({ 
+      type: z.string(), 
+      masjidId: z.string().optional() 
+    }).passthrough().optional(),
   }),
+  data: dataSchema,
   automation: automationSchema,
 });
 

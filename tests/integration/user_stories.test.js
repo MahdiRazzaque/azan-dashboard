@@ -10,17 +10,28 @@ jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
 describe('User Stories Integration', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2023-10-01T10:00:00Z'));
+
         // Default Mock Data (Timezone matches London config presumably)
-        fetchers.fetchAladhan.mockResolvedValue({
-            fajr: '2023-10-01T05:00:00.000+01:00',
-            dhuhr: '2023-10-01T13:00:00.000+01:00',
-            asr: '2023-10-01T16:30:00.000+01:00',
-            maghrib: '2023-10-01T19:00:00.000+01:00',
-            isha: '2023-10-01T20:30:00.000+01:00'
-        });
+        const mockMap = {
+            '2023-10-01': {
+                fajr: '2023-10-01T05:00:00.000+01:00',
+                dhuhr: '2023-10-01T13:00:00.000+01:00',
+                asr: '2023-10-01T16:30:00.000+01:00',
+                maghrib: '2023-10-01T19:00:00.000+01:00',
+                isha: '2023-10-01T20:30:00.000+01:00',
+                iqamah: {}
+            }
+        };
+        fetchers.fetchAladhanAnnual.mockResolvedValue(mockMap);
         
         jest.spyOn(console, 'log').mockImplementation(() => {});
         jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
     });
 
     test('US-1: Changing config changes iqamah calculation', async () => {
@@ -45,16 +56,20 @@ describe('User Stories Integration', () => {
 
     test('US-2: Network Resilience (End-to-End)', async () => {
         // Fail Primary
-        fetchers.fetchAladhan.mockRejectedValue(new Error('Network Down'));
+        fetchers.fetchAladhanAnnual.mockRejectedValue(new Error('Network Down'));
         
         // Mock Backup
-        fetchers.fetchMyMasjid.mockResolvedValue({
-            fajr: '2023-10-01T05:05:00.000+01:00',
-            dhuhr: '2023-10-01T13:05:00.000+01:00',
-            asr: '2023-10-01T16:35:00.000+01:00',
-            maghrib: '2023-10-01T19:05:00.000+01:00',
-            isha: '2023-10-01T20:35:00.000+01:00'
-        });
+        const mockBackupMap = {
+            '2023-10-01': {
+                fajr: '2023-10-01T05:05:00.000+01:00',
+                dhuhr: '2023-10-01T13:05:00.000+01:00',
+                asr: '2023-10-01T16:35:00.000+01:00',
+                maghrib: '2023-10-01T19:05:00.000+01:00',
+                isha: '2023-10-01T20:35:00.000+01:00',
+                iqamah: {}
+            }
+        };
+        fetchers.fetchMyMasjidBulk.mockResolvedValue(mockBackupMap);
 
         const response = await request(app).get('/api/prayers');
         

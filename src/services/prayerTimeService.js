@@ -1,144 +1,166 @@
 const fs = require('fs');
 const path = require('path');
-const { fetchAladhan, fetchMyMasjid } = require('./fetchers');
+const { fetchAladhanAnnual, fetchMyMasjidBulk } = require('./fetchers');
 const { DateTime } = require('luxon');
 
 const CACHE_FILE = path.join(process.cwd(), 'data', 'cache.json');
 
+// Ensure data directory exists
+const dataDir = path.dirname(CACHE_FILE);
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
 /**
  * Service to orchestrate fetching and caching of prayer times.
+ * Supports Annual/Bulk fetching strategy.
+ * 
  * @param {object} config - Application configuration.
  * @param {DateTime} date - Date to fetch for.
- * @returns {Promise<object>} Prayer times object.
+ * @returns {Promise<object>} Prayer times object + meta.
  */
 async function getPrayerTimes(config, date = DateTime.now()) {
-  let data = null;
-  let sourceUsed = null;
   const dateKey = date.toISODate();
+  const year = date.year;
 
-  // Helper to execute fetch based on type
-  const executeFetch = async (sourceConfig) => {
+  // 1. Read Cache
+  let cache = readCache();
+  
+  // Check hit
+  if (cache.data && cache.data[dateKey]) {
+    // console.log(`Cache HIT for ${dateKey}`);
+    return {
+      meta: {
+        date: dateKey,
+        source: cache.meta.source,
+        lastFetched: cache.meta.lastFetched,
+        cached: true
+      },
+      prayers: cache.data[dateKey]
+    };
+  }
+
+  console.log(`Cache MISS for ${dateKey}, triggering bulk fetch.`);
+
+  // 2. Fetch
+  let newDataMap = null;
+  let sourceUsed = null;
+
+  const tryFetch = async (sourceConfig) => {
+    if (!sourceConfig || !sourceConfig.type) return null;
+    console.log(`[PrayerService] Attempting fetch from source: ${sourceConfig.type}`);
+    
     if (sourceConfig.type === 'aladhan') {
-      return fetchAladhan(config, date);
+      return await fetchAladhanAnnual(config, year);
     } else if (sourceConfig.type === 'mymasjid') {
-      return fetchMyMasjid(config);
+      return await fetchMyMasjidBulk(config);
     }
     throw new Error(`Unknown source type: ${sourceConfig.type}`);
   };
 
-  // Helper to read cache safely
-  const readCacheFile = () => {
-    try {
-      if (fs.existsSync(CACHE_FILE)) {
-        const content = fs.readFileSync(CACHE_FILE, 'utf-8');
-        try {
-          return JSON.parse(content);
-        } catch (e) {
-          console.warn('Cache file corrupted, resetting.');
-          return {};
-        }
-      }
-    } catch (e) {
-      console.error(`Error reading cache file: ${e.message}`);
-    }
-    return {};
-  };
-
-  // 1. Try Primary
   try {
     const primary = config.sources.primary;
-    console.log(`Fetching from Primary: ${primary.type} for ${dateKey}`);
-    data = await executeFetch(primary);
+    newDataMap = await tryFetch(primary);
+    
+    if (!newDataMap || Object.keys(newDataMap).length === 0) {
+      throw new Error(`Primary source (${primary.type}) returned empty data.`);
+    }
+
     sourceUsed = primary.type;
   } catch (error) {
-    console.error(`Primary source failed: ${error.message}`);
+    console.error(`Primary source (${config.sources.primary.type}) failed: ${error.message}`);
     
-    // 2. Try Backup
-    const backup = config.sources.backup;
-    if (backup && backup.type && backup.type !== config.sources.primary.type) {
+    // Try Backup
+    if (config.sources.backup) {
       try {
-        console.log(`Fetching from Backup: ${backup.type} for ${dateKey}`);
-        data = await executeFetch(backup);
+        const backup = config.sources.backup;
+        newDataMap = await tryFetch(backup);
         sourceUsed = backup.type;
       } catch (backupError) {
-        console.error(`Backup source failed: ${backupError.message}`);
+        console.error(`Backup source (${config.sources.backup.type}) failed: ${backupError.message}`);
       }
     }
   }
 
-  // 3. Save to Cache if successful
-  if (data) {
-    try {
-      const fullCache = readCacheFile();
-      
-      // Cleanup old schema if present
-      if (fullCache.date && typeof fullCache.date === 'string') {
-        delete fullCache.date;
-        delete fullCache.source;
-        delete fullCache.lastUpdated;
-        delete fullCache.data;
-      }
-
-      fullCache[dateKey] = {
-        source: sourceUsed,
-        lastUpdated: DateTime.now().toISO(),
-        data: data
-      };
-
-      fs.writeFileSync(CACHE_FILE, JSON.stringify(fullCache, null, 2));
-    } catch (fsError) {
-      console.error(`Failed to write cache: ${fsError.message}`);
-    }
-    
-    // Return with meta
-    return {
-      meta: {
-        date: dateKey,
-        source: sourceUsed,
-        cached: false
-      },
-      prayers: data
-    };
+  if (!newDataMap || Object.keys(newDataMap).length === 0) {
+    throw new Error("Unable to retrieve prayer times from any source.");
   }
 
-  // 4. Try loading from Cache
-  console.log(`Attempting to load from cache for ${dateKey}...`);
+  // 3. Write Cache
+  // Merge new data into existing cache data to preserve other years/months if needed
+  
+  const updatedCache = {
+    meta: {
+      lastFetched: DateTime.now().toISO(),
+      source: sourceUsed
+    },
+    data: {
+      ...(cache.data || {}),
+      ...newDataMap
+    }
+  };
+
+  writeCache(updatedCache);
+
+  // 4. Return specific date
+  const resultForDate = updatedCache.data[dateKey];
+  
+  if (!resultForDate) {
+    throw new Error(`Data for ${dateKey} not found in bulk response.`);
+  }
+
+  return {
+    meta: {
+      date: dateKey,
+      source: sourceUsed,
+      lastFetched: updatedCache.meta.lastFetched,
+      cached: false
+    },
+    prayers: resultForDate
+  };
+}
+
+function readCache() {
   try {
-    const fullCache = readCacheFile();
-    
-    // Check old schema first (legacy support)
-    if (fullCache.date === dateKey) {
-        return {
-           meta: {
-               date: fullCache.date,
-               source: 'cache',
-               originalSource: fullCache.source,
-               cached: true
-           },
-           prayers: fullCache.data
-        };
+    if (fs.existsSync(CACHE_FILE)) {
+      const content = fs.readFileSync(CACHE_FILE, 'utf-8');
+      try {
+        return JSON.parse(content);
+      } catch (e) {
+        console.warn('Cache file corrupted, resetting.');
+        return {};
+      }
     }
-
-    const cachedDay = fullCache[dateKey];
-    if (cachedDay) {
-      return {
-        meta: {
-          date: dateKey,
-          source: 'cache',
-          originalSource: cachedDay.source,
-          cached: true
-        },
-        prayers: cachedDay.data
-      };
-    }
-  } catch (cacheError) {
-    console.error(`Cache read failed: ${cacheError.message}`);
+  } catch (e) {
+    console.error(`Error reading cache file: ${e.message}`);
   }
+  return {};
+}
 
-  // 5. Critical Failure
-  throw new Error(`Failed to retrieve prayer times for ${dateKey} from all sources and cache.`);
+function writeCache(data) {
+  try {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error(`Error writing cache file: ${e.message}`);
+  }
+}
+
+/**
+ * Force refresh logic (Task 6 helper)
+ */
+async function forceRefresh(config) {
+    if (fs.existsSync(CACHE_FILE)) {
+        try {
+            fs.unlinkSync(CACHE_FILE);
+        } catch (e) {
+             // ignore if fails?
+        }
+    }
+    return getPrayerTimes(config, DateTime.now());
 }
 
 module.exports = {
-  getPrayerTimes
+  getPrayerTimes,
+  forceRefresh,
+  readCache
 };

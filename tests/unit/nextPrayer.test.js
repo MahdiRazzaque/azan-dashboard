@@ -67,21 +67,21 @@ describe('Next Prayer Logic & Caching (Task 3)', () => {
 
         test('TC-02: Midnight Transition (API) - Fetches tomorrow if logic returns null', async () => {
             jest.useFakeTimers();
-            // Set time to 23:00 UTC
-            jest.setSystemTime(new Date('2023-10-01T23:00:00Z'));
+            // Set time to 21:00 UTC (22:00 BST in London) - Still Oct 1st, after Isha
+            jest.setSystemTime(new Date('2023-10-01T21:00:00Z'));
             
             // Mock responses
-            // Today (2023-10-01) - Request 1
-            // Note: server uses local timezone config, assumed UTC for tests or simple offset
-            fetchers.fetchAladhan.mockResolvedValueOnce({
-                fajr: '2023-10-01T05:00:00.000Z',
-                isha: '2023-10-01T20:00:00.000Z' // Passed
-            });
-            
-            // Tomorrow (2023-10-02) - Request 2
-            fetchers.fetchAladhan.mockResolvedValueOnce({
-                fajr: '2023-10-02T05:00:00.000Z',
-                isha: '2023-10-02T20:00:00.000Z'
+            // Return BOTH days in one "annual" fetch response (since service fetches year/bulk)
+            // Use mockResolvedValue (persistent) because cache write is mocked (no-op), so 2nd request will trigger fetch again.
+            fetchers.fetchAladhanAnnual.mockResolvedValue({
+                '2023-10-01': {
+                    fajr: '2023-10-01T05:00:00.000Z',
+                    isha: '2023-10-01T20:00:00.000Z' 
+                },
+                '2023-10-02': {
+                    fajr: '2023-10-02T05:00:00.000Z',
+                    isha: '2023-10-02T20:00:00.000Z'
+                }
             });
 
             // Mock existsSync to avoid picking up any real cache file
@@ -105,8 +105,11 @@ describe('Next Prayer Logic & Caching (Task 3)', () => {
             const tomorrow = DateTime.fromISO('2023-10-02');
             
             // Mock reading existing cache
+            // prayerTimeService expects cache to be { data: { 'YYYY-MM-DD': ... }, meta: ... }
             const existingCache = {
-                '2023-10-01': { data: 'old-data' }
+                data: {
+                    '2023-10-01': { data: 'old-data' }
+                }
             };
             
             // Spy on existsSync and readFileSync strictly for this test
@@ -114,8 +117,10 @@ describe('Next Prayer Logic & Caching (Task 3)', () => {
             const readSpy = jest.spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify(existingCache));
             const writeSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
             
-            // Mock Fetch
-            fetchers.fetchAladhan.mockResolvedValue({ fajr: '05:00' });
+            // Mock Fetch returning newer data
+            fetchers.fetchAladhanAnnual.mockResolvedValue({ 
+                '2023-10-02': { fajr: '05:00' } 
+            });
             
             await prayerTimeService.getPrayerTimes(mockConfig, tomorrow);
             
@@ -124,8 +129,8 @@ describe('Next Prayer Logic & Caching (Task 3)', () => {
             const writeCall = writeSpy.mock.calls[0];
             const writtenData = JSON.parse(writeCall[1]);
             
-            expect(writtenData).toHaveProperty('2023-10-01');
-            expect(writtenData).toHaveProperty('2023-10-02');
+            expect(writtenData.data).toHaveProperty('2023-10-01');
+            expect(writtenData.data).toHaveProperty('2023-10-02');
             
             // Cleanup
             existsSpy.mockRestore();

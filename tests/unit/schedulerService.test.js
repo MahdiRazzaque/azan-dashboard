@@ -62,8 +62,10 @@ describe('Scheduler Service', () => {
         // 1 for Midnight refresh
         // 1 for PreAdhan (13:00 - 15m = 12:45)
         // 1 for Adhan (13:00)
-        // Total 3 calls to scheduleJob
-        expect(schedule.scheduleJob).toHaveBeenCalledTimes(3);
+        // 1 for Stale Check
+        // 1 for Year Boundary Check
+        // Total 5 calls to scheduleJob
+        expect(schedule.scheduleJob).toHaveBeenCalledTimes(5);
 
         // Verify Midnight Job
         expect(schedule.scheduleJob).toHaveBeenCalledWith('0 0 * * *', expect.any(Function));
@@ -79,7 +81,7 @@ describe('Scheduler Service', () => {
 
     test('should hot reload and cancel old jobs', async () => {
         await schedulerService.initScheduler();
-        expect(mockJobs.length).toBe(3);  // Midnight + 2 events
+        expect(mockJobs.length).toBe(5);  // Midnight + 2 events + 2 maintenance
 
         const oldJobs = [...mockJobs];
 
@@ -91,6 +93,6 @@ describe('Scheduler Service', () => {
         });
 
         // New jobs created (Total calls to scheduleJob increases)
-        expect(schedule.scheduleJob).toHaveBeenCalledTimes(6); 
+        expect(schedule.scheduleJob).toHaveBeenCalledTimes(10);
     });
 });

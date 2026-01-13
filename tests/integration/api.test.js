@@ -12,22 +12,31 @@ const writeMock = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
 describe('API Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2023-10-01T10:00:00Z')); // Set "Now" to fit mocked data
     
     // Suppress logs
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+
   test('GET /api/prayers should return calculated times', async () => {
-    const mockCrawlData = {
-      fajr: '2023-10-01T05:00:00.000+01:00',
-      dhuhr: '2023-10-01T13:00:00.000+01:00',
-      asr: '2023-10-01T16:30:00.000+01:00',
-      maghrib: '2023-10-01T19:00:00.000+01:00',
-      isha: '2023-10-01T20:30:00.000+01:00'
+    const mockAnnualData = {
+      '2023-10-01': {
+        fajr: '2023-10-01T05:00:00.000+01:00',
+        dhuhr: '2023-10-01T13:00:00.000+01:00',
+        asr: '2023-10-01T16:30:00.000+01:00',
+        maghrib: '2023-10-01T19:00:00.000+01:00',
+        isha: '2023-10-01T20:30:00.000+01:00'
+      }
     };
     
-    fetchers.fetchAladhan.mockResolvedValue(mockCrawlData);
+    fetchers.fetchAladhanAnnual.mockResolvedValue(mockAnnualData);
 
     const response = await request(app).get('/api/prayers');
     
@@ -41,12 +50,12 @@ describe('API Integration', () => {
     expect(fajr).toHaveProperty('iqamah');
     
     // Check if fetcher was called
-    expect(fetchers.fetchAladhan).toHaveBeenCalled();
+    expect(fetchers.fetchAladhanAnnual).toHaveBeenCalled();
   });
 
   test('GET /api/prayers should return 500 on total failure', async () => {
-    fetchers.fetchAladhan.mockRejectedValue(new Error('Down'));
-    fetchers.fetchMyMasjid.mockRejectedValue(new Error('Down'));
+    fetchers.fetchAladhanAnnual.mockRejectedValue(new Error('Down'));
+    fetchers.fetchMyMasjidBulk.mockRejectedValue(new Error('Down'));
     
     // Mock fs for cache failure
     jest.spyOn(fs, 'existsSync').mockReturnValue(false);

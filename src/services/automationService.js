@@ -11,13 +11,13 @@ const getAudioSource = (settings, prayer, event) => {
         const filename = `tts_${prayer}_${event}.mp3`;
         return {
             filePath: path.join(AUDIO_DIR, 'cache', filename),
-            url: `/audio/cache/${filename}`
+            url: `/public/audio/cache/${filename}`
         };
     } else if (settings.type === 'file') {
         const relativePath = settings.path;
         return {
             filePath: path.join(AUDIO_DIR, relativePath),
-            url: `/audio/${relativePath}`
+            url: `/public/audio/${relativePath}`
         };
     } else if (settings.type === 'url') {
         return {

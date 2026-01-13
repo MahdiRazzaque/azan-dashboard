@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const config = require('../config');
-const { getPrayerTimes } = require('../services/prayerTimeService');
+const { getPrayerTimes, forceRefresh } = require('../services/prayerTimeService');
 const { calculateIqamah, calculateNextPrayer } = require('../utils/calculations');
 const { DateTime } = require('luxon');
 const multer = require('multer');
@@ -73,6 +73,25 @@ router.post('/settings/update', async (req, res) => {
     }
 });
 
+router.post('/settings/refresh-cache', async (req, res) => {
+    try {
+        console.log('[API] Force refreshing cache...');
+        // Force refresh deletes cache and fetches new data
+        const result = await forceRefresh(config);
+        
+        // Reload scheduler to use new data
+        await schedulerService.hotReload();
+        
+        res.json({ 
+            message: 'Cache refreshed and scheduler reloaded',
+            meta: result.meta 
+        });
+    } catch (e) {
+        console.error('[API] Force Refresh Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 router.get('/prayers', async (req, res) => {
   try {
     const timezone = config.location.timezone;
@@ -93,9 +112,17 @@ router.get('/prayers', async (req, res) => {
           console.warn(`Missing prayer time for ${name}`);
           return;
       }
-
-      const settings = config.prayers[name];
-      const iqamahISO = calculateIqamah(startISO, settings, timezone);
+      
+      let iqamahISO;
+      // Use explicit Iqamah from source if available (FR-05)
+      // rawData.prayers has structure { fajr: '...', iqamah: { fajr: '...' }, ... }
+      if (rawData.prayers.iqamah && rawData.prayers.iqamah[name]) {
+          iqamahISO = rawData.prayers.iqamah[name];
+      } else {
+          // Fallback to calculation
+          const settings = config.prayers[name];
+          iqamahISO = calculateIqamah(startISO, settings, timezone);
+      }
       
       prayers[name] = {
         start: startISO,
@@ -112,7 +139,7 @@ router.get('/prayers', async (req, res) => {
             const tomorrow = now.plus({ days: 1 });
             const tomorrowData = await getPrayerTimes(config, tomorrow);
             
-            if (tomorrowData.prayers && tomorrowData.prayers.fajr) {
+            if (tomorrowData && tomorrowData.prayers && tomorrowData.prayers.fajr) {
                 nextPrayer = {
                     name: 'fajr',
                     time: tomorrowData.prayers.fajr,

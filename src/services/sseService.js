@@ -1,4 +1,6 @@
 let clients = [];
+const logHistory = [];
+const MAX_HISTORY = 200;
 
 const addClient = (res) => {
     // Send initial ping or retry info
@@ -10,6 +12,14 @@ const addClient = (res) => {
     res.write('retry: 10000\n\n');
     
     clients.push(res);
+
+    // Send history
+    if (logHistory.length > 0) {
+        logHistory.forEach(logEntry => {
+            // Frontend expects { type: 'LOG', payload: ... }
+            res.write(`data: ${JSON.stringify({ type: 'LOG', payload: logEntry })}\n\n`);
+        });
+    }
     
     res.on('close', () => {
         clients = clients.filter(c => c !== res);
@@ -22,4 +32,21 @@ const broadcast = (data) => {
     });
 };
 
-module.exports = { addClient, broadcast };
+const log = (message, level = 'info') => {
+    const entry = {
+        timestamp: new Date().toISOString(),
+        level,
+        message
+    };
+    
+    // Add to history
+    logHistory.push(entry);
+    if (logHistory.length > MAX_HISTORY) {
+        logHistory.shift();
+    }
+    
+    // Broadcast wrapped in LOG type to match frontend expectations
+    broadcast({ type: 'LOG', payload: entry });
+};
+
+module.exports = { addClient, broadcast, log };
