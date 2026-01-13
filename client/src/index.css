@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-app: #1a1a1a;       /* Very dark grey for body */
+  --bg-card: #2d2d2d;      /* Slightly lighter for panels */
+  --text-primary: #ffffff; /* White */
+  --text-dim: rgba(255, 255, 255, 0.5); /* 50% Opacity white */
+  --accent: #ffd700;       /* Gold/Yellow for Next Prayer highlight */
+  --danger: #ff4444;       /* Red for Offline indicator */
+}
+
+/* Base styles Reset */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+@media (min-width: 1024px) {
+  body {
+    overflow: hidden; /* Prevent scrolling for dashboard on larger screens */
+  }
+} 
