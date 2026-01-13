@@ -4,6 +4,12 @@ const path = require('path');
 describe('Configuration Loader', () => {
   beforeEach(() => {
     jest.resetModules();
+    // Spy on console.error to suppress expected logs
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   test('should load valid default configuration', () => {
@@ -23,6 +29,9 @@ describe('Configuration Loader', () => {
     expect(() => {
       require('../../src/config');
     }).toThrow('Configuration validation failed');
+    
+    // Verify error was logged (optional, but good practice to ensure system behaves as expected)
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Configuration validation failed'), expect.any(String));
   });
 
   test('should validate prayer settings types', () => {
@@ -50,5 +59,7 @@ describe('Configuration Loader', () => {
     expect(() => {
       require('../../src/config');
     }).toThrow('Configuration validation failed');
+    
+    expect(console.error).toHaveBeenCalled();
   });
 });

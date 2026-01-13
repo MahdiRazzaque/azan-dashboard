@@ -8,6 +8,15 @@
 </head>
 <body>
     <div id="app">
+        <!-- Audio Interaction Overlay -->
+        <div id="interaction-overlay" class="interaction-overlay">
+            <div class="interaction-content">
+                <h1>Azan Dashboard</h1>
+                <p>Click to Enable Audio & Automation</p>
+                <button id="start-btn">Start System</button>
+            </div>
+        </div>
+
         <!-- Loading Overlay -->
         <div id="loading" class="loading-overlay">
             <div class="spinner"></div>
@@ -46,6 +55,11 @@
                 <div id="status-indicator" class="status-indicator" title="Offline / Error"></div>
             </div>
         </div>
+    </div>
+
+    <!-- Logs Footer -->
+    <div id="logs-container" class="logs-container">
+        <ul id="logs-list"></ul>
     </div>
 
     <!-- Scripts -->

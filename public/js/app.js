@@ -217,6 +217,12 @@ async function initAdvancedFeatures() {
             console.error(`Wake Lock failed: ${err.name}, ${err.message}`);
         }
     }
+
+    // 2. Audio Interactions
+    const startBtn = document.getElementById('start-btn');
+    if (startBtn) {
+        startBtn.addEventListener('click', enableAudio);
+    }
 }
 
 function playBeep() {
@@ -248,3 +254,73 @@ function playBeep() {
 
 // Start when content loaded
 document.addEventListener('DOMContentLoaded', init);
+
+/* Audio & Automation Logic (Task 8) */
+
+function enableAudio() {
+    const overlay = document.getElementById('interaction-overlay');
+    if (overlay) overlay.style.display = 'none';
+    
+    // Unlock Audio Context
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+        const ctx = new AudioContext();
+        ctx.resume();
+    }
+    
+    startSSE();
+}
+
+function startSSE() {
+    logMessage('Connecting to Event Stream...');
+    const source = new EventSource('/api/logs');
+    
+    source.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            console.log('SSE Event:', data);
+            
+            if (data.type === 'LOG') {
+                logMessage(data.payload.message);
+            } else if (data.type === 'AUDIO_PLAY') {
+                playAudio(data.payload.url);
+            }
+        } catch (e) {
+            console.error('SSE Parse Error', e);
+        }
+    };
+    
+    source.onerror = () => {
+        logMessage('SSE Disconnected. Retrying...');
+        source.close();
+        setTimeout(startSSE, 5000);
+    };
+    
+    source.onopen = () => {
+        logMessage('System Connected.');
+    };
+}
+
+function logMessage(msg) {
+    const list = document.getElementById('logs-list');
+    if (!list) return;
+    
+    const li = document.createElement('li');
+    li.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    list.prepend(li);
+    
+    // Limit history
+    if (list.children.length > 50) {
+        list.removeChild(list.lastChild);
+    }
+}
+
+function playAudio(url) {
+    logMessage(`Playing Audio: ${url}`);
+    const audio = new Audio(url);
+    audio.play().catch(e => {
+        console.error('Playback failed', e);
+        logMessage(`Audio Error: ${e.message}`);
+    });
+}
+

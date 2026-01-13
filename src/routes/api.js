@@ -4,6 +4,74 @@ const config = require('../config');
 const { getPrayerTimes } = require('../services/prayerTimeService');
 const { calculateIqamah, calculateNextPrayer } = require('../utils/calculations');
 const { DateTime } = require('luxon');
+const multer = require('multer');
+const schedulerService = require('../services/schedulerService');
+const sseService = require('../services/sseService');
+const fs = require('fs');
+const path = require('path');
+
+// Multer Setup
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = path.join(__dirname, '../../public/audio/custom');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        cb(null, file.originalname);
+    }
+});
+const upload = multer({ 
+    storage,
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'audio/mpeg' || file.originalname.endsWith('.mp3')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only mp3 files allowed'));
+        }
+    }
+});
+
+// Settings & Logs Routes
+
+router.get('/logs', (req, res) => {
+    sseService.addClient(res);
+});
+
+router.post('/settings/upload', upload.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    res.json({ 
+        message: 'File uploaded successfully', 
+        filename: req.file.originalname, 
+        path: `custom/${req.file.originalname}` 
+    });
+});
+
+router.post('/settings/update', async (req, res) => {
+    try {
+        const newConfig = req.body;
+        // Basic validation: Check if it's an object
+        if (typeof newConfig !== 'object' || newConfig === null) {
+            return res.status(400).json({ error: 'Invalid configuration format' });
+        }
+
+        const localPath = path.join(__dirname, '../config/local.json');
+        
+        // Simple overwrite of local.json with provided settings
+        // In a real app, might want to read existing local.json and merge, 
+        // but explicit overwrite is safer for "Save Settings" form behavior.
+        fs.writeFileSync(localPath, JSON.stringify(newConfig, null, 2));
+        
+        // Reload Scheduler
+        await schedulerService.hotReload();
+        
+        res.json({ message: 'Settings updated and scheduler reloaded' });
+    } catch (e) {
+        console.error('Settings Update Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
 
 router.get('/prayers', async (req, res) => {
   try {

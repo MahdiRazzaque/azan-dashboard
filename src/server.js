@@ -2,6 +2,8 @@ const express = require('express');
 const path = require('path');
 
 const apiRoutes = require('./routes/api');
+const { initScheduler } = require('./services/schedulerService');
+const { checkSystemHealth } = require('./services/healthCheck');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,9 +34,15 @@ app.get('/', (req, res) => {
 
 // Start server if main module
 if (require.main === module) {
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     console.log(`Server is running on http://localhost:${PORT}`);
     console.log(`Health check available at http://localhost:${PORT}/api/health`);
+
+    // Run System Health Checks
+    await checkSystemHealth();
+
+    // Start Scheduler
+    await initScheduler();
   });
 }
 
