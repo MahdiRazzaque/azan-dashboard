@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSettings } from '../../contexts/SettingsContext';
-import { Save, Power, Zap } from 'lucide-react';
+import { Save, Power, Zap, CheckCircle, XCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -33,14 +33,16 @@ const Toggle = ({ checked, onChange, label, description }) => (
 );
 
 export default function AutomationSettingsView() {
-  const { 
-    config,
-    draftConfig, 
-    updateSetting, 
-    saveSettings, 
-    saving, 
-    loading
-  } = useSettings();
+    const { 
+      config,
+      draftConfig, 
+      updateSetting, 
+      saveSettings, 
+      resetDraft,
+      saving, 
+      loading,
+      systemHealth
+    } = useSettings();
 
   if (loading || !draftConfig) return <div className="p-8 text-center text-zinc-500">Loading...</div>;
 
@@ -65,19 +67,30 @@ export default function AutomationSettingsView() {
                  <h1 className="text-3xl font-bold text-white">Automation & Integrations</h1>
                  <p className="text-zinc-400 mt-1">Manage global behavior and external services.</p>
             </div>
-            <button 
-                onClick={handleSave} 
-                disabled={saving}
-                className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded disabled:opacity-50 transition-colors font-medium",
-                    isDirty 
-                        ? "bg-orange-500 hover:bg-orange-400 text-white shadow-orange-900/20" 
-                        : "bg-emerald-600 hover:bg-emerald-500 text-white"
+            <div className="flex items-center gap-3">
+                {isDirty && (
+                    <button
+                        onClick={resetDraft}
+                        disabled={saving}
+                        className="px-4 py-2 rounded font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-zinc-700 disabled:opacity-50"
+                    >
+                        Discard Changes
+                    </button>
                 )}
-            >
-                <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : (isDirty ? 'Unsaved Changes' : 'Save Changes')}
-            </button>
+                <button 
+                    onClick={handleSave} 
+                    disabled={saving}
+                    className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded disabled:opacity-50 transition-colors font-medium",
+                        isDirty 
+                            ? "bg-orange-500 hover:bg-orange-400 text-white shadow-orange-900/20" 
+                            : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                    )}
+                >
+                    <Save className="w-4 h-4" />
+                    {saving ? 'Saving...' : (isDirty ? 'Unsaved Changes' : 'Save Changes')}
+                </button>
+            </div>
         </div>
 
         {/* Global Master Switch */}
@@ -133,6 +146,17 @@ export default function AutomationSettingsView() {
                 {JSON.stringify(config?.automation?.voiceMonkey) !== JSON.stringify(draftConfig?.automation?.voiceMonkey) && (
                     <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
                 )}
+                <div className="ml-auto flex items-center gap-2 text-xs font-normal opacity-75">
+                    {systemHealth?.voiceMonkey ? (
+                        <span className="flex items-center gap-1 text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                            <CheckCircle className="w-3 h-3" /> Online
+                        </span>
+                    ) : (
+                        <span className="flex items-center gap-1 text-red-400 border border-red-500/30 bg-red-500/10 px-2 py-0.5 rounded-full">
+                            <XCircle className="w-3 h-3" /> Offline
+                        </span>
+                    )}
+                </div>
             </h2>
              <Toggle 
                 label="Enable VoiceMonkey" 

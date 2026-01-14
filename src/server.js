@@ -4,7 +4,7 @@ require('./utils/loggerInitializer')(); // Initialize global logger interception
 
 const apiRoutes = require('./routes/api');
 const { initScheduler } = require('./services/schedulerService');
-const { checkSystemHealth } = require('./services/healthCheck');
+const healthCheck = require('./services/healthCheck');
 const { forceRefresh } = require('./services/prayerTimeService');
 
 const app = express();
@@ -73,7 +73,7 @@ const startServer = async (port = PORT) => {
         });
 
         // Run System Health Checks
-        await checkSystemHealth();
+        await healthCheck.refresh('all');
 
         // Ensure cache is cleared and refreshed at startup
         try {

@@ -17,7 +17,10 @@ export default function PrayerSettingsView() {
         updateSetting, 
         saveSettings, 
         saving,
-        isSectionDirty
+        isSectionDirty,
+        getSectionHealth,
+        resetDraft,
+        systemHealth
     } = useSettings();
     const [activeTab, setActiveTab] = useState('fajr');
     const [audioFiles, setAudioFiles] = useState([]);
@@ -120,9 +123,31 @@ export default function PrayerSettingsView() {
                 if (error) {
                     hasErrors = true;
                     newErrors[`${prayer}-${type}`] = error;
-                    // Disable it
                     trigger.enabled = false;
                     errorsList.push(`${prayer} ${type}: ${error}`);
+                } else if (trigger.enabled) {
+                    // Extra Service Availability Checks
+                    if (trigger.type === 'tts' && !systemHealth.tts) {
+                        hasErrors = true;
+                        const msg = "TTS Service is offline";
+                        newErrors[`${prayer}-${type}`] = msg;
+                        trigger.enabled = false;
+                        errorsList.push(`${prayer} ${type}: ${msg}`);
+                    }
+                    if (trigger.targets?.includes('local') && !systemHealth.local) {
+                        hasErrors = true;
+                        const msg = "Local Audio Service is offline";
+                        newErrors[`${prayer}-${type}`] = msg;
+                        trigger.enabled = false;
+                        errorsList.push(`${prayer} ${type}: ${msg}`); 
+                    }
+                    if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey) {
+                         hasErrors = true;
+                         const msg = "VoiceMonkey integration is offline or unconfigured";
+                         newErrors[`${prayer}-${type}`] = msg;
+                         trigger.enabled = false;
+                         errorsList.push(`${prayer} ${type}: ${msg}`); 
+                    }
                 }
             }
         }
@@ -182,19 +207,30 @@ export default function PrayerSettingsView() {
                     <h2 className="text-2xl font-bold text-white mb-2">Prayer Configuration</h2>
                     <p className="text-zinc-400">Configure timing rules and automation triggers for each prayer.</p>
                 </div>
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                        isDirty 
-                        ? "bg-orange-500 hover:bg-orange-400 text-white shadow-orange-900/20" 
-                        : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                <div className="flex items-center gap-3">
+                    {isDirty && (
+                        <button
+                            onClick={resetDraft}
+                            disabled={saving}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-zinc-700 disabled:opacity-50"
+                        >
+                            Discard Changes
+                        </button>
                     )}
-                >
-                    <Save className="w-4 h-4" />
-                    {saving ? 'Saving...' : (isDirty ? 'Unsaved Changes' : 'Save Changes')}
-                </button>
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                            isDirty 
+                            ? "bg-orange-500 hover:bg-orange-400 text-white shadow-orange-900/20" 
+                            : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                        )}
+                    >
+                        <Save className="w-4 h-4" />
+                        {saving ? 'Saving...' : (isDirty ? 'Unsaved Changes' : 'Save Changes')}
+                    </button>
+                </div>
             </div>
 
             {/* Navigation Pills */}
@@ -214,6 +250,24 @@ export default function PrayerSettingsView() {
                         {p}
                         {isDirty && (
                             <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                        )}
+                        {!getSectionHealth(`prayers.${p}`).healthy && (
+                            <div className="relative group/tabwarning">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/tabwarning:block z-50">
+                                     <div className="bg-zinc-900 border border-zinc-700 p-2 rounded shadow-2xl text-[10px] whitespace-nowrap text-zinc-300">
+                                         <p className="font-bold text-amber-500 mb-1 flex items-center gap-1 uppercase tracking-tighter">
+                                             <AlertTriangle className="w-3 h-3" /> Service Issue
+                                         </p>
+                                         <ul className="space-y-0.5 list-disc list-inside">
+                                             {getSectionHealth(`prayers.${p}`).issues.map((issue, idx) => (
+                                                 <li key={idx}>{issue.type}</li>
+                                             ))}
+                                         </ul>
+                                     </div>
+                                     <div className="w-2 h-2 bg-zinc-900 border-r border-b border-zinc-700 rotate-45 mx-auto -mt-1"></div>
+                                </div>
+                            </div>
                         )}
                     </button>
                     );
@@ -246,6 +300,7 @@ export default function PrayerSettingsView() {
                         
                         <TriggerCard 
                             label="1. Pre-Adhan" 
+                            eventType="preAdhan"
                             trigger={currentTriggers.preAdhan} 
                             onChange={d => updateTrigger('preAdhan', d)} 
                             files={audioFiles}
@@ -254,6 +309,7 @@ export default function PrayerSettingsView() {
                         />
                          <TriggerCard 
                             label="2. Adhan" 
+                            eventType="adhan"
                             trigger={currentTriggers.adhan} 
                             onChange={d => updateTrigger('adhan', d)} 
                             files={audioFiles}
@@ -262,6 +318,7 @@ export default function PrayerSettingsView() {
                         />
                          <TriggerCard 
                             label="3. Pre-Iqamah" 
+                            eventType="preIqamah"
                             trigger={currentTriggers.preIqamah} 
                             onChange={d => updateTrigger('preIqamah', d)} 
                             files={audioFiles}
@@ -270,6 +327,7 @@ export default function PrayerSettingsView() {
                         />
                          <TriggerCard 
                             label="4. Iqamah" 
+                            eventType="iqamah"
                             trigger={currentTriggers.iqamah} 
                             onChange={d => updateTrigger('iqamah', d)} 
                             files={audioFiles}
@@ -281,8 +339,27 @@ export default function PrayerSettingsView() {
 
                 {/* RIGHT COLUMN: Timing Rules */}
                 <div className="lg:col-span-1 space-y-6 mt-9">
-                    <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6">
-                        <div className="flex items-center gap-3 mb-6">
+                     {/* Check for Iqamah Master Switch */}
+                     {(() => {
+                         const isGloballyDisabled = !config?.automation?.global?.enabled;
+                         const isIqamahDisabled = !config?.automation?.global?.iqamahEnabled;
+                         const isDisabled = isGloballyDisabled || isIqamahDisabled;
+                         const reason = isGloballyDisabled ? "Global Switch" : "Iqamah Sub-System";
+
+                         return (
+                            <div className={cn(
+                                "bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 transition-all duration-300 relative overflow-hidden",
+                                isDisabled && "opacity-60 grayscale bg-zinc-900/10 pointer-events-none"
+                            )}>
+                                {isDisabled && (
+                                     <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/20 backdrop-blur-[1px]">
+                                         <div className="bg-zinc-900/90 px-4 py-2 rounded border border-zinc-800 text-xs font-bold text-zinc-500 uppercase tracking-wider shadow-xl flex items-center gap-2">
+                                             <div className="w-2 h-2 rounded-full bg-zinc-600"></div>
+                                             Disabled by {reason}
+                                         </div>
+                                     </div>
+                                )}
+                                <div className="flex items-center gap-3 mb-6">
                             <Clock className="w-5 h-5 text-emerald-500" />
                             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                                 Iqamah Rules
@@ -390,6 +467,8 @@ export default function PrayerSettingsView() {
                             )}
                         </div>
                     </div>
+                        );
+                     })()}
                 </div>
 
             </div>

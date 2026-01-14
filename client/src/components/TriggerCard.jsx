@@ -1,10 +1,40 @@
-import { Server, Monitor, Zap } from 'lucide-react';
+import { Server, Monitor, Zap, AlertTriangle, XCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useSettings } from '../contexts/SettingsContext';
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
-export default function TriggerCard({ label, trigger, onChange, files, error, isDirty }) {
+export default function TriggerCard({ label, trigger, onChange, files, error, isDirty, eventType }) {
+    const { systemHealth, config } = useSettings();
+    
+    // Cascading Master Switch Logic - Returns { disabled: boolean, reason: string }
+    const masterSwitchState = (() => {
+        if (!config?.automation?.global) return { disabled: false, reason: '' };
+        
+        // 1. Check Global Master
+        if (config.automation.global.enabled === false) {
+             return { disabled: true, reason: 'Global Automation Disabled' };
+        }
+        
+        // 2. Check Event Type Master
+        if (eventType) {
+            const map = {
+                'preAdhan': 'preAdhanEnabled',
+                'adhan': 'adhanEnabled',
+                'preIqamah': 'preIqamahEnabled',
+                'iqamah': 'iqamahEnabled'
+            };
+            const key = map[eventType];
+            if (key && config.automation.global[key] === false) {
+                 return { disabled: true, reason: `${eventType.replace(/([A-Z])/g, ' $1').trim()} Disabled` };
+            }
+        }
+        return { disabled: false, reason: '' };
+    })();
+    
+    const isDisabledByMaster = masterSwitchState.disabled;
+
     const update = (key, val) => {
         onChange({ ...trigger, [key]: val });
     };
@@ -20,16 +50,70 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
 
     return (
         <div className={cn(
-            "rounded-lg border p-4 transition-colors",
-            trigger.enabled ? "bg-zinc-900/50 border-zinc-700" : "bg-zinc-900/20 border-zinc-800 opacity-75"
+            "rounded-lg border transition-all duration-300 relative overflow-hidden",
+            isDisabledByMaster 
+                ? "bg-zinc-900/10 border-zinc-800 opacity-60 grayscale" 
+                : trigger.enabled 
+                    ? "bg-zinc-900/50 border-zinc-700 p-4" 
+                    : "bg-zinc-900/20 border-zinc-800 opacity-75 p-4"
         )}>
-             <div className="flex items-center justify-between mb-4">
-                 <div className="flex items-center gap-2">
-                    <h4 className="font-semibold text-zinc-200">{label}</h4>
-                    {isDirty && (
-                        <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)] animate-pulse" />
-                    )}
+             {isDisabledByMaster && (
+                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/20 backdrop-blur-[1px]">
+                     <div className="bg-zinc-900/90 px-4 py-2 rounded border border-zinc-800 text-xs font-bold text-zinc-500 uppercase tracking-wider shadow-xl flex items-center gap-2">
+                         <div className="w-2 h-2 rounded-full bg-zinc-600"></div>
+                         Disabled by {masterSwitchState.reason.includes('Global') ? 'Global Switch' : 'Sub-System'}
+                     </div>
                  </div>
+             )}
+             
+             <div className={cn("flex items-center justify-between", (!trigger.enabled || isDisabledByMaster) ? "p-3" : "mb-4")}>
+                 <div className="flex items-center gap-2">
+                    <h4 className={cn("font-semibold transition-colors", isDisabledByMaster ? "text-zinc-500" : "text-zinc-200")}>{label}</h4>
+                     
+                     {/* Unsaved Changes Indicator */}
+                     {isDirty && (
+                         <div className="relative group/unsaved ml-2">
+                             <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)] block cursor-help"></span>
+                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/unsaved:block z-50">
+                                 <div className="bg-zinc-900 border border-zinc-700 px-2 py-1 rounded shadow-xl text-[10px] whitespace-nowrap text-zinc-300 font-medium">
+                                     Unsaved Changes
+                                 </div>
+                                 <div className="w-2 h-2 bg-zinc-900 border-r border-b border-zinc-700 rotate-45 mx-auto -mt-1"></div>
+                             </div>
+                         </div>
+                     )}
+                     
+                     {/* Warning icon if enabled but underlying service is dead */}
+                     {(() => {
+                         if (!trigger.enabled || isDisabledByMaster) return null;
+                         
+                         const issues = [];
+                         if (trigger.type === 'tts' && !systemHealth.tts) issues.push('TTS Service Offline');
+                         if (trigger.targets?.includes('local') && !systemHealth.local) issues.push('Local Audio (mpg123) Offline');
+                         if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey) issues.push('VoiceMonkey Service Offline');
+
+                         if (issues.length === 0) return null;
+
+                         return (
+                            <div className="flex items-center gap-1.5 ml-2 group/warning relative">
+                                <AlertTriangle className="w-4 h-4 text-amber-500 animate-pulse" />
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 hidden group-hover/warning:block z-50">
+                                    <div className="w-2 h-2 bg-zinc-900 border-t border-l border-zinc-700 rotate-45 mx-auto -mb-1 absolute -top-1 left-1/2 -translate-x-1/2"></div>
+                                    <div className="bg-zinc-900 border border-zinc-700 p-2 rounded shadow-2xl text-[10px] whitespace-nowrap text-zinc-300 relative z-10">
+                                        <p className="font-bold text-amber-500 mb-1 flex items-center gap-1 uppercase tracking-tighter">
+                                            <AlertTriangle className="w-3 h-3" /> Service Warning
+                                        </p>
+                                        <ul className="space-y-0.5 list-disc list-inside">
+                                            {issues.map((issue, idx) => (
+                                                <li key={idx}>{issue}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                         );
+                     })()}
+                  </div>
                  <button
                     role="switch"
                     aria-checked={trigger.enabled}
@@ -48,26 +132,43 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                  </button>
              </div>
              
-             {trigger.enabled && (
+             {/* Collapsible Content */}
+             {trigger.enabled && !isDisabledByMaster && (
                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                      {/* Type Selector */}
                      <div>
                          <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-2">Audio Source</label>
                          <div className="flex gap-2">
-                             {['tts', 'file', 'url'].map(type => (
-                                 <button
-                                    key={type}
-                                    onClick={() => update('type', type)}
-                                    className={cn(
-                                        "px-3 py-1.5 text-xs font-medium rounded border transition-colors",
-                                        trigger.type === type 
-                                            ? "bg-emerald-600 border-emerald-500 text-white" 
-                                            : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700"
-                                    )}
-                                 >
-                                    {type.toUpperCase()}
-                                 </button>
-                             ))}
+                             {['tts', 'file', 'url'].map(type => {
+                                 
+                                 // Check availability
+                                 let disabled = false;
+                                 let reason = "";
+                                 
+                                 if (type === 'tts' && !systemHealth.tts) {
+                                     disabled = true;
+                                     reason = "TTS Service Offline";
+                                 }
+
+                                 return (
+                                     <button
+                                        key={type}
+                                        onClick={() => update('type', type)}
+                                        disabled={disabled}
+                                        title={reason}
+                                        className={cn(
+                                            "px-3 py-1.5 text-xs font-medium rounded border transition-colors relative group",
+                                            trigger.type === type 
+                                                ? "bg-emerald-600 border-emerald-500 text-white" 
+                                                : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700",
+                                            disabled && "opacity-50 cursor-not-allowed hover:bg-zinc-800"
+                                        )}
+                                     >
+                                        {type.toUpperCase()}
+                                        {disabled && <XCircle className="w-3 h-3 absolute -top-1 -right-1 text-red-500 bg-zinc-900 rounded-full" />}
+                                     </button>
+                                 );
+                             })}
                          </div>
                      </div>
                      
@@ -127,9 +228,20 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                          <div className="flex flex-wrap gap-3">
                              <label className={cn(
                                  "flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors text-sm",
-                                 trigger.targets?.includes('local') ? "bg-emerald-900/20 border-emerald-800 text-emerald-400" : "bg-zinc-800 border-zinc-700 text-zinc-400"
-                             )}>
-                                 <input type="checkbox" className="hidden" checked={trigger.targets?.includes('local') || false} onChange={() => toggleTarget('local')} />
+                                 trigger.targets?.includes('local') ? "bg-emerald-900/20 border-emerald-800 text-emerald-400" : "bg-zinc-800 border-zinc-700 text-zinc-400",
+                                 (!systemHealth.local && !trigger.targets?.includes('local')) && "opacity-50 cursor-not-allowed"
+                             )} title={!systemHealth.local ? "Local Audio (mpg123) Missing" : ""}>
+                                 <input 
+                                    type="checkbox" 
+                                    className="hidden" 
+                                    checked={trigger.targets?.includes('local') || false} 
+                                    onChange={() => {
+                                        // If service is down, only allow UNCHECKING
+                                        if (!systemHealth.local && !trigger.targets?.includes('local')) return;
+                                        toggleTarget('local');
+                                    }} 
+                                    disabled={!systemHealth.local && !trigger.targets?.includes('local')}
+                                  />
                                  <Server className="w-4 h-4" /> Server
                              </label>
                              <label className={cn(
@@ -141,9 +253,19 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                              </label>
                              <label className={cn(
                                  "flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors text-sm",
-                                 trigger.targets?.includes('voiceMonkey') ? "bg-emerald-900/20 border-emerald-800 text-emerald-400" : "bg-zinc-800 border-zinc-700 text-zinc-400"
-                             )}>
-                                 <input type="checkbox" className="hidden" checked={trigger.targets?.includes('voiceMonkey') || false} onChange={() => toggleTarget('voiceMonkey')} />
+                                 trigger.targets?.includes('voiceMonkey') ? "bg-emerald-900/20 border-emerald-800 text-emerald-400" : "bg-zinc-800 border-zinc-700 text-zinc-400",
+                                 (!systemHealth.voiceMonkey && !trigger.targets?.includes('voiceMonkey')) && "opacity-50 cursor-not-allowed"
+                             )} title={!systemHealth.voiceMonkey ? "VoiceMonkey Service Offline" : ""}>
+                                 <input 
+                                    type="checkbox" 
+                                    className="hidden" 
+                                    checked={trigger.targets?.includes('voiceMonkey') || false} 
+                                    onChange={() => {
+                                        if (!systemHealth.voiceMonkey && !trigger.targets?.includes('voiceMonkey')) return;
+                                        toggleTarget('voiceMonkey');
+                                    }} 
+                                    disabled={!systemHealth.voiceMonkey && !trigger.targets?.includes('voiceMonkey')}
+                                  />
                                  <Zap className="w-4 h-4" /> VoiceMonkey
                              </label>
                          </div>

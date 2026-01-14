@@ -7,6 +7,7 @@ const SettingsContext = createContext(null);
 export const SettingsProvider = ({ children }) => {
   const [config, setConfig] = useState(null);
   const [draftConfig, setDraftConfig] = useState(null);
+  const [systemHealth, setSystemHealth] = useState({ local: true, tts: true, voiceMonkey: true }); // Default optimistic
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -15,6 +16,7 @@ export const SettingsProvider = ({ children }) => {
   useEffect(() => {
     if (isAuthenticated) {
       fetchSettings();
+      fetchHealth();
     }
   }, [isAuthenticated]);
 
@@ -33,6 +35,35 @@ export const SettingsProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchHealth = async () => {
+      try {
+          const res = await fetch('/api/system/health');
+          if (res.ok) {
+              const data = await res.json();
+              setSystemHealth(data);
+          }
+      } catch (e) {
+          console.error('[SettingsContext] Failed to fetch health:', e);
+      }
+  };
+
+  const refreshHealth = async (target = 'all') => {
+      try {
+          const res = await fetch('/api/system/health/refresh', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ target })
+          });
+          if (res.ok) {
+              const data = await res.json();
+              setSystemHealth(prev => ({ ...prev, ...data }));
+              return data;
+          }
+      } catch (e) {
+           console.error('[SettingsContext] Failed to refresh health:', e);
+      }
   };
 
   const updateSetting = (path, value) => {
@@ -77,6 +108,25 @@ export const SettingsProvider = ({ children }) => {
                       invalidCount++;
                       const niceName = `${prayer.charAt(0).toUpperCase() + prayer.slice(1)} ${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
                       warningsList.push(`${niceName}: ${error}`);
+                  } else {
+                       // Extra Service Availability Checks
+                       const niceName = `${prayer.charAt(0).toUpperCase() + prayer.slice(1)} ${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
+                       
+                       if (trigger.type === 'tts' && !systemHealth.tts) {
+                           trigger.enabled = false;
+                           invalidCount++;
+                           warningsList.push(`${niceName}: TTS Service Offline`);
+                       }
+                       if (trigger.targets?.includes('local') && !systemHealth.local) {
+                           trigger.enabled = false;
+                           invalidCount++;
+                           warningsList.push(`${niceName}: Local Audio Offline`);
+                       }
+                       if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey) {
+                           trigger.enabled = false;
+                           invalidCount++;
+                           warningsList.push(`${niceName}: VoiceMonkey Offline`);
+                       }
                   }
               }
           }
@@ -142,12 +192,72 @@ export const SettingsProvider = ({ children }) => {
       return JSON.stringify(config) !== JSON.stringify(draftConfig);
   };
 
-  const isSectionDirty = (path) => {
+    const isSectionDirty = (path) => {
       if (!config || !draftConfig) return false;
       const getVal = (obj, p) => p.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj);
       const val1 = getVal(config, path);
       const val2 = getVal(draftConfig, path);
       return JSON.stringify(val1) !== JSON.stringify(val2);
+  };
+
+  const getSectionHealth = (path) => {
+      if (!draftConfig || !systemHealth) return { healthy: true, issues: [] };
+      
+      const getVal = (obj, p) => p.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj);
+      const section = getVal(draftConfig, path);
+      
+      if (!section) return { healthy: true, issues: [] };
+
+      const issues = [];
+      
+      // Helper to check a single trigger
+      const checkTrigger = (trigger, name) => {
+          if (!trigger || !trigger.enabled) return;
+          
+          if (trigger.type === 'tts' && !systemHealth.tts) {
+              issues.push({ trigger: name, type: 'TTS Service Offline' });
+          }
+          
+          if (trigger.targets?.includes('local') && !systemHealth.local) {
+              issues.push({ trigger: name, type: 'Local Audio Offline' });
+          }
+          
+          if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey) {
+              issues.push({ trigger: name, type: 'VoiceMonkey Offline' });
+          }
+      };
+
+      // If path is a prayer (e.g. 'prayers.fajr'), check triggers in 'automation.triggers.fajr'
+      if (path.startsWith('prayers.')) {
+          const prayerName = path.split('.')[1];
+          const prayerTriggers = draftConfig.automation?.triggers?.[prayerName];
+          if (prayerTriggers) {
+              Object.entries(prayerTriggers).forEach(([type, trigger]) => {
+                  checkTrigger(trigger, `${prayerName} ${type}`);
+              });
+          }
+      } 
+      // If path is 'automation', check all triggers
+      else if (path === 'automation' || path === 'automation.triggers') {
+          Object.entries(draftConfig.automation?.triggers || {}).forEach(([prayer, triggers]) => {
+              Object.entries(triggers).forEach(([type, trigger]) => {
+                  checkTrigger(trigger, `${prayer} ${type}`);
+              });
+          });
+      }
+      // If path is a specific trigger
+      else if (path.includes('automation.triggers.')) {
+          const parts = path.split('.');
+          const prayer = parts[2];
+          const type = parts[3];
+          const trigger = draftConfig.automation?.triggers?.[prayer]?.[type];
+          if (trigger) checkTrigger(trigger, `${prayer} ${type}`);
+      }
+
+      return {
+          healthy: issues.length === 0,
+          issues
+      };
   };
 
   return (
@@ -162,7 +272,10 @@ export const SettingsProvider = ({ children }) => {
         resetToDefaults,
         hasUnsavedChanges,
         isSectionDirty,
-        refresh: fetchSettings 
+        getSectionHealth,
+        refresh: fetchSettings,
+        systemHealth,
+        refreshHealth
     }}>
       {children}
     </SettingsContext.Provider>

@@ -136,7 +136,24 @@ router.get('/system/audio-files', authenticateToken, (req, res) => {
     res.json([...custom, ...cache]);
 });
 
-const diagnosticsService = require('../services/diagnosticsService'); // Added
+const healthCheck = require('../services/healthCheck'); // Added
+
+// Heatlh Routes
+router.get('/system/health', (req, res) => {
+    res.json(healthCheck.getHealth());
+});
+
+router.post('/system/health/refresh', authenticateToken, async (req, res) => {
+    const { target } = req.body;
+    try {
+        const result = await healthCheck.refresh(target || 'all');
+        res.json(result);
+    } catch (e) {
+       res.status(500).json({ error: e.message });
+    }
+});
+
+const diagnosticsService = require('../services/diagnosticsService');
 
 router.get('/system/jobs', authenticateToken, (req, res) => {
     // getJobs might not be defined if schedulerService mock or older version loaded? 

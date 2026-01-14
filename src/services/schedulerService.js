@@ -5,6 +5,7 @@ const prayerTimeService = require('./prayerTimeService');
 const audioAssetService = require('./audioAssetService');
 const automationService = require('./automationService');
 const { calculateIqamah } = require('../utils/calculations');
+const healthCheck = require('./healthCheck');
 
 let jobs = [];
 
@@ -118,6 +119,22 @@ const scheduleMaintenanceJobs = () => {
         boundaryJob.jobName = 'Maintenance: Year Boundary';
         boundaryJob.category = 'maintenance';
         jobs.push(boundaryJob);
+    }
+
+    // 3. System Health Check - Run Hourly
+    const healthJob = schedule.scheduleJob('0 * * * *', async () => {
+        try {
+            console.log('[Maintenance] Running Hourly Health Check...');
+            await healthCheck.refresh('all');
+        } catch (e) {
+            console.error('[Maintenance] Health Check Failed:', e);
+        }
+    });
+
+    if (healthJob) {
+        healthJob.jobName = 'Maintenance: Health Check';
+        healthJob.category = 'maintenance';
+        jobs.push(healthJob);
     }
 };
 

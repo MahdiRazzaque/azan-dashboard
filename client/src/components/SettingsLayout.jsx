@@ -4,7 +4,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { NavLink, Outlet } from 'react-router-dom';
 import { 
     Menu, X, Settings, Clock, Zap, FileAudio, 
-    Terminal, LogOut, ChevronLeft, User, Save, RotateCcw
+    Terminal, LogOut, ChevronLeft, User, Save, RotateCcw, AlertTriangle
 } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
@@ -28,6 +28,7 @@ export default function SettingsLayout({ logs }) {
     saveSettings, 
     resetToDefaults, 
     isSectionDirty, 
+    getSectionHealth,
     resetDraft,
     saving 
   } = useSettings();
@@ -117,9 +118,25 @@ export default function SettingsLayout({ logs }) {
         to: '/settings/developer', 
         label: 'Developer', 
         icon: Terminal, 
-        isDirty: () => isSectionDirty('data')
+        isDirty: () => isSectionDirty('data'),
+        health: () => {
+             // For simplicity, Check if TTS or Local or VoiceMonkey is down
+             // Since developer settings covers everything
+             const tts = getSectionHealth('automation.triggers').issues.some(i => i.type.includes('TTS'));
+             const local = getSectionHealth('automation.triggers').issues.some(i => i.type.includes('Local'));
+             const vm = getSectionHealth('automation.triggers').issues.some(i => i.type.includes('VoiceMonkey'));
+             return { healthy: !(tts || local || vm), issues: [] };
+        }
     },
   ];
+
+  // Helper to get health for a specific nav item
+  const getItemHealth = (item) => {
+      if (item.health) return item.health();
+      if (item.label === 'Prayers') return getSectionHealth('automation.triggers');
+      if (item.label === 'Automation') return getSectionHealth('automation.triggers');
+      return { healthy: true, issues: [] };
+  };
 
   const unsaved = hasUnsavedChanges();
 
@@ -162,6 +179,9 @@ export default function SettingsLayout({ logs }) {
                         >
                             <item.icon className="w-5 h-5" />
                             <span className="flex-1">{item.label}</span>
+                            {!getItemHealth(item).healthy && (
+                                <AlertTriangle className="w-4 h-4 text-amber-500 animate-pulse mr-1" />
+                            )}
                             {isDirty && (
                                 <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
                             )}
@@ -194,6 +214,17 @@ export default function SettingsLayout({ logs }) {
                     <RotateCcw className="w-4 h-4" />
                     Reset to Default
                 </button>
+                
+                {unsaved && (
+                    <button
+                        onClick={resetDraft}
+                        disabled={saving}
+                        className="flex w-full items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-400 hover:bg-zinc-800 rounded-md transition-colors border border-red-900/30"
+                    >
+                        <X className="w-4 h-4" />
+                        Discard All
+                    </button>
+                )}
             </div>
 
             <div className="p-4 border-t border-zinc-800 shrink-0">

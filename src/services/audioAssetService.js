@@ -81,6 +81,22 @@ const prepareDailyAssets = async (forceClean = false) => {
     console.log('[AudioService] Preparing daily audio assets...');
     ensureCacheDir();
     
+// Dynamic require to get fresh config ONCE
+    const config = configService.get();
+    const triggers = config.automation?.triggers;
+    const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
+
+    // Health Check: Ensure TTS service is available before doing anything
+    const healthCheck = require('./healthCheck');
+    console.log('[AudioService] Verifying TTS Service status...');
+    await healthCheck.refresh('tts');
+    const health = healthCheck.getHealth();
+    
+    if (!health.tts) {
+        console.error('[AudioService] Aborting: TTS Service is offline.');
+        throw new Error('TTS Service is offline. Cannot generate audio assets.');
+    }
+
     if (forceClean) {
         console.log('[AudioService] Force cleaning all cached assets...');
         try {
@@ -95,11 +111,6 @@ const prepareDailyAssets = async (forceClean = false) => {
             console.error('[AudioService] Failed to force clean cache:', e);
         }
     }
-    
-    // Dynamic require to get fresh config ONCE
-    const config = configService.get();
-    const triggers = config.automation?.triggers;
-    const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
 
     if (!triggers) return;
 

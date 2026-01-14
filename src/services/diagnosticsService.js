@@ -47,30 +47,46 @@ const getAutomationStatus = async (config) => {
         }
 
         // Helper to determine status
-        const getStatus = (enabled, time) => {
+        const getStatus = (triggerConfig, time) => {
+            const enabled = triggerConfig?.enabled;
             if (!enabled) return { status: 'DISABLED' };
             if (!time) return { status: 'ERROR', error: 'Time calculation failed' };
             
+            // Extract Details for Hover
+            const type = triggerConfig.type || 'file';
+            let source = 'Unknown';
+            if (type === 'file') source = triggerConfig.path ? path.basename(triggerConfig.path) : 'No File';
+            else if (type === 'url') source = triggerConfig.url || 'No URL';
+            else if (type === 'tts') source = triggerConfig.template ? `"${triggerConfig.template.substring(0, 30)}${triggerConfig.template.length > 30 ? '...' : ''}"` : 'No Template';
+
+            const targets = triggerConfig.targets || [];
+
+            const details = {
+                type,
+                source,
+                targets: targets.join(', ')
+            };
+
             if (time < now) {
-                return { status: 'PASSED', time: time.toISO() };
+                return { status: 'PASSED', time: time.toISO(), details };
             } else {
-                return { status: 'UPCOMING', time: time.toISO() };
+                return { status: 'UPCOMING', time: time.toISO(), details };
             }
         };
 
         // 1. Adhan
-        result[prayer].adhan = getStatus(prayerTriggers.adhan?.enabled, start);
+        result[prayer].adhan = getStatus(prayerTriggers.adhan, start);
 
         // 2. Pre-Adhan
         const preAdhanOffset = prayerTriggers.preAdhan?.offsetMinutes || 0;
-        result[prayer].preAdhan = getStatus(prayerTriggers.preAdhan?.enabled, start.minus({ minutes: preAdhanOffset }));
+        result[prayer].preAdhan = getStatus(prayerTriggers.preAdhan, start.minus({ minutes: preAdhanOffset }));
 
         // 3. Iqamah
-        result[prayer].iqamah = getStatus(prayerTriggers.iqamah?.enabled, iqamah);
+        result[prayer].iqamah = getStatus(prayerTriggers.iqamah, iqamah);
 
         // 4. Pre-Iqamah
         const preIqamahOffset = prayerTriggers.preIqamah?.offsetMinutes || 0;
-        result[prayer].preIqamah = getStatus(prayerTriggers.preIqamah?.enabled, iqamah ? iqamah.minus({ minutes: preIqamahOffset }) : null);
+        result[prayer].preIqamah = getStatus(prayerTriggers.preIqamah, iqamah ? iqamah.minus({ minutes: preIqamahOffset }) : null);
     }
 
     return result;

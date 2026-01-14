@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { RefreshCw, Power, RotateCcw, Activity, Database } from 'lucide-react';
+import { RefreshCw, Power, RotateCcw, Activity, Database, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { useSettings } from '../../contexts/SettingsContext';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 export default function DeveloperSettingsView() {
     const { logs } = useOutletContext();
+    const { systemHealth, refreshHealth, config, draftConfig, resetDraft } = useSettings();
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(null); // 'tts' | 'scheduler' | null
     const [message, setMessage] = useState(null);
@@ -71,9 +77,10 @@ export default function DeveloperSettingsView() {
         }
     };
 
-    const AutomationStatusCell = ({ status, time }) => {
+    const AutomationStatusCell = ({ status, time, details }) => {
         let color = 'bg-zinc-800 text-zinc-500 border-zinc-700'; // Disabled/Unknown
         let label = status;
+        let title = status;
 
         if (status === 'PASSED') {
             color = 'bg-emerald-900/30 text-emerald-400 border-emerald-800/50';
@@ -83,8 +90,15 @@ export default function DeveloperSettingsView() {
             label = time ? new Date(time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Pending';
         }
 
+        if (details) {
+            title = `Type: ${details.type}\nSource: ${details.source}\nTargets: ${details.targets}`;
+        }
+
         return (
-            <div className={`px-2 py-1 rounded text-xs font-mono border text-center whitespace-nowrap overflow-hidden text-ellipsis ${color}`}>
+            <div 
+                className={`px-2 py-1 rounded text-xs font-mono border text-center whitespace-nowrap overflow-hidden text-ellipsis ${color}`}
+                title={title}
+            >
                 {label}
             </div>
         );
@@ -118,9 +132,19 @@ export default function DeveloperSettingsView() {
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-12">
-            <div>
-                <h2 className="text-2xl font-bold text-white mb-2">Developer Tools</h2>
-                <p className="text-zinc-400">System diagnostics and maintenance operations.</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Developer Tools</h2>
+                    <p className="text-zinc-400">System diagnostics and maintenance operations.</p>
+                </div>
+                {JSON.stringify(config) !== JSON.stringify(draftConfig) && (
+                    <button
+                        onClick={resetDraft}
+                        className="px-4 py-2 rounded-lg font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-zinc-700"
+                    >
+                        Discard Changes
+                    </button>
+                )}
             </div>
 
             {message && (
@@ -130,6 +154,105 @@ export default function DeveloperSettingsView() {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                {/* System Health */}
+                <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 lg:col-span-2">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-emerald-500" /> System Health
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                        {/* Left Column: API & VoiceMonkey */}
+                        <div className="space-y-4">
+                             {/* API Health (Synthesized) */}
+                             <div className="flex items-center justify-between p-3 bg-zinc-900 rounded border border-zinc-800">
+                                 <div>
+                                     <div className="flex items-center gap-2">
+                                         <span className="font-medium text-zinc-200">API Server</span>
+                                         <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                     </div>
+                                     <div className="text-xs text-zinc-500">Node.js Backend (Port 3000)</div>
+                                 </div>
+                                 <button 
+                                     onClick={() => window.location.reload()}
+                                     className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors"
+                                     title="Reload Page"
+                                 >
+                                     <RefreshCw className="w-4 h-4" />
+                                 </button>
+                             </div>
+
+                             {/* VoiceMonkey */}
+                             <div className="flex items-center justify-between p-3 bg-zinc-900 rounded border border-zinc-800">
+                                 <div>
+                                     <div className="flex items-center gap-2">
+                                         <span className="font-medium text-zinc-200">VoiceMonkey</span>
+                                         {systemHealth.voiceMonkey ? (
+                                             <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                         ) : (
+                                             <XCircle className="w-4 h-4 text-red-500" />
+                                         )}
+                                     </div>
+                                     <div className="text-xs text-zinc-500">Cloud API Connectivity</div>
+                                 </div>
+                                 <button 
+                                     onClick={() => refreshHealth('voiceMonkey')}
+                                     className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors"
+                                     title="Refresh Status"
+                                 >
+                                     <RefreshCw className="w-4 h-4" />
+                                 </button>
+                             </div>
+                        </div>
+
+                        {/* Right Column: TTS & Local */}
+                        <div className="space-y-4">
+                             {/* TTS Service */}
+                             <div className="flex items-center justify-between p-3 bg-zinc-900 rounded border border-zinc-800">
+                                 <div>
+                                     <div className="flex items-center gap-2">
+                                         <span className="font-medium text-zinc-200">TTS Service</span>
+                                         {systemHealth.tts ? (
+                                             <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                         ) : (
+                                             <XCircle className="w-4 h-4 text-red-500" />
+                                         )}
+                                     </div>
+                                     <div className="text-xs text-zinc-500">Python Server (Port 8000)</div>
+                                 </div>
+                                 <button 
+                                     onClick={() => refreshHealth('tts')}
+                                     className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors"
+                                     title="Refresh Status"
+                                 >
+                                     <RefreshCw className="w-4 h-4" />
+                                 </button>
+                             </div>
+
+                             {/* Local Audio */}
+                             <div className="flex items-center justify-between p-3 bg-zinc-900 rounded border border-zinc-800">
+                                 <div>
+                                     <div className="flex items-center gap-2">
+                                         <span className="font-medium text-zinc-200">Local Audio</span>
+                                         {systemHealth.local ? (
+                                             <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                         ) : (
+                                             <XCircle className="w-4 h-4 text-red-500" />
+                                         )}
+                                     </div>
+                                     <div className="text-xs text-zinc-500">mpg123 CLI Tool</div>
+                                 </div>
+                                 <button 
+                                     onClick={() => refreshHealth('local')}
+                                     className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors"
+                                     title="Refresh Status"
+                                 >
+                                     <RefreshCw className="w-4 h-4" />
+                                 </button>
+                             </div>
+                        </div>
+                    </div>
+                </div>
                 
                 {/* Actions */}
                 <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6">
@@ -139,14 +262,16 @@ export default function DeveloperSettingsView() {
                     <div className="flex flex-col gap-3">
                         <button
                             onClick={() => callSystemAction('tts', '/api/system/regenerate-tts')}
-                            disabled={loading !== null}
+                            disabled={loading !== null || !systemHealth.tts}
                             className="flex items-center justify-between p-4 bg-zinc-900 rounded-lg border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 transition-all group disabled:opacity-50"
                         >
                              <div className="flex items-center gap-3">
                                  <RefreshCw className={`w-5 h-5 text-blue-400 ${loading === 'tts' ? 'animate-spin' : ''}`} />
                                  <div className="text-left">
                                      <div className="font-medium text-zinc-200">Regenerate TTS Assets</div>
-                                     <div className="text-xs text-zinc-500 group-hover:text-zinc-400">Rebuilds audio files for today's cache</div>
+                                     <div className="text-xs text-zinc-500 group-hover:text-zinc-400">
+                                         {systemHealth.tts ? "Rebuilds audio files for today's cache" : <span className="text-red-400">TTS Service Offline</span>}
+                                     </div>
                                  </div>
                              </div>
                         </button>
@@ -215,55 +340,105 @@ export default function DeveloperSettingsView() {
             </div>
 
             {/* Automation Status */}
-            <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 overflow-hidden">
-                 <div className="flex items-center justify-between mb-4">
-                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                         <span className="w-2 h-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50"></span>
-                         Automation Status
-                     </h3>
-                     <div className="flex gap-4 text-xs font-medium">
-                         <div className="flex items-center gap-2 text-zinc-400">
-                             <span className="w-2 h-2 rounded-full bg-emerald-500/50"></span> Passed
+            {(() => {
+                 const isGlobalDisabled = config?.automation?.global?.enabled === false;
+                 
+                 // Column Disable States
+                 const isPreAdhanDisabled = config?.automation?.global?.preAdhanEnabled === false;
+                 const isAdhanDisabled = config?.automation?.global?.adhanEnabled === false;
+                 const isPreIqamahDisabled = config?.automation?.global?.preIqamahEnabled === false;
+                 const isIqamahDisabled = config?.automation?.global?.iqamahEnabled === false;
+
+                 return (
+                    <div className={cn(
+                        "bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 overflow-hidden transition-all duration-300 relative",
+                        isGlobalDisabled && "opacity-60 grayscale bg-zinc-900/10 pointer-events-none"
+                    )}>
+                        {isGlobalDisabled && (
+                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/20 backdrop-blur-[1px]">
+                                 <div className="bg-zinc-900/90 px-4 py-2 rounded border border-zinc-800 text-xs font-bold text-zinc-500 uppercase tracking-wider shadow-xl flex items-center gap-2">
+                                     <div className="w-2 h-2 rounded-full bg-zinc-600"></div>
+                                     Automation Globally Disabled
+                                 </div>
+                             </div>
+                        )}
+
+                         <div className="flex items-center justify-between mb-4">
+                             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                 <span className="w-2 h-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50"></span>
+                                 Automation Status
+                             </h3>
+                             <div className="flex gap-4 text-xs font-medium">
+                                 <div className="flex items-center gap-2 text-zinc-400">
+                                     <span className="w-2 h-2 rounded-full bg-emerald-500/50"></span> Passed
+                                 </div>
+                                 <div className="flex items-center gap-2 text-zinc-400">
+                                     <span className="w-2 h-2 rounded-full bg-blue-500/50"></span> Upcoming
+                                 </div>
+                             </div>
                          </div>
-                         <div className="flex items-center gap-2 text-zinc-400">
-                             <span className="w-2 h-2 rounded-full bg-blue-500/50"></span> Upcoming
+                         <div className="overflow-x-auto">
+                             <table className="w-full text-sm text-center">
+                                 <thead className="text-xs text-zinc-500 uppercase bg-zinc-900/50">
+                                     <tr>
+                                         <th className="px-3 py-2 text-left">Prayer</th>
+                                         <th className={cn("px-3 py-2", isPreAdhanDisabled && "opacity-30 relative")}>
+                                            Pre-Adhan
+                                         </th>
+                                         <th className={cn("px-3 py-2", isAdhanDisabled && "opacity-30 relative")}>
+                                            Adhan
+                                         </th>
+                                         <th className={cn("px-3 py-2", isPreIqamahDisabled && "opacity-30 relative")}>
+                                            Pre-Iqamah
+                                         </th>
+                                         <th className={cn("px-3 py-2", isIqamahDisabled && "opacity-30 relative")}>
+                                            Iqamah
+                                         </th>
+                                     </tr>
+                                 </thead>
+                                 <tbody className="divide-y divide-zinc-800/50">
+                                     {!automationStatus ? (
+                                         <tr><td colSpan="5" className="p-4 text-center text-zinc-500">Loading...</td></tr>
+                                     ) : Object.entries(automationStatus).map(([prayer, events]) => (
+                                         <tr key={prayer}>
+                                             <td className="px-3 py-3 text-left font-medium text-zinc-300 capitalize">{prayer}</td>
+                                             <td className={cn("px-2 py-2", isPreAdhanDisabled && "opacity-20 grayscale pointer-events-none")}>
+                                                <AutomationStatusCell {...events.preAdhan} />
+                                             </td>
+                                             <td className={cn("px-2 py-2", isAdhanDisabled && "opacity-20 grayscale pointer-events-none")}>
+                                                <AutomationStatusCell {...events.adhan} />
+                                             </td>
+                                             <td className={cn("px-2 py-2", isPreIqamahDisabled && "opacity-20 grayscale pointer-events-none")}>
+                                                <AutomationStatusCell {...events.preIqamah} />
+                                             </td>
+                                             <td className={cn("px-2 py-2", isIqamahDisabled && "opacity-20 grayscale pointer-events-none")}>
+                                                <AutomationStatusCell {...events.iqamah} />
+                                             </td>
+                                         </tr>
+                                     ))}
+                                 </tbody>
+                             </table>
                          </div>
-                     </div>
-                 </div>
-                 <div className="overflow-x-auto">
-                     <table className="w-full text-sm text-center">
-                         <thead className="text-xs text-zinc-500 uppercase bg-zinc-900/50">
-                             <tr>
-                                 <th className="px-3 py-2 text-left">Prayer</th>
-                                 <th className="px-3 py-2">Pre-Adhan</th>
-                                 <th className="px-3 py-2">Adhan</th>
-                                 <th className="px-3 py-2">Pre-Iqamah</th>
-                                 <th className="px-3 py-2">Iqamah</th>
-                             </tr>
-                         </thead>
-                         <tbody className="divide-y divide-zinc-800/50">
-                             {!automationStatus ? (
-                                 <tr><td colSpan="5" className="p-4 text-center text-zinc-500">Loading...</td></tr>
-                             ) : Object.entries(automationStatus).map(([prayer, events]) => (
-                                 <tr key={prayer}>
-                                     <td className="px-3 py-3 text-left font-medium text-zinc-300 capitalize">{prayer}</td>
-                                     <td className="px-2 py-2"><AutomationStatusCell {...events.preAdhan} /></td>
-                                     <td className="px-2 py-2"><AutomationStatusCell {...events.adhan} /></td>
-                                     <td className="px-2 py-2"><AutomationStatusCell {...events.preIqamah} /></td>
-                                     <td className="px-2 py-2"><AutomationStatusCell {...events.iqamah} /></td>
-                                 </tr>
-                             ))}
-                         </tbody>
-                     </table>
-                 </div>
-            </div>
+                    </div>
+                 );
+            })()}
 
             {/* TTS Status */}
-            <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 overflow-hidden">
-                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                     <span className="w-2 h-2 rounded-full bg-purple-500 shadow-lg shadow-purple-500/50"></span>
-                     TTS Asset Status
-                 </h3>
+            <div className={cn(
+                "bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 overflow-hidden transition-opacity",
+                !systemHealth.tts && "opacity-50 grayscale select-none pointer-events-none"
+            )}>
+                 <div className="flex items-center justify-between mb-4">
+                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                         <span className={cn("w-2 h-2 rounded-full shadow-lg", !systemHealth.tts ? "bg-zinc-600" : "bg-purple-500 shadow-purple-500/50")}></span>
+                         TTS Asset Status
+                     </h3>
+                     {!systemHealth.tts && (
+                         <div className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-xs text-zinc-400 font-mono">
+                             SERVICE OFFLINE
+                         </div>
+                     )}
+                 </div>
                  <div className="overflow-x-auto">
                      <table className="w-full text-sm text-center">
                          <thead className="text-xs text-zinc-500 uppercase bg-zinc-900/50">
