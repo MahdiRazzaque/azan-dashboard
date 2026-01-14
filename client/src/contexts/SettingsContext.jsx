@@ -66,12 +66,12 @@ export const SettingsProvider = ({ children }) => {
       let warningsList = [];
       let invalidCount = 0;
 
-      prayers.forEach(prayer => {
-          if (!configToSave.automation?.triggers?.[prayer]) return;
-          ['preAdhan', 'adhan', 'preIqamah', 'iqamah'].forEach(type => {
+      for (const prayer of prayers) {
+          if (!configToSave.automation?.triggers?.[prayer]) continue;
+          for (const type of ['preAdhan', 'adhan', 'preIqamah', 'iqamah']) {
               const trigger = configToSave.automation.triggers[prayer][type];
               if (trigger && trigger.enabled) {
-                  const error = validateTrigger(trigger);
+                  const error = await validateTrigger(trigger);
                   if (error) {
                       trigger.enabled = false;
                       invalidCount++;
@@ -79,8 +79,8 @@ export const SettingsProvider = ({ children }) => {
                       warningsList.push(`${niceName}: ${error}`);
                   }
               }
-          });
-      });
+          }
+      }
 
       if (invalidCount > 0) {
           warningMessage = `${invalidCount} invalid automation(s) were disabled automatically.`;
