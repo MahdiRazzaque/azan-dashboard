@@ -90,7 +90,11 @@ export default function GeneralSettingsView() {
         {/* Prayer Source Section */}
         <section className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 shadow-xl">
             <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-zinc-800 pb-2 flex items-center gap-2">
-                <Globe className="w-5 h-5" /> Prayer Data Source
+                <Globe className="w-5 h-5" /> 
+                Prayer Data Source
+                {isSectionDirty('sources') && (
+                    <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                )}
             </h2>
             
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -200,7 +204,11 @@ export default function GeneralSettingsView() {
         {/* Timezone Section */}
         <section className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 shadow-xl">
              <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-zinc-800 pb-2 flex items-center gap-2">
-                <MapPin className="w-5 h-5" /> Localization
+                <MapPin className="w-5 h-5" /> 
+                Localization
+                {isSectionDirty('location') && (
+                    <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                )}
             </h2>
             
             <div className="max-w-md">

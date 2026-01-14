@@ -4,7 +4,7 @@ import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
-export default function TriggerCard({ label, trigger, onChange, files, error }) {
+export default function TriggerCard({ label, trigger, onChange, files, error, isDirty }) {
     const update = (key, val) => {
         onChange({ ...trigger, [key]: val });
     };
@@ -24,7 +24,12 @@ export default function TriggerCard({ label, trigger, onChange, files, error }) 
             trigger.enabled ? "bg-zinc-900/50 border-zinc-700" : "bg-zinc-900/20 border-zinc-800 opacity-75"
         )}>
              <div className="flex items-center justify-between mb-4">
-                 <h4 className="font-semibold text-zinc-200">{label}</h4>
+                 <div className="flex items-center gap-2">
+                    <h4 className="font-semibold text-zinc-200">{label}</h4>
+                    {isDirty && (
+                        <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)] animate-pulse" />
+                    )}
+                 </div>
                  <button
                     role="switch"
                     aria-checked={trigger.enabled}

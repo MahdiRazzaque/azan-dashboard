@@ -85,6 +85,9 @@ export default function AutomationSettingsView() {
             <h2 className="text-xl font-semibold mb-4 text-emerald-400 flex items-center gap-2 border-b border-zinc-800 pb-2">
                 <Power className="w-5 h-5" />
                 Master Controls
+                {JSON.stringify(config?.automation?.global) !== JSON.stringify(draftConfig?.automation?.global) && (
+                    <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                )}
             </h2>
             <div className="space-y-2">
                 <Toggle 
@@ -127,6 +130,9 @@ export default function AutomationSettingsView() {
             <h2 className="text-xl font-semibold mb-4 text-emerald-400 flex items-center gap-2 border-b border-zinc-800 pb-2">
                 <Zap className="w-5 h-5" />
                 VoiceMonkey Integration
+                {JSON.stringify(config?.automation?.voiceMonkey) !== JSON.stringify(draftConfig?.automation?.voiceMonkey) && (
+                    <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                )}
             </h2>
              <Toggle 
                 label="Enable VoiceMonkey" 

@@ -13,6 +13,7 @@ const PRAYERS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 export default function PrayerSettingsView() {
     const { 
         draftConfig, 
+        config,
         updateSetting, 
         saveSettings, 
         saving,
@@ -69,6 +70,30 @@ export default function PrayerSettingsView() {
         }
 
         updateSetting(`automation.triggers.${activeTab}.${triggerName}`, newTriggerData);
+    };
+
+    const isTriggerDirty = (prayer, type) => {
+        if (!config || !draftConfig) return false;
+        const original = config.automation.triggers[prayer]?.[type];
+        const current = draftConfig.automation.triggers[prayer]?.[type];
+        // Simple JSON comparison for deep equality of simple objects
+        return JSON.stringify(original) !== JSON.stringify(current);
+    };
+
+    const isPrayerTabDirty = (prayer) => {
+        if (!config || !draftConfig) return false;
+        
+        // Check triggers
+        const triggerTypes = ['preAdhan', 'adhan', 'preIqamah', 'iqamah'];
+        const triggersChanged = triggerTypes.some(type => isTriggerDirty(prayer, type));
+        
+        if (triggersChanged) return true;
+
+        // Check iqamah settings (part of prayers object)
+        const originalSettings = config.prayers[prayer];
+        const currentSettings = draftConfig.prayers[prayer];
+        
+        return JSON.stringify(originalSettings) !== JSON.stringify(currentSettings);
     };
 
 
@@ -168,19 +193,25 @@ export default function PrayerSettingsView() {
 
             {/* Navigation Pills */}
             <div className="flex p-1 bg-zinc-900/50 rounded-xl border border-zinc-800 backdrop-blur-sm w-fit">
-                {PRAYERS.map(p => (
+                {PRAYERS.map(p => {
+                    const isDirty = isPrayerTabDirty(p);
+                    return (
                     <button
                         key={p}
                         onClick={() => setActiveTab(p)}
-                        className={`px-6 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
+                        className={`px-6 py-2 rounded-lg text-sm font-medium capitalize transition-all relative flex items-center gap-2 ${
                             activeTab === p 
                             ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' 
                             : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
                         }`}
                     >
                         {p}
+                        {isDirty && (
+                            <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                        )}
                     </button>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Warning Banner */}
@@ -213,6 +244,7 @@ export default function PrayerSettingsView() {
                             onChange={d => updateTrigger('preAdhan', d)} 
                             files={audioFiles}
                             error={validationErrors[`${activeTab}-preAdhan`]}
+                            isDirty={isTriggerDirty(activeTab, 'preAdhan')}
                         />
                          <TriggerCard 
                             label="2. Adhan" 
@@ -220,6 +252,7 @@ export default function PrayerSettingsView() {
                             onChange={d => updateTrigger('adhan', d)} 
                             files={audioFiles}
                             error={validationErrors[`${activeTab}-adhan`]}
+                            isDirty={isTriggerDirty(activeTab, 'adhan')}
                         />
                          <TriggerCard 
                             label="3. Pre-Iqamah" 
@@ -227,6 +260,7 @@ export default function PrayerSettingsView() {
                             onChange={d => updateTrigger('preIqamah', d)} 
                             files={audioFiles}
                             error={validationErrors[`${activeTab}-preIqamah`]}
+                            isDirty={isTriggerDirty(activeTab, 'preIqamah')}
                         />
                          <TriggerCard 
                             label="4. Iqamah" 
@@ -234,6 +268,7 @@ export default function PrayerSettingsView() {
                             onChange={d => updateTrigger('iqamah', d)} 
                             files={audioFiles}
                             error={validationErrors[`${activeTab}-iqamah`]}
+                            isDirty={isTriggerDirty(activeTab, 'iqamah')}
                         />
                     </div>
                 </div>
@@ -243,7 +278,12 @@ export default function PrayerSettingsView() {
                     <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6">
                         <div className="flex items-center gap-3 mb-6">
                             <Clock className="w-5 h-5 text-emerald-500" />
-                            <h3 className="text-lg font-semibold text-white">Iqamah Rules</h3>
+                            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                Iqamah Rules
+                                {JSON.stringify(config.prayers[activeTab]) !== JSON.stringify(localConfig.prayers[activeTab]) && (
+                                    <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                                )}
+                            </h3>
                         </div>
 
                         <div className="space-y-6">
