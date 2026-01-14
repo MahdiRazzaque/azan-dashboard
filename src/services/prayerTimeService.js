@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { fetchAladhanAnnual, fetchMyMasjidBulk } = require('./fetchers');
 const { DateTime } = require('luxon');
+const { calculateIqamah } = require('../utils/calculations');
 
 const CACHE_FILE = path.join(process.cwd(), 'data', 'cache.json');
 
@@ -36,7 +37,7 @@ async function getPrayerTimes(config, date = DateTime.now()) {
         lastFetched: cache.meta.lastFetched,
         cached: true
       },
-      prayers: cache.data[dateKey]
+      prayers: applyOverrides(cache.data[dateKey], config)
     };
   }
 
@@ -116,7 +117,7 @@ async function getPrayerTimes(config, date = DateTime.now()) {
       lastFetched: updatedCache.meta.lastFetched,
       cached: false
     },
-    prayers: resultForDate
+    prayers: applyOverrides(resultForDate, config)
   };
 }
 
@@ -143,6 +144,27 @@ function writeCache(data) {
   } catch (e) {
     console.error(`Error writing cache file: ${e.message}`);
   }
+}
+
+function applyOverrides(prayers, config) {
+    if (!prayers) return prayers;
+    if (!config || !config.prayers) return prayers;
+    const processed = { ...prayers, iqamah: { ...(prayers.iqamah || {}) } };
+    
+    ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].forEach(prayer => {
+        const pConfig = config.prayers[prayer];
+        if (pConfig && pConfig.iqamahOverride) {
+            if (prayers[prayer]) {
+                try {
+                    const iqamah = calculateIqamah(prayers[prayer], pConfig, config.location.timezone);
+                    processed.iqamah[prayer] = iqamah;
+                } catch (e) {
+                    console.warn(`Failed to override iqamah for ${prayer}:`, e.message);
+                }
+            }
+        }
+    });
+    return processed;
 }
 
 /**

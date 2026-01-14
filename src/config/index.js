@@ -7,6 +7,7 @@ const prayerSettingSchema = z.object({
   iqamahOffset: z.number(),
   roundTo: z.number(),
   fixedTime: z.string().nullable(),
+  iqamahOverride: z.boolean().default(false),
 });
 
 const triggerActionSchema = z.enum(['tts', 'file', 'url']);
@@ -31,6 +32,13 @@ const prayerTriggersSchema = z.object({
 
 const automationSchema = z.object({
   enabled: z.boolean(),
+  global: z.object({
+    enabled: z.boolean().default(true),
+    preAdhanEnabled: z.boolean().default(true),
+    adhanEnabled: z.boolean().default(true),
+    preIqamahEnabled: z.boolean().default(true),
+    iqamahEnabled: z.boolean().default(true),
+  }).default({}),
   baseUrl: z.string(),
   audioPlayer: z.string(),
   pythonServiceUrl: z.string(),

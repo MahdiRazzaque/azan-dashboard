@@ -114,6 +114,15 @@ const triggerEvent = async (prayer, event) => {
     }
 };
 
+const playTestAudio = (filePath) => {
+     console.log(`[Test:Local] Playing ${filePath}`);
+     const audioPlayer = config.automation.audioPlayer || 'mpg123';
+     player.play(filePath, { player: audioPlayer }, (err) => {
+        if (err) console.error(`[Test:Local] Playback error:`, err);
+     });
+};
+
 module.exports = {
-    triggerEvent
+    triggerEvent,
+    playTestAudio
 };

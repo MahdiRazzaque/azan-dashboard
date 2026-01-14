@@ -17,6 +17,26 @@ const clearJobs = () => {
 };
 
 const scheduleEvent = (date, prayer, event) => {
+    // Check Global Switches
+    if (config.automation?.global) {
+        if (config.automation.global.enabled === false) {
+            return;
+        }
+
+        const eventTypeMap = {
+            'preAdhan': 'preAdhanEnabled',
+            'adhan': 'adhanEnabled',
+            'preIqamah': 'preIqamahEnabled',
+            'iqamah': 'iqamahEnabled'
+        };
+
+        const switchKey = eventTypeMap[event];
+        if (switchKey && config.automation.global[switchKey] === false) {
+             console.log(`[Scheduler] Skipped ${prayer} ${event} (Global Switch OFF)`);
+             return;
+        }
+    }
+
     // Safety buffer: If time is in the past, don't schedule
     if (date < DateTime.now()) {
         return;
@@ -27,6 +47,7 @@ const scheduleEvent = (date, prayer, event) => {
     });
 
     if (job) {
+        job.jobName = `${prayer} - ${event}`;
         jobs.push(job);
         console.log(`[Scheduler] Scheduled ${prayer} ${event} at ${date.toFormat('HH:mm:ss')}`);
     }
@@ -58,7 +79,10 @@ const scheduleMaintenanceJobs = () => {
             console.error('[Maintenance] Stale Check Failed:', e);
         }
     });
-    if (staleJob) jobs.push(staleJob);
+    if (staleJob) {
+        staleJob.jobName = 'Maintenance: Stale Check';
+        jobs.push(staleJob);
+    } 
 
     // 2. Year Boundary - Run Daily (04:00)
     const boundaryJob = schedule.scheduleJob('0 4 * * *', async () => {
@@ -85,7 +109,10 @@ const scheduleMaintenanceJobs = () => {
              console.error('[Maintenance] Year Boundary Check Failed:', e);
         }
     });
-    if (boundaryJob) jobs.push(boundaryJob);
+    if (boundaryJob) {
+        boundaryJob.jobName = 'Maintenance: Year Boundary';
+        jobs.push(boundaryJob);
+    }
 };
 
 const initScheduler = async () => {
@@ -104,6 +131,7 @@ const initScheduler = async () => {
             console.log('[Scheduler] Midnight Refresh');
             initScheduler();
         });
+        if (midnightJob) midnightJob.jobName = 'System: Midnight Refresh';
         jobs.push(midnightJob);
         
         // Prepare data for today
@@ -144,14 +172,16 @@ const initScheduler = async () => {
              
              // Determine Iqamah
              let iqamah = null;
+             const prayerConfig = config.prayers[prayer];
+             const isOverride = prayerConfig?.iqamahOverride === true;
              
-             // 1. Explicit Iqamah from Source
-             if (prayerData.prayers.iqamah && prayerData.prayers.iqamah[prayer]) {
+             // 1. Explicit Iqamah from Source (Only if NOT overridden)
+             if (!isOverride && prayerData.prayers.iqamah && prayerData.prayers.iqamah[prayer]) {
                  iqamah = DateTime.fromISO(prayerData.prayers.iqamah[prayer]).setZone(config.location.timezone);
              } 
-             // 2. Calculated (Fallback)
-             else if (config.prayers[prayer]) {
-                 const calculatedIso = calculateIqamah(startISO, config.prayers[prayer], config.location.timezone);
+             // 2. Calculated (Fallback or Forced Override)
+             else if (prayerConfig) {
+                 const calculatedIso = calculateIqamah(startISO, prayerConfig, config.location.timezone);
                  iqamah = DateTime.fromISO(calculatedIso).setZone(config.location.timezone);
              }
 
@@ -187,6 +217,46 @@ const initScheduler = async () => {
     }
 };
 
+const getJobs = () => {
+    return jobs.map(j => {
+        let next = null;
+        try { 
+            next = j.nextInvocation(); 
+        } catch (e) {
+            console.error(`[Scheduler] Error calculating next invocation for ${j.jobName}:`, e);
+        }
+        
+        let nextISO = null;
+        if (next) {
+            try {
+                // Handle CronDate (node-schedule v2+)
+                if (typeof next.toDate === 'function') {
+                    nextISO = DateTime.fromJSDate(next.toDate()).toISO();
+                }
+                // Handle standard JS Date
+                else if (next instanceof Date) {
+                    nextISO = DateTime.fromJSDate(next).toISO();
+                } 
+                // Handle Luxon DateTime
+                else if (typeof next.toISO === 'function') {
+                    nextISO = next.toISO();
+                }
+                // Fallback
+                else {
+                    nextISO = new Date(next).toISOString();
+                }
+            } catch (err) {
+                 console.error(`[Scheduler] Date conversion failed for ${j.jobName}:`, err);
+            }
+        }
+
+        return {
+            name: j.jobName || 'Unknown Job',
+            nextInvocation: nextISO
+        };
+    });
+};
+
 const hotReload = () => {
     console.log('[Scheduler] Hot Reloading...');
     return initScheduler();
@@ -194,5 +264,7 @@ const hotReload = () => {
 
 module.exports = {
     initScheduler,
-    hotReload
+    hotReload,
+    getJobs,
+    stopAll: clearJobs
 };

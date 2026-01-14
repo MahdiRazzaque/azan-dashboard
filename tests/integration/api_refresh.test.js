@@ -5,6 +5,10 @@ const express = require('express');
 jest.mock('../../src/services/schedulerService');
 jest.mock('../../src/services/sseService');
 jest.mock('../../src/services/prayerTimeService');
+jest.mock('../../src/middleware/auth', () => (req, res, next) => {
+    req.user = { id: 1, role: 'admin' };
+    next();
+});
 jest.mock('fs', () => ({
     existsSync: jest.fn().mockReturnValue(true),
     mkdirSync: jest.fn(),
@@ -33,12 +37,14 @@ describe('Refresh Endpoint', () => {
             meta: { cached: false, lastFetched: '2023-01-01' }
         });
         schedulerService.hotReload.mockResolvedValue();
+        schedulerService.initScheduler.mockResolvedValue();
+        schedulerService.stopAll.mockResolvedValue();
 
         const res = await request(app).post('/api/settings/refresh-cache');
         
         expect(res.statusCode).toBe(200);
         expect(prayerTimeService.forceRefresh).toHaveBeenCalled();
-        expect(schedulerService.hotReload).toHaveBeenCalled();
+        expect(schedulerService.initScheduler).toHaveBeenCalled();
         expect(res.body.message).toContain('refreshed');
     });
 });

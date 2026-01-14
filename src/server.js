@@ -13,6 +13,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(require('cookie-parser')());
 
 // Serve static files from the client build directory
 app.use(express.static(path.join(__dirname, '../client/dist')));
