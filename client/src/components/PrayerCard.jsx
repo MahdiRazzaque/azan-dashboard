@@ -50,7 +50,7 @@ const PrayerCard = ({ prayers, nextPrayer }) => {
             <div className="flex-1 flex flex-col justify-center space-y-2">
                  <div className="flex justify-between px-4 lg:px-10 pb-4 text-app-dim text-sm lg:text-xl uppercase tracking-widest font-semibold opacity-50 border-b border-white/5">
                      <span className="w-1/3 text-left">Prayer</span>
-                     <span className="w-1/3 text-center">Adhan</span>
+                     <span className="w-1/3 text-center">Start Time</span>
                      <span className="w-1/3 text-right">Iqamah</span>
                  </div>
                  {prayerList.map(key => (
