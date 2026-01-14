@@ -147,8 +147,8 @@ router.get('/system/jobs', authenticateToken, (req, res) => {
 
 router.post('/system/regenerate-tts', authenticateToken, async (req, res) => {
     try {
-        await audioAssetService.prepareDailyAssets();
-        res.json({ success: true, message: 'Audio assets regenerated.' });
+        await audioAssetService.prepareDailyAssets(true);
+        res.json({ success: true, message: 'Audio assets cleared and regenerated.' });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

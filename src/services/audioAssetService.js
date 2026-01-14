@@ -77,9 +77,24 @@ const generateTTS = async (filename, text, serviceUrl) => {
     }
 };
 
-const prepareDailyAssets = async () => {
+const prepareDailyAssets = async (forceClean = false) => {
     console.log('[AudioService] Preparing daily audio assets...');
     ensureCacheDir();
+    
+    if (forceClean) {
+        console.log('[AudioService] Force cleaning all cached assets...');
+        try {
+            const files = fs.readdirSync(CACHE_DIR);
+            for (const file of files) {
+                if (file.endsWith('.mp3') || file.endsWith('.json')) {
+                    fs.unlinkSync(path.join(CACHE_DIR, file));
+                }
+            }
+            console.log(`[AudioService] Cleared ${files.length} files.`);
+        } catch (e) {
+            console.error('[AudioService] Failed to force clean cache:', e);
+        }
+    }
     
     // Dynamic require to get fresh config ONCE
     const config = configService.get();
