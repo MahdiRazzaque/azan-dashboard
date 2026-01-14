@@ -17,6 +17,9 @@ describe('API V2 Endpoints', () => {
     let cookie;
 
     beforeAll(async () => {
+        // Initialize ConfigService
+        await require('../../src/config').init();
+
         process.env.ADMIN_PASSWORD = 'testpassword';
         
         // Ensure dir exists (in case app didn't run to create it yet)
@@ -48,7 +51,7 @@ describe('API V2 Endpoints', () => {
     });
 
     test('POST /api/settings/update should update config and reload scheduler', async () => {
-        const newSettings = { automation: { enabled: true } };
+        const newSettings = { automation: { global: { enabled: true } } };
         const res = await request(app)
             .post('/api/settings/update')
             .set('Cookie', cookie)
@@ -59,6 +62,6 @@ describe('API V2 Endpoints', () => {
         
         expect(fs.existsSync(TEMP_LOCAL_CONFIG)).toBe(true);
         const content = JSON.parse(fs.readFileSync(TEMP_LOCAL_CONFIG, 'utf-8'));
-        expect(content.automation.enabled).toBe(true);
+        expect(content.automation.global.enabled).toBe(true);
     });
 });

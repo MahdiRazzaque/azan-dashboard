@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const numberToWords = require('number-to-words');
-// const config = require('../config'); // Removed top-level require to support reloading
+const configService = require('../config'); // Singleton
 
 const CACHE_DIR = path.join(__dirname, '../../public/audio/cache');
 const ARABIC_NAMES = {
@@ -82,7 +82,7 @@ const prepareDailyAssets = async () => {
     ensureCacheDir();
     
     // Dynamic require to get fresh config ONCE
-    const config = require('../config');
+    const config = configService.get();
     const triggers = config.automation?.triggers;
     const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
 

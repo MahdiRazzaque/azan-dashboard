@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { RefreshCw, Power, RotateCcw, Activity } from 'lucide-react';
+import { RefreshCw, Power, RotateCcw, Activity, Database } from 'lucide-react';
 
 export default function DeveloperSettingsView() {
     const { logs } = useOutletContext();
@@ -88,7 +88,21 @@ export default function DeveloperSettingsView() {
                                  <RotateCcw className={`w-5 h-5 text-amber-400 ${loading === 'scheduler' ? 'animate-spin' : ''}`} />
                                  <div className="text-left">
                                      <div className="font-medium text-zinc-200">Restart Scheduler</div>
-                                     <div className="text-xs text-zinc-500 group-hover:text-zinc-400">Reloads configuration and re-initializes jobs</div>
+                                     <div className="text-xs text-zinc-500 group-hover:text-zinc-400">Re-initializes jobs (no config reload)</div>
+                                 </div>
+                             </div>
+                        </button>
+
+                        <button
+                            onClick={() => callSystemAction('config', '/api/settings/refresh-cache')}
+                            disabled={loading !== null}
+                            className="flex items-center justify-between p-4 bg-zinc-900 rounded-lg border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 transition-all group disabled:opacity-50"
+                        >
+                             <div className="flex items-center gap-3">
+                                 <Database className={`w-5 h-5 text-purple-400 ${loading === 'config' ? 'animate-pulse' : ''}`} />
+                                 <div className="text-left">
+                                     <div className="font-medium text-zinc-200">Reload Config & Cache</div>
+                                     <div className="text-xs text-zinc-500 group-hover:text-zinc-400">Reloads disk config and refreshes prayer cache</div>
                                  </div>
                              </div>
                         </button>

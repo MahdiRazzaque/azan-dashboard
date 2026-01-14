@@ -22,7 +22,6 @@
     "staleCheckDays": 7
   },
   "automation": {
-    "enabled": false,
     "baseUrl": "http://localhost:3000",
     "audioPlayer": "mpg123",
     "pythonServiceUrl": "http://localhost:8000",

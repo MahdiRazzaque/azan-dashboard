@@ -16,6 +16,7 @@ const { hashPassword, verifyPassword } = require('../utils/auth'); // Added
 const fetchers = require('../services/fetchers'); // Added
 const fs = require('fs');
 const path = require('path');
+const configService = require('../config'); // Singleton instance
 
 // Auth Routes
 router.get('/auth/status', (req, res) => {
@@ -240,10 +241,7 @@ router.get('/logs', (req, res) => {
 });
 
 router.get('/settings', authenticateToken, (req, res) => {
-    // Force reload config to ensure freshness
-    delete require.cache[require.resolve('../config')];
-    const currentConfig = require('../config');
-    res.json(currentConfig);
+    res.json(configService.get());
 });
 
 router.post('/settings/upload', authenticateToken, upload.single('file'), (req, res) => {
@@ -288,25 +286,18 @@ router.post('/settings/update', authenticateToken, async (req, res) => {
 
         const localPath = path.join(__dirname, '../config/local.json');
         
-        // Simple overwrite of local.json with provided settings
-        // In a real app, might want to read existing local.json and merge, 
-        // but explicit overwrite is safer for "Save Settings" form behavior.
-        fs.writeFileSync(localPath, JSON.stringify(newConfig, null, 2));
+        // Use ConfigService to update and save
+        // We still run logic validation (fetchers) above manually for now
         
-        // Reload Config
-        const configPath = require.resolve('../config');
-        
-        // Clear config cache so that subsequent requires load the new file
-        delete require.cache[configPath];
-        
-        // Load the new config for forceRefresh usage
-        const reloadedConfig = require('../config');
+        // Note: stripSecrets is handled inside ConfigService.update
+        // We pass the full newConfig
+        await configService.update(newConfig);
         
         // Force refresh cache with NEW config immediately
         console.log('[API] Settings updated, forcing cache refresh...');
-        const result = await forceRefresh(reloadedConfig);
+        const result = await forceRefresh(configService.get());
         
-        // Hot reload the scheduler (it will internally load the fresh config)
+        // Hot reload the scheduler (it will internally load the fresh config via get())
         console.log('[API] Hot reloading scheduler...');
         await schedulerService.initScheduler(); 
         
@@ -317,7 +308,7 @@ router.post('/settings/update', authenticateToken, async (req, res) => {
     } catch (e) {
         console.error('Settings Update Error:', e);
         // Distinguish validation errors
-        if (e.message.includes('Schema') || e.message.includes('API Error')) {
+        if (e.message.includes('Schema') || e.message.includes('API Error') || e.message.includes('Validation Failed')) {
             return res.status(400).json({ error: `Validation Failed: ${e.message}` });
         }
         res.status(500).json({ error: e.message });
@@ -332,14 +323,12 @@ router.post('/settings/reset', authenticateToken, async (req, res) => {
             console.log('[API] local.json deleted. Reverting to default.');
         }
 
-        // Reload Config
-        const configPath = require.resolve('../config');
-        delete require.cache[configPath];
-        const reloadedConfig = require('../config');
+        // Reload Config Service
+        await configService.reload();
 
         // Force refresh system
         console.log('[API] Settings reset, forcing cache refresh...');
-        const result = await forceRefresh(reloadedConfig);
+        const result = await forceRefresh(configService.get());
         await schedulerService.initScheduler(); 
 
         res.json({ message: 'Settings reset to defaults.', meta: result.meta });
@@ -352,7 +341,9 @@ router.post('/settings/reset', authenticateToken, async (req, res) => {
 router.post('/settings/refresh-cache', authenticateToken, async (req, res) => {
     try {
         console.log('[API] Force refreshing cache...');
-        const config = require('../config'); // Reload config
+        await configService.reload(); // Reload from disk just in case
+        const config = configService.get(); 
+        // Force refresh deletes cache and fetches new data
         // Force refresh deletes cache and fetches new data
         const result = await forceRefresh(config);
         
@@ -381,7 +372,7 @@ router.post('/settings/refresh-cache', authenticateToken, async (req, res) => {
 
 router.get('/prayers', async (req, res) => {
   try {
-    const config = require('../config'); // Reload config
+    const config = configService.get();
     const timezone = config.location.timezone;
     const now = DateTime.now().setZone(timezone);
     

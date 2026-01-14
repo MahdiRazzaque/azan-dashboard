@@ -1,6 +1,6 @@
 const schedule = require('node-schedule');
 const { DateTime } = require('luxon');
-// const config = require('../config');
+const configService = require('../config'); // Singleton
 const prayerTimeService = require('./prayerTimeService');
 const audioAssetService = require('./audioAssetService');
 const automationService = require('./automationService');
@@ -17,7 +17,7 @@ const clearJobs = () => {
 };
 
 const scheduleEvent = (date, prayer, event) => {
-    const config = require('../config');
+    const config = configService.get();
     // Check Global Switches
     if (config.automation?.global) {
         if (config.automation.global.enabled === false) {
@@ -57,7 +57,7 @@ const scheduleEvent = (date, prayer, event) => {
 const scheduleMaintenanceJobs = () => {
     // 1. Stale Check - Run Weekly (Sunday 03:00)
     const staleJob = schedule.scheduleJob('0 3 * * 0', async () => {
-        const config = require('../config');
+        const config = configService.get();
         try {
             console.log('[Maintenance] Running Stale Check...');
             const cache = prayerTimeService.readCache();
@@ -88,7 +88,7 @@ const scheduleMaintenanceJobs = () => {
 
     // 2. Year Boundary - Run Daily (04:00)
     const boundaryJob = schedule.scheduleJob('0 4 * * *', async () => {
-        const config = require('../config');
+        const config = configService.get();
         try {
             const now = DateTime.now();
             const year = now.year;
@@ -119,7 +119,7 @@ const scheduleMaintenanceJobs = () => {
 };
 
 const initScheduler = async () => {
-    const config = require('../config');
+    const config = configService.get();
     try {
         console.log('[Scheduler] Initializing...');
         

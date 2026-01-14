@@ -44,8 +44,16 @@ if (require.main === module) {
     console.log(`Server is running on http://localhost:${PORT}`);
     console.log(`Health check available at http://localhost:${PORT}/api/health`);
     
-    // Log Configuration (Sources)
-    const config = require('./config');
+    // Initialize Config Service
+    const configService = require('./config');
+    try {
+        await configService.init();
+        console.log('[Startup] ConfigService initialized.');
+    } catch (e) {
+        console.error('[Startup] Failed to initialize ConfigService:', e);
+        process.exit(1);
+    }
+    const config = configService.get();
 
     console.log('[Config] Loaded Sources:');
 

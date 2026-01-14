@@ -10,6 +10,10 @@ jest.mock('../../src/services/fetchers');
 const writeMock = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
 
 describe('API Integration', () => {
+  beforeAll(async () => {
+    await require('../../src/config').init();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();

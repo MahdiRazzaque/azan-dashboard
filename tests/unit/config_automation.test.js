@@ -16,7 +16,7 @@ describe('Configuration Loader - Automation', () => {
     test('should load automation settings from default.json', () => {
         const config = require('../../src/config');
         expect(config.automation).toBeDefined();
-        expect(config.automation.enabled).toBe(false);
+        expect(config.automation.global.enabled).toBe(false);
         expect(config.automation.triggers.fajr.preAdhan.offsetMinutes).toBe(15);
     });
 
