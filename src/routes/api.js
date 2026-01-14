@@ -136,13 +136,35 @@ router.get('/system/audio-files', authenticateToken, (req, res) => {
     res.json([...custom, ...cache]);
 });
 
+const diagnosticsService = require('../services/diagnosticsService'); // Added
+
 router.get('/system/jobs', authenticateToken, (req, res) => {
     // getJobs might not be defined if schedulerService mock or older version loaded? 
     // We updated it.
     if (schedulerService.getJobs) {
         res.json(schedulerService.getJobs());
     } else {
-        res.json([]);
+        res.json({ maintenance: [], automation: [] });
+    }
+});
+
+router.get('/system/status/automation', authenticateToken, async (req, res) => {
+    try {
+        const config = configService.get();
+        const status = await diagnosticsService.getAutomationStatus(config);
+        res.json(status);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+router.get('/system/status/tts', authenticateToken, async (req, res) => {
+    try {
+        const config = configService.get();
+        const status = await diagnosticsService.getTTSStatus(config);
+        res.json(status);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 

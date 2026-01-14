@@ -49,6 +49,7 @@ const scheduleEvent = (date, prayer, event) => {
 
     if (job) {
         job.jobName = `${prayer} - ${event}`;
+        job.category = 'automation';
         jobs.push(job);
         console.log(`[Scheduler] Scheduled ${prayer} ${event} at ${date.toFormat('HH:mm:ss')}`);
     }
@@ -83,6 +84,7 @@ const scheduleMaintenanceJobs = () => {
     });
     if (staleJob) {
         staleJob.jobName = 'Maintenance: Stale Check';
+        staleJob.category = 'maintenance';
         jobs.push(staleJob);
     } 
 
@@ -114,6 +116,7 @@ const scheduleMaintenanceJobs = () => {
     });
     if (boundaryJob) {
         boundaryJob.jobName = 'Maintenance: Year Boundary';
+        boundaryJob.category = 'maintenance';
         jobs.push(boundaryJob);
     }
 };
@@ -135,8 +138,11 @@ const initScheduler = async () => {
             console.log('[Scheduler] Midnight Refresh');
             initScheduler();
         });
-        if (midnightJob) midnightJob.jobName = 'System: Midnight Refresh';
-        jobs.push(midnightJob);
+        if (midnightJob) {
+            midnightJob.jobName = 'System: Midnight Refresh';
+            midnightJob.category = 'maintenance';
+            jobs.push(midnightJob);
+        }
         
         // Prepare data for today
         const now = DateTime.now().setZone(config.location.timezone);
@@ -222,7 +228,7 @@ const initScheduler = async () => {
 };
 
 const getJobs = () => {
-    return jobs.map(j => {
+    const formatJob = (j) => {
         let next = null;
         try { 
             next = j.nextInvocation(); 
@@ -256,9 +262,15 @@ const getJobs = () => {
 
         return {
             name: j.jobName || 'Unknown Job',
-            nextInvocation: nextISO
+            nextInvocation: nextISO,
+            category: j.category || 'unknown'
         };
-    });
+    };
+
+    const maintenance = jobs.filter(j => j.category === 'maintenance').map(formatJob);
+    const automation = jobs.filter(j => j.category === 'automation').map(formatJob);
+
+    return { maintenance, automation };
 };
 
 const hotReload = () => {

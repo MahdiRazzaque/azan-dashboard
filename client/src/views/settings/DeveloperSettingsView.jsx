@@ -7,21 +7,46 @@ export default function DeveloperSettingsView() {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(null); // 'tts' | 'scheduler' | null
     const [message, setMessage] = useState(null);
+    const [automationStatus, setAutomationStatus] = useState(null);
+    const [ttsStatus, setTtsStatus] = useState(null);
 
     const fetchJobs = () => {
         fetch('/api/system/jobs')
             .then(res => res.json())
             .then(data => {
-                // Ensure data is array
-                if (Array.isArray(data)) setJobs(data);
-                else setJobs([]);
+                // Ensure data is object with maintenance/automation or fallback to empty
+                if (Array.isArray(data)) {
+                     // Legacy or fallback support
+                     setJobs(data);
+                } else if (data && (data.maintenance || data.automation)) {
+                     // We only want to show maintenance jobs in the "Active Jobs" card per FR-05
+                     setJobs(data.maintenance || []);
+                } else {
+                     setJobs([]);
+                }
             })
             .catch(err => console.error("Failed to fetch jobs", err));
     };
 
+    const fetchDiagnostics = () => {
+        fetch('/api/system/status/automation')
+            .then(res => res.json())
+            .then(setAutomationStatus)
+            .catch(err => console.error("Failed to fetch automation stats", err));
+
+        fetch('/api/system/status/tts')
+            .then(res => res.json())
+            .then(setTtsStatus)
+            .catch(err => console.error("Failed to fetch tts stats", err));
+    };
+
     useEffect(() => {
         fetchJobs();
-        const interval = setInterval(fetchJobs, 10000); // Refresh jobs every 10s
+        fetchDiagnostics();
+        const interval = setInterval(() => {
+            fetchJobs();
+            fetchDiagnostics();
+        }, 10000); 
         return () => clearInterval(interval);
     }, []);
 
@@ -40,8 +65,55 @@ export default function DeveloperSettingsView() {
             setMessage({ type: 'error', text: err.message });
         } finally {
             setLoading(null);
-            if (action === 'scheduler') fetchJobs();
+            // Refresh all data
+            fetchJobs();
+            fetchDiagnostics();
         }
+    };
+
+    const AutomationStatusCell = ({ status, time }) => {
+        let color = 'bg-zinc-800 text-zinc-500 border-zinc-700'; // Disabled/Unknown
+        let label = status;
+
+        if (status === 'PASSED') {
+            color = 'bg-emerald-900/30 text-emerald-400 border-emerald-800/50';
+            label = time ? new Date(time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Done';
+        } else if (status === 'UPCOMING') {
+            color = 'bg-blue-900/30 text-blue-400 border-blue-800/50';
+            label = time ? new Date(time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Pending';
+        }
+
+        return (
+            <div className={`px-2 py-1 rounded text-xs font-mono border text-center whitespace-nowrap overflow-hidden text-ellipsis ${color}`}>
+                {label}
+            </div>
+        );
+    };
+
+    const TTSStatusCell = ({ status, detail }) => {
+        let color = 'bg-zinc-800 text-zinc-500 border-zinc-700'; // Disabled/Unknown
+        let label = status;
+        let title = detail || status;
+
+        if (status === 'GENERATED') {
+            color = 'bg-emerald-900/30 text-emerald-400 border-emerald-800/50';
+            label = 'Ready';
+            if (detail) title = `Generated: ${new Date(detail).toLocaleString()}`;
+        } else if (status === 'MISSING' || status === 'ERROR') {
+             color = 'bg-red-900/30 text-red-400 border-red-800/50';
+        } else if (status === 'CUSTOM_FILE' || status === 'URL') {
+             color = 'bg-indigo-900/30 text-indigo-400 border-indigo-800/50';
+             label = status === 'URL' ? 'URL' : 'File';
+        }
+
+        return (
+            <div 
+                className={`px-2 py-1 rounded text-xs font-mono border text-center whitespace-nowrap overflow-hidden text-ellipsis ${color}`}
+                title={title}
+            >
+                {label}
+            </div>
+        );
     };
 
     return (
@@ -109,10 +181,10 @@ export default function DeveloperSettingsView() {
                     </div>
                 </div>
 
-                {/* Automation Jobs */}
+                {/* System Maintenance Jobs */}
                 <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 overflow-hidden">
                     <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-emerald-500" /> Active Jobs
+                        <Activity className="w-5 h-5 text-emerald-500" /> Maintenance Jobs
                     </h3>
                     <div className="overflow-x-auto max-h-[200px]">
                         <table className="w-full text-sm text-left">
@@ -124,7 +196,7 @@ export default function DeveloperSettingsView() {
                             </thead>
                             <tbody className="divide-y divide-zinc-800/50">
                                 {jobs.length === 0 ? (
-                                    <tr><td colSpan="2" className="px-4 py-8 text-center text-zinc-500 text-xs italic">No active jobs scheduled</td></tr>
+                                    <tr><td colSpan="2" className="px-4 py-8 text-center text-zinc-500 text-xs italic">No active maintenance jobs</td></tr>
                                 ) : (
                                     jobs.map((job, i) => (
                                         <tr key={i}>
@@ -140,6 +212,84 @@ export default function DeveloperSettingsView() {
                     </div>
                 </div>
 
+            </div>
+
+            {/* Automation Status */}
+            <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 overflow-hidden">
+                 <div className="flex items-center justify-between mb-4">
+                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                         <span className="w-2 h-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50"></span>
+                         Automation Status
+                     </h3>
+                     <div className="flex gap-4 text-xs font-medium">
+                         <div className="flex items-center gap-2 text-zinc-400">
+                             <span className="w-2 h-2 rounded-full bg-emerald-500/50"></span> Passed
+                         </div>
+                         <div className="flex items-center gap-2 text-zinc-400">
+                             <span className="w-2 h-2 rounded-full bg-blue-500/50"></span> Upcoming
+                         </div>
+                     </div>
+                 </div>
+                 <div className="overflow-x-auto">
+                     <table className="w-full text-sm text-center">
+                         <thead className="text-xs text-zinc-500 uppercase bg-zinc-900/50">
+                             <tr>
+                                 <th className="px-3 py-2 text-left">Prayer</th>
+                                 <th className="px-3 py-2">Pre-Adhan</th>
+                                 <th className="px-3 py-2">Adhan</th>
+                                 <th className="px-3 py-2">Pre-Iqamah</th>
+                                 <th className="px-3 py-2">Iqamah</th>
+                             </tr>
+                         </thead>
+                         <tbody className="divide-y divide-zinc-800/50">
+                             {!automationStatus ? (
+                                 <tr><td colSpan="5" className="p-4 text-center text-zinc-500">Loading...</td></tr>
+                             ) : Object.entries(automationStatus).map(([prayer, events]) => (
+                                 <tr key={prayer}>
+                                     <td className="px-3 py-3 text-left font-medium text-zinc-300 capitalize">{prayer}</td>
+                                     <td className="px-2 py-2"><AutomationStatusCell {...events.preAdhan} /></td>
+                                     <td className="px-2 py-2"><AutomationStatusCell {...events.adhan} /></td>
+                                     <td className="px-2 py-2"><AutomationStatusCell {...events.preIqamah} /></td>
+                                     <td className="px-2 py-2"><AutomationStatusCell {...events.iqamah} /></td>
+                                 </tr>
+                             ))}
+                         </tbody>
+                     </table>
+                 </div>
+            </div>
+
+            {/* TTS Status */}
+            <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 overflow-hidden">
+                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                     <span className="w-2 h-2 rounded-full bg-purple-500 shadow-lg shadow-purple-500/50"></span>
+                     TTS Asset Status
+                 </h3>
+                 <div className="overflow-x-auto">
+                     <table className="w-full text-sm text-center">
+                         <thead className="text-xs text-zinc-500 uppercase bg-zinc-900/50">
+                             <tr>
+                                 <th className="px-3 py-2 text-left">Prayer</th>
+                                 <th className="px-3 py-2">Pre-Adhan</th>
+                                 <th className="px-3 py-2">Adhan</th>
+                                 <th className="px-3 py-2">Pre-Iqamah</th>
+                                 <th className="px-3 py-2">Iqamah</th>
+                             </tr>
+                         </thead>
+                         <tbody className="divide-y divide-zinc-800/50">
+                             {!ttsStatus ? (
+                                 <tr><td colSpan="5" className="p-4 text-center text-zinc-500">Loading...</td></tr>
+                             ) : Object.entries(ttsStatus).map(([prayer, events]) => (
+                                 <tr key={prayer}>
+                                     <td className="px-3 py-3 text-left font-medium text-zinc-300 capitalize">{prayer}</td>
+                                     <td className="px-2 py-2"><TTSStatusCell {...events.preAdhan} /></td>
+                                     <td className="px-2 py-2"><TTSStatusCell {...events.adhan} /></td>
+                                     <td className="px-2 py-2"><TTSStatusCell {...events.preIqamah} /></td>
+                                     <td className="px-2 py-2"><TTSStatusCell {...events.iqamah} /></td>
+                                 </tr>
+                             ))}
+                         </tbody>
+                     </table>
+                 </div>
             </div>
 
             {/* Logs Console */}
