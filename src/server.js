@@ -38,54 +38,64 @@ app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
+// Startup Logic Encapsulated
+const startServer = async (port = PORT) => {
+  return new Promise((resolve) => {
+      const server = app.listen(port, async () => {
+        console.log(`Server is running on http://localhost:${PORT}`);
+        console.log(`Health check available at http://localhost:${PORT}/api/health`);
+        
+        // Initialize Config Service
+        const configService = require('./config');
+        try {
+            await configService.init();
+            console.log('[Startup] ConfigService initialized.');
+        } catch (e) {
+            console.error('[Startup] Failed to initialize ConfigService:', e);
+            process.exit(1);
+        }
+        const config = configService.get();
+
+        console.log('[Config] Loaded Sources:');
+
+        Object.entries(config.sources).forEach(([key, source]) => {
+          switch (source.type) {
+            case "mymasjid":
+              console.log(`  • ${key} (mymasjid) → masjidId: ${source.masjidId}`);
+              break;
+            case "aladhan":
+              const { lat, long } = config.location.coordinates;
+              console.log(`  • ${key} (aladhan) → latitude: ${lat}, longitude: ${long}`);
+              break;
+            default:
+              console.log(`  • ${key} (${source.type}) →`, source);
+          }
+        });
+
+        // Run System Health Checks
+        await checkSystemHealth();
+
+        // Ensure cache is cleared and refreshed at startup
+        try {
+          console.log('[Startup] Clearing and refreshing cache...');
+          await forceRefresh(config);
+          console.log('[Startup] Cache refresh completed.');
+        } catch (e) {
+          console.error('[Startup] Cache refresh failed:', e.message);
+        }
+
+        // Start Scheduler
+        await initScheduler();
+        
+        resolve(server);
+      });
+  });
+};
+
 // Start server if main module
 if (require.main === module) {
-  app.listen(PORT, async () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-    console.log(`Health check available at http://localhost:${PORT}/api/health`);
-    
-    // Initialize Config Service
-    const configService = require('./config');
-    try {
-        await configService.init();
-        console.log('[Startup] ConfigService initialized.');
-    } catch (e) {
-        console.error('[Startup] Failed to initialize ConfigService:', e);
-        process.exit(1);
-    }
-    const config = configService.get();
-
-    console.log('[Config] Loaded Sources:');
-
-    Object.entries(config.sources).forEach(([key, source]) => {
-      switch (source.type) {
-        case "mymasjid":
-          console.log(`  • ${key} (mymasjid) → masjidId: ${source.masjidId}`);
-          break;
-        case "aladhan":
-          const { lat, long } = config.location.coordinates;
-          console.log(`  • ${key} (aladhan) → latitude: ${lat}, longitude: ${long}`);
-          break;
-        default:
-          console.log(`  • ${key} (${source.type}) →`, source);
-      }
-    });
-
-    // Run System Health Checks
-    await checkSystemHealth();
-
-    // Ensure cache is cleared and refreshed at startup
-    try {
-      console.log('[Startup] Clearing and refreshing cache...');
-      await forceRefresh(config);
-      console.log('[Startup] Cache refresh completed.');
-    } catch (e) {
-      console.error('[Startup] Cache refresh failed:', e.message);
-    }
-
-    // Start Scheduler
-    await initScheduler();
-  });
+  startServer();
 }
 
+app.startServer = startServer;
 module.exports = app;

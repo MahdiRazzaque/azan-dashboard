@@ -5,6 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "test": "jest --runInBand",
+    "test:coverage": "jest --coverage --runInBand",
     "start": "node src/server.js",
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
     "server:dev": "nodemon src/server.js",

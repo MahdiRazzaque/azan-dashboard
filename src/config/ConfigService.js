@@ -20,6 +20,15 @@ class ConfigService {
         this._localPath = path.join(__dirname, 'local.json');
     }
 
+    /**
+     * Resets the singleton state. Used primarily for testing.
+     */
+    reset() {
+        this._config = null;
+        this._isInitialized = false;
+        this._isSaving = false;
+    }
+
     async init() {
         if (this._isInitialized) return;
         await this.reload();
