@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const numberToWords = require('number-to-words');
-const config = require('../config');
+// const config = require('../config'); // Removed top-level require to support reloading
 
 const CACHE_DIR = path.join(__dirname, '../../public/audio/cache');
 const ARABIC_NAMES = {
@@ -14,10 +14,6 @@ const ARABIC_NAMES = {
 };
 
 const PRAYER_NAMES = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
-
-const getPythonServiceUrl = () => {
-    return config.automation?.pythonServiceUrl || 'http://localhost:8000';
-};
 
 const ensureCacheDir = () => {
     if (!fs.existsSync(CACHE_DIR)) {
@@ -64,9 +60,10 @@ const resolveTemplate = (template, prayerKey, offsetMinutes) => {
     return result;
 };
 
-const generateTTS = async (filename, text) => {
+// Added serviceUrl parameter to make dependency explicit
+const generateTTS = async (filename, text, serviceUrl) => {
     try {
-        const url = `${getPythonServiceUrl()}/generate-tts`;
+        const url = `${serviceUrl}/generate-tts`;
                 
         await axios.post(url, {
             text: text,
@@ -84,7 +81,11 @@ const prepareDailyAssets = async () => {
     console.log('[AudioService] Preparing daily audio assets...');
     ensureCacheDir();
     
+    // Dynamic require to get fresh config ONCE
+    const config = require('../config');
     const triggers = config.automation?.triggers;
+    const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
+
     if (!triggers) return;
 
     for (const prayer of PRAYER_NAMES) {
@@ -118,7 +119,7 @@ const prepareDailyAssets = async () => {
                         fs.utimesSync(metaPath, now, now);
                         
                         shouldGenerate = false;
-                        console.log(`[AudioService] Skipping ${prayer} - ${event} (Cached)`);
+                        // console.log(`[AudioService] Skipping ${prayer} - ${event} (Cached)`);
                     }
                 } catch (e) {
                     // Meta corrupt or read error, regenerate
@@ -127,7 +128,8 @@ const prepareDailyAssets = async () => {
             
             if (shouldGenerate) {
                 console.log(`[AudioService] Preparing TTS for ${prayer} - ${event}`);
-                await generateTTS(filename, text);
+                // Pass the URL derived from the fresh config
+                await generateTTS(filename, text, pythonServiceUrl);
                 fs.writeFileSync(metaPath, JSON.stringify({ text, generatedAt: new Date().toISOString() }));
             }
         }

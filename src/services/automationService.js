@@ -1,7 +1,7 @@
 const path = require('path');
 const player = require('play-sound')({});
 const axios = require('axios');
-const config = require('../config');
+// const config = require('../config'); // Removed top-level require
 const sseService = require('./sseService');
 
 const AUDIO_DIR = path.join(__dirname, '../../public/audio');
@@ -30,7 +30,7 @@ const getAudioSource = (settings, prayer, event) => {
 
 const handleLocal = (settings, prayer, event, source) => {
     if (!source.filePath) return;
-    
+    const config = require('../config');
     console.log(`[Target:Local] Playing ${source.filePath}`);
     const audioPlayer = config.automation.audioPlayer || 'mpg123';
     
@@ -57,6 +57,7 @@ const handleBrowser = (settings, prayer, event, source) => {
 const handleVoiceMonkey = async (settings, prayer, event, source) => {
     if (!source.url) return;
     
+    const config = require('../config');
     const baseUrl = config.automation.baseUrl || ''; 
     const publicUrl = source.url.startsWith('http') ? source.url : `${baseUrl}${source.url}`;
     
@@ -85,6 +86,7 @@ const handleVoiceMonkey = async (settings, prayer, event, source) => {
 };
 
 const triggerEvent = async (prayer, event) => {
+    const config = require('../config');
     const settings = config.automation?.triggers?.[prayer]?.[event];
     
     if (!settings || !settings.enabled) {
@@ -116,6 +118,7 @@ const triggerEvent = async (prayer, event) => {
 
 const playTestAudio = (filePath) => {
      console.log(`[Test:Local] Playing ${filePath}`);
+     const config = require('../config');
      const audioPlayer = config.automation.audioPlayer || 'mpg123';
      player.play(filePath, { player: audioPlayer }, (err) => {
         if (err) console.error(`[Test:Local] Playback error:`, err);
