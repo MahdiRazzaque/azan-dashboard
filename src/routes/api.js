@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const jwt = require('jsonwebtoken'); // Added
 const authenticateToken = require('../middleware/auth'); // Added
 // Config loaded dynamically in handlers due to reload requirements
@@ -186,6 +187,25 @@ router.post('/system/test-audio', authenticateToken, async (req, res) => {
         res.json({ success: true, message: 'Playing audio on server...' });
     } catch (e) {
         res.status(500).json({ error: e.message });
+    }
+});
+
+router.post('/system/validate-url', authenticateToken, async (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ valid: false, error: 'URL is required' });
+
+    try {
+        await axios.head(url, { timeout: 5000 });
+        res.json({ valid: true });
+    } catch (e) {
+        // Retry with GET if HEAD fails (some servers block HEAD)
+        try {
+            await axios.get(url, { timeout: 5000, responseType: 'stream' }); // Stream to avoid downloading large file
+            res.json({ valid: true });
+        } catch (e2) {
+             const msg = e2.response ? `Status ${e2.response.status}` : e2.message;
+             res.json({ valid: false, error: msg });
+        }
     }
 });
 

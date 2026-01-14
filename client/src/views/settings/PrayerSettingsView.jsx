@@ -110,11 +110,13 @@ export default function PrayerSettingsView() {
         const configToSave = JSON.parse(JSON.stringify(localConfig));
         const errorsList = [];
 
-        PRAYERS.forEach(prayer => {
+
+
+        for (const prayer of PRAYERS) {
             const prayerTriggers = configToSave.automation.triggers[prayer];
-            ['preAdhan', 'adhan', 'preIqamah', 'iqamah'].forEach(type => {
+            for (const type of ['preAdhan', 'adhan', 'preIqamah', 'iqamah']) {
                 const trigger = prayerTriggers[type];
-                const error = validateTrigger(trigger);
+                const error = await validateTrigger(trigger);
                 if (error) {
                     hasErrors = true;
                     newErrors[`${prayer}-${type}`] = error;
@@ -122,8 +124,8 @@ export default function PrayerSettingsView() {
                     trigger.enabled = false;
                     errorsList.push(`${prayer} ${type}: ${error}`);
                 }
-            });
-        });
+            }
+        }
 
         if (hasErrors) {
             setValidationErrors(newErrors);

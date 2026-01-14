@@ -1,4 +1,4 @@
-export const validateTrigger = (trigger) => {
+export const validateTrigger = async (trigger) => {
     if (!trigger.enabled) return null;
 
     if (trigger.type === 'tts') {
@@ -17,9 +17,17 @@ export const validateTrigger = (trigger) => {
             return "URL must point to an .mp3 file";
         }
         try {
-            new URL(trigger.url);
+            const res = await fetch('/api/system/validate-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: trigger.url })
+            });
+            const data = await res.json();
+            if(!data.valid) {
+                 return "URL unreachable: " + (data.error || 'Unknown error');
+            }
         } catch (_) {
-            return "Invalid URL format";
+            return "Validation check failed (Network error)";
         }
     }
     return null;
