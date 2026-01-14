@@ -33,28 +33,30 @@ const Toggle = ({ checked, onChange, label, description }) => (
 );
 
 export default function AutomationSettingsView() {
-  const { config, saveSettings, saving, loading } = useSettings();
-  const [formData, setFormData] = useState(null);
+  const { 
+    config,
+    draftConfig, 
+    updateSetting, 
+    saveSettings, 
+    saving, 
+    loading
+  } = useSettings();
 
-  useEffect(() => {
-    if (config) setFormData(JSON.parse(JSON.stringify(config)));
-  }, [config]);
+  if (loading || !draftConfig) return <div className="p-8 text-center text-zinc-500">Loading...</div>;
 
-  if (loading || !formData) return <div className="p-8 text-center text-zinc-500">Loading...</div>;
+  const formData = draftConfig;
 
-  const handleChange = (path, value) => {
-    const parts = path.split('.');
-    const last = parts.pop();
-    let target = formData;
-    for (const part of parts) {
-        if (!target[part]) target[part] = {};
-        target = target[part];
-    }
-    target[last] = value;
-    setFormData({ ...formData });
-  };
+  const handleChange = (path, value) => updateSetting(path, value);
 
-  const handleSave = () => saveSettings(formData);
+  const handleSave = () => saveSettings();
+
+  const isDirty = (() => {
+      if (!config || !draftConfig) return false;
+      // Check automation section excluding triggers
+      const { triggers: t1, ...rest1 } = config.automation || {};
+      const { triggers: t2, ...rest2 } = draftConfig.automation || {};
+      return JSON.stringify(rest1) !== JSON.stringify(rest2);
+  })();
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
@@ -66,10 +68,15 @@ export default function AutomationSettingsView() {
             <button 
                 onClick={handleSave} 
                 disabled={saving}
-                className="flex items-center gap-2 bg-emerald-600 px-4 py-2 rounded hover:bg-emerald-500 disabled:opacity-50 transition-colors font-medium"
+                className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded disabled:opacity-50 transition-colors font-medium",
+                    isDirty 
+                        ? "bg-orange-500 hover:bg-orange-400 text-white shadow-orange-900/20" 
+                        : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                )}
             >
                 <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? 'Saving...' : (isDirty ? 'Unsaved Changes' : 'Save Changes')}
             </button>
         </div>
 

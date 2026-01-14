@@ -324,6 +324,31 @@ router.post('/settings/update', authenticateToken, async (req, res) => {
     }
 });
 
+router.post('/settings/reset', authenticateToken, async (req, res) => {
+    try {
+        const localPath = path.join(__dirname, '../config/local.json');
+        if (fs.existsSync(localPath)) {
+            fs.unlinkSync(localPath);
+            console.log('[API] local.json deleted. Reverting to default.');
+        }
+
+        // Reload Config
+        const configPath = require.resolve('../config');
+        delete require.cache[configPath];
+        const reloadedConfig = require('../config');
+
+        // Force refresh system
+        console.log('[API] Settings reset, forcing cache refresh...');
+        const result = await forceRefresh(reloadedConfig);
+        await schedulerService.initScheduler(); 
+
+        res.json({ message: 'Settings reset to defaults.', meta: result.meta });
+    } catch (e) {
+        console.error('Settings Reset Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 router.post('/settings/refresh-cache', authenticateToken, async (req, res) => {
     try {
         console.log('[API] Force refreshing cache...');

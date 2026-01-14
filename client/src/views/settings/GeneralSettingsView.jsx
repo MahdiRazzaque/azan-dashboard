@@ -7,37 +7,33 @@ import { twMerge } from 'tailwind-merge';
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 export default function GeneralSettingsView() {
-  const { config, saveSettings, saving, loading } = useSettings();
-  const [formData, setFormData] = useState(null);
+  const { 
+    draftConfig, 
+    updateSetting, 
+    saveSettings, 
+    saving, 
+    loading,
+    isSectionDirty
+  } = useSettings();
+  
   const [errorObj, setErrorObj] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
-  useEffect(() => {
-    if (config) setFormData(JSON.parse(JSON.stringify(config))); // Deep copy
-  }, [config]);
+  if (loading || !draftConfig) return <div className="p-8 text-center text-zinc-500">Loading settings...</div>;
 
-  if (loading || !formData) return <div className="p-8 text-center text-zinc-500">Loading settings...</div>;
+  const formData = draftConfig;
 
   const handleChange = (path, value) => {
     // Clear messages on edit
     if (successMsg) setSuccessMsg(null);
     if (errorObj) setErrorObj(null);
-    
-    const parts = path.split('.');
-    const last = parts.pop();
-    let target = formData;
-    for (const part of parts) {
-        if (!target[part]) target[part] = {};
-        target = target[part];
-    }
-    target[last] = value;
-    setFormData({ ...formData });
+    updateSetting(path, value);
   };
 
   const handleSave = async () => {
       setErrorObj(null);
       setSuccessMsg(null);
-      const result = await saveSettings(formData);
+      const result = await saveSettings();
       if (!result.success) {
           setErrorObj(result.error || "Validation failed");
       } else {
@@ -50,8 +46,9 @@ export default function GeneralSettingsView() {
 
   const setSource = (type) => {
       handleChange('sources.primary.type', type);
-      // Clean up backup if needed, or leave it. 
   };
+
+  const isDirty = isSectionDirty('location') || isSectionDirty('sources');
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
@@ -64,10 +61,15 @@ export default function GeneralSettingsView() {
             <button 
                 onClick={handleSave} 
                 disabled={saving}
-                className="flex items-center gap-2 bg-emerald-600 px-6 py-2.5 rounded-lg hover:bg-emerald-500 disabled:opacity-50 transition-all font-bold shadow-lg shadow-emerald-900/20 active:scale-95"
+                className={cn(
+                    "flex items-center gap-2 px-6 py-2.5 rounded-lg disabled:opacity-50 transition-all font-bold shadow-lg active:scale-95",
+                    isDirty 
+                        ? "bg-orange-500 hover:bg-orange-400 text-white shadow-orange-900/20" 
+                        : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20"
+                )}
             >
                 <Save className="w-4 h-4" />
-                {saving ? 'Validating & Saving...' : 'Save Changes'}
+                {saving ? 'Validating & Saving...' : (isDirty ? 'Unsaved Changes' : 'Save Changes')}
             </button>
         </div>
 

@@ -1,26 +1,29 @@
 import { useState, useEffect } from 'react';
 import { useSettings } from '../../contexts/SettingsContext';
 import TriggerCard from '../../components/TriggerCard';
+import { validateTrigger } from '../../utils/validation';
 import { Clock, AlertTriangle, Save, CheckCircle, XCircle } from 'lucide-react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 const PRAYERS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 export default function PrayerSettingsView() {
-    const { config, saveSettings } = useSettings();
+    const { 
+        draftConfig, 
+        updateSetting, 
+        saveSettings, 
+        saving,
+        isSectionDirty
+    } = useSettings();
     const [activeTab, setActiveTab] = useState('fajr');
     const [audioFiles, setAudioFiles] = useState([]);
     
-    // Local state for editing
-    const [localConfig, setLocalConfig] = useState(null);
+    // Local state for UI only
     const [validationErrors, setValidationErrors] = useState({});
     const [notification, setNotification] = useState(null);
-    const [isSaving, setIsSaving] = useState(false);
-
-    useEffect(() => {
-        if (config && !localConfig) {
-            setLocalConfig(JSON.parse(JSON.stringify(config)));
-        }
-    }, [config]);
 
     useEffect(() => {
         // Fetch audio files for the dropdowns
@@ -40,26 +43,18 @@ export default function PrayerSettingsView() {
         }
     }, [notification]);
 
-    if (!localConfig) {
+    if (!draftConfig) {
         return <div className="p-8 text-zinc-400">Loading settings...</div>;
     }
 
+    const localConfig = draftConfig; // Alias for compatibility
     const currentPrayerSettings = localConfig.prayers[activeTab];
     const currentTriggers = localConfig.automation.triggers[activeTab];
     const isMyMasjid = localConfig.sources?.primary?.type === 'mymasjid';
 
     // Handler for Iqamah Config
     const updatePrayerConfig = (key, value) => {
-        setLocalConfig(prev => ({
-            ...prev,
-            prayers: {
-                ...prev.prayers,
-                [activeTab]: {
-                    ...prev.prayers[activeTab],
-                    [key]: value
-                }
-            }
-        }));
+        updateSetting(`prayers.${activeTab}.${key}`, value);
     };
 
     // Handler for Automation Triggers
@@ -73,51 +68,11 @@ export default function PrayerSettingsView() {
             });
         }
 
-        setLocalConfig(prev => ({
-            ...prev,
-            automation: {
-                ...prev.automation,
-                triggers: {
-                    ...prev.automation.triggers,
-                    [activeTab]: {
-                        ...prev.automation.triggers[activeTab],
-                        [triggerName]: newTriggerData
-                    }
-                }
-            }
-        }));
+        updateSetting(`automation.triggers.${activeTab}.${triggerName}`, newTriggerData);
     };
 
-    const validateTrigger = (trigger) => {
-         if (!trigger.enabled) return null;
-         
-         if (trigger.type === 'tts') {
-             if (!trigger.template || trigger.template.trim() === '') {
-                 return "TTS template is required";
-             }
-         } else if (trigger.type === 'file') {
-             if (!trigger.path || trigger.path === '') {
-                 return "A file must be selected";
-             }
-         } else if (trigger.type === 'url') {
-             if (!trigger.url || trigger.url.trim() === '') {
-                 return "URL is required";
-             }
-             if (!trigger.url.toLowerCase().endsWith('.mp3')) {
-                 return "URL must point to an .mp3 file";
-             }
-             // Basic URL format check
-             try {
-                 new URL(trigger.url);
-             } catch (_) {
-                 return "Invalid URL format";
-             }
-         }
-         return null;
-    };
 
     const handleSave = async () => {
-        setIsSaving(true);
         setNotification(null);
         setValidationErrors({});
         
@@ -143,7 +98,7 @@ export default function PrayerSettingsView() {
 
         if (hasErrors) {
             setValidationErrors(newErrors);
-            setLocalConfig(configToSave); // Update state to reflect disabled triggers
+            // setLocalConfig(configToSave); // Removed
             setNotification({
                 type: 'error',
                 message: 'Some automations were invalid and have been disabled.',
@@ -163,10 +118,10 @@ export default function PrayerSettingsView() {
         } catch (e) {
             console.error(e);
             setNotification({ type: 'error', message: 'An error occurred while saving.' });
-        } finally {
-            setIsSaving(false);
         }
     };
+
+    const isDirty = isSectionDirty('prayers') || isSectionDirty('calculation') || isSectionDirty('automation.triggers');
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-12 relative">
@@ -198,11 +153,16 @@ export default function PrayerSettingsView() {
                 </div>
                 <button
                     onClick={handleSave}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={saving}
+                    className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                        isDirty 
+                        ? "bg-orange-500 hover:bg-orange-400 text-white shadow-orange-900/20" 
+                        : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                    )}
                 >
                     <Save className="w-4 h-4" />
-                    {isSaving ? 'Saving...' : 'Save Changes'}
+                    {saving ? 'Saving...' : (isDirty ? 'Unsaved Changes' : 'Save Changes')}
                 </button>
             </div>
 
