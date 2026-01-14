@@ -293,33 +293,22 @@ router.post('/settings/update', authenticateToken, async (req, res) => {
         // but explicit overwrite is safer for "Save Settings" form behavior.
         fs.writeFileSync(localPath, JSON.stringify(newConfig, null, 2));
         
-        // Reload Config & Scheduler
+        // Reload Config
         const configPath = require.resolve('../config');
-        const schedulerPath = require.resolve('../services/schedulerService');
-
-        // Stop existing scheduler jobs using the currently loaded instance
-        // This is crucial to prevent double-scheduling when the module is re-required
-        try {
-            if (schedulerService.stopAll) {
-                console.log('[API] Stopping existing scheduler jobs...');
-                await schedulerService.stopAll();
-            }
-        } catch (stopErr) {
-            console.error('[API] Failed to stop existing scheduler:', stopErr);
-        }
         
+        // Clear config cache so that subsequent requires load the new file
         delete require.cache[configPath];
-        delete require.cache[schedulerPath];
         
+        // Load the new config for forceRefresh usage
         const reloadedConfig = require('../config');
-        const schedulerServiceReloaded = require('../services/schedulerService');
         
         // Force refresh cache with NEW config immediately
         console.log('[API] Settings updated, forcing cache refresh...');
         const result = await forceRefresh(reloadedConfig);
         
-        // Initialize the new scheduler instance with the new config
-        await schedulerServiceReloaded.initScheduler(); 
+        // Hot reload the scheduler (it will internally load the fresh config)
+        console.log('[API] Hot reloading scheduler...');
+        await schedulerService.initScheduler(); 
         
         res.json({ 
             message: 'Settings validated, updated, and cache refreshed.',
