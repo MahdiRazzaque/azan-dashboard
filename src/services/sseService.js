@@ -54,6 +54,6 @@ setInterval(() => {
     clients.forEach(client => {
         client.write(': heartbeat\n\n');
     });
-}, 30000);
+}, 30000).unref();
 
 module.exports = { addClient, broadcast, log };
