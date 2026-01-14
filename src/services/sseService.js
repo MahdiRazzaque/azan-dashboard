@@ -49,4 +49,11 @@ const log = (message, level = 'info') => {
     broadcast({ type: 'LOG', payload: entry });
 };
 
+// Keep connections alive with heartbeat (every 30s)
+setInterval(() => {
+    clients.forEach(client => {
+        client.write(': heartbeat\n\n');
+    });
+}, 30000);
+
 module.exports = { addClient, broadcast, log };
