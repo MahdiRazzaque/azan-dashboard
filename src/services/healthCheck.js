@@ -18,7 +18,7 @@ async function checkLocalAudio() {
             });
         });
         console.log('[Health] mpg123: OK');
-        return false;
+        return true;
     } catch (e) {
         console.warn('[Health] mpg123: Not Found');
         return false;
