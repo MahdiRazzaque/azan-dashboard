@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 export const useSSE = (onAudioPlay) => {
     const [logs, setLogs] = useState([]);
     const [isConnected, setIsConnected] = useState(false);
+    const [processStatus, setProcessStatus] = useState(null);
 
     useEffect(() => {
         const eventSource = new EventSource('/api/logs');
@@ -31,6 +32,9 @@ export const useSSE = (onAudioPlay) => {
                         onAudioPlay(data.payload.url);
                     }
                 }
+                if (data.type === 'PROCESS_UPDATE') {
+                    setProcessStatus(data.payload.label);
+                }
             } catch (e) {
                 console.error('SSE Parse Error', e);
             }
@@ -46,5 +50,5 @@ export const useSSE = (onAudioPlay) => {
         };
     }, [onAudioPlay]);
 
-    return { logs, isConnected };
+    return { logs, isConnected, processStatus };
 };

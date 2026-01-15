@@ -104,36 +104,23 @@ export const SettingsProvider = ({ children }) => {
               if (trigger && trigger.enabled) {
                   const error = await validateTrigger(trigger);
                   if (error) {
-                      trigger.enabled = false;
-                      invalidCount++;
+                      // FR-03: Abort save on validation error
                       const niceName = `${prayer.charAt(0).toUpperCase() + prayer.slice(1)} ${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
                       warningsList.push(`${niceName}: ${error}`);
-                  } else {
-                       // Extra Service Availability Checks
-                       const niceName = `${prayer.charAt(0).toUpperCase() + prayer.slice(1)} ${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
-                       
-                       if (trigger.type === 'tts' && !systemHealth.tts) {
-                           trigger.enabled = false;
-                           invalidCount++;
-                           warningsList.push(`${niceName}: TTS Service Offline`);
-                       }
-                       if (trigger.targets?.includes('local') && !systemHealth.local) {
-                           trigger.enabled = false;
-                           invalidCount++;
-                           warningsList.push(`${niceName}: Local Audio Offline`);
-                       }
-                       if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey) {
-                           trigger.enabled = false;
-                           invalidCount++;
-                           warningsList.push(`${niceName}: VoiceMonkey Offline`);
-                       }
+                      invalidCount++;
                   }
+                  // Soft Warning checks removed (Frontend). Backend handles service warnings.
               }
           }
       }
 
       if (invalidCount > 0) {
-          warningMessage = `${invalidCount} invalid automation(s) were disabled automatically.`;
+          // FR-03: Abort immediately, do not save
+          return { 
+              success: false, 
+              error: 'Verification Failed', 
+              warningsList 
+          };
       }
 
       const res = await fetch('/api/settings/update', {
@@ -147,7 +134,15 @@ export const SettingsProvider = ({ children }) => {
         setConfig(configToSave);
         // Sync draft with the sanitized config
         setDraftConfig(JSON.parse(JSON.stringify(configToSave)));
-        return { success: true, message: data.message, warning: warningMessage, warningsList };
+        
+        // Merge backend warnings
+        const backendWarnings = data.warnings || [];
+        return { 
+            success: true, 
+            message: data.message, 
+            warning: backendWarnings.length > 0, // Boolean flag for modal
+            warningsList: backendWarnings 
+        };
       } else {
         console.error('Save failed', data.error);
         return { success: false, error: data.error };

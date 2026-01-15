@@ -137,14 +137,7 @@ export default function DeveloperSettingsView() {
                     <h2 className="text-2xl font-bold text-white mb-2">Developer Tools</h2>
                     <p className="text-zinc-400">System diagnostics and maintenance operations.</p>
                 </div>
-                {JSON.stringify(config) !== JSON.stringify(draftConfig) && (
-                    <button
-                        onClick={resetDraft}
-                        className="px-4 py-2 rounded-lg font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-zinc-700"
-                    >
-                        Discard Changes
-                    </button>
-                )}
+
             </div>
 
             {message && (

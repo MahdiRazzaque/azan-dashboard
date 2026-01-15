@@ -67,30 +67,7 @@ export default function AutomationSettingsView() {
                  <h1 className="text-3xl font-bold text-white">Automation & Integrations</h1>
                  <p className="text-zinc-400 mt-1">Manage global behavior and external services.</p>
             </div>
-            <div className="flex items-center gap-3">
-                {isDirty && (
-                    <button
-                        onClick={resetDraft}
-                        disabled={saving}
-                        className="px-4 py-2 rounded font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-zinc-700 disabled:opacity-50"
-                    >
-                        Discard Changes
-                    </button>
-                )}
-                <button 
-                    onClick={handleSave} 
-                    disabled={saving}
-                    className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded disabled:opacity-50 transition-colors font-medium",
-                        isDirty 
-                            ? "bg-orange-500 hover:bg-orange-400 text-white shadow-orange-900/20" 
-                            : "bg-emerald-600 hover:bg-emerald-500 text-white"
-                    )}
-                >
-                    <Save className="w-4 h-4" />
-                    {saving ? 'Saving...' : (isDirty ? 'Unsaved Changes' : 'Save Changes')}
-                </button>
-            </div>
+
         </div>
 
         {/* Global Master Switch */}

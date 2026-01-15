@@ -5,7 +5,7 @@ import { useSettings } from '../contexts/SettingsContext';
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
-export default function TriggerCard({ label, trigger, onChange, files, error, isDirty, eventType }) {
+export default function TriggerCard({ label, trigger, onChange, files, error, isDirty, eventType, extraContent }) {
     const { systemHealth, config } = useSettings();
     
     // Cascading Master Switch Logic - Returns { disabled: boolean, reason: string }
@@ -142,30 +142,24 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                              {['tts', 'file', 'url'].map(type => {
                                  
                                  // Check availability
-                                 let disabled = false;
-                                 let reason = "";
-                                 
-                                 if (type === 'tts' && !systemHealth.tts) {
-                                     disabled = true;
-                                     reason = "TTS Service Offline";
-                                 }
+                                 const isOffline = (type === 'tts' && !systemHealth.tts);
+                                 const reason = isOffline ? "TTS Service Offline" : "";
 
                                  return (
                                      <button
                                         key={type}
                                         onClick={() => update('type', type)}
-                                        disabled={disabled}
                                         title={reason}
                                         className={cn(
                                             "px-3 py-1.5 text-xs font-medium rounded border transition-colors relative group",
                                             trigger.type === type 
-                                                ? "bg-emerald-600 border-emerald-500 text-white" 
+                                                ? (isOffline ? "bg-amber-600 border-amber-500 text-white" : "bg-emerald-600 border-emerald-500 text-white")
                                                 : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700",
-                                            disabled && "opacity-50 cursor-not-allowed hover:bg-zinc-800"
+                                            isOffline && trigger.type !== type && "border-amber-900/30 text-amber-600/50"
                                         )}
                                      >
                                         {type.toUpperCase()}
-                                        {disabled && <XCircle className="w-3 h-3 absolute -top-1 -right-1 text-red-500 bg-zinc-900 rounded-full" />}
+                                        {isOffline && <AlertTriangle className={cn("w-3 h-3 absolute -top-1 -right-1 bg-zinc-900 rounded-full", trigger.type === type ? "text-white" : "text-amber-500")} />}
                                      </button>
                                  );
                              })}
@@ -226,50 +220,73 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                      <div>
                          <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider block mb-2">Targets</label>
                          <div className="flex flex-wrap gap-3">
-                             <label className={cn(
-                                 "flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors text-sm",
-                                 trigger.targets?.includes('local') ? "bg-emerald-900/20 border-emerald-800 text-emerald-400" : "bg-zinc-800 border-zinc-700 text-zinc-400",
-                                 (!systemHealth.local && !trigger.targets?.includes('local')) && "opacity-50 cursor-not-allowed"
-                             )} title={!systemHealth.local ? "Local Audio (mpg123) Missing" : ""}>
-                                 <input 
-                                    type="checkbox" 
-                                    className="hidden" 
-                                    checked={trigger.targets?.includes('local') || false} 
-                                    onChange={() => {
-                                        // If service is down, only allow UNCHECKING
-                                        if (!systemHealth.local && !trigger.targets?.includes('local')) return;
-                                        toggleTarget('local');
-                                    }} 
-                                    disabled={!systemHealth.local && !trigger.targets?.includes('local')}
-                                  />
-                                 <Server className="w-4 h-4" /> Server
-                             </label>
-                             <label className={cn(
-                                 "flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors text-sm",
-                                 trigger.targets?.includes('browser') ? "bg-emerald-900/20 border-emerald-800 text-emerald-400" : "bg-zinc-800 border-zinc-700 text-zinc-400"
-                             )}>
-                                 <input type="checkbox" className="hidden" checked={trigger.targets?.includes('browser') || false} onChange={() => toggleTarget('browser')} />
-                                 <Monitor className="w-4 h-4" /> Browser
-                             </label>
-                             <label className={cn(
-                                 "flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors text-sm",
-                                 trigger.targets?.includes('voiceMonkey') ? "bg-emerald-900/20 border-emerald-800 text-emerald-400" : "bg-zinc-800 border-zinc-700 text-zinc-400",
-                                 (!systemHealth.voiceMonkey && !trigger.targets?.includes('voiceMonkey')) && "opacity-50 cursor-not-allowed"
-                             )} title={!systemHealth.voiceMonkey ? "VoiceMonkey Service Offline" : ""}>
-                                 <input 
-                                    type="checkbox" 
-                                    className="hidden" 
-                                    checked={trigger.targets?.includes('voiceMonkey') || false} 
-                                    onChange={() => {
-                                        if (!systemHealth.voiceMonkey && !trigger.targets?.includes('voiceMonkey')) return;
-                                        toggleTarget('voiceMonkey');
-                                    }} 
-                                    disabled={!systemHealth.voiceMonkey && !trigger.targets?.includes('voiceMonkey')}
-                                  />
-                                 <Zap className="w-4 h-4" /> VoiceMonkey
-                             </label>
-                         </div>
+                              {/* Local Audio Info */}
+                              {(() => {
+                                  const isOffline = !systemHealth.local;
+                                  const isSelected = trigger.targets?.includes('local');
+                                  
+                                  return (
+                                      <label className={cn(
+                                          "flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors text-sm relative",
+                                          isSelected
+                                              ? (isOffline ? "bg-amber-900/20 border-amber-800 text-amber-400" : "bg-emerald-900/20 border-emerald-800 text-emerald-400")
+                                              : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700",
+                                          isOffline && !isSelected && "border-amber-900/30 text-amber-600/50"
+                                      )} title={isOffline ? "Local Audio Service Offline" : ""}>
+                                          <input 
+                                             type="checkbox" 
+                                             className="hidden" 
+                                             checked={isSelected || false} 
+                                             onChange={() => toggleTarget('local')} 
+                                           />
+                                          {isOffline && <AlertTriangle className="w-3 h-3 text-amber-500 absolute -top-1 -right-1 bg-zinc-900 rounded-full" />}
+                                          <Server className="w-4 h-4" /> Server
+                                      </label>
+                                  );
+                              })()}
+
+                              {/* Browser Audio (Always available) */}
+                              <label className={cn(
+                                  "flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors text-sm",
+                                  trigger.targets?.includes('browser') ? "bg-emerald-900/20 border-emerald-800 text-emerald-400" : "bg-zinc-800 border-zinc-700 text-zinc-400"
+                              )}>
+                                  <input type="checkbox" className="hidden" checked={trigger.targets?.includes('browser') || false} onChange={() => toggleTarget('browser')} />
+                                  <Monitor className="w-4 h-4" /> Browser
+                              </label>
+
+                              {/* VoiceMonkey Info */}
+                              {(() => {
+                                  const isOffline = !systemHealth.voiceMonkey;
+                                  const isSelected = trigger.targets?.includes('voiceMonkey');
+
+                                  return (
+                                      <label className={cn(
+                                          "flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors text-sm relative",
+                                          isSelected 
+                                              ? (isOffline ? "bg-amber-900/20 border-amber-800 text-amber-400" : "bg-emerald-900/20 border-emerald-800 text-emerald-400") 
+                                              : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:bg-zinc-700",
+                                          isOffline && !isSelected && "border-amber-900/30 text-amber-600/50"
+                                      )} title={isOffline ? "VoiceMonkey Service Offline" : ""}>
+                                          <input 
+                                             type="checkbox" 
+                                             className="hidden" 
+                                             checked={isSelected || false} 
+                                             onChange={() => toggleTarget('voiceMonkey')} 
+                                           />
+                                          {isOffline && <AlertTriangle className="w-3 h-3 text-amber-500 absolute -top-1 -right-1 bg-zinc-900 rounded-full" />}
+                                          <Zap className="w-4 h-4" /> VoiceMonkey
+                                      </label>
+                                  );
+                              })()}
+                          </div>
                      </div>
+                     
+                     {/* Extra Content (e.g., Iqamah Rules) */}
+                     {extraContent && (
+                         <div className="pt-4 border-t border-zinc-800/50 mt-2">
+                             {extraContent}
+                         </div>
+                     )}
                  </div>
              )}
         </div>

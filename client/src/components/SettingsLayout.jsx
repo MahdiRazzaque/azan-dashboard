@@ -7,6 +7,7 @@ import {
     Terminal, LogOut, ChevronLeft, User, Save, RotateCcw, AlertTriangle
 } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
+import SaveProcessModal from './SaveProcessModal';
 
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -15,10 +16,14 @@ function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
-export default function SettingsLayout({ logs }) {
+export default function SettingsLayout({ logs, processStatus }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [notification, setNotification] = useState(null);
+  
+  // Process Modal State
+  const [showProcessModal, setShowProcessModal] = useState(false);
+  const [saveResult, setSaveResult] = useState(null);
 
   const { logout } = useAuth();
   const { 
@@ -50,20 +55,14 @@ export default function SettingsLayout({ logs }) {
   }, [notification]);
 
   const handleGlobalSave = async () => {
+      setShowProcessModal(true);
+      setSaveResult(null);
+      
+      // Wait a small tick to ensure modal opens before heavy lifting (if any synchronous blocking occurs)
+      await new Promise(r => setTimeout(r, 100));
+
       const result = await saveSettings();
-      if (result.success) {
-          if (result.warning) {
-              setNotification({ 
-                  type: 'warning', 
-                  message: 'Settings saved, but some invalid automations were disabled.',
-                  details: result.warningsList
-              });
-          } else {
-              setNotification({ type: 'success', message: 'All settings saved successfully.' });
-          }
-      } else {
-          setNotification({ type: 'error', message: 'Failed to save settings: ' + (result.error || 'Unknown error') });
-      }
+      setSaveResult(result);
   };
 
   const handleGlobalReset = async () => {
@@ -142,6 +141,12 @@ export default function SettingsLayout({ logs }) {
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100 font-sans">
+      <SaveProcessModal 
+          isOpen={showProcessModal} 
+          onClose={() => setShowProcessModal(false)} 
+          processStatus={processStatus}
+          result={saveResult}
+      />
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
@@ -190,44 +195,9 @@ export default function SettingsLayout({ logs }) {
                 })}
             </nav>
 
-            {/* Actions Section */}
-            <div className="p-4 border-t border-zinc-800 space-y-2 shrink-0">
-                <button
-                    onClick={handleGlobalSave}
-                    disabled={!unsaved || saving}
-                    className={cn(
-                        "flex w-full items-center justify-center gap-2 px-3 py-2 text-sm font-bold rounded-md transition-all",
-                        unsaved 
-                            ? "bg-orange-500 text-white hover:bg-orange-600 shadow-lg shadow-orange-900/20" 
-                            : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                    )}
-                >
-                    <Save className="w-4 h-4" />
-                    {saving ? 'Saving...' : (unsaved ? 'Save All' : 'No Changes')}
-                </button>
-
-                <button
-                    onClick={() => setShowResetConfirm(true)}
-                    disabled={saving}
-                    className="flex w-full items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-zinc-400 hover:bg-zinc-800 rounded-md transition-colors"
-                >
-                    <RotateCcw className="w-4 h-4" />
-                    Reset to Default
-                </button>
-                
-                {unsaved && (
-                    <button
-                        onClick={resetDraft}
-                        disabled={saving}
-                        className="flex w-full items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-400 hover:bg-zinc-800 rounded-md transition-colors border border-red-900/30"
-                    >
-                        <X className="w-4 h-4" />
-                        Discard All
-                    </button>
-                )}
-            </div>
-
-            <div className="p-4 border-t border-zinc-800 shrink-0">
+            {/* Actions Section Removed - Moved to Header */}
+            
+            <div className="p-4 border-t border-zinc-800 shrink-0 mt-auto">
                 <button 
                     onClick={logout}
                     className="flex w-full items-center gap-3 px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
@@ -279,22 +249,63 @@ export default function SettingsLayout({ logs }) {
             isDestructive={true}
         />
 
-        {/* Top Header (Mobile Only / Breadcrumbs) */}
+        {/* Top Header */}
+        <header className="h-16 flex items-center justify-between px-6 border-b border-zinc-800 bg-zinc-950 shrink-0">
+             <div className="flex items-center gap-4">
+                <button 
+                    onClick={() => setSidebarOpen(true)}
+                    className="p-2 -ml-2 text-zinc-400 hover:text-white lg:hidden"
+                >
+                    <Menu className="w-6 h-6" />
+                </button>
+                
+                <div className="hidden lg:block">
+                     <NavLink to="/" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
+                        <ChevronLeft className="w-4 h-4" />
+                        Back to Dashboard
+                     </NavLink>
+                </div>
+             </div>
 
-        <header className="h-16 flex items-center justify-between lg:justify-end px-6 border-b border-zinc-800 bg-zinc-950 shrink-0">
-            <button 
-                onClick={() => setSidebarOpen(true)}
-                className="p-2 -ml-2 text-zinc-400 hover:text-white lg:hidden"
-            >
-                <Menu className="w-6 h-6" />
-            </button>
-            
-            <div className="hidden lg:block">
-                 <NavLink to="/" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
-                    <ChevronLeft className="w-4 h-4" />
-                    Back to Dashboard
-                 </NavLink>
-            </div>
+             <div className="flex items-center gap-2">
+                {/* Discard Changes */}
+                {unsaved && (
+                    <button
+                        onClick={resetDraft}
+                        disabled={saving}
+                        className="p-2 text-red-400 hover:bg-red-500/10 rounded-full transition-colors"
+                        title="Discard all unsaved changes"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                )}
+
+                {/* Reset to Defaults */}
+                <button
+                    onClick={() => setShowResetConfirm(true)}
+                    disabled={saving}
+                    className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-full transition-colors"
+                    title="Reset to Factory Defaults"
+                >
+                    <RotateCcw className="w-5 h-5" />
+                </button>
+
+                {/* Save All */}
+                <button
+                    onClick={handleGlobalSave}
+                    disabled={!unsaved || saving}
+                    className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all text-sm",
+                        unsaved 
+                            ? "bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-900/20" 
+                            : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                    )}
+                    title={unsaved ? "Save all changes" : "No changes to save"}
+                >
+                    <Save className="w-4 h-4" />
+                    {saving ? 'Saving...' : 'Save'}
+                </button>
+             </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-6">

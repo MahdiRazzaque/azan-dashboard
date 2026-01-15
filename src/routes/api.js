@@ -187,8 +187,8 @@ router.get('/system/status/tts', authenticateToken, async (req, res) => {
 
 router.post('/system/regenerate-tts', authenticateToken, async (req, res) => {
     try {
-        await audioAssetService.prepareDailyAssets(true);
-        res.json({ success: true, message: 'Audio assets cleared and regenerated.' });
+        await audioAssetService.syncAudioAssets(true);
+        res.json({ success: true, message: 'Audio assets cleared and synchronised.' });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -321,6 +321,8 @@ router.post('/settings/update', authenticateToken, async (req, res) => {
         }
 
         // --- VALIDATION LOGIC START ---
+        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Validating Configuration...' } });
+        
         if (newConfig.sources && newConfig.sources.primary) {
             const sourceType = newConfig.sources.primary.type;
             const now = DateTime.now();
@@ -345,24 +347,61 @@ router.post('/settings/update', authenticateToken, async (req, res) => {
 
         const localPath = path.join(__dirname, '../config/local.json');
         
+        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Saving to Disk...' } });
+
         // Use ConfigService to update and save
-        // We still run logic validation (fetchers) above manually for now
-        
-        // Note: stripSecrets is handled inside ConfigService.update
-        // We pass the full newConfig
         await configService.update(newConfig);
         
         // Force refresh cache with NEW config immediately
         console.log('[API] Settings updated, forcing cache refresh...');
+        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Refreshing Prayer Data...' } });
+        
         const result = await forceRefresh(configService.get());
         
         // Hot reload the scheduler (it will internally load the fresh config via get())
+        // Scheduler initialization includes heavy TTS generation
         console.log('[API] Hot reloading scheduler...');
+        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Generating Audio Assets...' } });
+        
+        try {
+            await audioAssetService.syncAudioAssets();
+        } catch (err) {
+            console.error('[API] Audio asset synchronization failed:', err.message);
+            // Non-fatal, proceed to restart scheduler
+        }
+
+        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Restarting Scheduler...' } });
         await schedulerService.initScheduler(); 
+
+        // Calculate Warnings based on System Health
+        const warnings = [];
+        const health = healthCheck.getHealth();
+        
+        if (newConfig.automation && newConfig.automation.triggers) {
+            Object.entries(newConfig.automation.triggers).forEach(([prayer, triggers]) => {
+                Object.entries(triggers).forEach(([type, trigger]) => {
+                    if (!trigger.enabled) return;
+                     const niceName = `${prayer.charAt(0).toUpperCase() + prayer.slice(1)} ${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
+
+                    if (trigger.type === 'tts' && !health.tts) {
+                        warnings.push(`${niceName}: TTS Service is offline`);
+                    }
+                    if (trigger.targets && trigger.targets.includes('local') && !health.local) {
+                        warnings.push(`${niceName}: Local Audio Service is offline`);
+                    }
+                    if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !health.voiceMonkey) {
+                         warnings.push(`${niceName}: VoiceMonkey Service is offline`);
+                    }
+                });
+            });
+        }
+        
+        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Configuration Saved' } });
         
         res.json({ 
             message: 'Settings validated, updated, and cache refreshed.',
-            meta: result.meta 
+            meta: result.meta,
+            warnings: warnings
         });
     } catch (e) {
         console.error('Settings Update Error:', e);
@@ -388,6 +427,11 @@ router.post('/settings/reset', authenticateToken, async (req, res) => {
         // Force refresh system
         console.log('[API] Settings reset, forcing cache refresh...');
         const result = await forceRefresh(configService.get());
+        
+        try {
+            await audioAssetService.syncAudioAssets();
+        } catch(e) { console.error(e); }
+
         await schedulerService.initScheduler(); 
 
         res.json({ message: 'Settings reset to defaults.', meta: result.meta });
@@ -417,6 +461,11 @@ router.post('/settings/refresh-cache', authenticateToken, async (req, res) => {
         }
 
         // Initialize the new scheduler instance
+        try {
+           await audioAssetService.syncAudioAssets();
+        } catch (e) {
+             console.error('[API] Audio asset synchronization failed:', e);
+        }
         await schedulerService.initScheduler(); 
         
         res.json({ 

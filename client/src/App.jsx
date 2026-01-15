@@ -18,7 +18,7 @@ import DeveloperSettingsView from './views/settings/DeveloperSettingsView';
 function App() {
   const { playUrl, isMuted, toggleMute, blocked } = useAudio();
   const { prayers, nextPrayer } = usePrayerTimes();
-  const { logs, isConnected } = useSSE(playUrl);
+  const { logs, isConnected, processStatus } = useSSE(playUrl);
   const { setupRequired, loading } = useAuth();
   const location = useLocation();
 
@@ -56,7 +56,7 @@ function App() {
             path="/settings" 
             element={
                 <ProtectedRoute>
-                    <SettingsLayout logs={logs} />
+                    <SettingsLayout logs={logs} processStatus={processStatus} />
                 </ProtectedRoute>
             } 
         >
