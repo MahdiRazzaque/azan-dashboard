@@ -93,4 +93,37 @@ describe('EnvManager', () => {
              expect(secret1.length).toBeGreaterThan(10);
         });
     });
+
+    describe('deleteEnvValue', () => {
+        it('should remove value if key exists', () => {
+            fs.existsSync.mockReturnValue(true);
+            fs.readFileSync.mockReturnValue('KEEP=YES\nDELETE=ME\nALSO=KEEP');
+            
+            envManager.deleteEnvValue('DELETE');
+            
+            expect(fs.writeFileSync).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.stringContaining('KEEP=YES\nALSO=KEEP')
+            );
+            expect(fs.writeFileSync).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.not.stringContaining('DELETE=ME')
+            );
+        });
+
+        it('should do nothing if key does not exist', () => {
+             fs.existsSync.mockReturnValue(true);
+             fs.readFileSync.mockReturnValue('KEEP=YES');
+             
+             envManager.deleteEnvValue('MISSING');
+             
+             expect(fs.writeFileSync).not.toHaveBeenCalled();
+        });
+
+        it('should do nothing if file missing', () => {
+             fs.existsSync.mockReturnValue(false);
+             envManager.deleteEnvValue('KEY');
+             expect(fs.writeFileSync).not.toHaveBeenCalled();
+        });
+    });
 });

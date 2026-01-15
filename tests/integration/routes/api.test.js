@@ -82,6 +82,16 @@ jest.mock('../../../src/services/fetchers', () => ({
     fetchAladhanAnnual: jest.fn()
 }));
 
+jest.mock('../../../src/services/healthCheck', () => ({
+    getHealth: jest.fn(() => ({ 
+        tts: { healthy: true }, 
+        local: { healthy: true }, 
+        voiceMonkey: { healthy: true } 
+    })),
+    refresh: jest.fn()
+}));
+const healthCheck = require('../../../src/services/healthCheck');
+
 jest.mock('../../../src/services/diagnosticsService', () => ({
     getAutomationStatus: jest.fn(() => Promise.resolve({ lastTrigger: 'never' })),
     getTTSStatus: jest.fn(() => Promise.resolve({ status: 'ok' }))
@@ -92,6 +102,7 @@ const diagnosticsService = require('../../../src/services/diagnosticsService');
 jest.mock('../../../src/utils/envManager', () => ({
     isConfigured: jest.fn(() => true),
     setEnvValue: jest.fn(),
+    deleteEnvValue: jest.fn(),
     generateSecret: jest.fn(() => 'gen-secret'),
     getEnv: jest.fn(() => ({}))
 }));
@@ -433,4 +444,308 @@ describe('API Routes Integration', () => {
              jest.useRealTimers();
         });
     });
+
+    describe('VoiceMonkey Routes', () => {
+        it('POST /settings/credentials/voicemonkey - should save credentials', async () => {
+             await request(app)
+                .post('/api/settings/credentials/voicemonkey')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send({ token: 'tok', device: 'dev' })
+                .expect(200);
+            
+            expect(envManager.setEnvValue).toHaveBeenCalledWith('VOICEMONKEY_TOKEN', 'tok');
+            expect(envManager.setEnvValue).toHaveBeenCalledWith('VOICEMONKEY_DEVICE', 'dev');
+            expect(mockConfigService.reload).toHaveBeenCalled();
+        });
+
+        it('POST /settings/credentials/voicemonkey - should fail if empty strings', async () => {
+            await request(app)
+               .post('/api/settings/credentials/voicemonkey')
+               .set('Cookie', [`auth_token=${adminToken}`])
+               .send({ token: '  ', device: 'dev' })
+               .expect(400);
+       });
+
+       it('POST /settings/credentials/voicemonkey - should fail if missing fields', async () => {
+            await request(app)
+               .post('/api/settings/credentials/voicemonkey')
+               .set('Cookie', [`auth_token=${adminToken}`])
+               .send({ token: 'tok' })
+               .expect(400);
+       });
+
+       it('DELETE /settings/credentials/voicemonkey - should remove credentials', async () => {
+            await request(app)
+               .delete('/api/settings/credentials/voicemonkey')
+               .set('Cookie', [`auth_token=${adminToken}`])
+               .expect(200);
+            
+            expect(envManager.deleteEnvValue).toHaveBeenCalledWith('VOICEMONKEY_TOKEN');
+       });
+       
+       it('POST /system/test-voicemonkey - should call VM API', async () => {
+            axios.get.mockResolvedValue({ data: { success: true } });
+            await request(app)
+                .post('/api/system/test-voicemonkey')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send({ token: 'tok', device: 'dev' })
+                .expect(200);
+            
+            expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('voicemonkey'), expect.anything());
+       });
+
+        it('POST /system/test-voicemonkey - should handle VM API failure', async () => {
+             axios.get.mockResolvedValue({ data: { success: false, error: 'Bad Token' } });
+             await request(app)
+                 .post('/api/system/test-voicemonkey')
+                 .set('Cookie', [`auth_token=${adminToken}`])
+                 .send({ token: 'tok', device: 'dev' })
+                 .expect(500);
+        });
+
+        it('POST /api/auth/setup - should handle internal errors', async () => {
+             const authUtils = require('../../../src/utils/auth');
+             authUtils.hashPassword.mockImplementationOnce(() => { throw new Error('Hash Fail'); });
+             
+             // Setup requires no admin password set
+             const oldPass = process.env.ADMIN_PASSWORD;
+             delete process.env.ADMIN_PASSWORD;
+             
+             await request(app)
+                 .post('/api/auth/setup')
+                 .send({ password: 'validpass' })
+                 .expect(500);
+                 
+             process.env.ADMIN_PASSWORD = oldPass;
+        });
+
+         it('POST /system/test-voicemonkey - should handle Network failure', async () => {
+             axios.get.mockRejectedValue(new Error('Net Error'));
+             await request(app)
+                 .post('/api/system/test-voicemonkey')
+                 .set('Cookie', [`auth_token=${adminToken}`])
+                 .send({ token: 'tok', device: 'dev' })
+                 .expect(500);
+        });
+    });
+
+    describe('Additional Auth & System Coverage', () => {
+        it('POST /api/auth/logout - should clear cookie', async () => {
+            const res = await request(app)
+                .post('/api/auth/logout')
+                .expect(200);
+            const cookies = res.headers['set-cookie'];
+            expect(cookies.some(c => c.includes('auth_token=;'))).toBe(true);
+        });
+
+        it('POST /api/auth/login - should return SETUP_REQUIRED if no admin password env', async () => {
+            const oldPass = process.env.ADMIN_PASSWORD;
+            delete process.env.ADMIN_PASSWORD;
+            
+            await request(app)
+                .post('/api/auth/login')
+                .send({ password: 'any' })
+                .expect(500)
+                .expect(res => {
+                    expect(res.body.code).toBe('SETUP_REQUIRED');
+                });
+            
+            process.env.ADMIN_PASSWORD = oldPass;
+        });
+
+        it('DELETE /api/settings/files - should delete file', async () => {
+             const res = await request(app)
+                .delete('/api/settings/files')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send({ filename: 'test.mp3' })
+                .expect(200);
+             expect(fs.unlinkSync).toHaveBeenCalled();
+        });
+
+        it('DELETE /api/settings/files - should handle not found', async () => {
+             fs.existsSync.mockReturnValue(false);
+             await request(app)
+                .delete('/api/settings/files')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send({ filename: 'missing.mp3' })
+                .expect(404);
+        });
+        
+         it('DELETE /api/settings/files - should handle invalid filename', async () => {
+             await request(app)
+                .delete('/api/settings/files')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send({ filename: '../hack.mp3' })
+                .expect(400);
+        });
+
+        it('POST /settings/reset - should delete local.json and reload', async () => {
+             fs.existsSync.mockReturnValue(true);
+             await request(app)
+                 .post('/api/settings/reset')
+                 .set('Cookie', [`auth_token=${adminToken}`])
+                 .expect(200);
+             expect(fs.unlinkSync).toHaveBeenCalled();
+             expect(mockConfigService.reload).toHaveBeenCalled();
+        });
+
+        it('POST /settings/reset - should handle file missing gracefully', async () => {
+             fs.existsSync.mockReturnValue(false);
+             await request(app)
+                 .post('/api/settings/reset')
+                 .set('Cookie', [`auth_token=${adminToken}`])
+                 .expect(200);
+             // Should not throw
+             expect(fs.unlinkSync).not.toHaveBeenCalled();
+        });
+
+        it('POST /settings/reset - should handle error', async () => {
+             mockConfigService.reload.mockRejectedValueOnce(new Error('Reload Fail'));
+             await request(app)
+                 .post('/api/settings/reset')
+                 .set('Cookie', [`auth_token=${adminToken}`])
+                 .expect(500);
+        });
+    });
+
+     describe('Prayer Routes Extra Coverage', () => {
+        it('GET /api/prayers - should handle missing cached data by fetching', async () => {
+             const { getPrayerTimes } = require('../../../src/services/prayerTimeService');
+             getPrayerTimes.mockResolvedValue({
+                 meta: { date: '2024-01-01', source: 'test' },
+                 prayers: {
+                     fajr: '05:00', dhuhr: '12:00', asr: '15:00', maghrib: '18:00', isha: '20:00',
+                     iqamah: { fajr: '05:15' }
+                 }
+             });
+             
+             await request(app).get('/api/prayers').expect(200);
+        });
+
+        it('GET /api/prayers - should handle errors', async () => {
+             const { getPrayerTimes } = require('../../../src/services/prayerTimeService');
+             getPrayerTimes.mockRejectedValue(new Error('Database Down'));
+             
+             await request(app).get('/api/prayers').expect(500);
+        });
+    });
+
+    describe('Settings Update Edge Cases', () => {
+         it('POST /api/settings/update - should proceed if audio sync fails', async () => {
+             const audioAssetService = require('../../../src/services/audioAssetService');
+             audioAssetService.syncAudioAssets.mockRejectedValueOnce(new Error('Sync Fail'));
+             
+             const newConfig = { ...mockConfig, sources: { ...mockConfig.sources, primary: { type: 'aladhan', method: 'MWL' } } };
+            
+             await request(app)
+                .post('/api/settings/update')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send(newConfig)
+                .expect(200);
+             
+             // Check that it still called scheduler init
+             const schedulerService = require('../../../src/services/schedulerService');
+             expect(schedulerService.initScheduler).toHaveBeenCalled();
+        });
+
+        it('POST /settings/refresh-cache - should proceed if audio sync fails', async () => {
+             const audioAssetService = require('../../../src/services/audioAssetService');
+             audioAssetService.syncAudioAssets.mockRejectedValueOnce(new Error('Sync Fail'));
+             
+             await request(app)
+                 .post('/api/settings/refresh-cache')
+                 .set('Cookie', [`auth_token=${adminToken}`])
+                 .expect(200);
+                 
+             const schedulerService = require('../../../src/services/schedulerService');
+             expect(schedulerService.initScheduler).toHaveBeenCalled();
+        });
+
+        it('POST /settings/refresh-cache - should handle scheduler stop error', async () => {
+             const schedulerService = require('../../../src/services/schedulerService');
+             schedulerService.stopAll.mockRejectedValueOnce(new Error('Stop Fail'));
+             
+             // This logs error but continues
+             await request(app)
+                 .post('/api/settings/refresh-cache')
+                 .set('Cookie', [`auth_token=${adminToken}`])
+                 .expect(200);
+        });
+    });
+
+    describe('MyMasjid Coverage', () => {
+        it('POST /api/settings/update - should validate MyMasjid source', async () => {
+             const newConfig = { 
+                 ...mockConfig, 
+                 sources: { 
+                     primary: { type: 'mymasjid', masjidId: 'test-id' } 
+                 } 
+             };
+             
+             await request(app)
+                .post('/api/settings/update')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send(newConfig)
+                .expect(200);
+             
+             const fetchers = require('../../../src/services/fetchers');
+             expect(fetchers.fetchMyMasjidBulk).toHaveBeenCalled();
+        });
+
+        it('POST /api/settings/update - should fail if MyMasjid ID missing', async () => {
+             const newConfig = { 
+                 ...mockConfig, 
+                 sources: { 
+                     primary: { type: 'mymasjid', masjidId: '' } 
+                 } 
+             };
+             
+             await request(app)
+                .post('/api/settings/update')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send(newConfig)
+                .expect(400); 
+        });
+
+         it('POST /api/settings/update - should generate warnings if services unhealthy', async () => {
+             healthCheck.getHealth.mockReturnValueOnce({
+                 tts: { healthy: false },
+                 local: { healthy: false },
+                 voiceMonkey: { healthy: false, message: 'Auth Fail' }
+             });
+
+             const newConfig = { 
+                 ...mockConfig, 
+                 automation: {
+                     triggers: {
+                         fajr: { 
+                             pre: { enabled: true, type: 'tts', targets: ['local'] },
+                             post: { enabled: true, type: 'voiceMonkey' }
+                         }
+                     }
+                 }
+             };
+             
+             const res = await request(app)
+                .post('/api/settings/update')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send(newConfig)
+                .expect(200);
+             
+             expect(res.body.warnings).toBeDefined();
+             expect(res.body.warnings.length).toBeGreaterThan(0);
+             expect(JSON.stringify(res.body.warnings)).toContain('TTS Service is offline');
+             expect(JSON.stringify(res.body.warnings)).toContain('Auth Fail');
+        });
+    });
+
+    describe('Upload Routes Coverage', () => {
+        it('POST /settings/upload - should fail if no file', async () => {
+             await request(app)
+                 .post('/api/settings/upload')
+                 .set('Cookie', [`auth_token=${adminToken}`])
+                 .expect(400);
+        });
+    });
 });
+
