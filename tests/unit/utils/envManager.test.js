@@ -85,6 +85,40 @@ describe('EnvManager', () => {
         });
     });
 
+    describe('deleteEnvValue', () => {
+        it('should delete existing key from .env file', () => {
+            fs.existsSync.mockReturnValue(true);
+            fs.readFileSync.mockReturnValue('FOO=BAR\nTARGET=DELETE_ME\nANOTHER=KEEP');
+            process.env.TARGET = 'DELETE_ME';
+            
+            envManager.deleteEnvValue('TARGET');
+            
+            expect(fs.writeFileSync).toHaveBeenCalled();
+            const calledContent = fs.writeFileSync.mock.calls[0][1];
+            expect(calledContent).not.toContain('TARGET=DELETE_ME');
+            expect(calledContent).toContain('FOO=BAR');
+            expect(calledContent).toContain('ANOTHER=KEEP');
+            expect(process.env.TARGET).toBeUndefined();
+        });
+        
+        it('should handle deleting from non-existent file gracefully', () => {
+            fs.existsSync.mockReturnValue(false);
+            
+            envManager.deleteEnvValue('NONEXISTENT_KEY');
+            
+            expect(fs.writeFileSync).not.toHaveBeenCalled();
+        });
+        
+        it('should not write if key does not exist in file', () => {
+            fs.existsSync.mockReturnValue(true);
+            fs.readFileSync.mockReturnValue('FOO=BAR\nANOTHER=KEEP');
+            
+            envManager.deleteEnvValue('NONEXISTENT');
+            
+            expect(fs.writeFileSync).not.toHaveBeenCalled();
+        });
+    });
+
     describe('generateSecret', () => {
         it('should return a random string', () => {
              const secret1 = envManager.generateSecret();
