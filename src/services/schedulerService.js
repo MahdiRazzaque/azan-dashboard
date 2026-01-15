@@ -2,7 +2,7 @@ const schedule = require('node-schedule');
 const { DateTime } = require('luxon');
 const configService = require('../config'); // Singleton
 const prayerTimeService = require('./prayerTimeService');
-const audioAssetService = require('./audioAssetService');
+
 const automationService = require('./automationService');
 const { calculateIqamah } = require('../utils/calculations');
 const healthCheck = require('./healthCheck');
@@ -170,12 +170,7 @@ const initScheduler = async () => {
             return;
         }
 
-        // Prepare Audio Assets
-        try {
-            await audioAssetService.prepareDailyAssets();
-        } catch (err) {
-            console.error('[Scheduler] Audio asset prep failed:', err.message);
-        }
+
 
         const triggers = config.automation.triggers;
         if (!triggers) return;

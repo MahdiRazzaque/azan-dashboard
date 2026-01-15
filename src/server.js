@@ -84,6 +84,14 @@ const startServer = async (port = PORT) => {
           console.error('[Startup] Cache refresh failed:', e.message);
         }
 
+        // Generate Audio Assets (Decoupled from Scheduler)
+        const audioAssetService = require('./services/audioAssetService');
+        try {
+            await audioAssetService.syncAudioAssets();
+        } catch (e) {
+            console.error('[Startup] Failed to synchronise audio assets:', e.message);
+        }
+
         // Start Scheduler
         await initScheduler();
         

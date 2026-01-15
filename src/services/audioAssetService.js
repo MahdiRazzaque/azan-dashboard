@@ -77,8 +77,8 @@ const generateTTS = async (filename, text, serviceUrl) => {
     }
 };
 
-const prepareDailyAssets = async (forceClean = false) => {
-    console.log('[AudioService] Preparing daily audio assets...');
+const syncAudioAssets = async (forceClean = false) => {
+    console.log('[AudioService] Synchronising audio assets...');
     ensureCacheDir();
     
 // Dynamic require to get fresh config ONCE
@@ -166,6 +166,6 @@ const prepareDailyAssets = async (forceClean = false) => {
 };
 
 module.exports = {
-    prepareDailyAssets,
+    syncAudioAssets,
     cleanupCache
 };
