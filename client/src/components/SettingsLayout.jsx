@@ -29,6 +29,7 @@ export default function SettingsLayout({ logs, processStatus }) {
   const { 
     config,
     draftConfig,
+    systemHealth,
     hasUnsavedChanges, 
     saveSettings, 
     resetToDefaults, 
@@ -117,23 +118,29 @@ export default function SettingsLayout({ logs, processStatus }) {
         to: '/settings/developer', 
         label: 'Developer', 
         icon: Terminal, 
-        isDirty: () => isSectionDirty('data'),
-        health: () => {
-             // For simplicity, Check if TTS or Local or VoiceMonkey is down
-             // Since developer settings covers everything
-             const tts = getSectionHealth('automation.triggers').issues.some(i => i.type.includes('TTS'));
-             const local = getSectionHealth('automation.triggers').issues.some(i => i.type.includes('Local'));
-             const vm = getSectionHealth('automation.triggers').issues.some(i => i.type.includes('VoiceMonkey'));
-             return { healthy: !(tts || local || vm), issues: [] };
-        }
+        isDirty: () => isSectionDirty('data')
     },
   ];
 
   // Helper to get health for a specific nav item
   const getItemHealth = (item) => {
       if (item.health) return item.health();
-      if (item.label === 'Prayers') return getSectionHealth('automation.triggers');
-      if (item.label === 'Automation') return getSectionHealth('automation.triggers');
+      
+      // Prayers: Show warnings for ANY bad trigger config
+      if (item.label === 'Prayers') {
+          return getSectionHealth('automation.triggers');
+      }
+      
+      // Automation: Only show warnings for system-level connectivity/auth issues
+      if (item.label === 'Automation') {
+          const issues = [];
+          if (draftConfig?.automation?.voiceMonkey?.enabled && !systemHealth.voiceMonkey?.healthy) {
+              issues.push({ type: 'VoiceMonkey credentials missing or offline' });
+          }
+          // We don't show specific trigger errors here anymore
+          return { healthy: issues.length === 0, issues };
+      }
+      
       return { healthy: true, issues: [] };
   };
 
