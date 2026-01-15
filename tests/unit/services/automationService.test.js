@@ -67,22 +67,6 @@ describe('AutomationService', () => {
         expect(playerInstance.play).not.toHaveBeenCalled();
     });
 
-    it('should handle VoiceMonkey trigger', async () => {
-        const vmConfig = JSON.parse(JSON.stringify(mockConfig));
-        vmConfig.automation.voiceMonkey = { enabled: true, accessToken: 'token', secretToken: 'secret' };
-        vmConfig.automation.triggers.fajr.preAdhan.targets = ['voiceMonkey'];
-        configService.get.mockReturnValue(vmConfig);
-        
-        axios.get.mockResolvedValue({ data: {} });
-
-        await service.triggerEvent('fajr', 'preAdhan');
-
-        expect(axios.get).toHaveBeenCalledWith(
-             expect.stringContaining('voicemonkey'),
-             expect.anything()
-        );
-    });
-
     it('should play test audio', () => {
         service.playTestAudio('test.mp3');
         const playerInstance = require('play-sound')(); 
@@ -127,9 +111,27 @@ describe('AutomationService', () => {
             jest.spyOn(console, 'warn').mockImplementation(() => {});
         });
 
+        it('should handle VoiceMonkey trigger', async () => {
+            const vmConfig = JSON.parse(JSON.stringify(mockConfig));
+            vmConfig.automation.voiceMonkey = { enabled: true, token: 'token', device: 'device' };
+            vmConfig.automation.triggers.fajr.preAdhan.targets = ['voiceMonkey'];
+            configService.get.mockReturnValue(vmConfig);
+            
+            axios.get.mockResolvedValue({ data: {} });
+
+            await service.triggerEvent('fajr', 'preAdhan');
+
+            expect(axios.get).toHaveBeenCalledWith(
+                 expect.stringContaining('announcement'),
+                 expect.objectContaining({
+                     params: expect.objectContaining({ token: 'token', device: 'device' })
+                 })
+            );
+        });
+
         it('should handle VoiceMonkey errors', async () => {
             const vmConfig = JSON.parse(JSON.stringify(mockConfig));
-            vmConfig.automation.voiceMonkey = { enabled: true, accessToken: 'tok', secretToken: 'sec' };
+            vmConfig.automation.voiceMonkey = { enabled: true, token: 'tok', device: 'dev' };
             vmConfig.automation.triggers.fajr.preAdhan.targets = ['voiceMonkey'];
             configService.get.mockReturnValue(vmConfig);
             
@@ -148,7 +150,7 @@ describe('AutomationService', () => {
             
             await service.triggerEvent('fajr', 'preAdhan');
             
-            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Missing tokens'));
+            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Missing credentials'));
             expect(axios.get).not.toHaveBeenCalled();
         });
 
@@ -162,6 +164,51 @@ describe('AutomationService', () => {
              await service.triggerEvent('fajr', 'preAdhan');
              
              expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Playback error'), expect.any(Error));
+        });
+    });
+
+    describe('verifyCredentials', () => {
+        it('should return true for valid credentials (success)', async () => {
+             axios.get.mockResolvedValue({ 
+                status: 200, 
+                data: { success: true } 
+            });
+            const result = await service.verifyCredentials('token', 'device');
+            expect(result).toBe(true);
+            expect(axios.get).toHaveBeenCalledWith(
+                'https://api-v2.voicemonkey.io/announcement',
+                expect.objectContaining({
+                    params: expect.objectContaining({ token: 'token', device: 'device' })
+                })
+            );
+        });
+
+        it('should throw for authentication failure (401)', async () => {
+             axios.get.mockRejectedValue({
+                 response: {
+                     status: 401,
+                     data: { error: 'Authentication failed' }
+                 }
+             });
+             
+             await expect(service.verifyCredentials('token', 'device'))
+                 .rejects.toThrow('Invalid Voice Monkey credentials');
+        });
+
+        it('should throw for 400 status (often used for bad args/auth)', async () => {
+             axios.get.mockRejectedValue({
+                 response: {
+                     status: 400,
+                     data: { error: 'Invalid token' }
+                 }
+             });
+             await expect(service.verifyCredentials('token', 'device'))
+                 .rejects.toThrow('Invalid Voice Monkey credentials');
+        });
+
+        it('should throw if tokens missing', async () => {
+            await expect(service.verifyCredentials(null, 'device'))
+                .rejects.toThrow('Missing');
         });
     });
 });

@@ -3,6 +3,7 @@ import { useSettings } from '../../contexts/SettingsContext';
 import { Save, Power, Zap, CheckCircle, XCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import PasswordInput from '../../components/PasswordInput';
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
@@ -145,21 +146,19 @@ export default function AutomationSettingsView() {
             {(formData.automation?.voiceMonkey?.enabled) && (
                  <div className="grid grid-cols-1 gap-6 mt-6 animate-in fade-in slide-in-from-top-4 duration-300 bg-zinc-950 p-4 rounded-md border border-zinc-800">
                      <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">Access Token</label>
-                        <input 
-                            type="password"
-                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono text-sm"
-                            value={formData.automation?.voiceMonkey?.accessToken || ''}
-                            onChange={e => handleChange('automation.voiceMonkey.accessToken', e.target.value)}
+                        <label className="block text-sm font-medium text-zinc-300 mb-2">API Token</label>
+                        <PasswordInput 
+                            value={formData.automation?.voiceMonkey?.token || ''}
+                            onChange={v => handleChange('automation.voiceMonkey.token', v)}
+                            placeholder="Enter API token"
                         />
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">Secret Token</label>
-                        <input 
-                            type="password"
-                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono text-sm"
-                            value={formData.automation?.voiceMonkey?.secretToken || ''}
-                            onChange={e => handleChange('automation.voiceMonkey.secretToken', e.target.value)}
+                        <label className="block text-sm font-medium text-zinc-300 mb-2">Device ID</label>
+                        <PasswordInput 
+                            value={formData.automation?.voiceMonkey?.device || ''}
+                            onChange={v => handleChange('automation.voiceMonkey.device', v)}
+                            placeholder="Enter device ID"
                         />
                     </div>
                 </div>

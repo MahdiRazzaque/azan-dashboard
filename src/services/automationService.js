@@ -63,20 +63,19 @@ const handleVoiceMonkey = async (settings, prayer, event, source) => {
     
     console.log(`[Target:VoiceMonkey] Triggering for ${publicUrl}`);
     
-    const token = config.automation.voiceMonkey?.accessToken;
-    const secret = config.automation.voiceMonkey?.secretToken;
+    const token = config.automation.voiceMonkey?.token;
+    const device = config.automation.voiceMonkey?.device;
     
-    if (!token || !secret) {
-        console.warn('[Target:VoiceMonkey] Missing tokens.');
+    if (!token || !device) {
+        console.warn('[Target:VoiceMonkey] Missing credentials (token/device).');
         return;
     }
     
     try {
-        await axios.get('https://api.voicemonkey.io/trigger', {
+        await axios.get('https://api-v2.voicemonkey.io/announcement', {
             params: {
-                access_token: token,
-                secret_token: secret,
-                monkey: 'all',
+                token: token,
+                device: device,
                 audio: publicUrl
             }
         });
@@ -125,7 +124,42 @@ const playTestAudio = (filePath) => {
      });
 };
 
+const verifyCredentials = async (token, device) => {
+    if (!token || !device) {
+        throw new Error('Missing API Token or Device ID');
+    }
+
+    try {
+        // Use the announcement endpoint to verify credentials
+        // We make a dry run or just checking auth. 
+        // The user said: "make a empty call to https://api-v2.voicemonkey.io/announcement with the token and device"
+        await axios.get('https://api-v2.voicemonkey.io/announcement', {
+            params: {
+                token: token,
+                device: device
+            },
+            timeout: 5000
+        });
+        
+        return true;
+        
+    } catch (error) {
+        if (error.response) {
+             const { status, data } = error.response;
+             // Match logic in healthCheck.js: 400, 401, 403 are likely auth issues
+             if ([400, 401, 403].includes(status) || (data && data.error && /authenticated|auth|token/i.test(data.error))) { 
+                 throw new Error('Invalid Voice Monkey credentials');
+             }
+        }
+        // For network errors or unexpected responses, we might want to log but allow if it's not a clear auth failure
+        // However, user said: "if the API returns invalid credentials, an error should occur"
+        // Let's be strict: if we get a response that isn't 2xx, and it's one of the auth status codes, we block.
+    }
+    return true;
+};
+
 module.exports = {
     triggerEvent,
-    playTestAudio
+    playTestAudio,
+    verifyCredentials
 };

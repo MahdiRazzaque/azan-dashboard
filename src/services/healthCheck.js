@@ -47,20 +47,20 @@ async function checkPythonService() {
 
 async function checkVoiceMonkey() {
     const config = configService.get();
-    const token = config.automation?.voiceMonkey?.accessToken;
-    const secret = config.automation?.voiceMonkey?.secretToken;
+    const token = config.automation?.voiceMonkey?.token;
+    const device = config.automation?.voiceMonkey?.device;
 
-    if (!token || !secret) {
+    if (!token || !device) {
         console.warn('[Health] VoiceMonkey: Skipped (Credentials missing)');
         return { healthy: false, message: 'Credentials Missing' }; 
     }
 
     try {
         // Check if we can reach the API
-        await axios.get(`https://api-v2.voicemonkey.io/devices`, {
+        await axios.get(`https://api-v2.voicemonkey.io/announcement`, {
             params: {
-                access_token: token,
-                secret_token: secret
+                token: token,
+                device: device
             },
             timeout: 5000
         });

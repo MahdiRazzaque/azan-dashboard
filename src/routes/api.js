@@ -343,6 +343,12 @@ router.post('/settings/update', authenticateToken, async (req, res) => {
                 await fetchers.fetchAladhanAnnual(tempConfig, now.year);
             }
         }
+
+        if (newConfig.automation && newConfig.automation.voiceMonkey && newConfig.automation.voiceMonkey.enabled) {
+             sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Verifying VoiceMonkey Credentials...' } });
+             const { token, device } = newConfig.automation.voiceMonkey;
+             await automationService.verifyCredentials(token, device);
+        }
         // --- VALIDATION LOGIC END ---
 
         const localPath = path.join(__dirname, '../config/local.json');
