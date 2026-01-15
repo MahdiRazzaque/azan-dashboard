@@ -9,7 +9,7 @@ import SetupView from './views/SetupView';
 import ProtectedRoute from './components/ProtectedRoute';
 import SettingsLayout from './components/SettingsLayout';
 import GeneralSettingsView from './views/settings/GeneralSettingsView';
-import AccountSettingsView from './views/settings/AccountSettingsView';
+import CredentialsSettingsView from './views/settings/CredentialsSettingsView';
 import AutomationSettingsView from './views/settings/AutomationSettingsView';
 import PrayerSettingsView from './views/settings/PrayerSettingsView';
 import FileManagerView from './views/settings/FileManagerView';
@@ -62,7 +62,7 @@ function App() {
         >
             <Route index element={<Navigate to="general" replace />} />
             <Route path="general" element={<GeneralSettingsView />} />
-            <Route path="account" element={<AccountSettingsView />} />
+            <Route path="credentials" element={<CredentialsSettingsView />} />
             <Route path="prayers" element={<PrayerSettingsView />} />
             <Route path="automation" element={<AutomationSettingsView />} />
             <Route path="files" element={<FileManagerView />} />

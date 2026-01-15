@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 
-export default function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', isDestructive = false }) {
+export default function ConfirmModal({ isOpen, onClose, onConfirm, onCancel, onRetry, retryText, title, message, confirmText = 'Confirm', cancelText = 'Cancel', isDestructive = false }) {
     if (!isOpen) return null;
 
     return (
@@ -35,11 +35,22 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
 
                     <div className="flex gap-3 w-full pt-4">
                         <button 
-                            onClick={onClose}
+                            onClick={onCancel || onClose}
                             className="flex-1 py-2.5 px-4 bg-zinc-800 text-zinc-300 font-medium rounded-lg hover:bg-zinc-700 transition-colors"
                         >
-                            Cancel
+                            {cancelText}
                         </button>
+                        
+                        {/* Retry Button */}
+                        {onRetry && (
+                            <button 
+                                onClick={onRetry}
+                                className="flex-1 py-2.5 px-4 bg-zinc-800 text-zinc-300 font-medium rounded-lg hover:bg-zinc-700 transition-colors border border-zinc-700"
+                            >
+                                {retryText || 'Retry'}
+                            </button>
+                        )}
+
                         <button 
                             onClick={() => { onConfirm(); onClose(); }}
                             className={`flex-1 py-2.5 px-4 font-bold rounded-lg text-white transition-all shadow-lg ${

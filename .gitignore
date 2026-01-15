@@ -28,3 +28,4 @@ repomix-output.xml
 /public/audio/cache
 src/config/local.json
 /coverage
+repomixBat.bat
