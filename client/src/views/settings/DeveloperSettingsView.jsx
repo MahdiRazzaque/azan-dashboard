@@ -16,6 +16,56 @@ export default function DeveloperSettingsView() {
     const [automationStatus, setAutomationStatus] = useState(null);
     const [ttsStatus, setTtsStatus] = useState(null);
 
+
+
+    const [refreshing, setRefreshing] = useState(null); // 'voiceMonkey' | 'tts' | 'local'
+    const [feedback, setFeedback] = useState({}); // { voiceMonkey: "Message", ... }
+    const [apiOnline, setApiOnline] = useState(true); // Default to true since we loaded the page
+
+
+    const handleManualRefresh = async (target) => {
+        setRefreshing(target);
+        // Clear old feedback for this target
+        setFeedback(prev => ({ ...prev, [target]: null }));
+        
+        let feedbackMsg = null;
+        let isHealthy = false;
+
+        if (target === 'api') {
+            try {
+                // Direct ping to check connectivity
+                const res = await fetch('/api/health'); // Use endpoint that just returns state
+                if (res.ok) {
+                     isHealthy = true;
+                     setApiOnline(true);
+                     feedbackMsg = "Online";
+                } else {
+                     throw new Error('Status ' + res.status);
+                }
+            } catch (e) {
+                isHealthy = false;
+                setApiOnline(false);
+                feedbackMsg = "Unreachable";
+            }
+        } else {
+            const res = await refreshHealth(target);
+            if (res && res[target]) {
+                 const item = res[target];
+                 isHealthy = item.healthy;
+                 feedbackMsg = item.message || (item.healthy ? "Online" : "Offline");
+            }
+        }
+
+        if (feedbackMsg) {
+             setFeedback(prev => ({ ...prev, [target]: feedbackMsg }));
+             
+             setTimeout(() => {
+                 setFeedback(prev => ({ ...prev, [target]: null }));
+             }, 3000);
+        }
+        setRefreshing(null);
+    };
+
     const fetchJobs = () => {
         fetch('/api/system/jobs')
             .then(res => res.json())
@@ -156,23 +206,43 @@ export default function DeveloperSettingsView() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                         {/* Left Column: API & VoiceMonkey */}
-                        <div className="space-y-4">
+
+    
+                         <div className="space-y-4">
                              {/* API Health (Synthesized) */}
                              <div className="flex items-center justify-between p-3 bg-zinc-900 rounded border border-zinc-800">
                                  <div>
                                      <div className="flex items-center gap-2">
                                          <span className="font-medium text-zinc-200">API Server</span>
-                                         <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                         {apiOnline ? (
+                                             <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                         ) : (
+                                             <XCircle className="w-4 h-4 text-red-500" />
+                                         )}
                                      </div>
-                                     <div className="text-xs text-zinc-500">Node.js Backend (Port 3000)</div>
+                                     <div className="text-xs text-zinc-500 transition-all duration-300">
+                                         Node.js Backend (Port {systemHealth?.ports?.api || '3000'})
+                                     </div>
                                  </div>
-                                 <button 
-                                     onClick={() => window.location.reload()}
-                                     className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors"
-                                     title="Reload Page"
-                                 >
-                                     <RefreshCw className="w-4 h-4" />
-                                 </button>
+                                 <div className="relative">
+                                     {feedback?.api && (
+                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-800 text-white text-xs rounded border border-zinc-700 whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                                             {feedback.api}
+                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-b border-r border-zinc-700 rotate-45"></div>
+                                         </div>
+                                     )}
+                                     <button 
+                                         onClick={() => handleManualRefresh('api')}
+                                         disabled={refreshing === 'api'}
+                                         className={cn(
+                                             "p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors",
+                                             refreshing === 'api' && "text-emerald-500"
+                                         )}
+                                         title="Refresh Status"
+                                     >
+                                         <RefreshCw className="w-4 h-4" />
+                                     </button>
+                                 </div>
                              </div>
 
                              {/* VoiceMonkey */}
@@ -180,46 +250,74 @@ export default function DeveloperSettingsView() {
                                  <div>
                                      <div className="flex items-center gap-2">
                                          <span className="font-medium text-zinc-200">VoiceMonkey</span>
-                                         {systemHealth.voiceMonkey ? (
+                                         {systemHealth.voiceMonkey?.healthy ? (
                                              <CheckCircle className="w-4 h-4 text-emerald-500" />
                                          ) : (
                                              <XCircle className="w-4 h-4 text-red-500" />
                                          )}
                                      </div>
-                                     <div className="text-xs text-zinc-500">Cloud API Connectivity</div>
+                                     <div className="text-xs text-zinc-500 transition-all duration-300">
+                                          Cloud API Connectivity
+                                     </div>
                                  </div>
-                                 <button 
-                                     onClick={() => refreshHealth('voiceMonkey')}
-                                     className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors"
-                                     title="Refresh Status"
-                                 >
-                                     <RefreshCw className="w-4 h-4" />
-                                 </button>
+                                 <div className="relative">
+                                     {feedback?.voiceMonkey && (
+                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-800 text-white text-xs rounded border border-zinc-700 whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                                             {feedback.voiceMonkey}
+                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-b border-r border-zinc-700 rotate-45"></div>
+                                         </div>
+                                     )}
+                                     <button 
+                                         onClick={() => handleManualRefresh('voiceMonkey')}
+                                         disabled={refreshing === 'voiceMonkey'}
+                                         className={cn(
+                                             "p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors",
+                                             refreshing === 'voiceMonkey' && "text-emerald-500"
+                                         )}
+                                         title="Refresh Status"
+                                     >
+                                         <RefreshCw className="w-4 h-4" />
+                                     </button>
+                                 </div>
                              </div>
                         </div>
 
-                        {/* Right Column: TTS & Local */}
+                         {/* Right Column: TTS & Local */}
                         <div className="space-y-4">
                              {/* TTS Service */}
                              <div className="flex items-center justify-between p-3 bg-zinc-900 rounded border border-zinc-800">
                                  <div>
                                      <div className="flex items-center gap-2">
                                          <span className="font-medium text-zinc-200">TTS Service</span>
-                                         {systemHealth.tts ? (
+                                         {systemHealth.tts?.healthy ? (
                                              <CheckCircle className="w-4 h-4 text-emerald-500" />
                                          ) : (
                                              <XCircle className="w-4 h-4 text-red-500" />
                                          )}
                                      </div>
-                                     <div className="text-xs text-zinc-500">Python Server (Port 8000)</div>
+                                     <div className="text-xs text-zinc-500 transition-all duration-300">
+                                         Python Server (Port {systemHealth?.ports?.tts || '8000'})
+                                     </div>
                                  </div>
-                                 <button 
-                                     onClick={() => refreshHealth('tts')}
-                                     className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors"
-                                     title="Refresh Status"
-                                 >
-                                     <RefreshCw className="w-4 h-4" />
-                                 </button>
+                                 <div className="relative">
+                                     {feedback?.tts && (
+                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-800 text-white text-xs rounded border border-zinc-700 whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                                             {feedback.tts}
+                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-b border-r border-zinc-700 rotate-45"></div>
+                                         </div>
+                                     )}
+                                     <button 
+                                         onClick={() => handleManualRefresh('tts')}
+                                         disabled={refreshing === 'tts'}
+                                         className={cn(
+                                             "p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors",
+                                             refreshing === 'tts' && "text-emerald-500"
+                                         )}
+                                         title="Refresh Status"
+                                     >
+                                         <RefreshCw className="w-4 h-4" />
+                                     </button>
+                                 </div>
                              </div>
 
                              {/* Local Audio */}
@@ -227,21 +325,35 @@ export default function DeveloperSettingsView() {
                                  <div>
                                      <div className="flex items-center gap-2">
                                          <span className="font-medium text-zinc-200">Local Audio</span>
-                                         {systemHealth.local ? (
+                                         {systemHealth.local?.healthy ? (
                                              <CheckCircle className="w-4 h-4 text-emerald-500" />
                                          ) : (
                                              <XCircle className="w-4 h-4 text-red-500" />
                                          )}
                                      </div>
-                                     <div className="text-xs text-zinc-500">mpg123 CLI Tool</div>
+                                     <div className="text-xs text-zinc-500 transition-all duration-300">
+                                         {systemHealth.local?.healthy ? "mpg123 CLI Tool" : (systemHealth.local?.message || "Not Found")}
+                                     </div>
                                  </div>
-                                 <button 
-                                     onClick={() => refreshHealth('local')}
-                                     className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors"
-                                     title="Refresh Status"
-                                 >
-                                     <RefreshCw className="w-4 h-4" />
-                                 </button>
+                                 <div className="relative">
+                                     {feedback?.local && (
+                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-800 text-white text-xs rounded border border-zinc-700 whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                                             {feedback.local}
+                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-b border-r border-zinc-700 rotate-45"></div>
+                                         </div>
+                                     )}
+                                     <button 
+                                         onClick={() => handleManualRefresh('local')}
+                                         disabled={refreshing === 'local'}
+                                         className={cn(
+                                             "p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors",
+                                             refreshing === 'local' && "text-emerald-500"
+                                         )}
+                                         title="Refresh Status"
+                                     >
+                                         <RefreshCw className="w-4 h-4" />
+                                     </button>
+                                 </div>
                              </div>
                         </div>
                     </div>
@@ -423,10 +535,10 @@ export default function DeveloperSettingsView() {
             )}>
                  <div className="flex items-center justify-between mb-4">
                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                         <span className={cn("w-2 h-2 rounded-full shadow-lg", !systemHealth.tts ? "bg-zinc-600" : "bg-purple-500 shadow-purple-500/50")}></span>
+                         <span className={cn("w-2 h-2 rounded-full shadow-lg", !systemHealth.tts?.healthy ? "bg-zinc-600" : "bg-purple-500 shadow-purple-500/50")}></span>
                          TTS Asset Status
                      </h3>
-                     {!systemHealth.tts && (
+                     {!systemHealth.tts?.healthy && (
                          <div className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-xs text-zinc-400 font-mono">
                              SERVICE OFFLINE
                          </div>

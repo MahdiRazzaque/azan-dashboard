@@ -383,14 +383,14 @@ router.post('/settings/update', authenticateToken, async (req, res) => {
                     if (!trigger.enabled) return;
                      const niceName = `${prayer.charAt(0).toUpperCase() + prayer.slice(1)} ${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
 
-                    if (trigger.type === 'tts' && !health.tts) {
+                    if (trigger.type === 'tts' && !health.tts?.healthy) {
                         warnings.push(`${niceName}: TTS Service is offline`);
                     }
-                    if (trigger.targets && trigger.targets.includes('local') && !health.local) {
+                    if (trigger.targets && trigger.targets.includes('local') && !health.local?.healthy) {
                         warnings.push(`${niceName}: Local Audio Service is offline`);
                     }
-                    if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !health.voiceMonkey) {
-                         warnings.push(`${niceName}: VoiceMonkey Service is offline`);
+                    if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !health.voiceMonkey?.healthy) {
+                         warnings.push(`${niceName}: ${health.voiceMonkey?.message || 'VoiceMonkey Service is offline'}`);
                     }
                 });
             });

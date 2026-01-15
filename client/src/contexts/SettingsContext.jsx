@@ -7,7 +7,11 @@ const SettingsContext = createContext(null);
 export const SettingsProvider = ({ children }) => {
   const [config, setConfig] = useState(null);
   const [draftConfig, setDraftConfig] = useState(null);
-  const [systemHealth, setSystemHealth] = useState({ local: true, tts: true, voiceMonkey: true }); // Default optimistic
+  const [systemHealth, setSystemHealth] = useState({ 
+      local: { healthy: true }, 
+      tts: { healthy: true }, 
+      voiceMonkey: { healthy: true } 
+  }); // Default optimistic
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -209,16 +213,16 @@ export const SettingsProvider = ({ children }) => {
       const checkTrigger = (trigger, name) => {
           if (!trigger || !trigger.enabled) return;
           
-          if (trigger.type === 'tts' && !systemHealth.tts) {
+          if (trigger.type === 'tts' && !systemHealth.tts?.healthy) {
               issues.push({ trigger: name, type: 'TTS Service Offline' });
           }
           
-          if (trigger.targets?.includes('local') && !systemHealth.local) {
+          if (trigger.targets?.includes('local') && !systemHealth.local?.healthy) {
               issues.push({ trigger: name, type: 'Local Audio Offline' });
           }
           
-          if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey) {
-              issues.push({ trigger: name, type: 'VoiceMonkey Offline' });
+          if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey?.healthy) {
+              issues.push({ trigger: name, type: systemHealth.voiceMonkey?.message || 'VoiceMonkey Offline' });
           }
       };
 

@@ -124,7 +124,7 @@ export default function AutomationSettingsView() {
                     <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
                 )}
                 <div className="ml-auto flex items-center gap-2 text-xs font-normal opacity-75">
-                    {systemHealth?.voiceMonkey ? (
+                    {systemHealth?.voiceMonkey?.healthy ? (
                         <span className="flex items-center gap-1 text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 rounded-full">
                             <CheckCircle className="w-3 h-3" /> Online
                         </span>

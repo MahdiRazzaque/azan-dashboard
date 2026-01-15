@@ -3,11 +3,19 @@ const axios = require('axios');
 const configService = require('../config');
 
 let healthCache = {
-    local: false,
-    tts: false,
-    voiceMonkey: false,
+    local: { healthy: false, message: 'Initializing...' },
+    tts: { healthy: false, message: 'Initializing...' },
+    voiceMonkey: { healthy: false, message: 'Initializing...' },
+    ports: { api: process.env.PORT || 3000, tts: 8000 },
     lastChecked: null
 };
+
+// Extract TTS port from URL or default
+try {
+    const ttsUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
+    const port = new URL(ttsUrl).port;
+    if (port) healthCache.ports.tts = port;
+} catch (e) { /* ignore */ }
 
 async function checkLocalAudio() {
     try {
@@ -18,59 +26,38 @@ async function checkLocalAudio() {
             });
         });
         console.log('[Health] mpg123: OK');
-        return true;
+        return { healthy: true, message: 'Ready' };
     } catch (e) {
         console.warn('[Health] mpg123: Not Found');
-        return false;
+        return { healthy: false, message: 'mpg123 Not Found' };
     }
 }
 
 async function checkPythonService() {
     try {
-        await axios.get('http://127.0.0.1:8000/docs', { timeout: 2000 });
+        const ttsUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
+        await axios.get(`${ttsUrl}/docs`, { timeout: 2000 });
         console.log('[Health] TTS Service: OK');
-        return true;
+        return { healthy: true, message: 'Online' };
     } catch (e) {
         console.warn('[Health] TTS Service: Unreachable');
-        return false;
+        return { healthy: false, message: 'Service Unreachable' };
     }
 }
 
 async function checkVoiceMonkey() {
     const config = configService.get();
-    const token = config.integrations?.voiceMonkey?.accessToken;
-    const secret = config.integrations?.voiceMonkey?.secretToken;
+    const token = config.automation?.voiceMonkey?.accessToken;
+    const secret = config.automation?.voiceMonkey?.secretToken;
 
     if (!token || !secret) {
         console.warn('[Health] VoiceMonkey: Skipped (Credentials missing)');
-        return false; // Can't be healthy if not configured
+        return { healthy: false, message: 'Credentials Missing' }; 
     }
 
     try {
-        // "Dry Run" type check implies we validat the credentials.
-        // There isn't a dedicated "auth check" endpoint in VM API usually, but we can try to get devices
-        // or just assume if we can reach the API it's "Online" in terms of internet/DNS, 
-        // but to check credentials we need a real call. 
-        // The PRD mentions "Validates tokens against api.voicemonkey.io (Dry run/Devices check)".
-        // Let's assume a harmless GET if possible. 
-        // Documentation for VoiceMonkey API is sparse on "check auth", usually you send a TTS.
-        // Let's rely on a basic connectivity check or just return true if credentials exist for now 
-        // IF we want to strictly follow PRD "Validates tokens", we'd need to know the specific endpoint.
-        // Given earlier conversations (not shown here), I'll assume we can't easily validate without sending audio
-        // unless there is a 'devices' endpoint. 
-        // Let's try to hit the "get devices" endpoint if it exists or just check if the service is reachable.
-        // For safety, let's just do a basic connectivity check to the base API URL to ensure DNS/Network is fine,
-        // and assume credentials are "valid" if provided, unless we want to do a full test.
-        // Actually, PRD says: "Validates tokens... (Dry run/Devices check)".
-        // I will implement a "Dry Run" style check if I can find one, otherwise just basic reachability.
-        // Assuming typical usage:
-        // https://api.voicemonkey.io/v2/devices?access_token=...&secret_token=... mechanism
-        
-        // Changing strategy: We will just check if we can reach api.voicemonkey.io. 
-        // If we want to be strict, we'd try to list devices.
-        // Let's try listing devices as it's the safest read-only operation.
-        
-        await axios.get(`https://api.voicemonkey.io/v2/devices`, {
+        // Check if we can reach the API
+        await axios.get(`https://api-v2.voicemonkey.io/devices`, {
             params: {
                 access_token: token,
                 secret_token: secret
@@ -79,16 +66,17 @@ async function checkVoiceMonkey() {
         });
         
         console.log('[Health] VoiceMonkey: OK');
-        return true;
+        return { healthy: true, message: 'Online' };
     } catch (e) {
-        // 401/403 would mean invalid credentials
-        // 500 or timeout means service issue
-        if (e.response && (e.response.status === 401 || e.response.status === 403)) {
+        let msg = 'Unreachable';
+        if (e.response && (e.response.status === 400 || e.response.status === 401 || e.response.status === 403)) {
             console.warn('[Health] VoiceMonkey: Invalid Credentials');
+            msg = 'Invalid Credentials';
         } else {
             console.warn('[Health] VoiceMonkey: Unreachable/Error', e.message);
+            msg = e.message || 'Request Failed';
         }
-        return false;
+        return { healthy: false, message: msg };
     }
 }
 
@@ -97,6 +85,8 @@ async function refresh(target = 'all') {
     
     const updates = {};
     const promises = [];
+
+
 
     if (target === 'all' || target === 'local') {
         promises.push(checkLocalAudio().then(res => updates.local = res));
@@ -109,6 +99,14 @@ async function refresh(target = 'all') {
     }
 
     await Promise.all(promises);
+
+    // Refresh ports from env in case of restart/reload (though process.env is static, this handles if logic changes)
+    try {
+        const ttsUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
+        const port = new URL(ttsUrl).port;
+        if (port) healthCache.ports = { ...healthCache.ports, tts: port };
+    } catch(e) {}
+    healthCache.ports.api = process.env.PORT || 3000;
 
     healthCache = { ...healthCache, ...updates, lastChecked: new Date().toISOString() };
     return healthCache;
