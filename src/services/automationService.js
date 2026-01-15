@@ -131,29 +131,28 @@ const verifyCredentials = async (token, device) => {
 
     try {
         // Use the announcement endpoint to verify credentials
-        // We make a dry run or just checking auth. 
-        // The user said: "make a empty call to https://api-v2.voicemonkey.io/announcement with the token and device"
-        await axios.get('https://api-v2.voicemonkey.io/announcement', {
+        const response = await axios.get('https://api-v2.voicemonkey.io/announcement', {
             params: {
                 token: token,
-                device: device
+                device: device,
+                text: "Test"
             },
             timeout: 5000
         });
-        
-        return true;
+
+        if (response.data && response.data.success === true) {
+            return true;
+        } else {
+             throw new Error(response.data?.error || 'VoiceMonkey API verification failed');
+        }
         
     } catch (error) {
         if (error.response) {
              const { status, data } = error.response;
-             // Match logic in healthCheck.js: 400, 401, 403 are likely auth issues
              if ([400, 401, 403].includes(status) || (data && data.error && /authenticated|auth|token/i.test(data.error))) { 
                  throw new Error('Invalid Voice Monkey credentials');
              }
         }
-        // For network errors or unexpected responses, we might want to log but allow if it's not a clear auth failure
-        // However, user said: "if the API returns invalid credentials, an error should occur"
-        // Let's be strict: if we get a response that isn't 2xx, and it's one of the auth status codes, we block.
     }
     return true;
 };

@@ -153,11 +153,11 @@ class ConfigService {
         if (process.env.BASE_URL) config.automation.baseUrl = process.env.BASE_URL;
         if (process.env.PYTHON_SERVICE_URL) config.automation.pythonServiceUrl = process.env.PYTHON_SERVICE_URL;
         
-        if (process.env.VOICEMONKEY_access_token) {
-            config.automation.voiceMonkey.accessToken = process.env.VOICEMONKEY_access_token;
+        if (process.env.VOICEMONKEY_TOKEN) {
+            config.automation.voiceMonkey.token = process.env.VOICEMONKEY_TOKEN;
         }
-        if (process.env.VOICEMONKEY_secret_token) {
-            config.automation.voiceMonkey.secretToken = process.env.VOICEMONKEY_secret_token;
+        if (process.env.VOICEMONKEY_DEVICE) {
+            config.automation.voiceMonkey.device = process.env.VOICEMONKEY_DEVICE;
         }
     }
 
@@ -174,8 +174,10 @@ class ConfigService {
             if (process.env.PYTHON_SERVICE_URL) delete config.automation.pythonServiceUrl;
             
             if (config.automation.voiceMonkey) {
-                 if (process.env.VOICEMONKEY_access_token) delete config.automation.voiceMonkey.accessToken;
-                 if (process.env.VOICEMONKEY_secret_token) delete config.automation.voiceMonkey.secretToken;
+                 // Always remove token and device from the object to be saved
+                 // This ensures they are never written to local.json
+                 delete config.automation.voiceMonkey.token;
+                 delete config.automation.voiceMonkey.device;
             }
         }
     }

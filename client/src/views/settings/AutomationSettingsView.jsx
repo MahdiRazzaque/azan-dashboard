@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useSettings } from '../../contexts/SettingsContext';
-import { Save, Power, Zap, CheckCircle, XCircle } from 'lucide-react';
+import { Save, Power, Zap, CheckCircle, XCircle, Play, BadgeCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import PasswordInput from '../../components/PasswordInput';
+import ConfirmModal from '../../components/ConfirmModal';
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
@@ -61,6 +62,12 @@ export default function AutomationSettingsView() {
       return JSON.stringify(rest1) !== JSON.stringify(rest2);
   })();
 
+  const [testing, setTesting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [testError, setTestError] = useState(null);
+
+  // FR-03 & Clean up: Removed VoiceMonkey logic
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
         <div className="flex justify-between items-center">
@@ -116,54 +123,6 @@ export default function AutomationSettingsView() {
             </div>
         </section>
 
-        {/* VoiceMonkey Integration */}
-        <section className="bg-zinc-900 p-6 rounded-lg border border-zinc-800 shadow-md">
-            <h2 className="text-xl font-semibold mb-4 text-emerald-400 flex items-center gap-2 border-b border-zinc-800 pb-2">
-                <Zap className="w-5 h-5" />
-                VoiceMonkey Integration
-                {JSON.stringify(config?.automation?.voiceMonkey) !== JSON.stringify(draftConfig?.automation?.voiceMonkey) && (
-                    <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
-                )}
-                <div className="ml-auto flex items-center gap-2 text-xs font-normal opacity-75">
-                    {systemHealth?.voiceMonkey?.healthy ? (
-                        <span className="flex items-center gap-1 text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                            <CheckCircle className="w-3 h-3" /> Online
-                        </span>
-                    ) : (
-                        <span className="flex items-center gap-1 text-red-400 border border-red-500/30 bg-red-500/10 px-2 py-0.5 rounded-full">
-                            <XCircle className="w-3 h-3" /> Offline
-                        </span>
-                    )}
-                </div>
-            </h2>
-             <Toggle 
-                label="Enable VoiceMonkey" 
-                description="Trigger Alexa routines via VoiceMonkey API."
-                checked={formData.automation?.voiceMonkey?.enabled ?? false}
-                onChange={v => handleChange('automation.voiceMonkey.enabled', v)}
-            />
-            
-            {(formData.automation?.voiceMonkey?.enabled) && (
-                 <div className="grid grid-cols-1 gap-6 mt-6 animate-in fade-in slide-in-from-top-4 duration-300 bg-zinc-950 p-4 rounded-md border border-zinc-800">
-                     <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">API Token</label>
-                        <PasswordInput 
-                            value={formData.automation?.voiceMonkey?.token || ''}
-                            onChange={v => handleChange('automation.voiceMonkey.token', v)}
-                            placeholder="Enter API token"
-                        />
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">Device ID</label>
-                        <PasswordInput 
-                            value={formData.automation?.voiceMonkey?.device || ''}
-                            onChange={v => handleChange('automation.voiceMonkey.device', v)}
-                            placeholder="Enter device ID"
-                        />
-                    </div>
-                </div>
-            )}
-        </section>
     </div>
   );
 }

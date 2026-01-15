@@ -125,7 +125,7 @@ const scheduleMaintenanceJobs = () => {
     const healthJob = schedule.scheduleJob('0 * * * *', async () => {
         try {
             console.log('[Maintenance] Running Hourly Health Check...');
-            await healthCheck.refresh('all');
+            await healthCheck.refresh('all', 'silent');
         } catch (e) {
             console.error('[Maintenance] Health Check Failed:', e);
         }

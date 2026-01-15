@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { 
     Menu, X, Settings, Clock, Zap, FileAudio, 
-    Terminal, LogOut, ChevronLeft, User, Save, RotateCcw, AlertTriangle
+    Terminal, LogOut, ChevronLeft, Shield, Save, RotateCcw, AlertTriangle
 } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import SaveProcessModal from './SaveProcessModal';
@@ -36,8 +36,11 @@ export default function SettingsLayout({ logs, processStatus }) {
     isSectionDirty, 
     getSectionHealth,
     resetDraft,
-    saving 
+    saving,
+    validateBeforeSave
   } = useSettings();
+
+  const location = useLocation();
 
   useEffect(() => {
     return () => {
@@ -56,6 +59,15 @@ export default function SettingsLayout({ logs, processStatus }) {
   }, [notification]);
 
   const handleGlobalSave = async () => {
+      // Validate before opening modal
+      if (validateBeforeSave) {
+          const check = validateBeforeSave();
+          if (!check.success) {
+              setNotification({ type: 'error', message: check.error });
+              return;
+          }
+      }
+
       setShowProcessModal(true);
       setSaveResult(null);
       
@@ -96,9 +108,9 @@ export default function SettingsLayout({ logs, processStatus }) {
             if (!config || !draftConfig) return false;
             const cAuth = config.automation || {};
             const dAuth = draftConfig.automation || {};
-            // Compare automation excluding triggers
-            const { triggers: t1, ...rest1 } = cAuth;
-            const { triggers: t2, ...rest2 } = dAuth;
+            // Compare automation excluding triggers and voiceMonkey (since VM is now separate)
+            const { triggers: t1, voiceMonkey: v1, ...rest1 } = cAuth;
+            const { triggers: t2, voiceMonkey: v2, ...rest2 } = dAuth;
             return JSON.stringify(rest1) !== JSON.stringify(rest2);
         }
     },
@@ -109,10 +121,10 @@ export default function SettingsLayout({ logs, processStatus }) {
         isDirty: () => false
     },
     { 
-        to: '/settings/account', 
-        label: 'Account', 
-        icon: User, 
-        isDirty: () => isSectionDirty('auth')
+        to: '/settings/credentials', 
+        label: 'Credentials', 
+        icon: Shield, 
+        isDirty: () => false // Credentials have their own save button
     },
     { 
         to: '/settings/developer', 
@@ -131,20 +143,27 @@ export default function SettingsLayout({ logs, processStatus }) {
           return getSectionHealth('automation.triggers');
       }
       
-      // Automation: Only show warnings for system-level connectivity/auth issues
+      // Automation
       if (item.label === 'Automation') {
-          const issues = [];
-          if (draftConfig?.automation?.voiceMonkey?.enabled && !systemHealth.voiceMonkey?.healthy) {
-              issues.push({ type: 'VoiceMonkey credentials missing or offline' });
-          }
-          // We don't show specific trigger errors here anymore
-          return { healthy: issues.length === 0, issues };
+          // VoiceMonkey health is now relevant to Credentials page, but maybe keep here or move?
+          // PRD doesn't strictly say where to show health, but "Automation" view still has logical automation settings.
+          // However, VoiceMonkey credentials are in Credentials view.
+          // Let's keep it clean for now.
+          return { healthy: true, issues: [] };
+      }
+
+      if (item.label === 'Credentials') {
+          // User requested no warning if VoiceMonkey is not set up
+          return { healthy: true, issues: [] };
       }
       
       return { healthy: true, issues: [] };
   };
 
   const unsaved = hasUnsavedChanges();
+  
+  // Context-Aware Header: Logic to hide global save controls
+  const isGlobalSaveVisible = !['/settings/credentials', '/settings/files', '/settings/developer'].some(path => location.pathname.includes(path));
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100 font-sans">
@@ -275,43 +294,48 @@ export default function SettingsLayout({ logs, processStatus }) {
              </div>
 
              <div className="flex items-center gap-2">
-                {/* Discard Changes */}
-                {unsaved && (
-                    <button
-                        onClick={resetDraft}
-                        disabled={saving}
-                        className="p-2 text-red-400 hover:bg-red-500/10 rounded-full transition-colors"
-                        title="Discard all unsaved changes"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
+                {/* Global Actions - Conditionally Rendered */}
+                {isGlobalSaveVisible && (
+                    <>
+                        {/* Discard Changes */}
+                        {unsaved && (
+                            <button
+                                onClick={resetDraft}
+                                disabled={saving}
+                                className="p-2 text-red-400 hover:bg-red-500/10 rounded-full transition-colors"
+                                title="Discard all unsaved changes"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        )}
+
+                        {/* Reset to Defaults */}
+                        <button
+                            onClick={() => setShowResetConfirm(true)}
+                            disabled={saving}
+                            className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-full transition-colors"
+                            title="Reset to Factory Defaults"
+                        >
+                            <RotateCcw className="w-5 h-5" />
+                        </button>
+
+                        {/* Save All */}
+                        <button
+                            onClick={handleGlobalSave}
+                            disabled={!unsaved || saving}
+                            className={cn(
+                                "flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all text-sm",
+                                unsaved 
+                                    ? "bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-900/20" 
+                                    : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                            )}
+                            title={unsaved ? "Save all changes" : "No changes to save"}
+                        >
+                            <Save className="w-4 h-4" />
+                            {saving ? 'Saving...' : 'Save'}
+                        </button>
+                    </>
                 )}
-
-                {/* Reset to Defaults */}
-                <button
-                    onClick={() => setShowResetConfirm(true)}
-                    disabled={saving}
-                    className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-full transition-colors"
-                    title="Reset to Factory Defaults"
-                >
-                    <RotateCcw className="w-5 h-5" />
-                </button>
-
-                {/* Save All */}
-                <button
-                    onClick={handleGlobalSave}
-                    disabled={!unsaved || saving}
-                    className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all text-sm",
-                        unsaved 
-                            ? "bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-900/20" 
-                            : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                    )}
-                    title={unsaved ? "Save all changes" : "No changes to save"}
-                >
-                    <Save className="w-4 h-4" />
-                    {saving ? 'Saving...' : 'Save'}
-                </button>
              </div>
         </header>
 

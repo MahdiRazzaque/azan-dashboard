@@ -51,6 +51,20 @@ const setEnvValue = (key, value) => {
     process.env[key] = value;
 };
 
+const deleteEnvValue = (key) => {
+    if (!fs.existsSync(ENV_PATH)) return;
+
+    let content = fs.readFileSync(ENV_PATH, 'utf-8');
+    const lines = content.split(/\r?\n/);
+    
+    const newLines = lines.filter(line => !line.trim().startsWith(`${key}=`));
+
+    if (newLines.length !== lines.length) {
+        fs.writeFileSync(ENV_PATH, newLines.join('\n'));
+        delete process.env[key];
+    }
+};
+
 const generateSecret = () => {
     return crypto.randomBytes(32).toString('hex');
 };
@@ -58,6 +72,7 @@ const generateSecret = () => {
 module.exports = {
     getEnv: parseEnv,
     setEnvValue,
+    deleteEnvValue,
     generateSecret,
     isConfigured: () => !!process.env.ADMIN_PASSWORD
 };

@@ -73,7 +73,7 @@ const startServer = async (port = PORT) => {
         });
 
         // Run System Health Checks
-        await healthCheck.refresh('all');
+        await healthCheck.refresh('all', 'silent');
 
         // Ensure cache is cleared and refreshed at startup
         try {

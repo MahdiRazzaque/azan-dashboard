@@ -83,14 +83,14 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                          </div>
                      )}
                      
-                     {/* Warning icon if enabled but underlying service is dead */}
+                      {/* Warning icon if enabled but underlying service is dead */}
                      {(() => {
                          if (!trigger.enabled || isDisabledByMaster) return null;
                          
                          const issues = [];
-                         if (trigger.type === 'tts' && !systemHealth.tts) issues.push('TTS Service Offline');
-                         if (trigger.targets?.includes('local') && !systemHealth.local) issues.push('Local Audio (mpg123) Offline');
-                         if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey) issues.push('VoiceMonkey Service Offline');
+                         if (trigger.type === 'tts' && !systemHealth.tts?.healthy) issues.push('TTS Service Offline');
+                         if (trigger.targets?.includes('local') && !systemHealth.local?.healthy) issues.push('Local Audio (mpg123) Offline');
+                         if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey?.healthy) issues.push('VoiceMonkey Service Offline');
 
                          if (issues.length === 0) return null;
 
@@ -142,7 +142,7 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                              {['tts', 'file', 'url'].map(type => {
                                  
                                  // Check availability
-                                 const isOffline = (type === 'tts' && !systemHealth.tts);
+                                 const isOffline = (type === 'tts' && !systemHealth.tts?.healthy);
                                  const reason = isOffline ? "TTS Service Offline" : "";
 
                                  return (
@@ -222,7 +222,7 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                          <div className="flex flex-wrap gap-3">
                               {/* Local Audio Info */}
                               {(() => {
-                                  const isOffline = !systemHealth.local;
+                                  const isOffline = !systemHealth.local?.healthy;
                                   const isSelected = trigger.targets?.includes('local');
                                   
                                   return (
@@ -256,7 +256,7 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
 
                               {/* VoiceMonkey Info */}
                               {(() => {
-                                  const isOffline = !systemHealth.voiceMonkey;
+                                  const isOffline = !systemHealth.voiceMonkey?.healthy;
                                   const isSelected = trigger.targets?.includes('voiceMonkey');
 
                                   return (

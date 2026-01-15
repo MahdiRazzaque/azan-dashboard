@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { RefreshCw, Power, RotateCcw, Activity, Database, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Power, RotateCcw, Activity, Database, CheckCircle, XCircle, AlertTriangle, Volume2 } from 'lucide-react';
 import { useSettings } from '../../contexts/SettingsContext';
+import ConfirmModal from '../../components/ConfirmModal';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -22,8 +23,21 @@ export default function DeveloperSettingsView() {
     const [feedback, setFeedback] = useState({}); // { voiceMonkey: "Message", ... }
     const [apiOnline, setApiOnline] = useState(true); // Default to true since we loaded the page
 
+    // Confirmation Logic
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [pendingTarget, setPendingTarget] = useState(null);
 
-    const handleManualRefresh = async (target) => {
+    const [failedVoiceMonkey, setFailedVoiceMonkey] = useState(false);
+
+    const handleManualRefresh = async (target, mode = 'silent') => {
+        // Reset failure state on new attempt
+        if (target === 'voiceMonkey') {
+             setFailedVoiceMonkey(false);
+        }
+        await executeRefresh(target, mode);
+    };
+
+    const executeRefresh = async (target, mode = 'silent') => {
         setRefreshing(target);
         // Clear old feedback for this target
         setFeedback(prev => ({ ...prev, [target]: null }));
@@ -48,7 +62,7 @@ export default function DeveloperSettingsView() {
                 feedbackMsg = "Unreachable";
             }
         } else {
-            const res = await refreshHealth(target);
+            const res = await refreshHealth(target, mode);
             if (res && res[target]) {
                  const item = res[target];
                  isHealthy = item.healthy;
@@ -56,12 +70,18 @@ export default function DeveloperSettingsView() {
             }
         }
 
-        if (feedbackMsg) {
-             setFeedback(prev => ({ ...prev, [target]: feedbackMsg }));
-             
-             setTimeout(() => {
-                 setFeedback(prev => ({ ...prev, [target]: null }));
-             }, 3000);
+        if (target === 'voiceMonkey' && mode === 'loud' && isHealthy) {
+             // API Success, now Verify Sound
+             setPendingTarget(target);
+             setShowConfirm(true);
+        } else {
+             if (feedbackMsg) {
+                 setFeedback(prev => ({ ...prev, [target]: feedbackMsg }));
+                 
+                 setTimeout(() => {
+                     setFeedback(prev => ({ ...prev, [target]: null }));
+                 }, 3000);
+            }
         }
         setRefreshing(null);
     };
@@ -250,7 +270,7 @@ export default function DeveloperSettingsView() {
                                  <div>
                                      <div className="flex items-center gap-2">
                                          <span className="font-medium text-zinc-200">VoiceMonkey</span>
-                                         {systemHealth.voiceMonkey?.healthy ? (
+                                         {systemHealth.voiceMonkey?.healthy && !failedVoiceMonkey ? (
                                              <CheckCircle className="w-4 h-4 text-emerald-500" />
                                          ) : (
                                              <XCircle className="w-4 h-4 text-red-500" />
@@ -260,7 +280,7 @@ export default function DeveloperSettingsView() {
                                           Cloud API Connectivity
                                      </div>
                                  </div>
-                                 <div className="relative">
+                                 <div className="relative flex items-center gap-1">
                                      {feedback?.voiceMonkey && (
                                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-800 text-white text-xs rounded border border-zinc-700 whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
                                              {feedback.voiceMonkey}
@@ -268,13 +288,25 @@ export default function DeveloperSettingsView() {
                                          </div>
                                      )}
                                      <button 
-                                         onClick={() => handleManualRefresh('voiceMonkey')}
+                                         onClick={() => handleManualRefresh('voiceMonkey', 'loud')}
+                                         disabled={refreshing === 'voiceMonkey'}
+                                         className={cn(
+                                             "p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors",
+                                             refreshing === 'voiceMonkey' && "text-amber-500"
+                                         )}
+                                         title="Test Speaker Output"
+                                     >
+                                         <Volume2 className="w-4 h-4" />
+                                     </button>
+                                     <div className="w-px h-4 bg-zinc-800 mx-1"></div>
+                                     <button 
+                                         onClick={() => handleManualRefresh('voiceMonkey', 'silent')}
                                          disabled={refreshing === 'voiceMonkey'}
                                          className={cn(
                                              "p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors",
                                              refreshing === 'voiceMonkey' && "text-emerald-500"
                                          )}
-                                         title="Refresh Status"
+                                         title="Silent Connectivity Check"
                                      >
                                          <RefreshCw className="w-4 h-4" />
                                      </button>
@@ -599,6 +631,21 @@ export default function DeveloperSettingsView() {
                     )}
                 </div>
             </div>
+            
+            <ConfirmModal 
+                isOpen={showConfirm}
+                onClose={() => setShowConfirm(false)}
+                onConfirm={() => setShowConfirm(false)} 
+                onCancel={() => {
+                    setFailedVoiceMonkey(true);
+                    setFeedback(prev => ({ ...prev, voiceMonkey: "Audible Check Failed" }));
+                    setShowConfirm(false); 
+                }}
+                title="Audio Verification"
+                message="A test sound was sent to your VoiceMonkey device. Did you hear it?"
+                confirmText="Yes"
+                cancelText="No"
+            />
         </div>
     );
 }

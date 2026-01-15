@@ -53,12 +53,12 @@ export const SettingsProvider = ({ children }) => {
       }
   };
 
-  const refreshHealth = async (target = 'all') => {
+  const refreshHealth = async (target = 'all', mode = 'silent') => {
       try {
           const res = await fetch('/api/system/health/refresh', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ target })
+              body: JSON.stringify({ target, mode })
           });
           if (res.ok) {
               const data = await res.json();
@@ -259,6 +259,11 @@ export const SettingsProvider = ({ children }) => {
       };
   };
 
+  const validateBeforeSave = () => {
+      // Legacy VoiceMonkey validation removed as it is now handled in Credentials with 'Verify-to-Save'
+      return { success: true };
+  };
+
   return (
     <SettingsContext.Provider value={{ 
         config, 
@@ -274,7 +279,8 @@ export const SettingsProvider = ({ children }) => {
         getSectionHealth,
         refresh: fetchSettings,
         systemHealth,
-        refreshHealth
+        refreshHealth,
+        validateBeforeSave
     }}>
       {children}
     </SettingsContext.Provider>

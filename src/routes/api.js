@@ -144,9 +144,10 @@ router.get('/system/health', (req, res) => {
 });
 
 router.post('/system/health/refresh', authenticateToken, async (req, res) => {
-    const { target } = req.body;
+    const { target, mode } = req.body;
     try {
-        const result = await healthCheck.refresh(target || 'all');
+        // target defaults to 'all' if not checking a specific one, mode defaults to 'silent'
+        const result = await healthCheck.refresh(target || 'all', mode || 'silent');
         res.json(result);
     } catch (e) {
        res.status(500).json({ error: e.message });
@@ -248,6 +249,32 @@ router.post('/system/validate-url', authenticateToken, async (req, res) => {
     }
 });
 
+router.post('/settings/credentials/voicemonkey', authenticateToken, async (req, res) => {
+    const { token, device } = req.body;
+    // Don't error if they are clearing them (empty string) - though the UI shouldn't send that usually.
+    // The requirement says "Validate inputs (must not be empty)"
+    if (!token || !device) return res.status(400).json({ error: 'Missing token or device' });
+
+    try {
+        // Validation via FR-01: must not be empty
+        if (token.trim() === '' || device.trim() === '') {
+             return res.status(400).json({ error: 'Token and Device cannot be empty' });
+        }
+
+        console.log('[API] Saving VoiceMonkey credentials to .env');
+        envManager.setEnvValue('VOICEMONKEY_TOKEN', token);
+        envManager.setEnvValue('VOICEMONKEY_DEVICE', device);
+
+        // Reload Config Service to pick up new env vars
+        await configService.reload();
+
+        res.json({ success: true, message: 'Credentials saved successfully' });
+    } catch (e) {
+        console.error('[API] Credentials Save Error:', e);
+        res.status(500).json({ error: 'Failed to save credentials' });
+    }
+});
+
 router.delete('/settings/files', authenticateToken, (req, res) => {
      const { filename } = req.body;
      if (!filename) return res.status(400).json({ error: 'Missing filename' });
@@ -269,6 +296,22 @@ router.delete('/settings/files', authenticateToken, (req, res) => {
          res.status(404).json({ error: 'File not found' });
      }
  });
+
+router.delete('/settings/credentials/voicemonkey', authenticateToken, async (req, res) => {
+    try {
+        console.log('[API] Removing VoiceMonkey credentials from .env');
+        envManager.deleteEnvValue('VOICEMONKEY_TOKEN');
+        envManager.deleteEnvValue('VOICEMONKEY_DEVICE');
+
+        // Reload Config Service to pick up changes
+        await configService.reload();
+
+        res.json({ success: true, message: 'Credentials removed successfully' });
+    } catch (e) {
+        console.error('[API] Credentials Delete Error:', e);
+        res.status(500).json({ error: 'Failed to remove credentials' });
+    }
+});
 
 // Multer Setup
 const storage = multer.diskStorage({
@@ -312,6 +355,31 @@ router.post('/settings/upload', authenticateToken, upload.single('file'), (req, 
     });
 });
 
+router.post('/system/test-voicemonkey', authenticateToken, async (req, res) => {
+    const { token, device } = req.body;
+    if (!token || !device) return res.status(400).json({ error: 'Missing token or device' });
+
+    try {
+        // FR-01: Call VoiceMonkey API with text="Test"
+        const response = await axios.get('https://api-v2.voicemonkey.io/announcement', {
+            params: { token, device, text: 'Test' },
+            timeout: 5000
+        });
+        
+        if (response.data && response.data.success === true) {
+            console.log('[VoiceMonkey Test] Success:', response.data);
+            res.json({ success: true });
+        } else {
+            console.error('[VoiceMonkey Test] Error:', response.data);
+            throw new Error(response.data?.error || 'VoiceMonkey API returned failure');
+        }
+    } catch (e) {
+        console.error('[VoiceMonkey Test] Error E:', e.message);
+        const msg = e.response?.data?.error || e.message;
+        res.status(e.response ? 400 : 500).json({ error: msg });
+    }
+});
+
 router.post('/settings/update', authenticateToken, async (req, res) => {
     try {
         const newConfig = req.body;
@@ -344,11 +412,10 @@ router.post('/settings/update', authenticateToken, async (req, res) => {
             }
         }
 
-        if (newConfig.automation && newConfig.automation.voiceMonkey && newConfig.automation.voiceMonkey.enabled) {
-             sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Verifying VoiceMonkey Credentials...' } });
-             const { token, device } = newConfig.automation.voiceMonkey;
-             await automationService.verifyCredentials(token, device);
-        }
+
+        
+        // --- CREDENTIAL INTERCEPTION END ---
+
         // --- VALIDATION LOGIC END ---
 
         const localPath = path.join(__dirname, '../config/local.json');

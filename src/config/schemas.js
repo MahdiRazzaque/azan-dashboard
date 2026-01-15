@@ -41,8 +41,8 @@ const automationSchema = z.object({
   pythonServiceUrl: z.string(),
   voiceMonkey: z.object({
     enabled: z.boolean(),
-    accessToken: z.string().optional(),
-    secretToken: z.string().optional(),
+    token: z.string().optional(),
+    device: z.string().optional(),
   }),
   triggers: z.object({
     fajr: prayerTriggersSchema,
