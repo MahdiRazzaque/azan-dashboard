@@ -1,8 +1,9 @@
 const app = require('../../src/server');
 const configService = require('../../src/config');
-const { checkSystemHealth } = require('../../src/services/healthCheck');
+const { checkSystemHealth, refresh } = require('../../src/services/healthCheck');
 const { forceRefresh } = require('../../src/services/prayerTimeService');
 const { initScheduler } = require('../../src/services/schedulerService');
+const audioAssetService = require('../../src/services/audioAssetService');
 
 // Mocks
 jest.mock('../../src/config', () => ({
@@ -11,7 +12,8 @@ jest.mock('../../src/config', () => ({
 }));
 
 jest.mock('../../src/services/healthCheck', () => ({
-    checkSystemHealth: jest.fn()
+    checkSystemHealth: jest.fn(),
+    refresh: jest.fn()
 }));
 
 jest.mock('../../src/services/prayerTimeService', () => ({
@@ -20,6 +22,10 @@ jest.mock('../../src/services/prayerTimeService', () => ({
 
 jest.mock('../../src/services/schedulerService', () => ({
     initScheduler: jest.fn()
+}));
+
+jest.mock('../../src/services/audioAssetService', () => ({
+    syncAudioAssets: jest.fn()
 }));
 
 describe('Server Startup', () => {
@@ -47,17 +53,20 @@ describe('Server Startup', () => {
             location: { coordinates: { lat: 0, long: 0 } }
         });
         checkSystemHealth.mockResolvedValue();
+        refresh.mockResolvedValue();
         forceRefresh.mockResolvedValue();
         initScheduler.mockResolvedValue();
+        audioAssetService.syncAudioAssets.mockResolvedValue();
 
         // Run
         server = await app.startServer(0); // Port 0 usually means random free port
 
         // Verify
         expect(configService.init).toHaveBeenCalled();
-        expect(checkSystemHealth).toHaveBeenCalled();
+        expect(refresh).toHaveBeenCalledWith('all', 'silent');
         expect(forceRefresh).toHaveBeenCalled();
         expect(initScheduler).toHaveBeenCalled();
+        expect(audioAssetService.syncAudioAssets).toHaveBeenCalled();
     });
 
     it('should log specific source types', async () => {

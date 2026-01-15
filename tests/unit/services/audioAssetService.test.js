@@ -39,7 +39,7 @@ describe('AudioAssetService', () => {
         jest.spyOn(console, 'error').mockImplementation(() => {});
     });
 
-    describe('prepareDailyAssets', () => {
+    describe('syncAudioAssets', () => {
         it('should return existing file if locally cached', async () => {
             // Mock cache hit (exists + meta matches)
             fs.existsSync.mockReturnValue(true);
@@ -57,7 +57,7 @@ describe('AudioAssetService', () => {
                 return "audio";
             });
 
-            await service.prepareDailyAssets();
+            await service.syncAudioAssets();
             
             expect(fs.utimesSync).toHaveBeenCalled();
             expect(axios).not.toHaveBeenCalled();
@@ -71,7 +71,7 @@ describe('AudioAssetService', () => {
                 data: { success: true }
             });
             
-            await service.prepareDailyAssets();
+            await service.syncAudioAssets();
             
             expect(axios.post).toHaveBeenCalled();
             // Verify payload
@@ -108,12 +108,12 @@ describe('AudioAssetService', () => {
         });
     });
     
-    describe('prepareDailyAssets Edge Cases', () => {
+    describe('syncAudioAssets Edge Cases', () => {
         it('should handle TTS generation errors gracefully', async () => {
             fs.existsSync.mockReturnValue(false); 
             axios.post.mockRejectedValue(new Error('TTS Failed'));
             
-            await service.prepareDailyAssets();
+            await service.syncAudioAssets();
             
             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('TTS Generation failed'), expect.any(String));
         });
@@ -121,7 +121,7 @@ describe('AudioAssetService', () => {
         it('should verify forceClean functionality', async () => {
             fs.readdirSync.mockReturnValue(['file.mp3', 'file.json', 'other.txt']);
             
-            await service.prepareDailyAssets(true);
+            await service.syncAudioAssets(true);
             
             expect(fs.unlinkSync).toHaveBeenCalledTimes(2); 
         });
@@ -129,7 +129,7 @@ describe('AudioAssetService', () => {
         it('should handle forceClean errors', async () => {
             fs.readdirSync.mockImplementation(() => { throw new Error('Reader Fail'); });
             
-            await service.prepareDailyAssets(true);
+            await service.syncAudioAssets(true);
             
             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Failed to force clean cache'), expect.anything());
         });

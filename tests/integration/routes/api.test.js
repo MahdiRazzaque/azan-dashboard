@@ -73,7 +73,7 @@ jest.mock('../../../src/services/automationService', () => ({
 const automationService = require('../../../src/services/automationService');
 
 jest.mock('../../../src/services/audioAssetService', () => ({
-    prepareDailyAssets: jest.fn()
+    syncAudioAssets: jest.fn()
 }));
 const audioAssetService = require('../../../src/services/audioAssetService');
 
@@ -204,7 +204,7 @@ describe('API Routes Integration', () => {
                 .post('/api/system/regenerate-tts')
                 .set('Cookie', [`auth_token=${adminToken}`])
                 .expect(200);
-            expect(audioAssetService.prepareDailyAssets).toHaveBeenCalled();
+            expect(audioAssetService.syncAudioAssets).toHaveBeenCalled();
         });
 
         it('POST /api/system/test-audio - should play audio', async () => {

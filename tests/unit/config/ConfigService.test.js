@@ -114,11 +114,11 @@ describe('ConfigService', () => {
     });
 
     it('should strip existing secrets when saving', async () => {
-         process.env.VOICEMONKEY_access_token = 'secret';
+         process.env.VOICEMONKEY_TOKEN = 'secret';
          
          const updateData = { 
              automation: { 
-                 voiceMonkey: { accessToken: 'check' } 
+                 voiceMonkey: { token: 'check' } 
              } 
          };
          
@@ -129,11 +129,11 @@ describe('ConfigService', () => {
          const localContent = await fs.readFile(configService._localPath, 'utf-8');
          const localConfig = JSON.parse(localContent);
          
-         // Depending on logic: _stripSecrets checks if process.env.VOICEMONKEY_access_token exists,
-         // then deletes config.automation.voiceMonkey.accessToken.
+         // Depending on logic: _stripSecrets checks if process.env.VOICEMONKEY_TOKEN exists,
+         // then deletes config.automation.voiceMonkey.token.
          
-         expect(localConfig.automation.voiceMonkey.accessToken).toBeUndefined();
+         expect(localConfig.automation.voiceMonkey.token).toBeUndefined();
          
-         delete process.env.VOICEMONKEY_access_token;
+         delete process.env.VOICEMONKEY_TOKEN;
     });
 });
