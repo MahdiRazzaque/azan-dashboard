@@ -138,7 +138,7 @@ router.get('/system/audio-files', authenticateToken, (req, res) => {
 
 const healthCheck = require('../services/healthCheck'); // Added
 
-// Heatlh Routes
+// Health Routes
 router.get('/system/health', (req, res) => {
     res.json(healthCheck.getHealth());
 });
@@ -168,6 +168,7 @@ router.get('/system/jobs', authenticateToken, (req, res) => {
 
 router.get('/system/status/automation', authenticateToken, async (req, res) => {
     try {
+        await configService.reload();
         const config = configService.get();
         const status = await diagnosticsService.getAutomationStatus(config);
         res.json(status);
@@ -178,6 +179,7 @@ router.get('/system/status/automation', authenticateToken, async (req, res) => {
 
 router.get('/system/status/tts', authenticateToken, async (req, res) => {
     try {
+        await configService.reload();
         const config = configService.get();
         const status = await diagnosticsService.getTTSStatus(config);
         res.json(status);
@@ -188,6 +190,7 @@ router.get('/system/status/tts', authenticateToken, async (req, res) => {
 
 router.post('/system/regenerate-tts', authenticateToken, async (req, res) => {
     try {
+        await configService.reload();
         await audioAssetService.syncAudioAssets(true);
         res.json({ success: true, message: 'Audio assets cleared and synchronised.' });
     } catch (e) {
@@ -197,6 +200,7 @@ router.post('/system/regenerate-tts', authenticateToken, async (req, res) => {
 
 router.post('/system/restart-scheduler', authenticateToken, async (req, res) => {
     try {
+        await configService.reload();
         await schedulerService.hotReload();
         res.json({ success: true, message: 'Scheduler restarted.' });
     } catch (e) {
@@ -342,7 +346,8 @@ router.get('/logs', (req, res) => {
     sseService.addClient(res);
 });
 
-router.get('/settings', authenticateToken, (req, res) => {
+router.get('/settings', authenticateToken, async (req, res) => {
+    await configService.reload();
     res.json(configService.get());
 });
 
