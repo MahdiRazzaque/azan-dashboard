@@ -136,6 +136,23 @@ const scheduleMaintenanceJobs = () => {
         healthJob.category = 'maintenance';
         jobs.push(healthJob);
     }
+
+    // 4. Audio Asset Maintenance - Run Daily at 03:30 AM
+    const assetMaintenanceJob = schedule.scheduleJob('30 3 * * *', async () => {
+        console.log('[Maintenance] Running Daily Audio Asset Maintenance...');
+        const audioAssetService = require('./audioAssetService');
+        try {
+            // false = do not force delete everything, just sync missing and clean old
+            await audioAssetService.syncAudioAssets(false); 
+        } catch (e) {
+            console.error('[Maintenance] Audio Asset Maintenance Failed:', e.message);
+        }
+    });
+    if (assetMaintenanceJob) {
+        assetMaintenanceJob.jobName = 'Maintenance: Audio Assets';
+        assetMaintenanceJob.category = 'maintenance';
+        jobs.push(assetMaintenanceJob);
+    }
 };
 
 const initScheduler = async () => {
@@ -151,8 +168,9 @@ const initScheduler = async () => {
 
         // Schedule Midnight Refresh
         // Recurrence rule: 0 0 * * * (Midnight)
-        const midnightJob = schedule.scheduleJob('0 0 * * *', () => {
+        const midnightJob = schedule.scheduleJob('0 0 * * *', async () => {
             console.log('[Scheduler] Midnight Refresh');
+            await configService.reload();
             initScheduler();
         });
         if (midnightJob) {
@@ -169,8 +187,6 @@ const initScheduler = async () => {
             console.error('[Scheduler] Failed to fetch prayer times.');
             return;
         }
-
-
 
         const triggers = config.automation.triggers;
         if (!triggers) return;
