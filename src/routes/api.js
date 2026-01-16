@@ -117,6 +117,10 @@ router.get('/auth/check', authenticateToken, (req, res) => {
 });
 
 // System Routes
+const systemRoutes = require('./system');
+router.use('/system', systemRoutes);
+
+// Other System Routes
 router.get('/system/audio-files', authenticateToken, (req, res) => {
     const customDir = path.join(__dirname, '../../public/audio/custom');
     const cacheDir = path.join(__dirname, '../../public/audio/cache');

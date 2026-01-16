@@ -95,6 +95,28 @@ export const SettingsProvider = ({ children }) => {
       // Deep clone to avoid mutating state directly during validation
       configToSave = JSON.parse(JSON.stringify(configToSave));
 
+      // VALIDATION: General Settings (FR-05)
+      if (configToSave.location) {
+          const { lat, long } = configToSave.location.coordinates || {};
+          // Ensure they are numbers (UI might pass strings)
+          const latNum = parseFloat(lat);
+          const longNum = parseFloat(long);
+
+          if (isNaN(latNum) || latNum < -90 || latNum > 90) {
+              return { success: false, error: 'Validation Error: Latitude must be between -90 and 90' };
+          }
+          if (isNaN(longNum) || longNum < -180 || longNum > 180) {
+              return { success: false, error: 'Validation Error: Longitude must be between -180 and 180' };
+          }
+          
+          // Basic Timezone Check
+          try {
+              Intl.DateTimeFormat(undefined, { timeZone: configToSave.location.timezone });
+          } catch (e) {
+              return { success: false, error: 'Validation Error: Invalid Timezone' };
+          }
+      }
+
       // VALIDATION: Check for invalid triggers and disable them
       const prayers = configToSave.prayers ? Object.keys(configToSave.prayers) : [];
       let warningMessage = null;

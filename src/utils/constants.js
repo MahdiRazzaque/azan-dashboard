@@ -29,15 +29,15 @@ const CALCULATION_METHODS = {
 };
 
 const ASR_JURISTIC_METHODS = { // Maps to 'school' parameter
-    0: "Standard/Shafi'i (Default)", // Shafi, Maliki, Hanbali
+    0: "Standard/Shafi'i", // Shafi, Maliki, Hanbali
     1: "Hanafi"
 };
 
 const LATITUDE_ADJUSTMENT_METHODS = {
+    0: "None",
     1: "Middle of the Night",
     2: "One Seventh of the Night",
-    3: "Angle Based",
-    // 'NONE' will be handled by not sending the parameter
+    3: "Angle Based"
 };
 
 const MIDNIGHT_MODES = {

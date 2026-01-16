@@ -59,15 +59,38 @@ const dataSchema = z.object({
 
 const configSchema = z.object({
   location: z.object({
-    timezone: z.string(),
+    timezone: z.string().refine((val) => {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: val });
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }, { message: "Invalid IANA timezone" }),
     coordinates: z.object({
-      lat: z.number(),
-      long: z.number(),
+      lat: z.number().min(-90).max(90),
+      long: z.number().min(-180).max(180),
     }),
   }),
   calculation: z.object({
-    method: z.string(),
-    madhab: z.string(),
+    method: z.union([z.number(), z.string()]).transform((val) => {
+      if (typeof val === 'number') return val;
+      // Best effort legacy mapping or default to MWC (15)
+      return 15; 
+    }),
+    madhab: z.union([z.number(), z.string()]).transform((val) => {
+      if (typeof val === 'number') return val;
+      // Best effort legacy mapping or default to Hanafi (1)
+      return 1;
+    }),
+    latitudeAdjustmentMethod: z.union([z.number(), z.string()]).default(0).transform((val) => {
+       if (typeof val === 'number') return val;
+       return 0;
+    }),
+    midnightMode: z.union([z.number(), z.string()]).default(0).transform((val) => {
+       if (typeof val === 'number') return val;
+       return 0; 
+    }),
   }),
   prayers: z.object({
     fajr: prayerSettingSchema,

@@ -4,8 +4,10 @@
     "coordinates": { "lat": 51.5074, "long": -0.1278 }
   },
   "calculation": {
-    "method": "MoonsightingCommittee",
-    "madhab": "Hanafi"
+    "method": 15,
+    "madhab": 1,
+    "latitudeAdjustmentMethod": 0,
+    "midnightMode": 0
   },
   "prayers": {
     "fajr":    { "iqamahOffset": 20, "roundTo": 15, "fixedTime": null },

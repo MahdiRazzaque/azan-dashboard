@@ -65,12 +65,15 @@ const getMadhabId = (madhabName) => {
  */
 async function fetchAladhanAnnual(config, year) {
   const { coordinates, timezone } = config.location;
-  const { method, madhab } = config.calculation;
+  const { method, madhab, latitudeAdjustmentMethod, midnightMode } = config.calculation;
   
-  const methodId = getCalculationMethodId(method);
-  const school = getMadhabId(madhab);
+  // Config now guarantees numbers (IDs) due to schema transformation
+  const methodId = typeof method === 'number' ? method : getCalculationMethodId(method);
+  const school = typeof madhab === 'number' ? madhab : getMadhabId(madhab);
+  const latAdj = typeof latitudeAdjustmentMethod === 'number' ? latitudeAdjustmentMethod : 0;
+  const midnight = typeof midnightMode === 'number' ? midnightMode : 0;
 
-  const url = `${API_BASE_URL}/calendar/${year}?latitude=${coordinates.lat}&longitude=${coordinates.long}&method=${methodId}&school=${school}`; 
+  const url = `${API_BASE_URL}/calendar/${year}?latitude=${coordinates.lat}&longitude=${coordinates.long}&method=${methodId}&school=${school}&latitudeAdjustmentMethod=${latAdj}&midnightMode=${midnight}`; 
 
   console.log(`[Aladhan] Fetching from URL: ${url}`);
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSettings } from '../../contexts/SettingsContext';
-import { Save, Globe, MapPin, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useConstants } from '../../hooks/useConstants';
+import { Globe, MapPin, CheckCircle, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -10,36 +11,18 @@ export default function GeneralSettingsView() {
   const { 
     draftConfig, 
     updateSetting, 
-    saveSettings, 
-    saving, 
     loading,
     isSectionDirty
   } = useSettings();
   
-  const [errorObj, setErrorObj] = useState(null);
-  const [successMsg, setSuccessMsg] = useState(null);
+  const { constants, loading: loadingConstants } = useConstants();
 
-  if (loading || !draftConfig) return <div className="p-8 text-center text-zinc-500">Loading settings...</div>;
+  if (loading || loadingConstants || !draftConfig) return <div className="p-8 text-center text-zinc-500">Loading settings...</div>;
 
   const formData = draftConfig;
 
   const handleChange = (path, value) => {
-    // Clear messages on edit
-    if (successMsg) setSuccessMsg(null);
-    if (errorObj) setErrorObj(null);
     updateSetting(path, value);
-  };
-
-  const handleSave = async () => {
-      setErrorObj(null);
-      setSuccessMsg(null);
-      const result = await saveSettings();
-      if (!result.success) {
-          setErrorObj(result.error || "Validation failed");
-      } else {
-          setSuccessMsg("Settings verified and saved successfully.");
-          setTimeout(() => setSuccessMsg(null), 3000);
-      }
   };
 
   const activeSource = formData.sources?.primary?.type || 'aladhan';
@@ -48,7 +31,14 @@ export default function GeneralSettingsView() {
       handleChange('sources.primary.type', type);
   };
 
-  const isDirty = isSectionDirty('location') || isSectionDirty('sources');
+  // Helper to render sorted options from constants
+  const renderOptions = (items) => {
+      return items.map(item => (
+          <option key={item.id} value={item.id}>
+              {item.label}
+          </option>
+      ));
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
@@ -57,36 +47,9 @@ export default function GeneralSettingsView() {
                 <h1 className="text-3xl font-bold text-white">General Settings</h1>
                 <p className="text-zinc-400 mt-1">Configure your prayer calculation source and location.</p>
             </div>
-            
-            <button 
-                onClick={handleSave} 
-                disabled={saving}
-                className={cn(
-                    "flex items-center gap-2 px-6 py-2.5 rounded-lg disabled:opacity-50 transition-all font-bold shadow-lg active:scale-95",
-                    isDirty 
-                        ? "bg-orange-500 hover:bg-orange-400 text-white shadow-orange-900/20" 
-                        : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20"
-                )}
-            >
-                <Save className="w-4 h-4" />
-                {saving ? 'Validating & Saving...' : (isDirty ? 'Unsaved Changes' : 'Save Changes')}
-            </button>
+            {/* Local Save Button Removed (FR-04) */}
         </div>
-
-        {errorObj && (
-             <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 flex items-center gap-3 text-red-200">
-                 <AlertTriangle className="w-5 h-5 shrink-0" />
-                 <span>{errorObj}</span>
-             </div>
-        )}
         
-        {successMsg && (
-             <div className="bg-emerald-500/10 border border-emerald-500/50 rounded-lg p-4 flex items-center gap-3 text-emerald-200">
-                 <CheckCircle className="w-5 h-5 shrink-0" />
-                 <span>{successMsg}</span>
-             </div>
-        )}
-
         {/* Prayer Source Section */}
         <section className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 shadow-xl">
             <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-zinc-800 pb-2 flex items-center gap-2">
@@ -151,7 +114,7 @@ export default function GeneralSettingsView() {
                             <label className="block text-xs text-zinc-500 mb-1">Latitude</label>
                             <input 
                                 type="number"
-                                step="0.0001"
+                                step="any"
                                 className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 value={formData.location?.coordinates?.lat ?? ''}
                                 onChange={e => handleChange('location.coordinates.lat', parseFloat(e.target.value))}
@@ -161,7 +124,7 @@ export default function GeneralSettingsView() {
                             <label className="block text-xs text-zinc-500 mb-1">Longitude</label>
                             <input 
                                 type="number"
-                                step="0.0001"
+                                step="any"
                                 className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 value={formData.location?.coordinates?.long ?? ''}
                                 onChange={e => handleChange('location.coordinates.long', parseFloat(e.target.value))}
@@ -173,30 +136,46 @@ export default function GeneralSettingsView() {
                         <label className="block text-sm font-medium text-zinc-300 mb-2">Calculation Method</label>
                         <select
                             className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            value={formData.calculation?.method || ''}
-                            onChange={e => handleChange('calculation.method', e.target.value)}
+                            value={formData.calculation?.method ?? ''}
+                            onChange={e => handleChange('calculation.method', parseInt(e.target.value))}
                         >
-                            <option value="3">Muslim World League</option>
-                            <option value="2">ISNA (North America)</option>
-                            <option value="4">Umm Al-Qura (Makkah)</option>
-                            <option value="1">Egyptian General Authority</option>
-                            <option value="5">Moonsighting Committee</option>
-                            <option value="12">France (UOIF)</option>
-                            <option value="13">Turkey (Diyanet)</option>
-                            <option value="0">Jafari / Shia Ithna-Ashari</option>
+                            {renderOptions(constants.calculationMethods)}
                         </select>
                     </div>
                      <div>
                         <label className="block text-sm font-medium text-zinc-300 mb-2">Madhab (Asr)</label>
                          <select 
                             className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            value={formData.calculation?.madhab || ''}
-                            onChange={e => handleChange('calculation.madhab', e.target.value)}
+                            value={formData.calculation?.madhab ?? ''}
+                            onChange={e => handleChange('calculation.madhab', parseInt(e.target.value))}
                         >
-                            <option value="shafi">Shafi (Standard)</option>
-                            <option value="hanafi">Hanafi</option>
+                            {renderOptions(constants.madhabs)}
                         </select>
                     </div>
+
+                    {/* New Fields (FR-03/04) */}
+                    <div>
+                        <label className="block text-sm font-medium text-zinc-300 mb-2">Latitude Adjustment</label>
+                        <select
+                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            value={formData.calculation?.latitudeAdjustmentMethod ?? 0}
+                            onChange={e => handleChange('calculation.latitudeAdjustmentMethod', parseInt(e.target.value))}
+                        >
+                             {renderOptions(constants.latitudeAdjustments)}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-zinc-300 mb-2">Midnight Mode</label>
+                        <select
+                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            value={formData.calculation?.midnightMode ?? 0}
+                            onChange={e => handleChange('calculation.midnightMode', parseInt(e.target.value))}
+                        >
+                             {renderOptions(constants.midnightModes)}
+                        </select>
+                    </div>
+
                 </div>
             )}
         </section>
