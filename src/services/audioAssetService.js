@@ -81,7 +81,6 @@ const syncAudioAssets = async (forceClean = false) => {
     console.log('[AudioService] Synchronising audio assets...');
     ensureCacheDir();
     
-// Dynamic require to get fresh config ONCE
     const config = configService.get();
     const triggers = config.automation?.triggers;
     const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
@@ -167,5 +166,6 @@ const syncAudioAssets = async (forceClean = false) => {
 
 module.exports = {
     syncAudioAssets,
-    cleanupCache
+    cleanupCache,
+    resolveTemplate
 };

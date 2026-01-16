@@ -1,9 +1,11 @@
 const diagnosticsService = require('../../../src/services/diagnosticsService');
 const prayerTimeService = require('../../../src/services/prayerTimeService');
+const audioAssetService = require('../../../src/services/audioAssetService');
 const fs = require('fs');
 const { DateTime } = require('luxon');
 
 jest.mock('../../../src/services/prayerTimeService');
+jest.mock('../../../src/services/audioAssetService');
 jest.mock('fs');
 
 describe('Diagnostics Service', () => {
@@ -16,7 +18,7 @@ describe('Diagnostics Service', () => {
             triggers: {
                 fajr: {
                     adhan: { enabled: true, type: 'file', path: 'custom/adhan.mp3' },
-                    preAdhan: { enabled: true, offsetMinutes: 5, type: 'tts' },
+                    preAdhan: { enabled: true, offsetMinutes: 5, type: 'tts', template: 'Time for {prayerEnglish}' },
                     iqamah: { enabled: false }
                 }
             }
@@ -71,9 +73,13 @@ describe('Diagnostics Service', () => {
     });
 
     describe('getTTSStatus', () => {
+        beforeEach(() => {
+             audioAssetService.resolveTemplate.mockReturnValue('Expected Text');
+        });
+
         it('should report GENERATED for existing TTS files', async () => {
              fs.existsSync.mockReturnValue(true);
-             fs.readFileSync.mockReturnValue(JSON.stringify({ generatedAt: '2024' }));
+             fs.readFileSync.mockReturnValue(JSON.stringify({ text: 'Expected Text', generatedAt: '2024' }));
              
              const result = await diagnosticsService.getTTSStatus(mockConfig);
              

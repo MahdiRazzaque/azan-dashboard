@@ -92,6 +92,8 @@ const getAutomationStatus = async (config) => {
     return result;
 };
 
+const { resolveTemplate } = require('./audioAssetService');
+
 const getTTSStatus = async (config) => {
     const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
     const events = ['preAdhan', 'adhan', 'preIqamah', 'iqamah'];
@@ -131,10 +133,22 @@ const getTTSStatus = async (config) => {
                  if (fs.existsSync(filePath) && fs.existsSync(metaPath)) {
                      try {
                          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-                         result[prayer][event] = { 
-                             status: 'GENERATED', 
-                             detail: meta.generatedAt // Passing as detail for frontend
-                         };
+                         
+                         // Expectation Check
+                         const expectedText = resolveTemplate(triggerConfig.template, prayer, triggerConfig.offsetMinutes);
+                         
+                         if (meta.text === expectedText) {
+                             result[prayer][event] = { 
+                                 status: 'GENERATED', 
+                                 detail: meta.generatedAt 
+                             };
+                         } else {
+                             result[prayer][event] = { 
+                                 status: 'MISMATCH', 
+                                 detail: 'Template changed'
+                             };
+                         }
+
                      } catch (e) {
                          result[prayer][event] = { status: 'ERROR', detail: 'Corrupt Meta' };
                      }
