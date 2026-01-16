@@ -183,6 +183,10 @@ export default function DeveloperSettingsView() {
             color = 'bg-emerald-900/30 text-emerald-400 border-emerald-800/50';
             label = 'Ready';
             if (detail) title = `Generated: ${new Date(detail).toLocaleString()}`;
+        } else if (status === 'MISMATCH') {
+            color = 'bg-amber-900/30 text-amber-400 border-amber-800/50';
+            label = 'Mismatch';
+            title = 'Template changed - Regeneration Required';
         } else if (status === 'MISSING' || status === 'ERROR') {
              color = 'bg-red-900/30 text-red-400 border-red-800/50';
         } else if (status === 'CUSTOM_FILE' || status === 'URL') {
@@ -501,10 +505,19 @@ export default function DeveloperSettingsView() {
                         )}
 
                          <div className="flex items-center justify-between mb-4">
-                             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                                 <span className="w-2 h-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50"></span>
-                                 Automation Status
-                             </h3>
+                             <div className="flex items-center gap-4">
+                                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50"></span>
+                                    Automation Status
+                                </h3>
+                                <button 
+                                    onClick={fetchDiagnostics}
+                                    title="Refresh Automation Status"
+                                    className="p-1 px-2 rounded-md bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all text-xs flex items-center gap-1"
+                                >
+                                    <RefreshCw className="w-3 h-3" /> Refresh
+                                </button>
+                             </div>
                              <div className="flex gap-4 text-xs font-medium">
                                  <div className="flex items-center gap-2 text-zinc-400">
                                      <span className="w-2 h-2 rounded-full bg-emerald-500/50"></span> Passed
@@ -566,10 +579,19 @@ export default function DeveloperSettingsView() {
                 !systemHealth.tts && "opacity-50 grayscale select-none pointer-events-none"
             )}>
                  <div className="flex items-center justify-between mb-4">
-                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                         <span className={cn("w-2 h-2 rounded-full shadow-lg", !systemHealth.tts?.healthy ? "bg-zinc-600" : "bg-purple-500 shadow-purple-500/50")}></span>
-                         TTS Asset Status
-                     </h3>
+                     <div className="flex items-center gap-4">
+                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                            <span className={cn("w-2 h-2 rounded-full shadow-lg", !systemHealth.tts?.healthy ? "bg-zinc-600" : "bg-purple-500 shadow-purple-500/50")}></span>
+                            TTS Asset Status
+                        </h3>
+                        <button 
+                            onClick={fetchDiagnostics}
+                            title="Refresh TTS Status"
+                            className="p-1 px-2 rounded-md bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all text-xs flex items-center gap-1"
+                        >
+                            <RefreshCw className="w-3 h-3" /> Refresh
+                        </button>
+                     </div>
                      {!systemHealth.tts?.healthy && (
                          <div className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-xs text-zinc-400 font-mono">
                              SERVICE OFFLINE
