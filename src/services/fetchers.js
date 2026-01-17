@@ -157,7 +157,13 @@ async function fetchMyMasjidBulk(config) {
   console.log(`[MyMasjid] Status: ${response.status} ${response.statusText}`);
 
   if (!response.ok) {
-     throw new Error(`MyMasjid API Error: ${response.statusText}`);
+    if (response.status === 400) {
+      throw new Error("Invalid Masjid ID: The ID provided is incorrect.");
+    }
+    if (response.status === 404) {
+      throw new Error("Masjid ID not found.");
+    }
+    throw new Error(`MyMasjid API Error: ${response.statusText}`);
   }
   
   const json = await response.json();

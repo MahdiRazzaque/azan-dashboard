@@ -106,8 +106,9 @@ const configSchema = z.object({
     }).passthrough(),
     backup: z.object({ 
       type: z.string(), 
+      enabled: z.boolean().optional(),
       masjidId: z.string().optional() 
-    }).passthrough().optional(),
+    }).passthrough().nullable().optional(),
   }),
   data: dataSchema,
   automation: automationSchema,

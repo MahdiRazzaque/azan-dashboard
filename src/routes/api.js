@@ -412,12 +412,27 @@ router.post('/settings/update', authenticateToken, async (req, res) => {
                 if (!masjidId) return res.status(400).json({ error: "Masjid ID is required for MyMasjid source" });
                 
                 // Validate Fetch
-                console.log(`[Validation] Testing MyMasjid with ID: ${masjidId}`);
+                console.log(`[Validation] Testing Primary MyMasjid with ID: ${masjidId}`);
                 await fetchers.fetchMyMasjidBulk(tempConfig); 
             } else if (sourceType === 'aladhan') {
                 // Validate Fetch
-                console.log(`[Validation] Testing Aladhan with Coordinates: ${JSON.stringify(newConfig.location.coordinates)}`);
+                console.log(`[Validation] Testing Primary Aladhan with Coordinates: ${JSON.stringify(newConfig.location.coordinates)}`);
                 await fetchers.fetchAladhanAnnual(tempConfig, now.year);
+            }
+
+            // --- BACKUP SOURCE VALIDATION ---
+            if (newConfig.sources.backup && newConfig.sources.backup.enabled !== false) {
+                const backupSource = newConfig.sources.backup;
+                const backupType = backupSource.type;
+
+                if (backupType === 'mymasjid') {
+                    if (!backupSource.masjidId) return res.status(400).json({ error: "Masjid ID is required for Backup MyMasjid source" });
+                    console.log(`[Validation] Testing Backup MyMasjid with ID: ${backupSource.masjidId}`);
+                    await fetchers.fetchMyMasjidBulk(tempConfig);
+                } else if (backupType === 'aladhan') {
+                    console.log(`[Validation] Testing Backup Aladhan with Coordinates: ${JSON.stringify(newConfig.location.coordinates)}`);
+                    await fetchers.fetchAladhanAnnual(tempConfig, now.year);
+                }
             }
         }
 
@@ -488,6 +503,9 @@ router.post('/settings/update', authenticateToken, async (req, res) => {
     } catch (e) {
         console.error('Settings Update Error:', e);
         // Distinguish validation errors
+        if (e.message.startsWith('Invalid Masjid ID') || e.message === 'Masjid ID not found.') {
+            return res.status(400).json({ error: e.message });
+        }
         if (e.message.includes('Schema') || e.message.includes('API Error') || e.message.includes('Validation Failed')) {
             return res.status(400).json({ error: `Validation Failed: ${e.message}` });
         }
@@ -528,7 +546,21 @@ router.post('/settings/refresh-cache', authenticateToken, async (req, res) => {
         console.log('[API] Force refreshing cache...');
         await configService.reload(); // Reload from disk just in case
         const config = configService.get(); 
-        // Force refresh deletes cache and fetches new data
+
+        // SAFEGUARD: Check if at least one source is online before deleting cache
+        const primaryHealth = await healthCheck.checkSource('primary');
+        let backupHealth = { healthy: false };
+        if (config.sources.backup && config.sources.backup.enabled !== false) {
+            backupHealth = await healthCheck.checkSource('backup');
+        }
+
+        if (!primaryHealth.healthy && !backupHealth.healthy) {
+            console.warn('[API] Safeguard: Both prayer sources are offline. Aborting cache refresh.');
+            return res.status(503).json({ 
+                error: 'System is relying on cache. Cannot reload cache until at least one Prayer API (Primary or Backup) is back online.' 
+            });
+        }
+
         // Force refresh deletes cache and fetches new data
         const result = await forceRefresh(config);
         

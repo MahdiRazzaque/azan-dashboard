@@ -5,12 +5,13 @@ import { useSettings } from '../../contexts/SettingsContext';
 import ConfirmModal from '../../components/ConfirmModal';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import PrayerSourceStatusCard from '../../components/settings/PrayerSourceStatusCard';
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 export default function DeveloperSettingsView() {
     const { logs } = useOutletContext();
-    const { systemHealth, refreshHealth, config, draftConfig, resetDraft } = useSettings();
+    const { systemHealth, refreshHealth, config, draftConfig, resetDraft, refresh } = useSettings();
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(null); // 'tts' | 'scheduler' | null
     const [message, setMessage] = useState(null);
@@ -141,7 +142,11 @@ export default function DeveloperSettingsView() {
             setMessage({ type: 'error', text: err.message });
         } finally {
             setLoading(null);
-            // Refresh all data
+            if (action === 'config') {
+                await refresh();
+                await refreshHealth('primarySource', 'silent');
+                await refreshHealth('backupSource', 'silent');
+            }
             fetchJobs();
             fetchDiagnostics();
         }
@@ -394,7 +399,7 @@ export default function DeveloperSettingsView() {
                         </div>
                     </div>
                 </div>
-                
+
                 {/* Actions */}
                 <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6">
                     <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -477,6 +482,9 @@ export default function DeveloperSettingsView() {
                         </table>
                     </div>
                 </div>
+
+                {/* Prayer Source Status */}
+                <PrayerSourceStatusCard config={config} />
 
             </div>
 

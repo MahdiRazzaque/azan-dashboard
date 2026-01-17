@@ -1,11 +1,14 @@
 const { exec } = require('child_process');
 const axios = require('axios');
 const configService = require('../config');
+const fetchers = require('./fetchers');
 
 let healthCache = {
-    local: { healthy: false, message: 'Initializing...' },
-    tts: { healthy: false, message: 'Initializing...' },
-    voiceMonkey: { healthy: false, message: 'Initializing...' },
+    local: { healthy: false, message: 'Initialising...' },
+    tts: { healthy: false, message: 'Initialising...' },
+    voiceMonkey: { healthy: false, message: 'Initialising...' },
+    primarySource: { healthy: false, message: 'Initialising...' },
+    backupSource: { healthy: false, message: 'Initialising...' },
     ports: { api: process.env.PORT || 3000, tts: 8000 },
     lastChecked: null
 };
@@ -90,6 +93,29 @@ async function checkVoiceMonkey(mode = 'silent') {
     }
 }
 
+async function checkSource(target) {
+    const config = configService.get();
+    const source = config.sources[target];
+    
+    if (!source) return { healthy: false, message: 'Not Configured' };
+    if (target === 'backup' && source.enabled === false) return { healthy: false, message: 'Disabled' };
+
+    try {
+        if (source.type === 'aladhan') {
+            const { DateTime } = require('luxon');
+            const year = DateTime.now().setZone(config.location.timezone).year;
+            await fetchers.fetchAladhanAnnual(config, year);
+        } else if (source.type === 'mymasjid') {
+            await fetchers.fetchMyMasjidBulk(config);
+        }
+        console.log(`[Health] ${target} Source: OK`);
+        return { healthy: true, message: 'Online' };
+    } catch (e) {
+        console.warn(`[Health] ${target} Source Error:`, e.message);
+        return { healthy: false, message: e.message || 'Offline' };
+    }
+}
+
 async function refresh(target = 'all', mode = 'silent') {
     console.log(`[Health] Refreshing target: ${target}, mode: ${mode}`);
     
@@ -102,9 +128,14 @@ async function refresh(target = 'all', mode = 'silent') {
     if (target === 'all' || target === 'silent' || target === 'tts') {
         promises.push(checkPythonService().then(res => updates.tts = res));
     }
-    // Now 'silent' target ALSO includes VoiceMonkey (in silent mode by default)
     if (target === 'all' || target === 'silent' || target === 'voicemonkey' || target === 'voiceMonkey') {
         promises.push(checkVoiceMonkey(mode).then(res => updates.voiceMonkey = res));
+    }
+    if (target === 'all' || target === 'primarySource') {
+        promises.push(checkSource('primary').then(res => updates.primarySource = res));
+    }
+    if (target === 'all' || target === 'backupSource') {
+        promises.push(checkSource('backup').then(res => updates.backupSource = res));
     }
 
     await Promise.all(promises);
@@ -127,5 +158,6 @@ function getHealth() {
 
 module.exports = {
     refresh,
-    getHealth
+    getHealth,
+    checkSource
 };

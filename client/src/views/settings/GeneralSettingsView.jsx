@@ -4,6 +4,7 @@ import { useConstants } from '../../hooks/useConstants';
 import { Globe, MapPin, CheckCircle, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import SourceConfigurator from '../../components/settings/SourceConfigurator';
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
@@ -25,19 +26,31 @@ export default function GeneralSettingsView() {
     updateSetting(path, value);
   };
 
-  const activeSource = formData.sources?.primary?.type || 'aladhan';
+  const primarySource = formData.sources?.primary || { type: 'aladhan' };
+  const backupSource = formData.sources?.backup || null;
+  const backupEnabled = backupSource && backupSource.enabled !== false;
 
-  const setSource = (type) => {
-      handleChange('sources.primary.type', type);
+  const handlePrimaryChange = (newSource) => {
+      handleChange('sources.primary', newSource);
+      
+      // Mutual Exclusion: If backup is same as new primary, switch backup
+      if (backupEnabled && backupSource.type === newSource.type) {
+          const alternativeType = newSource.type === 'aladhan' ? 'mymasjid' : 'aladhan';
+          handleChange('sources.backup', { ...backupSource, type: alternativeType });
+      }
   };
 
-  // Helper to render sorted options from constants
-  const renderOptions = (items) => {
-      return items.map(item => (
-          <option key={item.id} value={item.id}>
-              {item.label}
-          </option>
-      ));
+  const handleBackupChange = (newSource) => {
+      handleChange('sources.backup', { ...newSource, enabled: true });
+  };
+
+  const toggleBackup = (enabled) => {
+      if (enabled) {
+          const alternativeType = primarySource.type === 'aladhan' ? 'mymasjid' : 'aladhan';
+          handleChange('sources.backup', { type: alternativeType, enabled: true });
+      } else {
+          handleChange('sources.backup', null);
+      }
   };
 
   return (
@@ -47,145 +60,76 @@ export default function GeneralSettingsView() {
                 <h1 className="text-3xl font-bold text-white">General Settings</h1>
                 <p className="text-zinc-400 mt-1">Configure your prayer calculation source and location.</p>
             </div>
-            {/* Local Save Button Removed (FR-04) */}
         </div>
         
-        {/* Prayer Source Section */}
-        <section className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 shadow-xl">
+        {/* Primary Prayer Source Section */}
+        <section className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 shadow-xl transition-all duration-300">
             <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-zinc-800 pb-2 flex items-center gap-2">
-                <Globe className="w-5 h-5" /> 
-                Prayer Data Source
-                {isSectionDirty('sources') && (
+                <Globe className="w-5 h-5 text-emerald-500" /> 
+                Primary Data Source
+                {isSectionDirty('sources.primary') && (
                     <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
                 )}
             </h2>
             
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                 <button
-                    onClick={() => setSource('mymasjid')}
-                    className={cn(
-                        "flex-1 py-4 px-6 rounded-xl border-2 transition-all font-bold text-lg flex items-center justify-center gap-2 relative overflow-hidden",
-                        activeSource === 'mymasjid'
-                            ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                            : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:bg-zinc-750"
+            <SourceConfigurator 
+                source={primarySource}
+                onChange={handlePrimaryChange}
+                locationData={formData.location}
+                calculationData={formData.calculation}
+                onLocationChange={(field, val) => handleChange(`location.coordinates.${field}`, val)}
+                onCalculationChange={(field, val) => handleChange(`calculation.${field}`, val)}
+            />
+        </section>
+
+        {/* Backup Prayer Source Section */}
+        <section className={cn(
+            "bg-zinc-900 rounded-xl border border-zinc-800 shadow-xl transition-all duration-500 overflow-hidden",
+            backupEnabled ? "p-6" : "p-6 max-h-[88px]"
+        )}>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-blue-400 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-blue-500" /> 
+                    Backup Data Source
+                    {isSectionDirty('sources.backup') && (
+                        <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
                     )}
-                 >
-                    MyMasjid
-                    {activeSource === 'mymasjid' && <CheckCircle className="absolute top-2 right-2 w-5 h-5 opacity-50" />}
-                 </button>
-                 
-                 <button
-                    onClick={() => setSource('aladhan')}
-                    className={cn(
-                        "flex-1 py-4 px-6 rounded-xl border-2 transition-all font-bold text-lg flex items-center justify-center gap-2 relative overflow-hidden",
-                        activeSource === 'aladhan'
-                            ? "border-blue-500 bg-blue-500/10 text-blue-400"
-                            : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:bg-zinc-750"
-                    )}
-                 >
-                    Aladhan.com
-                    {activeSource === 'aladhan' && <CheckCircle className="absolute top-2 right-2 w-5 h-5 opacity-50" />}
-                 </button>
+                </h2>
+                
+                <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={backupEnabled}
+                        onChange={(e) => toggleBackup(e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
             </div>
 
-            {/* MyMasjid Configuration */}
-            {activeSource === 'mymasjid' && (
-                <div className="animate-in fade-in slide-in-from-top-4 duration-300 bg-zinc-950 p-6 rounded-lg border border-zinc-800">
-                     <label className="block text-sm font-medium text-zinc-300 mb-2">Masjid ID (GUID)</label>
-                     <input 
-                        className="w-full bg-zinc-900 border border-zinc-700 rounded p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
-                        value={formData.sources?.primary?.masjidId || ''}
-                        onChange={e => handleChange('sources.primary.masjidId', e.target.value)}
-                        placeholder="e.g. 94f1c71b-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            <div className={cn(
+                "transition-all duration-500",
+                backupEnabled ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
+            )}>
+                {backupEnabled && (
+                    <SourceConfigurator 
+                        source={backupSource}
+                        onChange={handleBackupChange}
+                        disabledTypes={[primarySource.type]}
+                        showCoordinates={false} // Coordinates are shared from primary card
+                        calculationData={formData.calculation}
+                        onCalculationChange={(field, val) => handleChange(`calculation.${field}`, val)}
                     />
-                    <p className="text-xs text-zinc-500 mt-2">
-                        You can find this ID in the URL when viewing your mosque on MyMasjid.ca or Masjidbox.
-                    </p>
-                </div>
-            )}
-
-            {/* Aladhan Configuration */}
-            {activeSource === 'aladhan' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-4 duration-300 bg-zinc-950 p-6 rounded-lg border border-zinc-800">
-                    {/* Coordinates */}
-                    <div className="md:col-span-2 grid grid-cols-2 gap-4 border-b border-zinc-800 pb-6 mb-2">
-                        <div className="col-span-2 mb-1 text-sm font-semibold text-zinc-400 uppercase tracking-wider">Coordinates</div>
-                        <div>
-                            <label className="block text-xs text-zinc-500 mb-1">Latitude</label>
-                            <input 
-                                type="number"
-                                step="any"
-                                className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                value={formData.location?.coordinates?.lat ?? ''}
-                                onChange={e => handleChange('location.coordinates.lat', parseFloat(e.target.value))}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs text-zinc-500 mb-1">Longitude</label>
-                            <input 
-                                type="number"
-                                step="any"
-                                className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                value={formData.location?.coordinates?.long ?? ''}
-                                onChange={e => handleChange('location.coordinates.long', parseFloat(e.target.value))}
-                            />
-                        </div>
-                    </div>
-
-                     <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">Calculation Method</label>
-                        <select
-                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            value={formData.calculation?.method ?? ''}
-                            onChange={e => handleChange('calculation.method', parseInt(e.target.value))}
-                        >
-                            {renderOptions(constants.calculationMethods)}
-                        </select>
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">Madhab (Asr)</label>
-                         <select 
-                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            value={formData.calculation?.madhab ?? ''}
-                            onChange={e => handleChange('calculation.madhab', parseInt(e.target.value))}
-                        >
-                            {renderOptions(constants.madhabs)}
-                        </select>
-                    </div>
-
-                    {/* New Fields (FR-03/04) */}
-                    <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">Latitude Adjustment</label>
-                        <select
-                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            value={formData.calculation?.latitudeAdjustmentMethod ?? 0}
-                            onChange={e => handleChange('calculation.latitudeAdjustmentMethod', parseInt(e.target.value))}
-                        >
-                             {renderOptions(constants.latitudeAdjustments)}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-zinc-300 mb-2">Midnight Mode</label>
-                        <select
-                            className="w-full bg-zinc-900 border border-zinc-700 rounded p-2.5 text-zinc-100 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            value={formData.calculation?.midnightMode ?? 0}
-                            onChange={e => handleChange('calculation.midnightMode', parseInt(e.target.value))}
-                        >
-                             {renderOptions(constants.midnightModes)}
-                        </select>
-                    </div>
-
-                </div>
-            )}
+                )}
+            </div>
         </section>
 
         {/* Timezone Section */}
         <section className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 shadow-xl">
              <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-zinc-800 pb-2 flex items-center gap-2">
                 <MapPin className="w-5 h-5" /> 
-                Localization
-                {isSectionDirty('location') && (
+                Localisation
+                {isSectionDirty('location.timezone') && (
                     <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
                 )}
             </h2>

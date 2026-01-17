@@ -153,6 +153,23 @@ const scheduleMaintenanceJobs = () => {
         assetMaintenanceJob.category = 'maintenance';
         jobs.push(assetMaintenanceJob);
     }
+
+    // 5. Prayer Source Health Check - Run Daily at 02:00 AM
+    const sourceHealthJob = schedule.scheduleJob('0 2 * * *', async () => {
+        try {
+            console.log('[Maintenance] Running Daily Prayer Source Health Check...');
+            await healthCheck.refresh('primarySource', 'silent');
+            await healthCheck.refresh('backupSource', 'silent');
+        } catch (e) {
+            console.error('[Maintenance] Source Health Check Failed:', e);
+        }
+    });
+
+    if (sourceHealthJob) {
+        sourceHealthJob.jobName = 'Maintenance: Source Health';
+        sourceHealthJob.category = 'maintenance';
+        jobs.push(sourceHealthJob);
+    }
 };
 
 const initScheduler = async () => {
