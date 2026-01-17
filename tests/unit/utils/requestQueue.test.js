@@ -64,7 +64,6 @@ describe('Request Queues (Bottleneck)', () => {
         }
         
         // Burst of 5
-        // Burst of 5
         await jest.advanceTimersByTimeAsync(100); 
         await flushPromises();
         expect(spy).toHaveBeenCalledTimes(5); 
@@ -73,5 +72,78 @@ describe('Request Queues (Bottleneck)', () => {
         await jest.advanceTimersByTimeAsync(60000); 
         await flushPromises();
         expect(spy).toHaveBeenCalledTimes(10); 
+    });
+
+    it('should log warning when Aladhan job fails', async () => {
+        const { aladhanQueue } = queues;
+        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        const testError = new Error('Aladhan Test Error');
+
+        const failureEvent = new Promise(resolve => {
+            aladhanQueue.once('failed', () => resolve());
+        });
+
+        aladhanQueue.schedule(async () => {
+            throw testError;
+        }).catch(() => {});
+
+        // Advance timers just enough to let the scheduler run
+        await jest.advanceTimersByTimeAsync(100);
+        await failureEvent;
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringContaining('[Queue:Aladhan]')
+        );
+        expect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Aladhan Test Error')
+        );
+
+        consoleSpy.mockRestore();
+    });
+
+    it('should log warning when MyMasjid job fails', async () => {
+        const { myMasjidQueue } = queues;
+        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        const testError = new Error('MyMasjid Test Error');
+
+        const failureEvent = new Promise(resolve => {
+            myMasjidQueue.once('failed', () => resolve());
+        });
+
+        myMasjidQueue.schedule(async () => {
+            throw testError;
+        }).catch(() => {});
+
+        await jest.advanceTimersByTimeAsync(100);
+        await failureEvent;
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringContaining('[Queue:MyMasjid]')
+        );
+
+        consoleSpy.mockRestore();
+    });
+
+    it('should log warning when VoiceMonkey job fails', async () => {
+        const { voiceMonkeyQueue } = queues;
+        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        const testError = new Error('VM Test Error');
+
+        const failureEvent = new Promise(resolve => {
+            voiceMonkeyQueue.once('failed', () => resolve());
+        });
+
+        voiceMonkeyQueue.schedule(async () => {
+            throw testError;
+        }).catch(() => {});
+
+        await jest.advanceTimersByTimeAsync(100);
+        await failureEvent;
+
+        expect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringContaining('[Queue:VoiceMonkey]')
+        );
+
+        consoleSpy.mockRestore();
     });
 });
