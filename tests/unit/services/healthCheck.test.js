@@ -2,6 +2,11 @@ const configService = require('../../../src/config');
 
 jest.mock('../../../src/config', () => ({
     get: jest.fn(() => ({
+        location: { timezone: 'Europe/London' },
+        sources: {
+            primary: { type: 'aladhan' },
+            backup: { type: 'mymasjid', enabled: true }
+        },
         automation: {
             voiceMonkey: {
                 token: 'test-token',
@@ -9,6 +14,11 @@ jest.mock('../../../src/config', () => ({
             }
         }
     }))
+}));
+
+jest.mock('../../../src/services/fetchers', () => ({
+    fetchAladhanAnnual: jest.fn(),
+    fetchMyMasjidBulk: jest.fn()
 }));
 
 const healthCheck = require('../../../src/services/healthCheck');

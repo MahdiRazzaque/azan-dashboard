@@ -19,7 +19,7 @@ describe('ConfigService', () => {
     it('should load default configuration', () => {
         const config = configService.get();
         expect(config.location.timezone).toBe('Europe/London');
-        expect(config.calculation.method).toBe('MoonsightingCommittee');
+        expect(config.calculation.method).toBe(15);
     });
 
     it('should throw error if get() called before init()', () => {

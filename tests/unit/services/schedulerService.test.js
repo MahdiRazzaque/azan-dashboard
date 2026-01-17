@@ -3,6 +3,8 @@ const service = require('../../../src/services/schedulerService');
 const configService = require('../../../src/config');
 const prayerTimeService = require('../../../src/services/prayerTimeService');
 const automationService = require('../../../src/services/automationService');
+const healthCheck = require('../../../src/services/healthCheck');
+const audioAssetService = require('../../../src/services/audioAssetService');
 const { DateTime } = require('luxon');
 
 jest.mock('node-schedule');
@@ -10,7 +12,7 @@ jest.mock('../../../src/config');
 jest.mock('../../../src/services/prayerTimeService');
 jest.mock('../../../src/services/automationService');
 jest.mock('../../../src/services/audioAssetService'); 
-
+jest.mock('../../../src/services/healthCheck');
 describe('SchedulerService', () => {
     const mockConfig = {
         location: { timezone: 'UTC', coordinates: { lat: 0, long: 0 } },
@@ -140,6 +142,83 @@ describe('SchedulerService', () => {
         await service.initScheduler();
         const jobs = service.getJobs();
         expect(jobs).toBeDefined();
+        expect(jobs.maintenance).toBeInstanceOf(Array);
+        expect(jobs.automation).toBeInstanceOf(Array);
+    });
+
+    describe('getJobs Edge Cases', () => {
+        it('should handle error if nextInvocation throws', async () => {
+            // Mock scheduleJob to return a job where nextInvocation throws
+            // We use mockImplementation to ensure it stays for all calls during this test
+            schedule.scheduleJob.mockImplementation((...args) => {
+                return {
+                    nextInvocation: () => { throw new Error('Boom'); },
+                    cancel: jest.fn()
+                };
+            });
+            await service.initScheduler();
+            const jobs = service.getJobs();
+            expect(jobs.maintenance.length).toBeGreaterThan(0);
+            expect(jobs.maintenance[0].nextInvocation).toBeNull();
+        });
+
+        it('should handle standard Date type in getJobs', async () => {
+            schedule.scheduleJob.mockImplementation((...args) => {
+                return {
+                    nextInvocation: () => new Date('2099-01-01T01:00:00Z'),
+                    cancel: jest.fn()
+                };
+            });
+
+            await service.initScheduler();
+            const jobsList = service.getJobs();
+            expect(jobsList.maintenance[0].nextInvocation).toContain('2099-01-01');
+        });
+
+        it('should handle Luxon DateTime type in getJobs', async () => {
+            schedule.scheduleJob.mockImplementation((...args) => {
+                return {
+                    nextInvocation: () => DateTime.fromISO('2099-01-01T02:00:00Z'),
+                    cancel: jest.fn()
+                };
+            });
+
+            await service.initScheduler();
+            const jobsList = service.getJobs();
+            expect(jobsList.maintenance[0].nextInvocation).toContain('2099-01-01T02');
+        });
+
+        it('should handle conversion failure', async () => {
+            schedule.scheduleJob.mockImplementation((...args) => {
+                return {
+                    nextInvocation: () => ({ toISO: () => { throw new Error('ISO Fail'); } }),
+                    cancel: jest.fn()
+                };
+            });
+            await service.initScheduler();
+            const jobsList = service.getJobs();
+            expect(jobsList.maintenance[0].nextInvocation).toBeNull();
+        });
+
+        it('should handle generic date strings in getJobs', async () => {
+            schedule.scheduleJob.mockImplementation((...args) => {
+                return {
+                    nextInvocation: () => '2099-01-01T05:00:00Z',
+                    cancel: jest.fn()
+                };
+            });
+
+            await service.initScheduler();
+            const jobsList = service.getJobs();
+            expect(jobsList.maintenance[0].nextInvocation).toBeDefined();
+            expect(jobsList.maintenance[0].nextInvocation).toContain('2099-01-01');
+        });
+    });
+
+    it('should initialize successfully without internal errors', async () => {
+         const errorSpy = jest.spyOn(console, 'error');
+         await service.initScheduler();
+         expect(errorSpy).not.toHaveBeenCalledWith(expect.stringContaining('[Scheduler] Initialisation failed'), expect.anything());
     });
 
     describe('Maintenance Jobs', () => {
@@ -177,6 +256,30 @@ describe('SchedulerService', () => {
              await callback(); 
              
              expect(prayerTimeService.forceRefresh).not.toHaveBeenCalled();
+        });
+
+        it('should run hourly health check', async () => {
+            await service.initScheduler();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 * * * *');
+            const callback = call[1];
+            await callback();
+            expect(healthCheck.refresh).toHaveBeenCalled();
+        });
+
+        it('should run audio asset maintenance', async () => {
+            await service.initScheduler();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '30 3 * * *');
+            const callback = call[1];
+            await callback();
+            expect(audioAssetService.syncAudioAssets).toHaveBeenCalledWith(false);
+        });
+
+        it('should run source health check', async () => {
+            await service.initScheduler();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 2 * * *');
+            const callback = call[1];
+            await callback();
+            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource', 'silent');
         });
 
         it('should check year boundary', async () => {

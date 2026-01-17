@@ -88,7 +88,8 @@ jest.mock('../../../src/services/healthCheck', () => ({
         local: { healthy: true }, 
         voiceMonkey: { healthy: true } 
     })),
-    refresh: jest.fn()
+    refresh: jest.fn(),
+    checkSource: jest.fn(() => Promise.resolve({ healthy: true }))
 }));
 const healthCheck = require('../../../src/services/healthCheck');
 
@@ -136,6 +137,7 @@ describe('API Routes Integration', () => {
     beforeEach(() => {
         adminToken = jwt.sign({ role: 'admin' }, JWT_SECRET);
         jest.clearAllMocks();
+        healthCheck.checkSource.mockResolvedValue({ healthy: true });
         mockConfigService.get.mockReturnValue(mockConfig);
         
         // Default fs behavior
@@ -324,6 +326,48 @@ describe('API Routes Integration', () => {
                 .set('Cookie', [`auth_token=${adminToken}`])
                 .expect(200);
              expect(prayerTimeService.forceRefresh).toHaveBeenCalled();
+        });
+
+        it('POST /settings/refresh-cache - should fail if both sources are unhealthy (Safeguard)', async () => {
+            healthCheck.checkSource.mockResolvedValue({ healthy: false });
+            
+            await request(app)
+                .post('/api/settings/refresh-cache')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .expect(503);
+                
+            expect(prayerTimeService.forceRefresh).not.toHaveBeenCalled();
+        });
+
+        it('POST /settings/refresh-cache - should proceed if primary is unhealthy but backup is healthy', async () => {
+            healthCheck.checkSource.mockImplementation((target) => {
+                if (target === 'primary') return Promise.resolve({ healthy: false });
+                return Promise.resolve({ healthy: true });
+            });
+            
+            await request(app)
+                .post('/api/settings/refresh-cache')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .expect(200);
+        });
+
+        it('POST /settings/refresh-cache - should handle errors in stopAll', async () => {
+             healthCheck.checkSource.mockResolvedValue({ healthy: true });
+             const schedulerService = require('../../../src/services/schedulerService');
+             schedulerService.stopAll.mockRejectedValueOnce(new Error('Stop Fail'));
+             
+             await request(app)
+                 .post('/api/settings/refresh-cache')
+                 .set('Cookie', [`auth_token=${adminToken}`])
+                 .expect(200);
+        });
+
+        it('POST /settings/refresh-cache - should handle generic errors', async () => {
+            healthCheck.checkSource.mockRejectedValue(new Error('Fatal'));
+            await request(app)
+                .post('/api/settings/refresh-cache')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .expect(500);
         });
 
         it('DELETE /settings/files - should delete file', async () => {
