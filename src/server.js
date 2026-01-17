@@ -8,6 +8,7 @@ const healthCheck = require('./services/healthCheck');
 const { forceRefresh } = require('./services/prayerTimeService');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -59,6 +60,9 @@ const startServer = async (port = PORT) => {
         console.log('[Config] Loaded Sources:');
 
         Object.entries(config.sources).forEach(([key, source]) => {
+
+          if(!source) return;
+          
           switch (source.type) {
             case "mymasjid":
               console.log(`  • ${key} (mymasjid) → masjidId: ${source.masjidId}`);

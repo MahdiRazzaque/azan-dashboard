@@ -163,13 +163,13 @@ export default function PrayerSettingsView() {
         }
 
         try {
-            const success = await saveSettings(configToSave);
-            if (success) {
+            const result = await saveSettings(configToSave);
+            if (result.success) {
                 if (!hasErrors) {
                     setNotification({ type: 'success', message: 'Configuration saved successfully.' });
                 }
             } else {
-                 setNotification({ type: 'error', message: 'Failed to save configuration to server.' });
+                 setNotification({ type: 'error', message: result.error || 'Failed to save configuration to server.' });
             }
         } catch (e) {
             console.error(e);

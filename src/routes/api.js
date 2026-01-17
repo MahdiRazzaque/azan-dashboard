@@ -18,6 +18,23 @@ const fetchers = require('../services/fetchers'); // Added
 const fs = require('fs');
 const path = require('path');
 const configService = require('../config'); // Singleton instance
+const { 
+    securityLimiter, 
+    operationsLimiter, 
+    globalReadLimiter, 
+    globalWriteLimiter, 
+    sseLimiter 
+} = require('../middleware/rateLimiters');
+
+// Global Limiters for standard API traffic
+router.use((req, res, next) => {
+    if (req.method === 'GET') {
+        // SSE endpoint /logs has its own stricter limiter
+        if (req.path === '/logs') return next();
+        return globalReadLimiter(req, res, next);
+    }
+    return globalWriteLimiter(req, res, next);
+});
 
 // Auth Routes
 router.get('/auth/status', (req, res) => {
@@ -27,7 +44,7 @@ router.get('/auth/status', (req, res) => {
     });
 });
 
-router.post('/auth/setup', (req, res) => {
+router.post('/auth/setup', securityLimiter, (req, res) => {
     // Only allow if NOT configured
     if (process.env.ADMIN_PASSWORD) {
         return res.status(403).json({ error: 'System already configured. Login to change settings.' });
@@ -65,7 +82,7 @@ router.post('/auth/setup', (req, res) => {
     }
 });
 
-router.post('/auth/change-password', authenticateToken, (req, res) => {
+router.post('/auth/change-password', securityLimiter, authenticateToken, (req, res) => {
     const { password } = req.body;
     if (!password) return res.status(400).json({ error: 'Missing password' });
 
@@ -78,7 +95,7 @@ router.post('/auth/change-password', authenticateToken, (req, res) => {
     }
 });
 
-router.post('/auth/login', (req, res) => {
+router.post('/auth/login', securityLimiter, (req, res) => {
     const { password } = req.body;
     const adminPassword = process.env.ADMIN_PASSWORD;
 
@@ -147,7 +164,7 @@ router.get('/system/health', (req, res) => {
     res.json(healthCheck.getHealth());
 });
 
-router.post('/system/health/refresh', authenticateToken, async (req, res) => {
+router.post('/system/health/refresh', operationsLimiter, authenticateToken, async (req, res) => {
     const { target, mode } = req.body;
     try {
         // target defaults to 'all' if not checking a specific one, mode defaults to 'silent'
@@ -192,7 +209,7 @@ router.get('/system/status/tts', authenticateToken, async (req, res) => {
     }
 });
 
-router.post('/system/regenerate-tts', authenticateToken, async (req, res) => {
+router.post('/system/regenerate-tts', operationsLimiter, authenticateToken, async (req, res) => {
     try {
         await configService.reload();
         await audioAssetService.syncAudioAssets(true);
@@ -202,7 +219,7 @@ router.post('/system/regenerate-tts', authenticateToken, async (req, res) => {
     }
 });
 
-router.post('/system/restart-scheduler', authenticateToken, async (req, res) => {
+router.post('/system/restart-scheduler', operationsLimiter, authenticateToken, async (req, res) => {
     try {
         await configService.reload();
         await schedulerService.hotReload();
@@ -212,7 +229,7 @@ router.post('/system/restart-scheduler', authenticateToken, async (req, res) => 
     }
 });
 
-router.post('/system/test-audio', authenticateToken, async (req, res) => {
+router.post('/system/test-audio', operationsLimiter, authenticateToken, async (req, res) => {
     const { filename, type } = req.body; 
     if (!filename || !type) return res.status(400).json({ error: 'Missing filename or type' });
     
@@ -238,7 +255,7 @@ router.post('/system/test-audio', authenticateToken, async (req, res) => {
     }
 });
 
-router.post('/system/validate-url', authenticateToken, async (req, res) => {
+router.post('/system/validate-url', operationsLimiter, authenticateToken, async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ valid: false, error: 'URL is required' });
 
@@ -346,7 +363,7 @@ const upload = multer({
 
 // Settings & Logs Routes
 
-router.get('/logs', (req, res) => {
+router.get('/logs', sseLimiter, (req, res) => {
     sseService.addClient(res);
 });
 
@@ -355,7 +372,7 @@ router.get('/settings', authenticateToken, async (req, res) => {
     res.json(configService.get());
 });
 
-router.post('/settings/upload', authenticateToken, upload.single('file'), (req, res) => {
+router.post('/settings/upload', operationsLimiter, authenticateToken, upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     res.json({ 
         message: 'File uploaded successfully', 
@@ -541,7 +558,7 @@ router.post('/settings/reset', authenticateToken, async (req, res) => {
     }
 });
 
-router.post('/settings/refresh-cache', authenticateToken, async (req, res) => {
+router.post('/settings/refresh-cache', operationsLimiter, authenticateToken, async (req, res) => {
     try {
         console.log('[API] Force refreshing cache...');
         await configService.reload(); // Reload from disk just in case

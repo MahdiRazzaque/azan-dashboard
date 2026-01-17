@@ -42,7 +42,7 @@ export default function PrayerSourceStatusCard({ config }) {
             
             setResults(prev => ({ 
                 ...prev, 
-                [target]: { success: data.success, message: data.success ? data.message : data.error } 
+                [target]: { success: data.success, message: data.success ? data.message : (data.message || data.error) } 
             }));
 
             // Refresh health cache to update "Online" badges immediately

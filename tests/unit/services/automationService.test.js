@@ -16,6 +16,9 @@ const sseService = require('../../../src/services/sseService');
 jest.mock('axios');
 jest.mock('../../../src/config');
 jest.mock('../../../src/services/sseService');
+jest.mock('../../../src/utils/requestQueue', () => ({
+    voiceMonkeyQueue: { schedule: (fn) => fn() }
+}));
 
 describe('AutomationService', () => {
     const mockConfig = {

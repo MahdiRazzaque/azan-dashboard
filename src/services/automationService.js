@@ -3,6 +3,7 @@ const player = require('play-sound')({});
 const axios = require('axios');
 const configService = require('../config'); // Singleton
 const sseService = require('./sseService');
+const { voiceMonkeyQueue } = require('../utils/requestQueue');
 
 const AUDIO_DIR = path.join(__dirname, '../../public/audio');
 
@@ -72,13 +73,13 @@ const handleVoiceMonkey = async (settings, prayer, event, source) => {
     }
     
     try {
-        await axios.get('https://api-v2.voicemonkey.io/announcement', {
+        await voiceMonkeyQueue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
             params: {
                 token: token,
                 device: device,
                 audio: publicUrl
             }
-        });
+        }));
     } catch (error) {
          console.error('[Target:VoiceMonkey] Request failed:', error.message);
     }
@@ -130,15 +131,15 @@ const verifyCredentials = async (token, device) => {
     }
 
     try {
-        // Use the announcement endpoint to verify credentials
-        const response = await axios.get('https://api-v2.voicemonkey.io/announcement', {
+        // Use the announcement endpoint to verify credentials (scheduled via queue)
+        const response = await voiceMonkeyQueue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
             params: {
                 token: token,
                 device: device,
                 text: "Test"
             },
             timeout: 5000
-        });
+        }));
 
         if (response.data && response.data.success === true) {
             return true;
@@ -153,8 +154,8 @@ const verifyCredentials = async (token, device) => {
                  throw new Error('Invalid Voice Monkey credentials');
              }
         }
+        throw error; // Re-throw to caller
     }
-    return true;
 };
 
 module.exports = {

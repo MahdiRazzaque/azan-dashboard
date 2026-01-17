@@ -14,20 +14,26 @@ export const SettingsProvider = ({ children }) => {
   }); // Default optimistic
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pausedPolling, setPausedPolling] = useState(false);
   const { isAuthenticated } = useAuth();
 
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !pausedPolling) {
       fetchSettings();
       fetchHealth();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, pausedPolling]);
 
   const fetchSettings = async () => {
+    if (pausedPolling) return;
     setLoading(true);
     try {
       const res = await fetch('/api/settings');
+      if (res.status === 429) {
+          handleRateLimit();
+          return;
+      }
       if (res.ok) {
         const data = await res.json();
         setConfig(data);
@@ -42,8 +48,13 @@ export const SettingsProvider = ({ children }) => {
   };
 
   const fetchHealth = async () => {
+      if (pausedPolling) return;
       try {
           const res = await fetch('/api/system/health');
+          if (res.status === 429) {
+              handleRateLimit();
+              return;
+          }
           if (res.ok) {
               const data = await res.json();
               setSystemHealth(data);
@@ -53,6 +64,14 @@ export const SettingsProvider = ({ children }) => {
       }
   };
 
+  const handleRateLimit = () => {
+      console.warn('[SettingsContext] Rate limit hit. Pausing polling for 60 seconds.');
+      setPausedPolling(true);
+      setTimeout(() => {
+          setPausedPolling(false);
+      }, 60000);
+  };
+
   const refreshHealth = async (target = 'all', mode = 'silent') => {
       try {
           const res = await fetch('/api/system/health/refresh', {
@@ -60,6 +79,10 @@ export const SettingsProvider = ({ children }) => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ target, mode })
           });
+          if (res.status === 429) {
+              const data = await res.json();
+              return { success: false, error: data.message || 'Too many requests' };
+          }
           if (res.ok) {
               const data = await res.json();
               setSystemHealth(prev => ({ ...prev, ...data }));
@@ -156,6 +179,14 @@ export const SettingsProvider = ({ children }) => {
       });
       const data = await res.json();
       
+      if (res.status === 429) {
+          const retryAfter = res.headers.get('Retry-After') || 60;
+          return { 
+              success: false, 
+              error: data.message || `Too many requests. Please wait ${retryAfter} seconds.` 
+          };
+      }
+
       if (res.ok) {
         setConfig(configToSave);
         // Sync draft with the sanitized config

@@ -55,15 +55,35 @@ const getMadhabId = (madhabName) => {
     return 0; // Default Shafi
 };
 
+const { aladhanQueue, myMasjidQueue } = require('../utils/requestQueue');
+
+// Request deduplication store
+const activeFetches = new Map();
+
+/**
+ * Deduplicates concurrent requests to the same URL
+ * @param {string} key Unique key for the request
+ * @param {Function} fetchFn Function that returns a promise
+ * @returns {Promise}
+ */
+function deduplicate(key, fetchFn) {
+    if (activeFetches.has(key)) {
+        return activeFetches.get(key);
+    }
+    const promise = fetchFn().finally(() => {
+        activeFetches.delete(key);
+    });
+    activeFetches.set(key, promise);
+    return promise;
+}
+
 // --- Fetchers ---
 
 /**
- * Fetches Annual schedule from Aladhan API
- * @param {object} config 
- * @param {number} year 
- * @returns {Promise<Object>} Map of "YYYY-MM-DD" -> { fajr, ... }
+ * Internal logic for Aladhan annual fetch
+ * @private
  */
-async function fetchAladhanAnnual(config, year) {
+async function _doFetchAladhanAnnual(config, year) {
   const { coordinates, timezone } = config.location;
   const { method, madhab, latitudeAdjustmentMethod, midnightMode } = config.calculation;
   
@@ -129,11 +149,18 @@ async function fetchAladhanAnnual(config, year) {
 }
 
 /**
- * Fetches Bulk schedule from MyMasjid API
- * @param {object} config 
- * @returns {Promise<Object>} Map of "YYYY-MM-DD" -> { fajr, ... }
+ * Fetches Annual schedule from Aladhan API (Queued & Deduplicated)
  */
-async function fetchMyMasjidBulk(config) {
+function fetchAladhanAnnual(config, year) {
+    const key = `aladhan-${config.location.coordinates.lat}-${config.location.coordinates.long}-${year}`;
+    return deduplicate(key, () => aladhanQueue.schedule(() => _doFetchAladhanAnnual(config, year)));
+}
+
+/**
+ * Internal logic for MyMasjid bulk fetch
+ * @private
+ */
+async function _doFetchMyMasjidBulk(config) {
   const { sources, location } = config;
   
   // Find the valid MyMasjid configuration (Primary or Backup)
@@ -221,6 +248,17 @@ async function fetchMyMasjidBulk(config) {
   });
 
   return resultMap;
+}
+
+/**
+ * Fetches Bulk schedule from MyMasjid API (Queued & Deduplicated)
+ */
+function fetchMyMasjidBulk(config) {
+    const source = (config.sources.primary && config.sources.primary.type === 'mymasjid') 
+        ? config.sources.primary 
+        : config.sources.backup;
+    const key = `mymasjid-${source?.masjidId}`;
+    return deduplicate(key, () => myMasjidQueue.schedule(() => _doFetchMyMasjidBulk(config)));
 }
 
 module.exports = {

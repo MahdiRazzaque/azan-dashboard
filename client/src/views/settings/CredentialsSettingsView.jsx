@@ -71,13 +71,13 @@ export default function CredentialsSettingsView() {
   const handleTestVoiceMonkey = async () => {
       setVmStatus('testing');
       setVmMessage(null);
-
+  
       if (!vmToken || !vmDevice) {
           setVmStatus('error');
           setVmMessage('Token and Device ID are required.');
           return;
       }
-
+  
       try {
           const res = await fetch('/api/system/test-voicemonkey', {
               method: 'POST',
@@ -91,14 +91,14 @@ export default function CredentialsSettingsView() {
               setShowVmConfirm(true); 
           } else {
               setVmStatus('error');
-              setVmMessage(data.error || 'Test failed. Please check credentials.');
+              setVmMessage(data.message || data.error || 'Test failed. Please check credentials.');
           }
       } catch (e) {
           setVmStatus('error');
           setVmMessage(e.message);
       }
   };
-
+  
   const handleSaveVoiceMonkey = async () => {
       setShowVmConfirm(false);
       setVmStatus('saving');
@@ -110,6 +110,7 @@ export default function CredentialsSettingsView() {
               body: JSON.stringify({ token: vmToken, device: vmDevice })
           });
           
+          const data = await res.json();
           if (res.ok) {
               setVmStatus('success');
               // Update initial state to match new saved state
@@ -119,22 +120,21 @@ export default function CredentialsSettingsView() {
               await refresh();
               await refreshHealth('voiceMonkey'); // Force health update
           } else {
-              const data = await res.json();
               setVmStatus('error');
-              setVmMessage(data.error || 'Failed to save credentials.');
+              setVmMessage(data.message || data.error || 'Failed to save credentials.');
           }
       } catch (e) {
           setVmStatus('error');
           setVmMessage(e.message);
       }
   };
-
-
+  
+  
   // --- Password Change State ---
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passMsg, setPassMsg] = useState(null);
-
+  
   const handleChangePassword = async () => {
       setPassMsg(null);
       if (!newPassword) return;
@@ -156,7 +156,7 @@ export default function CredentialsSettingsView() {
               setConfirmPassword('');
               setTimeout(() => logout(), 1500);
           } else {
-              setPassMsg({ type: 'error', text: data.error || 'Failed' });
+              setPassMsg({ type: 'error', text: data.message || data.error || 'Failed' });
           }
       } catch (e) {
           setPassMsg({ type: 'error', text: e.message });

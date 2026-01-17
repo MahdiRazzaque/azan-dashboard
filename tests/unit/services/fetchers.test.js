@@ -1,5 +1,11 @@
 const fetchers = require('../../../src/services/fetchers');
 
+// Mock requestQueue to avoid delays in fetcher tests
+jest.mock('../../../src/utils/requestQueue', () => ({
+    aladhanQueue: { schedule: (fn) => fn() },
+    myMasjidQueue: { schedule: (fn) => fn() }
+}));
+
 // Mock Config
 const mockConfig = {
     location: {

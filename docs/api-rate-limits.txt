@@ -1,0 +1,33 @@
+========================================
+RATE LIMIT SUMMARY - myMasjid
+========================================
+Test Duration: 60 seconds
+Total Requests Sent: 370
+--------------------
+✅ Successful (200 OK): 120
+❌ Throttled  (429):    250
+--------------------
+⚡ ESTIMATED BURST LIMIT: 20 requests
+🔄 OBSERVED RPM LIMIT:    120 requests/minute
+⏱️ Time to first block:     1.91 seconds
+
+
+========================================
+RATE LIMIT SUMMARY - aladhan 
+========================================
+Test Duration: 60 seconds
+Total Requests Sent: 650
+--------------------
+✅ Successful (200 OK): 536
+❌ Throttled  (429):    114
+--------------------
+⚡ ESTIMATED BURST LIMIT: 15 requests
+🔄 OBSERVED RPM LIMIT:    536 requests/minute
+⏱️ Time to first block:     0.82 seconds
+
+========================================
+RATE LIMIT SUMMARY - voiceMonkey 
+========================================
+Was unable to complete full 60 second test
+
+170 requests sent before API blocked requests for the next 15min

@@ -12,6 +12,7 @@ const fetchers = require('../services/fetchers');
 const healthCheck = require('../services/healthCheck');
 const configService = require('../config');
 const { DateTime } = require('luxon');
+const { operationsLimiter } = require('../middleware/rateLimiters');
 
 // Helper to convert map to array of objects object { id, label } and sort by label
 const toSortedArray = (obj) => {
@@ -38,7 +39,7 @@ router.get('/constants', authenticateToken, (req, res) => {
 });
 
 // POST /api/system/source/test
-router.post('/source/test', authenticateToken, async (req, res) => {
+router.post('/source/test', operationsLimiter, authenticateToken, async (req, res) => {
   const { target } = req.body;
   if (!target || !['primary', 'backup'].includes(target)) {
     return res.status(400).json({ success: false, error: 'Invalid target. Expected "primary" or "backup".' });

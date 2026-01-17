@@ -68,6 +68,10 @@ export default function DeveloperSettingsView() {
                  const item = res[target];
                  isHealthy = item.healthy;
                  feedbackMsg = item.message || (item.healthy ? "Online" : "Offline");
+            } else if (res && res.error) {
+                 // Handle Rate Limit or other explicit errors
+                 feedbackMsg = res.error;
+                 isHealthy = false;
             }
         }
 
@@ -136,7 +140,7 @@ export default function DeveloperSettingsView() {
                 headers: { 'Content-Type': 'application/json' }
             });
             const data = await res.json();
-            if(!res.ok) throw new Error(data.error || 'Failed');
+            if(!res.ok) throw new Error(data.message || data.error || 'Failed');
             setMessage({ type: 'success', text: data.message });
         } catch (err) {
             setMessage({ type: 'error', text: err.message });
