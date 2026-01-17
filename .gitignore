@@ -29,3 +29,4 @@ repomix-output.xml
 src/config/local.json
 /coverage
 repomixBat.bat
+COVERAGE_SUMMARY.md
