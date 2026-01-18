@@ -80,7 +80,7 @@ export default function PrayerSourceStatusCard({ config }) {
 
     const getStatusColor = () => {
         if (isUsingCache) return 'text-indigo-400';
-        if (!activeSource) return 'text-zinc-500';
+        if (!activeSource) return 'text-app-dim';
         const sourceMatch = activeSource.toLowerCase().includes(primary?.type?.toLowerCase());
         return sourceMatch ? 'text-emerald-400' : 'text-amber-400';
     };
@@ -95,17 +95,17 @@ export default function PrayerSourceStatusCard({ config }) {
 
         return (
             <div className={cn(
-                "flex flex-col p-4 bg-zinc-900 rounded-lg border border-zinc-800 transition-all gap-4",
+                "flex flex-col p-4 bg-app-card rounded-lg border border-app-border transition-all gap-4",
                 disabled && "opacity-50 grayscale"
             )}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-zinc-800 rounded-lg">
+                        <div className="p-2 bg-app-bg rounded-lg">
                             {source?.type === 'aladhan' ? <Globe className="w-5 h-5 text-blue-400" /> : <Database className="w-5 h-5 text-emerald-400" />}
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="font-semibold text-zinc-100">{label}</span>
+                                <span className="font-semibold text-app-text">{label}</span>
                                 {health && (
                                     <div className={cn(
                                         "flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border",
@@ -116,7 +116,7 @@ export default function PrayerSourceStatusCard({ config }) {
                                     </div>
                                 )}
                             </div>
-                            <div className="text-xs text-zinc-500 mt-0.5 font-mono">
+                            <div className="text-xs text-app-dim mt-0.5 font-mono">
                                 {source?.type || 'Not Set'}
                             </div>
                         </div>
@@ -137,7 +137,7 @@ export default function PrayerSourceStatusCard({ config }) {
                     <button
                         onClick={() => testConnection(target)}
                         disabled={isLoading || disabled}
-                        className="flex items-center justify-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded border border-zinc-700 transition-all disabled:opacity-50 w-full"
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-app-card' hover:bg-app-card-hover text-app-dim rounded border border-app-border transition-all disabled:opacity-50 w-full"
                     >
                         {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
                         <span className="text-xs font-semibold">Test Connectivity</span>
@@ -148,19 +148,19 @@ export default function PrayerSourceStatusCard({ config }) {
     };
 
     return (
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 lg:col-span-2">
+        <div className="bg-app-card/40 border border-app-border rounded-xl p-6 lg:col-span-2">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-app-text flex items-center gap-2">
                     <Database className="w-5 h-5 text-emerald-500" /> Prayer Source Status
                 </h3>
                 
-                <div className="flex items-center gap-2 bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800 shadow-inner">
+                <div className="flex items-center gap-2 bg-app-bg px-3 py-1.5 rounded-full border border-app-border shadow-inner">
                     <div className={cn(
                         "w-2 h-2 rounded-full",
                         isUsingCache ? "bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" :
-                        activeSource ? (isActivePrimary ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]") : "bg-zinc-600"
+                        activeSource ? (isActivePrimary ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]") : "bg-app-dim/50"
                     )} />
-                    <span className="text-xs font-medium text-zinc-400">Current Source:</span>
+                    <span className="text-xs font-medium text-app-dim">Current Source:</span>
                     <span className={cn("text-xs font-bold", getStatusColor())}>
                         {getStatusText()}
                     </span>
@@ -182,7 +182,7 @@ export default function PrayerSourceStatusCard({ config }) {
                 />
             </div>
 
-            <p className="mt-6 text-xs text-zinc-500 flex items-center gap-1.5 bg-zinc-900/50 p-3 rounded border border-zinc-800/50 italic">
+            <p className="mt-6 text-xs text-app-dim flex items-center gap-1.5 bg-app-card/50 p-3 rounded border border-app-border/50 italic">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                 These tests occur independently of the dashboard cache. A successful test means the source is reachable.
             </p>

@@ -52,7 +52,7 @@ export default function PrayerSettingsView() {
     }, [notification]);
 
     if (!draftConfig) {
-        return <div className="p-8 text-zinc-400">Loading settings...</div>;
+        return <div className="p-8 text-app-dim">Loading settings...</div>;
     }
 
     const localConfig = draftConfig; // Alias for compatibility
@@ -204,14 +204,14 @@ export default function PrayerSettingsView() {
 
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Prayer Configuration</h2>
-                    <p className="text-zinc-400">Configure timing rules and automation triggers for each prayer.</p>
+                    <h2 className="text-2xl font-bold text-app-text mb-2">Prayer Configuration</h2>
+                    <p className="text-app-dim">Configure timing rules and automation triggers for each prayer.</p>
                 </div>
 
             </div>
 
             {/* Navigation Pills */}
-            <div className="flex p-1 bg-zinc-900/50 rounded-xl border border-zinc-800 backdrop-blur-sm w-fit">
+            <div className="flex p-1 bg-app-bg/50 rounded-xl border border-app-border backdrop-blur-sm w-fit">
                 {PRAYERS.map(p => {
                     const isDirty = isPrayerTabDirty(p);
                     return (
@@ -220,8 +220,8 @@ export default function PrayerSettingsView() {
                         onClick={() => setActiveTab(p)}
                         className={`px-6 py-2 rounded-lg text-sm font-medium capitalize transition-all relative flex items-center gap-2 ${
                             activeTab === p 
-                            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' 
-                            : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                            ? 'bg-emerald-600 text-app-text shadow-lg shadow-emerald-900/20' 
+                            : 'text-app-dim hover:text-app-text hover:bg-app-card-hover'
                         }`}
                     >
                         {p}
@@ -232,7 +232,7 @@ export default function PrayerSettingsView() {
                             <div className="relative group/tabwarning">
                                 <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                                 <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/tabwarning:block z-50">
-                                     <div className="bg-zinc-900 border border-zinc-700 p-2 rounded shadow-2xl text-[10px] whitespace-nowrap text-zinc-300">
+                                     <div className="bg-app-card border border-app-border p-2 rounded shadow-2xl text-[10px] whitespace-nowrap text-app-text">
                                          <p className="font-bold text-amber-500 mb-1 flex items-center gap-1 uppercase tracking-tighter">
                                              <AlertTriangle className="w-3 h-3" /> Service Issue
                                          </p>
@@ -242,7 +242,7 @@ export default function PrayerSettingsView() {
                                              ))}
                                          </ul>
                                      </div>
-                                     <div className="w-2 h-2 bg-zinc-900 border-r border-b border-zinc-700 rotate-45 mx-auto -mt-1"></div>
+                                     <div className="w-2 h-2 bg-app-card border-r border-b border-app-border rotate-45 mx-auto -mt-1"></div>
                                 </div>
                             </div>
                         )}
@@ -267,7 +267,7 @@ export default function PrayerSettingsView() {
 
                 {/* Triggers Sequence */}
                 <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2 px-1">
+                    <h3 className="text-lg font-semibold text-app-text mb-2 flex items-center gap-2 px-1">
                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                         Automation Sequence
                     </h3>
@@ -312,7 +312,7 @@ export default function PrayerSettingsView() {
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-3 mb-2">
                                         <Clock className="w-4 h-4 text-emerald-500" />
-                                        <h4 className="text-sm font-semibold text-white flex items-center gap-2 uppercase tracking-tight">
+                                        <h4 className="text-sm font-semibold text-app-text flex items-center gap-2 uppercase tracking-tight">
                                             Timing Logic
                                             {JSON.stringify(config.prayers[activeTab]) !== JSON.stringify(localConfig.prayers[activeTab]) && (
                                                 <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
@@ -322,20 +322,20 @@ export default function PrayerSettingsView() {
 
                                     {/* Override Switch - Only Visible for MyMasjid */}
                                     {isMyMasjid && (
-                                        <div className="flex items-center justify-between pb-3 border-b border-zinc-800/50">
+                                        <div className="flex items-center justify-between pb-3 border-b border-app-border/50">
                                             <div>
-                                                <label className="text-xs font-medium text-zinc-300">Override Masjid schedule</label>
-                                                <p className="text-[10px] text-zinc-500 mt-0.5">Calculate iqamah locally</p>
+                                                <label className="text-xs font-medium text-app-dim">Override Masjid schedule</label>
+                                                <p className="text-[10px] text-app-dim mt-0.5">Calculate iqamah locally</p>
                                             </div>
                                             <button
                                                 role="switch"
                                                 aria-checked={currentPrayerSettings.iqamahOverride}
                                                 onClick={() => updatePrayerConfig('iqamahOverride', !currentPrayerSettings.iqamahOverride)}
                                                 className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
-                                                    currentPrayerSettings.iqamahOverride ? 'bg-emerald-600' : 'bg-zinc-700'
+                                                    currentPrayerSettings.iqamahOverride ? 'bg-emerald-600' : 'bg-app-card-hover'
                                                 }`}
                                             >
-                                                <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition duration-200 ease-in-out ${
+                                                <span className={`inline-block h-3 w-3 transform rounded-full bg-app-text transition duration-200 ease-in-out ${
                                                     currentPrayerSettings.iqamahOverride ? 'translate-x-5' : 'translate-x-1'
                                                 }`} />
                                             </button>
@@ -345,14 +345,14 @@ export default function PrayerSettingsView() {
                                     {(!isMyMasjid || currentPrayerSettings.iqamahOverride) ? (
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4">
                                             <div className="space-y-2">
-                                                <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Mode</label>
-                                                <div className="grid grid-cols-2 gap-1 bg-black/20 p-1 rounded-lg border border-zinc-800/50">
+                                                <label className="text-[10px] text-app-dim font-bold uppercase tracking-wider">Mode</label>
+                                                <div className="grid grid-cols-2 gap-1 bg-app-bg/20 p-1 rounded-lg border border-app-border/50">
                                                     <button
                                                         onClick={() => updatePrayerConfig('fixedTime', null)}
                                                         className={`py-1.5 text-[11px] font-medium rounded transition-all ${
                                                             currentPrayerSettings.fixedTime === null
-                                                            ? 'bg-emerald-600 text-white shadow-lg'
-                                                            : 'text-zinc-500 hover:text-zinc-300'
+                                                            ? 'bg-emerald-600 text-app-text shadow-lg'
+                                                            : 'text-app-dim hover:text-app-text'
                                                         }`}
                                                     >
                                                         Offset
@@ -361,8 +361,8 @@ export default function PrayerSettingsView() {
                                                         onClick={() => updatePrayerConfig('fixedTime', '12:00')}
                                                         className={`py-1.5 text-[11px] font-medium rounded transition-all ${
                                                             currentPrayerSettings.fixedTime !== null
-                                                            ? 'bg-emerald-600 text-white shadow-lg'
-                                                            : 'text-zinc-500 hover:text-zinc-300'
+                                                            ? 'bg-emerald-600 text-app-text shadow-lg'
+                                                            : 'text-app-dim hover:text-app-text'
                                                         }`}
                                                     >
                                                         Fixed
@@ -373,41 +373,41 @@ export default function PrayerSettingsView() {
                                             {currentPrayerSettings.fixedTime === null ? (
                                                 <>
                                                     <div>
-                                                        <label className="block text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-2">Minutes After</label>
+                                                        <label className="block text-[10px] text-app-dim font-bold uppercase tracking-wider mb-2">Minutes After</label>
                                                         <input 
                                                             type="number" 
                                                             value={currentPrayerSettings.iqamahOffset}
                                                             onChange={e => updatePrayerConfig('iqamahOffset', parseInt(e.target.value) || 0)}
-                                                            className="w-full bg-black/40 border border-zinc-700 rounded p-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                                                            className="w-full bg-app-bg border border-app-border rounded p-2 text-sm text-app-text focus:outline-none focus:border-emerald-500"
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-2">Rounding</label>
+                                                        <label className="block text-[10px] text-app-dim font-bold uppercase tracking-wider mb-2">Rounding</label>
                                                         <input 
                                                             type="number" 
                                                             value={currentPrayerSettings.roundTo}
                                                             onChange={e => updatePrayerConfig('roundTo', parseInt(e.target.value) || 0)}
-                                                            className="w-full bg-black/40 border border-zinc-700 rounded p-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                                                            className="w-full bg-app-bg border border-app-border rounded p-2 text-sm text-app-text focus:outline-none focus:border-emerald-500"
                                                         />
                                                     </div>
                                                 </>
                                             ) : (
                                                 <div className="md:col-span-2">
-                                                    <label className="block text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-2">Set Time (HH:MM)</label>
+                                                    <label className="block text-[10px] text-app-dim font-bold uppercase tracking-wider mb-2">Set Time (HH:MM)</label>
                                                     <input 
                                                         type="time" 
                                                         value={currentPrayerSettings.fixedTime}
                                                         onChange={e => updatePrayerConfig('fixedTime', e.target.value)}
-                                                        className="w-full bg-black/40 border border-zinc-700 rounded p-2 text-sm text-white [color-scheme:dark] focus:outline-none focus:border-emerald-500"
+                                                        className="w-full bg-app-bg border border-app-border rounded p-2 text-sm text-app-text [color-scheme:dark] focus:outline-none focus:border-emerald-500 transition-colors"
                                                     />
                                                 </div>
                                             )}
                                         </div>
                                     ) : (
-                                        <div className="flex items-center gap-3 py-2 px-3 bg-zinc-950/50 rounded-lg border border-zinc-800 border-dashed">
+                                        <div className="flex items-center gap-3 py-2 px-3 bg-app-card/50 rounded-lg border border-app-border border-dashed">
                                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                            <p className="text-zinc-500 text-[11px] leading-relaxed">
-                                                Following masjid schedule. Toggle <strong className="text-zinc-400 font-semibold">Override</strong> to set custom rules.
+                                            <p className="text-app-dim text-[11px] leading-relaxed">
+                                                Following masjid schedule. Toggle <strong className="text-app-text font-semibold">Override</strong> to set custom rules.
                                             </p>
                                         </div>
                                     )}

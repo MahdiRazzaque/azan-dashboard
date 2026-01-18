@@ -166,7 +166,7 @@ export default function SettingsLayout({ logs, processStatus }) {
   const isGlobalSaveVisible = !['/settings/credentials', '/settings/files', '/settings/developer'].some(path => location.pathname.includes(path));
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-zinc-100 font-sans">
+    <div className="flex h-screen bg-app-bg text-app-text font-sans">
       <SaveProcessModal 
           isOpen={showProcessModal} 
           onClose={() => setShowProcessModal(false)} 
@@ -176,18 +176,18 @@ export default function SettingsLayout({ logs, processStatus }) {
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
-            className="fixed inset-0 z-20 bg-black/50 lg:hidden"
+            className="fixed inset-0 z-20 bg-app-bg/50 lg:hidden"
             onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-30 w-64 bg-zinc-900 border-r border-zinc-800 transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 flex flex-col",
+        "fixed inset-y-0 left-0 z-30 w-64 bg-app-card border-r border-app-border transform transition-transform duration-200 ease-in-out lg:relative lg:translate-x-0 flex flex-col",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex flex-col flex-1 min-h-0">
-            <div className="h-16 flex items-center px-6 border-b border-zinc-800 shrink-0">
+            <div className="h-16 flex items-center px-6 border-b border-app-border shrink-0">
                 <span className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-500 bg-clip-text text-transparent">
                     Azan Dashboard
                 </span>
@@ -205,7 +205,7 @@ export default function SettingsLayout({ logs, processStatus }) {
                                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors relative",
                                 isActive 
                                     ? "bg-emerald-500/10 text-emerald-500" 
-                                    : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                                    : "text-app-dim hover:bg-app-card-hover hover:text-app-text"
                             )}
                         >
                             <item.icon className="w-5 h-5" />
@@ -223,7 +223,7 @@ export default function SettingsLayout({ logs, processStatus }) {
 
             {/* Actions Section Removed - Moved to Header */}
             
-            <div className="p-4 border-t border-zinc-800 shrink-0 mt-auto">
+            <div className="p-4 border-t border-app-border shrink-0 mt-auto">
                 <button 
                     onClick={logout}
                     className="flex w-full items-center gap-3 px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
@@ -256,7 +256,7 @@ export default function SettingsLayout({ logs, processStatus }) {
                     </button>
                 </div>
                 {notification.details && notification.details.length > 0 && (
-                    <ul className="mt-2 text-xs opacity-90 list-disc list-inside space-y-1 pl-1 bg-black/20 p-2 rounded">
+                    <ul className="mt-2 text-xs opacity-90 list-disc list-inside space-y-1 pl-1 bg-app-bg/20 p-2 rounded">
                         {notification.details.map((detail, i) => (
                             <li key={i}>{detail}</li>
                         ))}
@@ -276,17 +276,17 @@ export default function SettingsLayout({ logs, processStatus }) {
         />
 
         {/* Top Header */}
-        <header className="h-16 flex items-center justify-between px-6 border-b border-zinc-800 bg-zinc-950 shrink-0">
+        <header className="h-16 flex items-center justify-between px-6 border-b border-app-border bg-app-bg shrink-0">
              <div className="flex items-center gap-4">
                 <button 
                     onClick={() => setSidebarOpen(true)}
-                    className="p-2 -ml-2 text-zinc-400 hover:text-white lg:hidden"
+                    className="p-2 -ml-2 text-app-dim hover:text-app-text lg:hidden"
                 >
                     <Menu className="w-6 h-6" />
                 </button>
                 
                 <div className="hidden lg:block">
-                     <NavLink to="/" className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
+                     <NavLink to="/" className="flex items-center gap-2 text-sm text-app-dim hover:text-app-text">
                         <ChevronLeft className="w-4 h-4" />
                         Back to Dashboard
                      </NavLink>
@@ -313,7 +313,7 @@ export default function SettingsLayout({ logs, processStatus }) {
                         <button
                             onClick={() => setShowResetConfirm(true)}
                             disabled={saving}
-                            className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-full transition-colors"
+                            className="p-2 text-app-dim hover:bg-app-card-hover hover:text-app-text rounded-full transition-colors"
                             title="Reset to Factory Defaults"
                         >
                             <RotateCcw className="w-5 h-5" />
@@ -327,7 +327,7 @@ export default function SettingsLayout({ logs, processStatus }) {
                                 "flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all text-sm",
                                 unsaved 
                                     ? "bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-900/20" 
-                                    : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                                    : "bg-app-card-hover text-app-dim cursor-not-allowed"
                             )}
                             title={unsaved ? "Save all changes" : "No changes to save"}
                         >

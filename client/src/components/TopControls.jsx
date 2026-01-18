@@ -1,11 +1,22 @@
-import { Volume2, VolumeX, Settings } from 'lucide-react';
+import { Volume2, VolumeX, Settings, Monitor } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import ClientSettingsModal from './ClientSettingsModal';
 
 const TopControls = ({ isMuted, toggleMute, blocked }) => {
+  const [showSettings, setShowSettings] = useState(false);
   const navigate = useNavigate();
 
   return (
     <div className="absolute top-3 right-3 lg:top-6 lg:right-6 flex gap-3 z-50">
+      <button 
+        onClick={() => setShowSettings(true)}
+        className="p-2 lg:p-3 rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
+        title="Display Settings"
+      >
+        <Monitor size={20} className="lg:scale-100 scale-90" />
+      </button>
+
       <button 
         onClick={toggleMute}
         className={`p-2 lg:p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
@@ -24,6 +35,8 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
       >
         <Settings size={20} className="lg:scale-100 scale-90" />
       </button>
+
+      {showSettings && <ClientSettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 };

@@ -166,13 +166,13 @@ export default function CredentialsSettingsView() {
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
         <div>
-            <h1 className="text-3xl font-bold text-white">Credentials & Security</h1>
-            <p className="text-zinc-400 mt-1">Manage external API keys and system access.</p>
+            <h1 className="text-3xl font-bold text-app-text">Credentials & Security</h1>
+            <p className="text-app-dim mt-1">Manage external API keys and system access.</p>
         </div>
 
         {/* VoiceMonkey Section */}
-        <section className="bg-zinc-900 p-6 rounded-lg border border-zinc-800 shadow-md">
-            <div className="flex items-center justify-between mb-6 border-b border-zinc-800 pb-2">
+        <section className="bg-app-card p-6 rounded-lg border border-app-border shadow-md">
+            <div className="flex items-center justify-between mb-6 border-b border-app-border pb-2">
                 <h2 className="text-xl font-semibold text-cyan-400 flex items-center gap-2">
                     <Zap className="w-5 h-5" /> VoiceMonkey Integration
                 </h2>
@@ -181,7 +181,7 @@ export default function CredentialsSettingsView() {
                         <button
                             onClick={handleDiscard}
                             title="Discard Changes"
-                            className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-full transition-colors"
+                            className="p-2 text-app-dim hover:text-app-text hover:bg-app-card-hover rounded-full transition-colors"
                         >
                             <Undo2 className="w-5 h-5" />
                         </button>
@@ -198,7 +198,7 @@ export default function CredentialsSettingsView() {
                 </div>
             </div>
             
-            <p className="text-sm text-zinc-400 mb-6">
+            <p className="text-sm text-app-dim mb-6">
                 Configure your VoiceMonkey credentials to enable Smart Home announcements.
                 These keys are stored securely in the system environment variables.
             </p>
@@ -206,8 +206,8 @@ export default function CredentialsSettingsView() {
             <div className="max-w-xl space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-zinc-300 flex items-center gap-2">
-                            <Key className="w-4 h-4 text-zinc-500" /> API Token
+                        <label className="block text-sm font-medium text-app-dim flex items-center gap-2">
+                            <Key className="w-4 h-4 text-app-dim/50" /> API Token
                         </label>
                         <PasswordInput 
                             value={vmToken}
@@ -216,14 +216,14 @@ export default function CredentialsSettingsView() {
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="block text-sm font-medium text-zinc-300 flex items-center gap-2">
-                            <Smartphone className="w-4 h-4 text-zinc-500" /> Device ID
+                        <label className="block text-sm font-medium text-app-dim flex items-center gap-2">
+                            <Smartphone className="w-4 h-4 text-app-dim/50" /> Device ID
                         </label>
                          <input 
                             type="text"
                             value={vmDevice}
                             onChange={(e) => setVmDevice(e.target.value)}
-                            className="w-full bg-black/40 border border-zinc-700 rounded-md px-3 py-2 text-zinc-200 focus:outline-none focus:border-emerald-500 transition-colors"
+                            className="w-full bg-app-bg border border-app-border rounded-md px-3 py-2 text-app-text focus:outline-none focus:border-emerald-500 transition-colors"
                             placeholder="e.g. alexa-announcer"
                         />
                     </div>
@@ -279,13 +279,13 @@ export default function CredentialsSettingsView() {
 
 
         {/* Change Password Section */}
-        <section className="bg-zinc-900 p-6 rounded-lg border border-zinc-800 shadow-md">
-            <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-zinc-800 pb-2 flex items-center gap-2">
+        <section className="bg-app-card p-6 rounded-lg border border-app-border shadow-md">
+            <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-app-border pb-2 flex items-center gap-2">
                 <Lock className="w-5 h-5" /> Change Admin Password
             </h2>
             <div className="max-w-md space-y-4">
                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-zinc-300">New Password</label>
+                    <label className="block text-sm font-medium text-app-dim">New Password</label>
                     <PasswordInput 
                         value={newPassword}
                         onChange={setNewPassword}
@@ -295,7 +295,7 @@ export default function CredentialsSettingsView() {
                  </div>
 
                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-zinc-300">Confirm New Password</label>
+                    <label className="block text-sm font-medium text-app-dim">Confirm New Password</label>
                     <PasswordInput 
                         value={confirmPassword}
                         onChange={setConfirmPassword}

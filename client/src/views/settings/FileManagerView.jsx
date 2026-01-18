@@ -104,29 +104,29 @@ export default function FileManagerView() {
     };
 
     const FileList = ({ title, type, items }) => (
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 bg-zinc-900/60 border-b border-zinc-800 flex justify-between items-center">
-                <h3 className="font-semibold text-zinc-300">{title}</h3>
-                <span className="text-xs text-zinc-500">{items.length} files</span>
+        <div className="bg-app-card/40 border border-app-border rounded-xl overflow-hidden">
+            <div className="px-4 py-3 bg-app-card/60 border-b border-app-border flex justify-between items-center">
+                <h3 className="font-semibold text-app-dim">{title}</h3>
+                <span className="text-xs text-app-dim/50">{items.length} files</span>
             </div>
             {items.length === 0 ? (
-                <div className="p-8 text-center text-zinc-500 text-sm">No files found</div>
+                <div className="p-8 text-center text-app-dim text-sm">No files found</div>
             ) : (
-                <div className="divide-y divide-zinc-800/50">
+                <div className="divide-y divide-app-border/50">
                     {items.map(file => (
-                        <div key={file.path} className="p-3 flex items-center justify-between hover:bg-zinc-800/30 transition-colors group">
+                        <div key={file.path} className="p-3 flex items-center justify-between hover:bg-app-card-hover transition-colors group">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center text-emerald-500">
+                                <div className="w-8 h-8 rounded bg-app-bg flex items-center justify-center text-emerald-500">
                                     <Volume2 className="w-4 h-4" />
                                 </div>
-                                <span className="text-sm font-medium text-zinc-200">{file.name}</span>
+                                <span className="text-sm font-medium text-app-text">{file.name}</span>
                             </div>
                             
                             <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                                 {/* Browser Play */}
                                 <button 
                                     onClick={() => handleBrowserPlay(file)}
-                                    className="p-1.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white"
+                                    className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
                                     title="Preview in Browser"
                                 >
                                     {playingFile === file.name ? <StopCircle className="w-4 h-4 text-emerald-400" /> : <Play className="w-4 h-4" />}
@@ -135,7 +135,7 @@ export default function FileManagerView() {
                                 {/* Server Play */}
                                 <button 
                                     onClick={() => handleServerPlay(file)}
-                                    className="p-1.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white"
+                                    className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
                                     title="Test on Server Speaker"
                                 >
                                     <Server className={`w-4 h-4 ${serverPlaying === file.name ? 'text-emerald-400 animate-pulse' : ''}`} />
@@ -145,7 +145,7 @@ export default function FileManagerView() {
                                 {type === 'custom' && (
                                     <button 
                                         onClick={() => handleDelete(file.name)}
-                                        className="p-1.5 hover:bg-red-900/20 rounded text-zinc-500 hover:text-red-400"
+                                        className="p-1.5 hover:bg-red-900/20 rounded text-app-dim hover:text-red-400"
                                         title="Delete File"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -166,8 +166,8 @@ export default function FileManagerView() {
         <div className="space-y-6 max-w-4xl mx-auto pb-12">
             <div className="flex justify-between items-start">
                 <div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Audio Manager</h2>
-                    <p className="text-zinc-400">Manage custom audio files and view generated speech cache.</p>
+                    <h2 className="text-2xl font-bold text-app-text mb-2">Audio Manager</h2>
+                    <p className="text-app-dim">Manage custom audio files and view generated speech cache.</p>
                 </div>
                 
                 {/* Upload Button */}

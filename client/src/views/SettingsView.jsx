@@ -39,7 +39,7 @@ const SettingsView = ({ logs }) => {
 
 
     return (
-        <div className="h-screen w-screen bg-app-bg p-8 text-white overflow-auto flex flex-col">
+        <div className="h-screen w-screen bg-app-bg p-8 text-app-text overflow-auto flex flex-col">
             <header className="flex items-center mb-8 shrink-0">
                 <button 
                     onClick={() => navigate('/')}

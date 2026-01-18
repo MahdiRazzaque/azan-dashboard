@@ -34,7 +34,7 @@ export default function SaveProcessModal({ isOpen, onClose, status, result, proc
 
       {/* Modal Card */}
       <div className={cn(
-        "relative bg-zinc-900 border text-center rounded-2xl shadow-2xl p-8 max-w-md w-full flex flex-col items-center transition-all duration-300 transform scale-100",
+        "relative bg-app-card border text-center rounded-2xl shadow-2xl p-8 max-w-md w-full flex flex-col items-center transition-all duration-300 transform scale-100",
         visualState === 'processing' ? "border-blue-500/30" : 
         visualState === 'success' ? "border-emerald-500/50" :
         visualState === 'warning' ? "border-amber-500/50" :
@@ -77,14 +77,14 @@ export default function SaveProcessModal({ isOpen, onClose, status, result, proc
         </h2>
 
         {visualState === 'warning' && (
-            <p className="text-zinc-400 text-sm mb-4 px-4">
+            <p className="text-app-dim text-sm mb-4 px-4">
                 Some automations will not play because required services are currently offline.
             </p>
         )}
 
         {/* Subtext (Processing) */}
         {visualState === 'processing' && (
-            <p className="text-zinc-400 text-sm animate-pulse">
+            <p className="text-app-dim text-sm animate-pulse">
                 {processStatus ? "This process involves generating audio files and may take a moment." : "Please wait while we update the system..."}
             </p>
         )}
@@ -113,7 +113,7 @@ export default function SaveProcessModal({ isOpen, onClose, status, result, proc
                 )}
                 
                 {visualState === 'success' && !result.warning && (
-                    <p className="text-zinc-400 text-sm">
+                    <p className="text-app-dim text-sm">
                         System updated successfully. All cache generated.
                     </p>
                 )}
@@ -126,7 +126,7 @@ export default function SaveProcessModal({ isOpen, onClose, status, result, proc
                 {visualState === 'warning' && (
                      <button 
                         onClick={() => { onClose(); /* Navigate logic handled by parent if needed */ window.location.hash = '#/settings/developer'; }}
-                        className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                        className="w-full bg-app-card hover:bg-app-card-hover text-app-dim py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                      >
                         <ExternalLink className="w-4 h-4" />
                         Go to System Health
@@ -137,9 +137,9 @@ export default function SaveProcessModal({ isOpen, onClose, status, result, proc
                     onClick={onClose}
                     className={cn(
                         "w-full py-2.5 rounded-lg text-sm font-bold transition-all shadow-lg flex items-center justify-center gap-2",
-                        visualState === 'success' ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20" :
+                        visualState === 'success' ? "bg-emerald-600 hover:bg-emerald-500 text-app-text shadow-emerald-900/20" :
                         visualState === 'warning' ? "bg-amber-600 hover:bg-amber-500 text-black shadow-amber-900/20" :
-                        "bg-zinc-700 hover:bg-zinc-600 text-white"
+                        "bg-app-card hover:bg-app-card-hover text-app-text"
                     )}
                 >
                     {visualState === 'success' ? 'Great, Close' : 'Close'}

@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 const PrayerRow = ({ name, time, iqamah, status }) => {
     const baseClass = "flex items-center justify-between py-3 px-4 lg:py-6 lg:px-10 text-2xl lg:text-5xl font-medium border-b border-white/5 last:border-0 transition-all duration-500";
     
-    let colorClass = "text-white";
+    let colorClass = "text-app-text";
     let bgClass = "";
     
     if (status === 'passed') {
@@ -19,7 +19,7 @@ const PrayerRow = ({ name, time, iqamah, status }) => {
     const formatTime = (iso) => iso ? DateTime.fromISO(iso).toFormat('h:mm') : '-';
 
     return (
-        <div className={`${baseClass} ${colorClass} ${bgClass}`}>
+        <div className={`${baseClass} ${colorClass} ${bgClass} border-app-border/10`}>
             <span className="w-1/3 text-left">{label}</span>
             <span className="w-1/3 text-center">{formatTime(time)}</span>
             <span className="w-1/3 text-right text-xl lg:text-4xl opacity-60">{iqamah ? formatTime(iqamah) : ''}</span>
@@ -48,7 +48,7 @@ const PrayerCard = ({ prayers, nextPrayer }) => {
     return (
         <div className="bg-app-card rounded-3xl h-auto lg:h-full flex flex-col overflow-hidden shadow-2xl p-4">
             <div className="flex-1 flex flex-col justify-center space-y-2">
-                 <div className="flex justify-between px-4 lg:px-10 pb-4 text-app-dim text-sm lg:text-xl uppercase tracking-widest font-semibold opacity-50 border-b border-white/5">
+                 <div className="flex justify-between px-4 lg:px-10 pb-4 text-app-dim text-sm lg:text-xl uppercase tracking-widest font-semibold opacity-50 border-b border-app-border/20">
                      <span className="w-1/3 text-left">Prayer</span>
                      <span className="w-1/3 text-center">Start Time</span>
                      <span className="w-1/3 text-right">Iqamah</span>

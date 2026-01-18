@@ -11,8 +11,8 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
 const Toggle = ({ checked, onChange, label, description }) => (
     <div className="flex items-center justify-between py-3">
         <div className="mr-4">
-            <div className="font-medium text-zinc-200">{label}</div>
-            {description && <div className="text-sm text-zinc-500">{description}</div>}
+            <div className="font-medium text-app-text">{label}</div>
+            {description && <div className="text-sm text-app-dim">{description}</div>}
         </div>
         <button 
             type="button"
@@ -20,8 +20,8 @@ const Toggle = ({ checked, onChange, label, description }) => (
             aria-checked={checked}
             onClick={() => onChange(!checked)}
             className={cn(
-                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-zinc-900 border-transparent",
-                checked ? "bg-emerald-600" : "bg-zinc-700"
+                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-app-card border-transparent",
+                checked ? "bg-emerald-600" : "bg-app-card-hover"
             )}
         >
             <span
@@ -46,7 +46,7 @@ export default function AutomationSettingsView() {
       systemHealth
     } = useSettings();
 
-  if (loading || !draftConfig) return <div className="p-8 text-center text-zinc-500">Loading...</div>;
+  if (loading || !draftConfig) return <div className="p-8 text-center text-app-dim">Loading...</div>;
 
   const formData = draftConfig;
 
@@ -72,15 +72,15 @@ export default function AutomationSettingsView() {
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
         <div className="flex justify-between items-center">
             <div>
-                 <h1 className="text-3xl font-bold text-white">Automation & Integrations</h1>
-                 <p className="text-zinc-400 mt-1">Manage global behavior and external services.</p>
+                 <h1 className="text-3xl font-bold text-app-text">Automation & Integrations</h1>
+                 <p className="text-app-dim mt-1">Manage global behavior and external services.</p>
             </div>
 
         </div>
 
         {/* Global Master Switch */}
-        <section className="bg-zinc-900 p-6 rounded-lg border border-zinc-800 shadow-md">
-            <h2 className="text-xl font-semibold mb-4 text-emerald-400 flex items-center gap-2 border-b border-zinc-800 pb-2">
+        <section className="bg-app-card p-6 rounded-lg border border-app-border shadow-md">
+            <h2 className="text-xl font-semibold mb-4 text-emerald-400 flex items-center gap-2 border-b border-app-border pb-2">
                 <Power className="w-5 h-5" />
                 Master Controls
                 {JSON.stringify(config?.automation?.global) !== JSON.stringify(draftConfig?.automation?.global) && (
@@ -95,8 +95,8 @@ export default function AutomationSettingsView() {
                     onChange={v => handleChange('automation.global.enabled', v)}
                 />
                 
-                <div className="pt-4 mt-2 border-t border-zinc-800 space-y-4">
-                     <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Sub-Systems Override</h3>
+                <div className="pt-4 mt-2 border-t border-app-border space-y-4">
+                     <h3 className="text-xs font-semibold text-app-dim uppercase tracking-wider">Sub-Systems Override</h3>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2">
                         <Toggle 
                             label="Pre-Adhan Events" 

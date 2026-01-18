@@ -157,7 +157,7 @@ export default function DeveloperSettingsView() {
     };
 
     const AutomationStatusCell = ({ status, time, details }) => {
-        let color = 'bg-zinc-800 text-zinc-500 border-zinc-700'; // Disabled/Unknown
+        let color = 'bg-app-card text-app-dim border-app-border'; // Disabled/Unknown
         let label = status;
         let title = status;
 
@@ -184,7 +184,7 @@ export default function DeveloperSettingsView() {
     };
 
     const TTSStatusCell = ({ status, detail }) => {
-        let color = 'bg-zinc-800 text-zinc-500 border-zinc-700'; // Disabled/Unknown
+        let color = 'bg-app-card text-app-dim border-app-border'; // Disabled/Unknown
         let label = status;
         let title = detail || status;
 
@@ -217,8 +217,8 @@ export default function DeveloperSettingsView() {
         <div className="space-y-6 max-w-5xl mx-auto pb-12">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold text-white mb-2">Developer Tools</h2>
-                    <p className="text-zinc-400">System diagnostics and maintenance operations.</p>
+                    <h2 className="text-2xl font-bold text-app-text mb-2">Developer Tools</h2>
+                    <p className="text-app-dim">System diagnostics and maintenance operations.</p>
                 </div>
 
             </div>
@@ -232,8 +232,8 @@ export default function DeveloperSettingsView() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* System Health */}
-                <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 lg:col-span-2">
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <div className="bg-app-card/40 border border-app-border rounded-xl p-6 lg:col-span-2">
+                    <h3 className="text-lg font-semibold text-app-text mb-4 flex items-center gap-2">
                         <Activity className="w-5 h-5 text-emerald-500" /> System Health
                     </h3>
                     
@@ -243,32 +243,32 @@ export default function DeveloperSettingsView() {
     
                          <div className="space-y-4">
                              {/* API Health (Synthesized) */}
-                             <div className="flex items-center justify-between p-3 bg-zinc-900 rounded border border-zinc-800">
+                             <div className="flex items-center justify-between p-3 bg-app-card rounded border border-app-border">
                                  <div>
                                      <div className="flex items-center gap-2">
-                                         <span className="font-medium text-zinc-200">API Server</span>
+                                         <span className="font-medium text-app-text">API Server</span>
                                          {apiOnline ? (
                                              <CheckCircle className="w-4 h-4 text-emerald-500" />
                                          ) : (
                                              <XCircle className="w-4 h-4 text-red-500" />
                                          )}
                                      </div>
-                                     <div className="text-xs text-zinc-500 transition-all duration-300">
+                                     <div className="text-xs text-app-dim transition-all duration-300">
                                          Node.js Backend (Port {systemHealth?.ports?.api || '3000'})
                                      </div>
                                  </div>
                                  <div className="relative">
                                      {feedback?.api && (
-                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-800 text-white text-xs rounded border border-zinc-700 whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-app-card text-app-text text-xs rounded border border-app-border whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
                                              {feedback.api}
-                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-b border-r border-zinc-700 rotate-45"></div>
+                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-app-card border-b border-r border-app-border rotate-45"></div>
                                          </div>
                                      )}
                                      <button 
                                          onClick={() => handleManualRefresh('api')}
                                          disabled={refreshing === 'api'}
                                          className={cn(
-                                             "p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors",
+                                             "p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text transition-colors",
                                              refreshing === 'api' && "text-emerald-500"
                                          )}
                                          title="Refresh Status"
@@ -279,44 +279,44 @@ export default function DeveloperSettingsView() {
                              </div>
 
                              {/* VoiceMonkey */}
-                             <div className="flex items-center justify-between p-3 bg-zinc-900 rounded border border-zinc-800">
+                             <div className="flex items-center justify-between p-3 bg-app-card rounded border border-app-border">
                                  <div>
                                      <div className="flex items-center gap-2">
-                                         <span className="font-medium text-zinc-200">VoiceMonkey</span>
+                                         <span className="font-medium text-app-text">VoiceMonkey</span>
                                          {systemHealth.voiceMonkey?.healthy && !failedVoiceMonkey ? (
                                              <CheckCircle className="w-4 h-4 text-emerald-500" />
                                          ) : (
                                              <XCircle className="w-4 h-4 text-red-500" />
                                          )}
                                      </div>
-                                     <div className="text-xs text-zinc-500 transition-all duration-300">
+                                     <div className="text-xs text-app-dim transition-all duration-300">
                                           Cloud API Connectivity
                                      </div>
                                  </div>
                                  <div className="relative flex items-center gap-1">
                                      {feedback?.voiceMonkey && (
-                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-800 text-white text-xs rounded border border-zinc-700 whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-app-card text-app-text text-xs rounded border border-app-border whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
                                              {feedback.voiceMonkey}
-                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-b border-r border-zinc-700 rotate-45"></div>
+                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-app-card border-b border-r border-app-border rotate-45"></div>
                                          </div>
                                      )}
                                      <button 
                                          onClick={() => handleManualRefresh('voiceMonkey', 'loud')}
                                          disabled={refreshing === 'voiceMonkey'}
                                          className={cn(
-                                             "p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors",
+                                             "p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text transition-colors",
                                              refreshing === 'voiceMonkey' && "text-amber-500"
                                          )}
                                          title="Test Speaker Output"
                                      >
                                          <Volume2 className="w-4 h-4" />
                                      </button>
-                                     <div className="w-px h-4 bg-zinc-800 mx-1"></div>
+                                     <div className="w-px h-4 bg-app-border mx-1"></div>
                                      <button 
                                          onClick={() => handleManualRefresh('voiceMonkey', 'silent')}
                                          disabled={refreshing === 'voiceMonkey'}
                                          className={cn(
-                                             "p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors",
+                                             "p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text transition-colors",
                                              refreshing === 'voiceMonkey' && "text-emerald-500"
                                          )}
                                          title="Silent Connectivity Check"
@@ -330,32 +330,32 @@ export default function DeveloperSettingsView() {
                          {/* Right Column: TTS & Local */}
                         <div className="space-y-4">
                              {/* TTS Service */}
-                             <div className="flex items-center justify-between p-3 bg-zinc-900 rounded border border-zinc-800">
+                             <div className="flex items-center justify-between p-3 bg-app-card rounded border border-app-border">
                                  <div>
                                      <div className="flex items-center gap-2">
-                                         <span className="font-medium text-zinc-200">TTS Service</span>
+                                         <span className="font-medium text-app-text">TTS Service</span>
                                          {systemHealth.tts?.healthy ? (
                                              <CheckCircle className="w-4 h-4 text-emerald-500" />
                                          ) : (
                                              <XCircle className="w-4 h-4 text-red-500" />
                                          )}
                                      </div>
-                                     <div className="text-xs text-zinc-500 transition-all duration-300">
+                                     <div className="text-xs text-app-dim transition-all duration-300">
                                          Python Server (Port {systemHealth?.ports?.tts || '8000'})
                                      </div>
                                  </div>
                                  <div className="relative">
                                      {feedback?.tts && (
-                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-800 text-white text-xs rounded border border-zinc-700 whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-app-card text-app-text text-xs rounded border border-app-border whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
                                              {feedback.tts}
-                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-b border-r border-zinc-700 rotate-45"></div>
+                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-app-card border-b border-r border-app-border rotate-45"></div>
                                          </div>
                                      )}
                                      <button 
                                          onClick={() => handleManualRefresh('tts')}
                                          disabled={refreshing === 'tts'}
                                          className={cn(
-                                             "p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors",
+                                             "p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text transition-colors",
                                              refreshing === 'tts' && "text-emerald-500"
                                          )}
                                          title="Refresh Status"
@@ -366,32 +366,32 @@ export default function DeveloperSettingsView() {
                              </div>
 
                              {/* Local Audio */}
-                             <div className="flex items-center justify-between p-3 bg-zinc-900 rounded border border-zinc-800">
+                             <div className="flex items-center justify-between p-3 bg-app-card rounded border border-app-border">
                                  <div>
                                      <div className="flex items-center gap-2">
-                                         <span className="font-medium text-zinc-200">Local Audio</span>
+                                         <span className="font-medium text-app-text">Local Audio</span>
                                          {systemHealth.local?.healthy ? (
                                              <CheckCircle className="w-4 h-4 text-emerald-500" />
                                          ) : (
                                              <XCircle className="w-4 h-4 text-red-500" />
                                          )}
                                      </div>
-                                     <div className="text-xs text-zinc-500 transition-all duration-300">
+                                     <div className="text-xs text-app-dim transition-all duration-300">
                                          {systemHealth.local?.healthy ? "mpg123 CLI Tool" : (systemHealth.local?.message || "Not Found")}
                                      </div>
                                  </div>
                                  <div className="relative">
                                      {feedback?.local && (
-                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-zinc-800 text-white text-xs rounded border border-zinc-700 whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-app-card text-app-text text-xs rounded border border-app-border whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
                                              {feedback.local}
-                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-800 border-b border-r border-zinc-700 rotate-45"></div>
+                                             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-app-card border-b border-r border-app-border rotate-45"></div>
                                          </div>
                                      )}
                                      <button 
                                          onClick={() => handleManualRefresh('local')}
                                          disabled={refreshing === 'local'}
                                          className={cn(
-                                             "p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition-colors",
+                                             "p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text transition-colors",
                                              refreshing === 'local' && "text-emerald-500"
                                          )}
                                          title="Refresh Status"
@@ -405,21 +405,21 @@ export default function DeveloperSettingsView() {
                 </div>
 
                 {/* Actions */}
-                <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <div className="bg-app-card/40 border border-app-border rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-app-text mb-4 flex items-center gap-2">
                         <Power className="w-5 h-5 text-emerald-500" /> System Actions
                     </h3>
                     <div className="flex flex-col gap-3">
                         <button
                             onClick={() => callSystemAction('tts', '/api/system/regenerate-tts')}
                             disabled={loading !== null || !systemHealth.tts}
-                            className="flex items-center justify-between p-4 bg-zinc-900 rounded-lg border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 transition-all group disabled:opacity-50"
+                            className="flex items-center justify-between p-4 bg-app-card rounded-lg border border-app-border hover:bg-app-card-hover hover:border-app-border/50 transition-all group disabled:opacity-50"
                         >
                              <div className="flex items-center gap-3">
                                  <RefreshCw className={`w-5 h-5 text-blue-400 ${loading === 'tts' ? 'animate-spin' : ''}`} />
                                  <div className="text-left">
-                                     <div className="font-medium text-zinc-200">Regenerate TTS Assets</div>
-                                     <div className="text-xs text-zinc-500 group-hover:text-zinc-400">
+                                     <div className="font-medium text-app-text">Regenerate TTS Assets</div>
+                                     <div className="text-xs text-app-dim group-hover:text-app-text/70">
                                          {systemHealth.tts ? "Rebuilds audio files for today's cache" : <span className="text-red-400">TTS Service Offline</span>}
                                      </div>
                                  </div>
@@ -429,13 +429,13 @@ export default function DeveloperSettingsView() {
                         <button
                             onClick={() => callSystemAction('scheduler', '/api/system/restart-scheduler')}
                             disabled={loading !== null}
-                            className="flex items-center justify-between p-4 bg-zinc-900 rounded-lg border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 transition-all group disabled:opacity-50"
+                            className="flex items-center justify-between p-4 bg-app-card rounded-lg border border-app-border hover:bg-app-card-hover hover:border-app-border/50 transition-all group disabled:opacity-50"
                         >
                              <div className="flex items-center gap-3">
                                  <RotateCcw className={`w-5 h-5 text-amber-400 ${loading === 'scheduler' ? 'animate-spin' : ''}`} />
                                  <div className="text-left">
-                                     <div className="font-medium text-zinc-200">Restart Scheduler</div>
-                                     <div className="text-xs text-zinc-500 group-hover:text-zinc-400">Re-initializes jobs (no config reload)</div>
+                                     <div className="font-medium text-app-text">Restart Scheduler</div>
+                                     <div className="text-xs text-app-dim group-hover:text-app-text/70">Re-initializes jobs (no config reload)</div>
                                  </div>
                              </div>
                         </button>
@@ -443,13 +443,13 @@ export default function DeveloperSettingsView() {
                         <button
                             onClick={() => callSystemAction('config', '/api/settings/refresh-cache')}
                             disabled={loading !== null}
-                            className="flex items-center justify-between p-4 bg-zinc-900 rounded-lg border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 transition-all group disabled:opacity-50"
+                            className="flex items-center justify-between p-4 bg-app-card rounded-lg border border-app-border hover:bg-app-card-hover hover:border-app-border/50 transition-all group disabled:opacity-50"
                         >
                              <div className="flex items-center gap-3">
                                  <Database className={`w-5 h-5 text-purple-400 ${loading === 'config' ? 'animate-pulse' : ''}`} />
                                  <div className="text-left">
-                                     <div className="font-medium text-zinc-200">Reload Config & Cache</div>
-                                     <div className="text-xs text-zinc-500 group-hover:text-zinc-400">Reloads disk config and refreshes prayer cache</div>
+                                     <div className="font-medium text-app-text">Reload Config & Cache</div>
+                                     <div className="text-xs text-app-dim group-hover:text-app-text/70">Reloads disk config and refreshes prayer cache</div>
                                  </div>
                              </div>
                         </button>
@@ -457,26 +457,26 @@ export default function DeveloperSettingsView() {
                 </div>
 
                 {/* System Maintenance Jobs */}
-                <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 overflow-hidden">
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <div className="bg-app-card/40 border border-app-border rounded-xl p-6 overflow-hidden">
+                    <h3 className="text-lg font-semibold text-app-text mb-4 flex items-center gap-2">
                         <Activity className="w-5 h-5 text-emerald-500" /> Maintenance Jobs
                     </h3>
                     <div className="overflow-x-auto max-h-[200px]">
                         <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-zinc-500 uppercase bg-zinc-900/50 sticky top-0 backdrop-blur-sm">
+                            <thead className="text-xs text-app-dim uppercase bg-app-bg/50 sticky top-0 backdrop-blur-sm">
                                 <tr>
                                     <th className="px-4 py-2 font-medium">Job Name</th>
                                     <th className="px-4 py-2 font-medium text-right">Next Run</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-zinc-800/50">
+                            <tbody className="divide-y divide-app-border/50">
                                 {jobs.length === 0 ? (
-                                    <tr><td colSpan="2" className="px-4 py-8 text-center text-zinc-500 text-xs italic">No active maintenance jobs</td></tr>
+                                    <tr><td colSpan="2" className="px-4 py-8 text-center text-app-dim text-xs italic">No active maintenance jobs</td></tr>
                                 ) : (
                                     jobs.map((job, i) => (
                                         <tr key={i}>
-                                            <td className="px-4 py-3 font-medium text-zinc-200">{job.name}</td>
-                                            <td className="px-4 py-3 text-zinc-400 text-right font-mono text-xs">
+                                            <td className="px-4 py-3 font-medium text-app-text">{job.name}</td>
+                                            <td className="px-4 py-3 text-app-dim text-right font-mono text-xs">
                                                 {job.nextInvocation ? new Date(job.nextInvocation).toLocaleTimeString() : 'Pending'}
                                             </td>
                                         </tr>
@@ -504,13 +504,13 @@ export default function DeveloperSettingsView() {
 
                  return (
                     <div className={cn(
-                        "bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 overflow-hidden transition-all duration-300 relative",
-                        isGlobalDisabled && "opacity-60 grayscale bg-zinc-900/10 pointer-events-none"
+                        "bg-app-card/40 border border-app-border rounded-xl p-6 overflow-hidden transition-all duration-300 relative",
+                        isGlobalDisabled && "opacity-60 grayscale bg-app-bg/10 pointer-events-none"
                     )}>
                         {isGlobalDisabled && (
-                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/20 backdrop-blur-[1px]">
-                                 <div className="bg-zinc-900/90 px-4 py-2 rounded border border-zinc-800 text-xs font-bold text-zinc-500 uppercase tracking-wider shadow-xl flex items-center gap-2">
-                                     <div className="w-2 h-2 rounded-full bg-zinc-600"></div>
+                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-app-bg/20 backdrop-blur-[1px]">
+                                 <div className="bg-app-card/90 px-4 py-2 rounded border border-app-border text-xs font-bold text-app-dim uppercase tracking-wider shadow-xl flex items-center gap-2">
+                                     <div className="w-2 h-2 rounded-full bg-app-dim/50"></div>
                                      Automation Globally Disabled
                                  </div>
                              </div>
@@ -518,30 +518,30 @@ export default function DeveloperSettingsView() {
 
                          <div className="flex items-center justify-between mb-4">
                              <div className="flex items-center gap-4">
-                                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                <h3 className="text-lg font-semibold text-app-text flex items-center gap-2">
                                     <span className="w-2 h-2 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50"></span>
                                     Automation Status
                                 </h3>
                                 <button 
                                     onClick={fetchDiagnostics}
                                     title="Refresh Automation Status"
-                                    className="p-1 px-2 rounded-md bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all text-xs flex items-center gap-1"
+                                    className="p-1 px-2 rounded-md bg-app-card border border-app-border hover:bg-app-card-hover text-app-dim hover:text-app-text transition-all text-xs flex items-center gap-1"
                                 >
                                     <RefreshCw className="w-3 h-3" /> Refresh
                                 </button>
                              </div>
                              <div className="flex gap-4 text-xs font-medium">
-                                 <div className="flex items-center gap-2 text-zinc-400">
+                                 <div className="flex items-center gap-2 text-app-dim">
                                      <span className="w-2 h-2 rounded-full bg-emerald-500/50"></span> Passed
                                  </div>
-                                 <div className="flex items-center gap-2 text-zinc-400">
+                                 <div className="flex items-center gap-2 text-app-dim">
                                      <span className="w-2 h-2 rounded-full bg-blue-500/50"></span> Upcoming
                                  </div>
                              </div>
                          </div>
                          <div className="overflow-x-auto">
                              <table className="w-full text-sm text-center">
-                                 <thead className="text-xs text-zinc-500 uppercase bg-zinc-900/50">
+                                 <thead className="text-xs text-app-dim uppercase bg-app-bg/50">
                                      <tr>
                                          <th className="px-3 py-2 text-left">Prayer</th>
                                          <th className={cn("px-3 py-2", isPreAdhanDisabled && "opacity-30 relative")}>
@@ -558,12 +558,12 @@ export default function DeveloperSettingsView() {
                                          </th>
                                      </tr>
                                  </thead>
-                                 <tbody className="divide-y divide-zinc-800/50">
+                                 <tbody className="divide-y divide-app-border/50">
                                      {!automationStatus ? (
-                                         <tr><td colSpan="5" className="p-4 text-center text-zinc-500">Loading...</td></tr>
+                                         <tr><td colSpan="5" className="p-4 text-center text-app-dim">Loading...</td></tr>
                                      ) : Object.entries(automationStatus).map(([prayer, events]) => (
                                          <tr key={prayer}>
-                                             <td className="px-3 py-3 text-left font-medium text-zinc-300 capitalize">{prayer}</td>
+                                             <td className="px-3 py-3 text-left font-medium text-app-dim capitalize">{prayer}</td>
                                              <td className={cn("px-2 py-2", isPreAdhanDisabled && "opacity-20 grayscale pointer-events-none")}>
                                                 <AutomationStatusCell {...events.preAdhan} />
                                              </td>
@@ -587,32 +587,32 @@ export default function DeveloperSettingsView() {
 
             {/* TTS Status */}
             <div className={cn(
-                "bg-zinc-900/40 border border-zinc-800 rounded-xl p-6 overflow-hidden transition-opacity",
+                "bg-app-card/40 border border-app-border rounded-xl p-6 overflow-hidden transition-opacity",
                 !systemHealth.tts && "opacity-50 grayscale select-none pointer-events-none"
             )}>
                  <div className="flex items-center justify-between mb-4">
                      <div className="flex items-center gap-4">
-                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                            <span className={cn("w-2 h-2 rounded-full shadow-lg", !systemHealth.tts?.healthy ? "bg-zinc-600" : "bg-purple-500 shadow-purple-500/50")}></span>
+                        <h3 className="text-lg font-semibold text-app-text flex items-center gap-2">
+                            <span className={cn("w-2 h-2 rounded-full shadow-lg", !systemHealth.tts?.healthy ? "bg-app-dim/50" : "bg-purple-500 shadow-purple-500/50")}></span>
                             TTS Asset Status
                         </h3>
                         <button 
                             onClick={fetchDiagnostics}
                             title="Refresh TTS Status"
-                            className="p-1 px-2 rounded-md bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all text-xs flex items-center gap-1"
+                            className="p-1 px-2 rounded-md bg-app-card border border-app-border hover:bg-app-card-hover text-app-dim hover:text-app-text transition-all text-xs flex items-center gap-1"
                         >
                             <RefreshCw className="w-3 h-3" /> Refresh
                         </button>
                      </div>
                      {!systemHealth.tts?.healthy && (
-                         <div className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-xs text-zinc-400 font-mono">
+                         <div className="px-2 py-0.5 rounded bg-app-card border border-app-border text-xs text-app-dim font-mono">
                              SERVICE OFFLINE
                          </div>
                      )}
                  </div>
                  <div className="overflow-x-auto">
                      <table className="w-full text-sm text-center">
-                         <thead className="text-xs text-zinc-500 uppercase bg-zinc-900/50">
+                         <thead className="text-xs text-app-dim uppercase bg-app-bg/50">
                              <tr>
                                  <th className="px-3 py-2 text-left">Prayer</th>
                                  <th className="px-3 py-2">Pre-Adhan</th>
@@ -621,12 +621,12 @@ export default function DeveloperSettingsView() {
                                  <th className="px-3 py-2">Iqamah</th>
                              </tr>
                          </thead>
-                         <tbody className="divide-y divide-zinc-800/50">
+                         <tbody className="divide-y divide-app-border/50">
                              {!ttsStatus ? (
-                                 <tr><td colSpan="5" className="p-4 text-center text-zinc-500">Loading...</td></tr>
+                                 <tr><td colSpan="5" className="p-4 text-center text-app-dim">Loading...</td></tr>
                              ) : Object.entries(ttsStatus).map(([prayer, events]) => (
                                  <tr key={prayer}>
-                                     <td className="px-3 py-3 text-left font-medium text-zinc-300 capitalize">{prayer}</td>
+                                     <td className="px-3 py-3 text-left font-medium text-app-dim capitalize">{prayer}</td>
                                      <td className="px-2 py-2"><TTSStatusCell {...events.preAdhan} /></td>
                                      <td className="px-2 py-2"><TTSStatusCell {...events.adhan} /></td>
                                      <td className="px-2 py-2"><TTSStatusCell {...events.preIqamah} /></td>
@@ -639,19 +639,19 @@ export default function DeveloperSettingsView() {
             </div>
 
             {/* Logs Console */}
-            <div className="bg-black border border-zinc-800 rounded-xl overflow-hidden font-mono text-sm shadow-xl">
-                <div className="flex items-center justify-between px-4 py-2 bg-zinc-900 border-b border-zinc-800">
-                     <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">System Logs (Live)</span>
+            <div className="bg-app-bg border border-app-border rounded-xl overflow-hidden font-mono text-sm shadow-xl">
+                <div className="flex items-center justify-between px-4 py-2 bg-app-card border-b border-app-border">
+                     <span className="text-app-dim text-xs font-bold uppercase tracking-wider">System Logs (Live)</span>
                      <div className="flex gap-2">
                          <span className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/50" />
                          <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/20 border border-yellow-500/50" />
                          <span className="w-2.5 h-2.5 rounded-full bg-green-500/20 border border-green-500/50" />
                      </div>
                 </div>
-                <div className="h-64 overflow-y-auto p-4 space-y-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+                <div className="h-64 overflow-y-auto p-4 space-y-1 scrollbar-thin scrollbar-thumb-app-border scrollbar-track-transparent">
                     {logs && logs.length > 0 ? [...logs].reverse().map((log, i) => (
-                        <div key={i} className="flex gap-3 text-zinc-300 hover:bg-white/5 px-2 py-0.5 rounded -mx-2">
-                            <span className="text-zinc-600 shrink-0 select-none text-xs mt-0.5">
+                        <div key={i} className="flex gap-3 text-app-text hover:bg-app-card-hover px-2 py-0.5 rounded -mx-2">
+                            <span className="text-app-dim/60 shrink-0 select-none text-xs mt-0.5">
                                 {new Date(log.timestamp).toLocaleTimeString()}
                             </span>
                             <span className={`text-xs font-bold mt-0.5 w-12 ${
@@ -661,7 +661,7 @@ export default function DeveloperSettingsView() {
                             <span className="break-all">{log.message}</span>
                         </div>
                     )) : (
-                        <div className="text-zinc-600 italic text-xs p-2">No logs received yet...</div>
+                        <div className="text-app-dim italic text-xs p-2">No logs received yet...</div>
                     )}
                 </div>
             </div>

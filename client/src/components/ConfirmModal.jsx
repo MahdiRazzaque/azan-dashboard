@@ -13,10 +13,10 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, onCancel, onR
             />
             
             {/* Modal */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl w-full max-w-md p-6 relative z-10 animate-in zoom-in-95 duration-200">
+            <div className="bg-app-card border border-app-border rounded-xl shadow-2xl w-full max-w-md p-6 relative z-10 animate-in zoom-in-95 duration-200">
                 <button 
                     onClick={onClose}
-                    className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
+                    className="absolute top-4 right-4 text-app-dim hover:text-app-text transition-colors"
                 >
                     <X className="w-5 h-5" />
                 </button>
@@ -27,8 +27,8 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, onCancel, onR
                     </div>
                     
                     <div className="space-y-2">
-                        <h3 className="text-xl font-bold text-white">{title}</h3>
-                        <p className="text-zinc-400 text-sm leading-relaxed">
+                        <h3 className="text-xl font-bold text-app-text">{title}</h3>
+                        <p className="text-app-dim text-sm leading-relaxed">
                             {message}
                         </p>
                     </div>
@@ -36,7 +36,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, onCancel, onR
                     <div className="flex gap-3 w-full pt-4">
                         <button 
                             onClick={onCancel || onClose}
-                            className="flex-1 py-2.5 px-4 bg-zinc-800 text-zinc-300 font-medium rounded-lg hover:bg-zinc-700 transition-colors"
+                            className="flex-1 py-2.5 px-4 bg-app-bg text-app-dim font-medium rounded-lg hover:bg-app-card-hover transition-colors"
                         >
                             {cancelText}
                         </button>
@@ -45,7 +45,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, onCancel, onR
                         {onRetry && (
                             <button 
                                 onClick={onRetry}
-                                className="flex-1 py-2.5 px-4 bg-zinc-800 text-zinc-300 font-medium rounded-lg hover:bg-zinc-700 transition-colors border border-zinc-700"
+                                className="flex-1 py-2.5 px-4 bg-app-bg text-app-dim font-medium rounded-lg hover:bg-app-card-hover transition-colors border border-app-border"
                             >
                                 {retryText || 'Retry'}
                             </button>
@@ -53,7 +53,7 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, onCancel, onR
 
                         <button 
                             onClick={() => { onConfirm(); onClose(); }}
-                            className={`flex-1 py-2.5 px-4 font-bold rounded-lg text-white transition-all shadow-lg ${
+                            className={`flex-1 py-2.5 px-4 font-bold rounded-lg text-app-text transition-all shadow-lg ${
                                 isDestructive 
                                 ? 'bg-red-600 hover:bg-red-700 shadow-red-900/20' 
                                 : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-900/20'

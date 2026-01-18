@@ -49,14 +49,14 @@ export default function SetupView() {
     };
 
     return (
-        <div className="min-h-screen bg-black flex items-center justify-center p-4">
-            <div className="w-full max-w-md space-y-8 bg-zinc-900/30 p-8 rounded-2xl border border-zinc-800 backdrop-blur-xl">
+        <div className="min-h-screen bg-app-bg flex items-center justify-center p-4">
+            <div className="w-full max-w-md space-y-8 bg-app-card/30 p-8 rounded-2xl border border-app-border backdrop-blur-xl">
                  <div className="text-center space-y-2">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-900/20 mb-4 ring-1 ring-emerald-500/20">
                         <ShieldCheck className="w-8 h-8 text-emerald-500" />
                     </div>
-                    <h1 className="text-2xl font-bold text-white tracking-tight">Welcome to Azan Dashboard</h1>
-                    <p className="text-zinc-400 text-sm">Please set an administrative password to secure your dashboard.</p>
+                    <h1 className="text-2xl font-bold text-app-text tracking-tight">Welcome to Azan Dashboard</h1>
+                    <p className="text-app-dim text-sm">Please set an administrative password to secure your dashboard.</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -68,7 +68,7 @@ export default function SetupView() {
 
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-medium text-zinc-400 mb-1 ml-1 uppercase tracking-wider">New Password</label>
+                            <label className="block text-xs font-medium text-app-dim mb-1 ml-1 uppercase tracking-wider">New Password</label>
                             <PasswordInput 
                                 value={password} 
                                 onChange={setPassword} 
@@ -77,7 +77,7 @@ export default function SetupView() {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-medium text-zinc-400 mb-1 ml-1 uppercase tracking-wider">Confirm Password</label>
+                            <label className="block text-xs font-medium text-app-dim mb-1 ml-1 uppercase tracking-wider">Confirm Password</label>
                             <PasswordInput 
                                 value={confirm} 
                                 onChange={setConfirm}
@@ -90,12 +90,12 @@ export default function SetupView() {
                     <button
                         type="submit"
                         disabled={loading || !password}
-                        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-all focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-app-text rounded-lg font-medium transition-all focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-app-bg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Set Password <ArrowRight className="w-4 h-4" /></>}
                     </button>
                     
-                    <p className="text-center text-xs text-zinc-600">
+                    <p className="text-center text-xs text-app-dim/50">
                         This will generate a secure JWT secret and update your .env file.
                     </p>
                 </form>

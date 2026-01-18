@@ -3,12 +3,27 @@
 @tailwind utilities;
 
 :root {
-  --bg-app: #1a1a1a;       /* Very dark grey for body */
-  --bg-card: #2d2d2d;      /* Slightly lighter for panels */
-  --text-primary: #ffffff; /* White */
-  --text-dim: rgba(255, 255, 255, 0.5); /* 50% Opacity white */
-  --accent: #ffd700;       /* Gold/Yellow for Next Prayer highlight */
-  --danger: #ff4444;       /* Red for Offline indicator */
+  --bg-app: #09090b;       /* Zinc 950 */
+  --bg-card: #18181b;      /* Zinc 900 */
+  --bg-card-hover: #27272a; /* Zinc 800 */
+  --border-app: #27272a;   /* Zinc 800 */
+  --text-primary: #fafafa; /* Zinc 50 */
+  --text-dim: #a1a1aa;    /* Zinc 400 */
+  --accent: #ffd700;       /* Gold */
+  --accent-rgb: 255, 215, 0;
+  --danger: #ef4444;       /* Red 500 */
+}
+
+.light-mode {
+  --bg-app: #f8fafc;       /* Slate 50 */
+  --bg-card: #ffffff;      
+  --bg-card-hover: #f1f5f9; /* Slate 100 */
+  --border-app: #e2e8f0;   /* Slate 200 */
+  --text-primary: #0f172a; /* Slate 900 */
+  --text-dim: #64748b;    /* Slate 500 */
+  --accent: #d97706;       /* Amber 600 */
+  --accent-rgb: 217, 119, 6;
+  --danger: #dc2626;       /* Red 600 */
 }
 
 /* Base styles Reset */
@@ -19,6 +34,7 @@ html, body, #root {
   background-color: var(--bg-app);
   color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  transition: background-color 0.5s ease, color 0.5s ease;
 }
 
 @media (min-width: 1024px) {

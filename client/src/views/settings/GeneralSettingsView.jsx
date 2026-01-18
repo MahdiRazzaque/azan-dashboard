@@ -18,7 +18,7 @@ export default function GeneralSettingsView() {
   
   const { constants, loading: loadingConstants } = useConstants();
 
-  if (loading || loadingConstants || !draftConfig) return <div className="p-8 text-center text-zinc-500">Loading settings...</div>;
+  if (loading || loadingConstants || !draftConfig) return <div className="p-8 text-center text-app-dim">Loading settings...</div>;
 
   const formData = draftConfig;
 
@@ -57,14 +57,14 @@ export default function GeneralSettingsView() {
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
         <div className="flex justify-between items-center">
             <div>
-                <h1 className="text-3xl font-bold text-white">General Settings</h1>
-                <p className="text-zinc-400 mt-1">Configure your prayer calculation source and location.</p>
+                <h1 className="text-3xl font-bold text-app-text">General Settings</h1>
+                <p className="text-app-dim mt-1">Configure your prayer calculation source and location.</p>
             </div>
         </div>
         
         {/* Primary Prayer Source Section */}
-        <section className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 shadow-xl transition-all duration-300">
-            <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-zinc-800 pb-2 flex items-center gap-2">
+        <section className="bg-app-card p-6 rounded-xl border border-app-border shadow-xl transition-all duration-300">
+            <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-app-border pb-2 flex items-center gap-2">
                 <Globe className="w-5 h-5 text-emerald-500" /> 
                 Primary Data Source
                 {isSectionDirty('sources.primary') && (
@@ -84,7 +84,7 @@ export default function GeneralSettingsView() {
 
         {/* Backup Prayer Source Section */}
         <section className={cn(
-            "bg-zinc-900 rounded-xl border border-zinc-800 shadow-xl transition-all duration-500 overflow-hidden",
+            "bg-app-card rounded-xl border border-app-border shadow-xl transition-all duration-500 overflow-hidden",
             backupEnabled ? "p-6" : "p-6 max-h-[88px]"
         )}>
             <div className="flex justify-between items-center mb-6">
@@ -103,7 +103,7 @@ export default function GeneralSettingsView() {
                         checked={backupEnabled}
                         onChange={(e) => toggleBackup(e.target.checked)}
                     />
-                    <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <div className="w-11 h-6 bg-app-card-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-app-text after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-app-text after:border-app-dim after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
             </div>
 
@@ -125,8 +125,8 @@ export default function GeneralSettingsView() {
         </section>
 
         {/* Timezone Section */}
-        <section className="bg-zinc-900 p-6 rounded-xl border border-zinc-800 shadow-xl">
-             <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-zinc-800 pb-2 flex items-center gap-2">
+        <section className="bg-app-card p-6 rounded-xl border border-app-border shadow-xl">
+             <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-app-border pb-2 flex items-center gap-2">
                 <MapPin className="w-5 h-5" /> 
                 Localisation
                 {isSectionDirty('location.timezone') && (
@@ -135,14 +135,14 @@ export default function GeneralSettingsView() {
             </h2>
             
             <div className="max-w-md">
-                <label className="block text-sm font-medium text-zinc-300 mb-2">Timezone (IANA)</label>
+                <label className="block text-sm font-medium text-app-dim mb-2">Timezone (IANA)</label>
                 <input 
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="w-full bg-app-bg border border-app-border rounded p-3 text-app-text focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                     value={formData.location?.timezone || ''}
                     onChange={e => handleChange('location.timezone', e.target.value)}
                     placeholder="e.g. Europe/London"
                 />
-                <p className="text-xs text-zinc-500 mt-2">
+                <p className="text-xs text-app-dim mt-2">
                     Must match the standard IANA timezone database format.
                 </p>
             </div>

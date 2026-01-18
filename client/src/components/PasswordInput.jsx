@@ -30,12 +30,12 @@ export default function PasswordInput({ value, onChange, placeholder = "Enter pa
                     value={value}
                     onChange={(e) => { setTouched(true); onChange(e.target.value); }}
                     placeholder={placeholder}
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-zinc-600"
+                    className="w-full bg-app-card border border-app-border rounded-lg p-3 pr-10 text-app-text focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-app-dim/50"
                 />
                 <button
                     type="button"
                     onClick={() => setShow(!show)}
-                    className="absolute right-3 top-3.5 text-zinc-500 hover:text-zinc-300"
+                    className="absolute right-3 top-3.5 text-app-dim hover:text-app-text"
                 >
                     {show ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -44,7 +44,7 @@ export default function PasswordInput({ value, onChange, placeholder = "Enter pa
             {showStrength && (
                 <div className={`transition-all duration-300 overflow-hidden ${touched || value.length > 0 ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'}`}>
                     {/* Progress Bar */}
-                    <div className="h-1 bg-zinc-800 rounded-full mt-2 mb-3 overflow-hidden">
+                    <div className="h-1 bg-app-bg rounded-full mt-2 mb-3 overflow-hidden">
                         <div 
                             className={`h-full transition-all duration-500 ${barColor}`} 
                             style={{ width: `${(passedCount / 5) * 100}%` }}
@@ -53,7 +53,7 @@ export default function PasswordInput({ value, onChange, placeholder = "Enter pa
                     
                     {/* Label */}
                     <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Password Strength</span>
+                        <span className="text-xs font-bold text-app-dim uppercase tracking-wider">Password Strength</span>
                         <span className={cn("text-xs font-bold uppercase", color)}>{strength}</span>
                     </div>
 
@@ -65,15 +65,15 @@ export default function PasswordInput({ value, onChange, placeholder = "Enter pa
                                 <div key={i} className="flex items-center gap-2 text-xs transition-colors duration-200">
                                     {passed 
                                         ? <Check className="w-3.5 h-3.5 text-emerald-500" /> 
-                                        : <div className="w-3.5 h-3.5 rounded-full border border-zinc-600" />
+                                        : <div className="w-3.5 h-3.5 rounded-full border border-app-border" />
                                     }
-                                    <span className={passed ? 'text-zinc-300' : 'text-zinc-500'}>{check.label}</span>
+                                    <span className={passed ? 'text-app-text' : 'text-app-dim'}>{check.label}</span>
                                 </div>
                             );
                         })}
                     </div>
                     
-                    <div className="flex gap-2 mt-3 text-[10px] text-zinc-500 items-start bg-zinc-900/50 p-2 rounded">
+                    <div className="flex gap-2 mt-3 text-[10px] text-app-dim items-start bg-app-card/50 p-2 rounded">
                          <ShieldAlert className="w-3 h-3 shrink-0 mt-0.5" />
                          <p>These requirements are recommended for security but not strictly enforced.</p>
                     </div>
