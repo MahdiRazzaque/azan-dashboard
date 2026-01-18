@@ -91,6 +91,46 @@ describe('Fetchers Service', () => {
            expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('method=1'));
            expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('school=1'));
        });
+
+       it('should use default method ID when method name not found', async () => {
+           global.fetch.mockResolvedValue({
+               ok: true,
+               json: () => Promise.resolve(mockResponse)
+           });
+           
+           const unknownMethodConfig = {
+               ...mockConfig,
+               calculation: { method: 'UnknownMethod', madhab: 'UnknownMadhab' }
+           };
+           
+           await fetchers.fetchAladhanAnnual(unknownMethodConfig, 2024);
+           // Should default to method=2 (ISNA) and school=0 (Shafi)
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('method=2'));
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('school=0'));
+       });
+
+       it('should handle numeric method and madhab IDs', async () => {
+           global.fetch.mockResolvedValue({
+               ok: true,
+               json: () => Promise.resolve(mockResponse)
+           });
+           
+           const numericConfig = {
+               ...mockConfig,
+               calculation: { 
+                   method: 3, 
+                   madhab: 1,
+                   latitudeAdjustmentMethod: 2,
+                   midnightMode: 1
+               }
+           };
+           
+           await fetchers.fetchAladhanAnnual(numericConfig, 2024);
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('method=3'));
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('school=1'));
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('latitudeAdjustmentMethod=2'));
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('midnightMode=1'));
+       });
     });
 
     describe('fetchMyMasjidBulk', () => {
@@ -157,6 +197,68 @@ describe('Fetchers Service', () => {
              // But reverting schema means this WILL throw.
              // We update the test expectation to match strict schema.
              await expect(fetchers.fetchMyMasjidBulk(mockConfig)).rejects.toThrow('MyMasjid Schema Validation Failed');
+         });
+
+         it('should use backup source when primary is not mymasjid', async () => {
+             global.fetch.mockResolvedValue({
+                 ok: true,
+                 json: () => Promise.resolve(mockResponse)
+             });
+
+             const backupConfig = {
+                 ...mockConfig,
+                 sources: {
+                     primary: { type: 'aladhan' },
+                     backup: { type: 'mymasjid', masjidId: 'backup-guid' }
+                 }
+             };
+
+             const result = await fetchers.fetchMyMasjidBulk(backupConfig);
+             
+             expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('backup-guid'));
+             expect(Object.keys(result).length).toBeGreaterThan(0);
+         });
+
+         it('should throw specific error for 400 status (invalid ID)', async () => {
+             global.fetch.mockResolvedValue({
+                 ok: false,
+                 status: 400,
+                 statusText: 'Bad Request'
+             });
+             await expect(fetchers.fetchMyMasjidBulk(mockConfig))
+                 .rejects.toThrow('Invalid Masjid ID');
+         });
+
+         it('should throw specific error for 404 status (ID not found)', async () => {
+             global.fetch.mockResolvedValue({
+                 ok: false,
+                 status: 404,
+                 statusText: 'Not Found'
+             });
+             await expect(fetchers.fetchMyMasjidBulk(mockConfig))
+                 .rejects.toThrow('Masjid ID not found');
+         });
+
+         it('should warn and return empty if model.salahTimings missing after validation', async () => {
+             jest.spyOn(console, 'warn').mockImplementation(() => {});
+             
+             // Mock the schema parse to return valid structure but missing salahTimings
+             const originalParse = fetchers.MyMasjidBulkResponseSchema.parse;
+             fetchers.MyMasjidBulkResponseSchema.parse = jest.fn().mockReturnValue({
+                 model: {} // Missing salahTimings
+             });
+             
+             global.fetch.mockResolvedValue({
+                 ok: true,
+                 json: () => Promise.resolve({ model: {} })
+             });
+             
+             const result = await fetchers.fetchMyMasjidBulk(mockConfig);
+             expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('missing'));
+             expect(result).toEqual({});
+             
+             // Restore
+             fetchers.MyMasjidBulkResponseSchema.parse = originalParse;
          });
     });
 });
