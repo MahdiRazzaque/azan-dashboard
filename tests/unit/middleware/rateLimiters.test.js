@@ -33,18 +33,18 @@ describe('Rate Limiters Middleware', () => {
         app.get('/sse', sseLimiter, (req, res) => res.status(200).send('ok'));
     });
 
-    it('Security Limiter should block after 5 requests', async () => {
-        for (let i = 0; i < 5; i++) {
+    it('Security Limiter should block after 20 requests', async () => {
+        for (let i = 0; i < 20; i++) {
             await request(app).get('/security').expect(200);
         }
         const res = await request(app).get('/security').expect(429);
         expect(res.body.error).toBe('Too many requests');
-        expect(res.body.message).toMatch(/Too many authentication attempts\. Please try again in 15 minutes\. - Please try again in \d+ seconds\./);
+        expect(res.body.message).toMatch(/Too many authentication attempts\. Please try again in a minute\. - Please try again in \d+ seconds\./);
         expect(sseService.log).toHaveBeenCalledWith(expect.stringContaining('Please try again in'), 'WARN');
     });
 
-    it('Operations Limiter should block after 5 requests', async () => {
-        for (let i = 0; i < 5; i++) {
+    it('Operations Limiter should block after 10 requests', async () => {
+        for (let i = 0; i < 10; i++) {
             await request(app).get('/ops').expect(200);
         }
         await request(app).get('/ops').expect(429);
@@ -60,8 +60,8 @@ describe('Rate Limiters Middleware', () => {
         expect(globalWriteLimiter).toBeDefined();
     });
 
-    it('SSE Limiter should block after 30 requests', async () => {
-        for (let i = 0; i < 30; i++) {
+    it('SSE Limiter should block after 50 requests', async () => {
+        for (let i = 0; i < 50; i++) {
             await request(app).get('/sse').expect(200);
         }
         await request(app).get('/sse').expect(429);
