@@ -70,10 +70,11 @@ describe('AutomationService', () => {
         expect(playerInstance.play).not.toHaveBeenCalled();
     });
 
-    it('should play test audio', () => {
-        service.playTestAudio('test.mp3');
+    it('should handle local playback directly', () => {
+        const source = { filePath: 'test.mp3', url: '/test.mp3' };
+        service.handleLocal({}, 'test', 'event', source);
         const playerInstance = require('play-sound')(); 
-        expect(playerInstance.play).toHaveBeenCalledWith('test.mp3', expect.anything(), expect.any(Function));
+        expect(playerInstance.play).toHaveBeenCalledWith('test.mp3', expect.objectContaining({ player: 'mpg123' }), expect.any(Function));
     });
 
     describe('Audio Source Types', () => {
