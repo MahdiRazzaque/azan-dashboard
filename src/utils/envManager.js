@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const ENV_PATH = path.join(__dirname, '../../.env');
+const ENV_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../../.env');
 
 const parseEnv = () => {
     if (!fs.existsSync(ENV_PATH)) return {};

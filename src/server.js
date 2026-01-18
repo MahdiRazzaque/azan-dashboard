@@ -1,5 +1,9 @@
 const express = require('express');
 const path = require('path');
+const dotenv = require('dotenv');
+const ENV_FILE_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../.env');
+dotenv.config({ path: ENV_FILE_PATH });
+
 require('./utils/loggerInitializer')(); // Initialize global logger interception
 
 const apiRoutes = require('./routes/index');

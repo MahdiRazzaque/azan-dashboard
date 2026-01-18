@@ -17,7 +17,7 @@ class ConfigService {
         this._isInitialized = false;
         this._isSaving = false;
         this._configPath = path.join(__dirname, 'default.json');
-        this._localPath = path.join(__dirname, 'local.json');
+        this._localPath = process.env.LOCAL_CONFIG_PATH || path.join(__dirname, 'local.json');
     }
 
     /**
@@ -44,7 +44,8 @@ class ConfigService {
 
     async reload() {
         // Reload environment variables
-        dotenv.config({ override: true });
+        const ENV_FILE_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../../.env');
+        dotenv.config({ path: ENV_FILE_PATH, override: true });
 
         // Load Default Config
         const defaultContent = await fs.readFile(this._configPath, 'utf-8');

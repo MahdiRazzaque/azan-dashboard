@@ -1,0 +1,21 @@
+services:
+  azan-dashboard:
+    build: .
+    container_name: azan-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist configuration and secrets in a single volume-mapped directory
+      - ./config:/app/config
+      # Persist application data/cache
+      - ./data:/app/data
+      # Persist uploaded and generated audio
+      - ./public/audio/custom:/app/public/audio/custom
+      - ./public/audio/cache:/app/public/audio/cache
+    # devices:
+    #   # NOTE: Hardware audio mapping is disabled by default for Windows compatibility.
+    #   # To enable 'Local' audio on Linux, run: docker-compose -f docker-compose.yml -f docker-compose.audio.yml up -d
+    #   - /dev/snd:/dev/snd
+    environment:
+      - TZ=UTC # Default timezone, application handles offsets internally

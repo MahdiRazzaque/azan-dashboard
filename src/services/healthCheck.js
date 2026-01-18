@@ -1,4 +1,5 @@
 const { exec } = require('child_process');
+const fs = require('fs');
 const axios = require('axios');
 const configService = require('../config');
 const fetchers = require('./fetchers');
@@ -29,6 +30,33 @@ async function checkLocalAudio() {
             });
         });
         console.log('[Health] mpg123: OK');
+
+        // 2. Check for Audio Device Hardware (Linux/Docker specific)
+        if (process.platform === 'linux') {
+            if (!fs.existsSync('/dev/snd')) {
+                
+                // Check if we are running inside Docker
+                let isDocker = false;
+                try {
+                    isDocker = fs.existsSync('/.dockerenv') || fs.readFileSync('/proc/1/cgroup', 'utf8').includes('docker');
+                } catch (e) {
+                    // Ignore errors reading cgroup
+                }
+
+                if (isDocker) {
+                    console.warn('[Health] Docker detected, but /dev/snd is missing.');
+                    // Return a specific message for Windows/Mac Docker users
+                    return { 
+                        healthy: false, 
+                        message: 'Docker: No Audio HW' 
+                    };
+                }
+
+                console.warn('[Health] mpg123 OK, but /dev/snd missing (No Audio Device)');
+                return { healthy: false, message: 'No Audio Device' };
+            }
+        }
+
         return { healthy: true, message: 'Ready' };
     } catch (e) {
         console.warn('[Health] mpg123: Not Found');

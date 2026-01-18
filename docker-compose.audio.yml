@@ -1,0 +1,4 @@
+services:
+  azan-dashboard:
+    devices:
+      - /dev/snd:/dev/snd
