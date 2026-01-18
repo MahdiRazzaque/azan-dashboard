@@ -31,7 +31,7 @@ function App() {
   }, [isAudioExcluded, playUrl]);
 
   const { logs, isConnected, processStatus } = useSSE(handleAudioPlay);
-  const { setupRequired, loading } = useAuth();
+  const { setupRequired, loading, isAuthenticated } = useAuth();
   const location = useLocation();
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-app-bg text-app-text">Loading...</div>;
@@ -44,6 +44,11 @@ function App() {
   // Prevent accessing setup if not required
   if (!setupRequired && location.pathname === '/setup') {
       return <Navigate to="/login" replace />;
+  }
+
+  // Redirect authenticated users away from login
+  if (isAuthenticated && location.pathname === '/login') {
+      return <Navigate to="/settings" replace />;
   }
 
   return (
