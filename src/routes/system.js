@@ -12,6 +12,7 @@ router.get('/audio-files', authenticateToken, asyncHandler(systemController.getA
 router.get('/constants', authenticateToken, asyncHandler(systemController.getConstants));
 router.get('/status/automation', authenticateToken, asyncHandler(systemController.getAutomationStatus));
 router.get('/status/tts', authenticateToken, asyncHandler(systemController.getTTSStatus));
+router.get('/storage', authenticateToken, asyncHandler(systemController.getStorageStatus));
 router.post('/regenerate-tts', operationsLimiter, authenticateToken, asyncHandler(systemController.regenerateTTS));
 router.post('/restart-scheduler', operationsLimiter, authenticateToken, asyncHandler(systemController.restartScheduler));
 router.post('/test-audio', operationsLimiter, authenticateToken, asyncHandler(systemController.testAudio));

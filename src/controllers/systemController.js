@@ -143,9 +143,20 @@ const systemController = {
      * Trigger manual regeneration of TTS assets.
      */
     regenerateTTS: async (req, res) => {
-        await configService.reload();
-        await audioAssetService.syncAudioAssets(true);
-        res.json({ success: true, message: 'Audio assets cleared and synchronised.' });
+        try {
+            await configService.reload();
+            await audioAssetService.syncAudioAssets(true);
+            res.json({ 
+                success: true, 
+                message: 'Audio assets cleared and synchronised.'
+            });
+        } catch (error) {
+            console.error('[SystemController] Regeneration failed:', error.message);
+            res.status(400).json({ 
+                success: false, 
+                message: `Regeneration failed: ${error.message}` 
+            });
+        }
     },
 
     /**
@@ -298,6 +309,28 @@ const systemController = {
         } else {
             throw new Error(response.data?.error || 'VoiceMonkey API returned failure');
         }
+    },
+
+    /**
+     * Get storage quota and usage information.
+     */
+    async getStorageStatus(req, res) {
+        const storageService = require('../services/storageService');
+        const configService = require('../config');
+        const config = configService.get();
+        
+        const usage = await storageService.getUsage();
+        const systemFree = await storageService.getSystemStats();
+        const recommendedLimit = storageService.calculateRecommendedLimit();
+        const limitGB = config.data?.storageLimit || 1.0;
+        
+        res.json({
+            usedBytes: usage.total,
+            limitBytes: limitGB * 1024 * 1024 * 1024,
+            systemFreeBytes: systemFree,
+            recommendedLimitGB: recommendedLimit,
+            breakdown: { custom: usage.custom, cache: usage.cache }
+        });
     }
 };
 

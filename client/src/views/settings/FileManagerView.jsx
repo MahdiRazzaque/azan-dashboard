@@ -55,10 +55,29 @@ export default function FileManagerView() {
                 method: 'POST',
                 body: formData // No Content-Type header, let browser set boundary
             });
-            if (!res.ok) throw new Error('Upload failed');
+            
+            if (!res.ok) {
+                let errorMsg = 'Upload failed';
+                try {
+                    const data = await res.json();
+                    errorMsg = data.message || data.error || errorMsg;
+                } catch (e) {
+                    // Not JSON, use status text
+                    if (res.status === 413) errorMsg = "Storage Limit Exceeded";
+                    else errorMsg = res.statusText || errorMsg;
+                }
+                throw new Error(errorMsg);
+            }
+            
             loadFiles();
         } catch (err) {
-            setError(err.message);
+            console.error("Upload error:", err);
+            // ERR_CONNECTION_RESET manifests as "Failed to fetch" in TypeError
+            if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+                setError("Upload rejected by server (likely storage limit exceeded)");
+            } else {
+                setError(err.message);
+            }
         } finally {
             setUploading(false);
         }

@@ -21,7 +21,8 @@
     "backup":  null
   },
   "data": {
-    "staleCheckDays": 7
+    "staleCheckDays": 7,
+    "storageLimit": 1.0
   },
   "automation": {
     "baseUrl": "http://localhost:3000",

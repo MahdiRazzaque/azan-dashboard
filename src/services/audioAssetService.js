@@ -112,7 +112,8 @@ const syncAudioAssets = async (forceClean = false) => {
         }
     }
 
-    if (!triggers) return;
+    const warnings = [];
+    if (!triggers) return { warnings };
 
     for (const prayer of PRAYER_NAMES) {
         const prayerTriggers = triggers[prayer];
@@ -154,6 +155,17 @@ const syncAudioAssets = async (forceClean = false) => {
             
             if (shouldGenerate) {
                 console.log(`[AudioService] Preparing TTS for ${prayer} - ${event}`);
+                // Quota Check
+                const storageService = require('./storageService');
+                const estimatedSize = text.length * 1024; // 1KB per char upper bound
+                const quotaCheck = await storageService.checkQuota(estimatedSize);
+                
+                if (!quotaCheck.success) {
+                const errorMsg = `Storage Limit Exceeded: Cannot generate ${prayer} ${event} (${quotaCheck.message})`;
+                console.error(`[AudioService] ${errorMsg}`);
+                throw new Error(errorMsg);
+            }
+
                 // Pass the URL derived from the fresh config
                 await generateTTS(filename, text, pythonServiceUrl);
                 fs.writeFileSync(metaPath, JSON.stringify({ text, generatedAt: new Date().toISOString() }));

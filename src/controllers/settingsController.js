@@ -29,6 +29,7 @@ const settingsController = {
         if (typeof newConfig !== 'object' || newConfig === null) {
             return res.status(400).json({ error: 'Invalid configuration format' });
         }
+        console.log('[SettingsController] Received update request:', JSON.stringify(newConfig.data));
 
         // 1. Validation
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Validating Configuration...' } });
@@ -42,6 +43,7 @@ const settingsController = {
         }
 
         // 2. Save
+        const previousConfig = configService.get(); // Need it for potential rollback
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Saving to Disk...' } });
         await configService.update(newConfig);
         
@@ -55,7 +57,15 @@ const settingsController = {
         try {
             await audioAssetService.syncAudioAssets();
         } catch (err) {
-            console.error('[SettingsController] Audio asset synchronization failed:', err.message);
+            console.error('[SettingsController] Audio asset synchronization failed. Rolling back config.', err.message);
+            
+            // ROLLBACK: Restore previous config
+            await configService.update(previousConfig);
+            
+            return res.status(400).json({
+                error: 'Storage Quota Exceeded',
+                message: `Settings not saved: ${err.message}. Configuration has been rolled back.`
+            });
         }
 
         // 5. Restart Scheduler
@@ -84,7 +94,7 @@ const settingsController = {
                 });
             });
         }
-        
+
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Configuration Saved' } });
         
         res.json({ 
@@ -109,11 +119,17 @@ const settingsController = {
         
         try {
             await audioAssetService.syncAudioAssets();
-        } catch(e) { console.error(e); }
+        } catch(e) { 
+            console.error('[SettingsController] Reset sync failed:', e.message);
+            return res.status(400).json({ 
+                error: 'Reset Failed', 
+                message: `Settings reset, but audio synchronization failed: ${e.message}` 
+            });
+        }
 
         await schedulerService.initScheduler(); 
 
-        res.json({ message: 'Settings reset to defaults.', meta: result.meta });
+        res.json({ message: 'Settings reset to defaults.', meta: result.meta, warnings });
     },
 
     /**
@@ -146,16 +162,22 @@ const settingsController = {
             console.error('[SettingsController] Failed to stop scheduler:', stopErr);
         }
 
+        const warnings = [];
         try {
            await audioAssetService.syncAudioAssets();
         } catch (e) {
-             console.error('[SettingsController] Audio asset synchronization failed:', e);
+             console.error('[SettingsController] Audio asset synchronization failed:', e.message);
+             return res.status(400).json({ 
+                 error: 'Sync Failed', 
+                 message: `Cache refreshed, but audio synchronization failed: ${e.message}` 
+             });
         }
         await schedulerService.initScheduler(); 
         
         res.json({ 
             message: 'Cache refreshed and scheduler reloaded',
-            meta: result.meta 
+            meta: result.meta,
+            warnings
         });
     },
 

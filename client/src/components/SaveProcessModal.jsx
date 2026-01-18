@@ -78,7 +78,7 @@ export default function SaveProcessModal({ isOpen, onClose, status, result, proc
 
         {visualState === 'warning' && (
             <p className="text-app-dim text-sm mb-4 px-4">
-                Some automations will not play because required services are currently offline.
+                The configuration was saved, but some issues were detected (e.g. offline services or storage limits).
             </p>
         )}
 

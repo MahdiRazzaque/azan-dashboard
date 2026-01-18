@@ -63,6 +63,7 @@ const automationSchema = z.object({
 
 const dataSchema = z.object({
   staleCheckDays: z.number().default(7),
+  storageLimit: z.number().min(0.1).default(1.0), // GB
 });
 
 const configSchema = z.object({
