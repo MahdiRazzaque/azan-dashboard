@@ -66,4 +66,30 @@ describe('Logger Initializer', () => {
         expect(sseService.log).toHaveBeenCalledWith('warn msg', 'warn');
         expect(spy).toHaveBeenCalledWith('warn msg');
     });
+
+    test('should handle objects in console.error', () => {
+        const spy = jest.fn();
+        console.error = spy;
+
+        initLogger();
+
+        const obj = { error: 'details' };
+        console.error('Error:', obj);
+        
+        expect(sseService.log).toHaveBeenCalledWith('Error: {"error":"details"}', 'error');
+        expect(spy).toHaveBeenCalledWith('Error:', obj);
+    });
+
+    test('should handle objects in console.warn', () => {
+        const spy = jest.fn();
+        console.warn = spy;
+
+        initLogger();
+
+        const obj = { warning: 'info' };
+        console.warn('Warning:', obj);
+        
+        expect(sseService.log).toHaveBeenCalledWith('Warning: {"warning":"info"}', 'warn');
+        expect(spy).toHaveBeenCalledWith('Warning:', obj);
+    });
 });
