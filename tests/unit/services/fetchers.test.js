@@ -242,23 +242,25 @@ describe('Fetchers Service', () => {
          it('should warn and return empty if model.salahTimings missing after validation', async () => {
              jest.spyOn(console, 'warn').mockImplementation(() => {});
              
-             // Mock the schema parse to return valid structure but missing salahTimings
-             const originalParse = fetchers.MyMasjidBulkResponseSchema.parse;
-             fetchers.MyMasjidBulkResponseSchema.parse = jest.fn().mockReturnValue({
-                 model: {} // Missing salahTimings
-             });
+             // Use jest.spyOn for proper mocking
+             const parseSpy = jest.spyOn(fetchers.MyMasjidBulkResponseSchema, 'parse')
+                 .mockReturnValueOnce({
+                     model: {} // Missing salahTimings
+                 });
              
              global.fetch.mockResolvedValue({
                  ok: true,
                  json: () => Promise.resolve({ model: {} })
              });
              
-             const result = await fetchers.fetchMyMasjidBulk(mockConfig);
-             expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('missing'));
-             expect(result).toEqual({});
-             
-             // Restore
-             fetchers.MyMasjidBulkResponseSchema.parse = originalParse;
+             try {
+                 const result = await fetchers.fetchMyMasjidBulk(mockConfig);
+                 expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('missing'));
+                 expect(result).toEqual({});
+             } finally {
+                 // Ensure restore happens even if test fails
+                 parseSpy.mockRestore();
+             }
          });
     });
 });
