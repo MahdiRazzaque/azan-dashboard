@@ -296,6 +296,81 @@ describe('SchedulerService', () => {
             // Should call getPrayerTimes with next year date
             expect(prayerTimeService.getPrayerTimes).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ year: 2024, month: 1, day: 1 }));
         });
+
+        it('should handle stale check errors gracefully', async () => {
+            prayerTimeService.readCache.mockImplementation(() => {
+                throw new Error('Cache read failed');
+            });
+            
+            await service.initScheduler();
+            const staleJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
+            const callback = staleJobCall[1];
+            
+            // Should not throw, just log error
+            await callback();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[Maintenance] Stale Check Failed'), expect.any(Error));
+        });
+
+        it('should trigger fetch when cache has no meta', async () => {
+            prayerTimeService.readCache.mockReturnValue({ data: {} }); // No meta
+            
+            await service.initScheduler();
+            const staleJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
+            const callback = staleJobCall[1];
+            
+            // Clear previous calls from initScheduler
+            prayerTimeService.getPrayerTimes.mockClear();
+            
+            await callback();
+            expect(console.log).toHaveBeenCalledWith(expect.stringContaining('No cache meta found'));
+            expect(prayerTimeService.getPrayerTimes).toHaveBeenCalled();
+        });
+
+        it('should year boundary check errors gracefully', async () => {
+            prayerTimeService.readCache.mockImplementation(() => {
+                throw new Error('Cache error');
+            });
+            
+            await service.initScheduler();
+            const yearJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
+            const callback = yearJobCall[1];
+            
+            await callback();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[Maintenance] Year Boundary Check Failed'), expect.any(Error));
+        });
+
+        it('should handle health check errors gracefully', async () => {
+            healthCheck.refresh.mockRejectedValueOnce(new Error('Health check failed'));
+            
+            await service.initScheduler();
+            const healthJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 * * * *');
+            const callback = healthJobCall[1];
+            
+            await callback();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[Maintenance] Health Check Failed'), expect.any(Error));
+        });
+
+        it('should handle audio asset maintenance errors gracefully', async () => {
+            audioAssetService.syncAudioAssets.mockRejectedValueOnce(new Error('Sync failed'));
+            
+            await service.initScheduler();
+            const assetJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '30 3 * * *');
+            const callback = assetJobCall[1];
+            
+            await callback();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[Maintenance] Audio Asset Maintenance Failed'), expect.any(String));
+        });
+
+        it('should handle source health check errors gracefully', async () => {
+            healthCheck.refresh.mockRejectedValueOnce(new Error('Source check failed'));
+            
+            await service.initScheduler();
+            const sourceJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 2 * * *');
+            const callback = sourceJobCall[1];
+            
+            await callback();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[Maintenance] Source Health Check Failed'), expect.any(Error));
+        });
     });
 
     describe('Global Switches Granularity', () => {
@@ -329,6 +404,28 @@ describe('SchedulerService', () => {
             const jobs = service.getJobs();
             // Should log error but not crash
             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error calculating next invocation'), expect.anything());
+        });
+
+        it('should handle initScheduler errors gracefully', async () => {
+            prayerTimeService.getPrayerTimes.mockRejectedValueOnce(new Error('Network error'));
+            
+            await service.initScheduler();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[Scheduler] Initialisation failed'), expect.any(Error));
+        });
+
+        it('should handle CronDate type (node-schedule v2+) in getJobs', async () => {
+            schedule.scheduleJob.mockImplementation((...args) => {
+                return {
+                    nextInvocation: () => ({
+                        toDate: () => new Date('2099-01-01T03:00:00Z')
+                    }),
+                    cancel: jest.fn()
+                };
+            });
+
+            await service.initScheduler();
+            const jobsList = service.getJobs();
+            expect(jobsList.maintenance[0].nextInvocation).toContain('2099-01-01');
         });
     });
 });
