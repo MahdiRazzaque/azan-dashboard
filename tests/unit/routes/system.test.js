@@ -4,6 +4,7 @@ const systemRouter = require('../../../src/routes/system');
 const configService = require('../../../src/config');
 const fetchers = require('../../../src/services/fetchers');
 const healthCheck = require('../../../src/services/healthCheck');
+const errorHandler = require('../../../src/middleware/errorHandler');
 
 // Mock middleware
 jest.mock('../../../src/middleware/auth', () => (req, res, next) => next());
@@ -24,6 +25,7 @@ jest.mock('../../../src/services/healthCheck', () => ({
 const app = express();
 app.use(express.json());
 app.use('/system', systemRouter);
+app.use(errorHandler);
 
 describe('System Routes', () => {
     beforeEach(() => {

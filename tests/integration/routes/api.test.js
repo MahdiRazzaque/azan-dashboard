@@ -62,7 +62,9 @@ jest.mock('../../../src/services/schedulerService', () => ({
 
 jest.mock('../../../src/services/prayerTimeService', () => ({
     getPrayerTimes: jest.fn(),
-    forceRefresh: jest.fn(() => Promise.resolve({ meta: { success: true, timestamp: Date.now() } }))
+    getPrayersWithNext: jest.fn(),
+    forceRefresh: jest.fn(() => Promise.resolve({ meta: { success: true, timestamp: Date.now() } })),
+    readCache: jest.fn(() => ({}))
 }));
 const prayerTimeService = require('../../../src/services/prayerTimeService');
 
@@ -443,12 +445,11 @@ describe('API Routes Integration', () => {
 
     describe('Prayers Route', () => {
         it('GET /api/prayers - should return prayers', async () => {
-             prayerTimeService.getPrayerTimes.mockResolvedValue({
+             prayerTimeService.getPrayersWithNext.mockResolvedValueOnce({
                  meta: { date: '2024-01-01', source: 'test' },
                  prayers: {
-                     fajr: '2024-01-01T05:00:00',
-                     dhuhr: '2024-01-01T12:00:00',
-                     iqamah: {}
+                     fajr: { start: '2024-01-01T05:00:00', iqamah: '2024-01-01T05:15:00' },
+                     dhuhr: { start: '2024-01-01T12:00:00', iqamah: '2024-01-01T12:15:00' }
                  }
              });
              
@@ -464,22 +465,18 @@ describe('API Routes Integration', () => {
              jest.useFakeTimers();
              jest.setSystemTime(new Date('2024-01-01T23:59:00Z'));
              
-             // First call (today) returns finished prayers
-             // Second call (tomorrow) returns next fajr
-             prayerTimeService.getPrayerTimes
-                 .mockResolvedValueOnce({
-                     meta: {},
-                     prayers: {
-                         fajr: '2024-01-01T05:00:00Z',
-                         isha: '2024-01-01T19:00:00Z'
-                     }
-                 })
-                 .mockResolvedValueOnce({
-                     meta: {},
-                     prayers: {
-                         fajr: '2024-01-02T05:01:00Z'
-                     }
-                 });
+             prayerTimeService.getPrayersWithNext.mockResolvedValueOnce({
+                 meta: {},
+                 prayers: {
+                     fajr: { start: '2024-01-01T05:00:00Z', iqamah: '2024-01-01T05:15:00Z' },
+                     isha: { start: '2024-01-01T19:00:00Z', iqamah: '2024-01-01T19:15:00Z' }
+                 },
+                 nextPrayer: {
+                     name: 'fajr',
+                     time: '2024-01-02T05:01:00Z',
+                     isTomorrow: true
+                 }
+             });
 
              const res = await request(app).get('/api/prayers');
              expect(res.body.nextPrayer).toBeDefined();
@@ -654,12 +651,10 @@ describe('API Routes Integration', () => {
 
      describe('Prayer Routes Extra Coverage', () => {
         it('GET /api/prayers - should handle missing cached data by fetching', async () => {
-             const { getPrayerTimes } = require('../../../src/services/prayerTimeService');
-             getPrayerTimes.mockResolvedValue({
+             prayerTimeService.getPrayersWithNext.mockResolvedValueOnce({
                  meta: { date: '2024-01-01', source: 'test' },
                  prayers: {
-                     fajr: '05:00', dhuhr: '12:00', asr: '15:00', maghrib: '18:00', isha: '20:00',
-                     iqamah: { fajr: '05:15' }
+                     fajr: { start: '2024-01-01T05:00:00', iqamah: '2024-01-01T05:15:00' }
                  }
              });
              
@@ -667,8 +662,7 @@ describe('API Routes Integration', () => {
         });
 
         it('GET /api/prayers - should handle errors', async () => {
-             const { getPrayerTimes } = require('../../../src/services/prayerTimeService');
-             getPrayerTimes.mockRejectedValue(new Error('Database Down'));
+             prayerTimeService.getPrayersWithNext.mockRejectedValueOnce(new Error('Database Down'));
              
              await request(app).get('/api/prayers').expect(500);
         });

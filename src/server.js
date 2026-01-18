@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 require('./utils/loggerInitializer')(); // Initialize global logger interception
 
-const apiRoutes = require('./routes/api');
+const apiRoutes = require('./routes/index');
 const { initScheduler } = require('./services/schedulerService');
 const healthCheck = require('./services/healthCheck');
 const { forceRefresh } = require('./services/prayerTimeService');

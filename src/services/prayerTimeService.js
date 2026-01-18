@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { fetchAladhanAnnual, fetchMyMasjidBulk } = require('./fetchers');
 const { DateTime } = require('luxon');
-const { calculateIqamah } = require('../utils/calculations');
+const { calculateIqamah, calculateNextPrayer } = require('../utils/calculations');
 
 const CACHE_FILE = path.join(process.cwd(), 'data', 'cache.json');
 
@@ -10,6 +10,80 @@ const CACHE_FILE = path.join(process.cwd(), 'data', 'cache.json');
 const dataDir = path.dirname(CACHE_FILE);
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
+}
+
+/**
+ * Gets prayer times for a date with next prayer calculation.
+ * Encapsulates the logic previously in the /api/prayers route.
+ * 
+ * @param {object} config - Application configuration
+ * @param {string} timezone - Timezone
+ * @returns {Promise<object>} Object containing meta, prayers, and nextPrayer
+ */
+async function getPrayersWithNext(config, timezone) {
+  const now = DateTime.now().setZone(timezone);
+  
+  // 1. Fetch Data for Today
+  const rawData = await module.exports.getPrayerTimes(config, now);
+  
+  // 2. Process Prayers (Start + Iqamah)
+  const prayers = {};
+  const prayerNames = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+  
+  prayerNames.forEach(name => {
+    const startISO = rawData.prayers[name]; 
+    if (!startISO) {
+        console.warn(`[PrayerService] Missing prayer time for ${name}`);
+        return;
+    }
+    
+    let iqamahISO;
+    // Use explicit Iqamah from source if available (FR-05)
+    if (rawData.prayers.iqamah && rawData.prayers.iqamah[name]) {
+        iqamahISO = rawData.prayers.iqamah[name];
+    } else {
+        // Fallback to calculation
+        const settings = config.prayers[name];
+        iqamahISO = calculateIqamah(startISO, settings, timezone);
+    }
+    
+    prayers[name] = {
+      start: startISO,
+      iqamah: iqamahISO
+    };
+  });
+
+  // 3. Calculate Next Prayer
+  let nextPrayer = calculateNextPrayer(prayers, now);
+
+  // 4. If no next prayer today (post-Isha), fetch Tomorrow's Fajr
+  if (!nextPrayer) {
+      try {
+          const tomorrow = now.plus({ days: 1 });
+          const tomorrowData = await module.exports.getPrayerTimes(config, tomorrow);
+          
+          if (tomorrowData && tomorrowData.prayers && tomorrowData.prayers.fajr) {
+              nextPrayer = {
+                  name: 'fajr',
+                  time: tomorrowData.prayers.fajr,
+                  isTomorrow: true
+              };
+          }
+      } catch (tomorrowError) {
+          console.error(`[PrayerService] Failed to fetch tomorrow's Fajr: ${tomorrowError.message}`);
+      }
+  }
+  
+  return {
+    meta: {
+      date: rawData.meta.date,
+      location: timezone,
+      source: rawData.meta.source,
+      cached: rawData.meta.cached
+    },
+    prayers,
+    nextPrayer
+  };
 }
 
 /**
@@ -183,6 +257,7 @@ async function forceRefresh(config) {
 
 module.exports = {
   getPrayerTimes,
+  getPrayersWithNext,
   forceRefresh,
   readCache
 };
