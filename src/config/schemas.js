@@ -8,7 +8,7 @@ const prayerSettingSchema = z.object({
 });
 
 const triggerActionSchema = z.enum(['tts', 'file', 'url']);
-const targetSchema = z.enum(['local', 'browser', 'voiceMonkey']);
+const targetSchema = z.enum(['local', 'voiceMonkey']);
 
 const triggerEventSchema = z.object({
   enabled: z.boolean(),
@@ -17,7 +17,9 @@ const triggerEventSchema = z.object({
   template: z.string().optional(),
   path: z.string().optional(),
   url: z.string().optional(),
-  targets: z.array(targetSchema),
+  targets: z.array(z.union([targetSchema, z.literal('browser')]))
+    .transform(arr => arr.filter(t => t !== 'browser'))
+    .default([]),
 });
 
 const prayerTriggersSchema = z.object({

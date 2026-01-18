@@ -29,7 +29,7 @@ export const useSSE = (onAudioPlay) => {
                     }, ...prev].slice(0, 50));
 
                     if (onAudioPlay) {
-                        onAudioPlay(data.payload.url);
+                        onAudioPlay(data.payload.prayer, data.payload.event, data.payload.url);
                     }
                 }
                 if (data.type === 'PROCESS_UPDATE') {

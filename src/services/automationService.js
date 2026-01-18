@@ -41,7 +41,7 @@ const handleLocal = (settings, prayer, event, source) => {
     });
 };
 
-const handleBrowser = (settings, prayer, event, source) => {
+const broadcastToClients = (settings, prayer, event, source) => {
     if (!source.url) return;
     
     sseService.broadcast({
@@ -52,7 +52,7 @@ const handleBrowser = (settings, prayer, event, source) => {
             url: source.url
         }
     });
-    console.log(`[Target:Browser] Sent SSE event for ${source.url}`);
+    console.log(`[SSE:Broadcast] Sent AUDIO_PLAY for ${prayer} ${event}`);
 };
 
 const handleVoiceMonkey = async (settings, prayer, event, source) => {
@@ -104,9 +104,13 @@ const triggerEvent = async (prayer, event) => {
     const targets = settings.targets || [];
     
     try {
+        // Always broadcast to connected clients (browser filtering is client-side)
+        if (source.url) {
+            broadcastToClients(settings, prayer, event, source);
+        }
+
         const promises = targets.map(target => {
             if (target === 'local') return handleLocal(settings, prayer, event, source);
-            if (target === 'browser') return handleBrowser(settings, prayer, event, source);
             if (target === 'voiceMonkey') return handleVoiceMonkey(settings, prayer, event, source);
         });
         
