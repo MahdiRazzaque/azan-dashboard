@@ -69,10 +69,20 @@ jest.mock('../../../src/services/prayerTimeService', () => ({
 const prayerTimeService = require('../../../src/services/prayerTimeService');
 
 jest.mock('../../../src/services/automationService', () => ({
-    playTestAudio: jest.fn(),
+    getAudioSource: jest.requireActual('../../../src/services/automationService').getAudioSource,
+    handleLocal: jest.fn(),
+    handleVoiceMonkey: jest.fn(),
+    broadcastToClients: jest.fn(),
     triggerEvents: jest.fn()
 }));
 const automationService = require('../../../src/services/automationService');
+
+jest.mock('../../../src/services/sseService', () => ({
+    broadcast: jest.fn(),
+    log: jest.fn(),
+    addClient: jest.fn()
+}));
+const sseService = require('../../../src/services/sseService');
 
 jest.mock('../../../src/services/audioAssetService', () => ({
     syncAudioAssets: jest.fn()
@@ -222,13 +232,31 @@ describe('API Routes Integration', () => {
             expect(audioAssetService.syncAudioAssets).toHaveBeenCalled();
         });
 
-        it('POST /api/system/test-audio - should play audio', async () => {
+        it('POST /api/system/test-audio - should play audio locally', async () => {
             await request(app)
                 .post('/api/system/test-audio')
                 .set('Cookie', [`auth_token=${adminToken}`])
-                .send({ filename: 'test.mp3', type: 'custom' })
+                .send({ filename: 'test.mp3', type: 'custom', target: 'local' })
                 .expect(200);
-            expect(automationService.playTestAudio).toHaveBeenCalled();
+            expect(automationService.handleLocal).toHaveBeenCalled();
+        });
+
+        it('POST /api/system/test-audio - should broadcast to browsers', async () => {
+            await request(app)
+                .post('/api/system/test-audio')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send({ filename: 'test.mp3', type: 'custom', target: 'browser' })
+                .expect(200);
+            expect(automationService.broadcastToClients).toHaveBeenCalled();
+        });
+
+        it('POST /api/system/test-audio - should trigger VoiceMonkey', async () => {
+            await request(app)
+                .post('/api/system/test-audio')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send({ filename: 'test.mp3', type: 'custom', target: 'voiceMonkey' })
+                .expect(200);
+            expect(automationService.handleVoiceMonkey).toHaveBeenCalled();
         });
 
         it('POST /api/system/test-audio - should validate inputs', async () => {

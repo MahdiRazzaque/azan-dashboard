@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Trash2, Upload, Server, StopCircle, Volume2 } from 'lucide-react';
+import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, ChevronRight } from 'lucide-react';
+import AudioTestModal from '../../components/AudioTestModal';
 
 export default function FileManagerView() {
     const [files, setFiles] = useState([]);
@@ -7,6 +8,11 @@ export default function FileManagerView() {
     const [error, setError] = useState(null);
     const [playingFile, setPlayingFile] = useState(null);
     const [serverPlaying, setServerPlaying] = useState(null);
+    
+    // Phase 5: Audio Testing & Consent
+    const [testModalFile, setTestModalFile] = useState(null);
+    const [consentGiven, setConsentGiven] = useState(false);
+    const [collapsedSections, setCollapsedSections] = useState({});
     
     // Audio ref for browser playback
     const audioRef = useRef(new Audio());
@@ -87,20 +93,31 @@ export default function FileManagerView() {
         }
     };
 
-    const handleServerPlay = async (file) => {
+    const handleServerPlay = async (file, target = 'local') => {
         setServerPlaying(file.name);
         try {
-            await fetch('/api/system/test-audio', {
+            const res = await fetch('/api/system/test-audio', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename: file.name, type: file.type })
+                body: JSON.stringify({ filename: file.name, type: file.type, target })
             });
-            // Reset icon after a timeout since we don't get 'ended' event from server
+            if (!res.ok) throw new Error('Test request failed');
+            
+            setTestModalFile(null); // Close modal on success
+            
+            // Reset icon after a timeout
             setTimeout(() => setServerPlaying(null), 2000);
         } catch (err) {
-            setError("Server playback request failed");
+            setError(err.message || "Server playback request failed");
             setServerPlaying(null);
         }
+    };
+
+    const toggleSection = (section) => {
+        setCollapsedSections(prev => ({
+            ...prev,
+            [section]: !prev[section]
+        }));
     };
 
     const FileList = ({ title, type, items }) => (
@@ -132,11 +149,11 @@ export default function FileManagerView() {
                                     {playingFile === file.name ? <StopCircle className="w-4 h-4 text-emerald-400" /> : <Play className="w-4 h-4" />}
                                 </button>
                                 
-                                {/* Server Play */}
+                                {/* Server Play - Opens Modal */}
                                 <button 
-                                    onClick={() => handleServerPlay(file)}
+                                    onClick={() => setTestModalFile(file)}
                                     className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
-                                    title="Test on Server Speaker"
+                                    title="Test on Speakers"
                                 >
                                     <Server className={`w-4 h-4 ${serverPlaying === file.name ? 'text-emerald-400 animate-pulse' : ''}`} />
                                 </button>
@@ -161,6 +178,20 @@ export default function FileManagerView() {
 
     const customFiles = files.filter(f => f.type === 'custom');
     const cacheFiles = files.filter(f => f.type === 'cache');
+
+    // Grouping logic for TTS
+    const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    const groupedCache = prayers.reduce((acc, p) => ({ ...acc, [p]: [] }), { other: [] });
+    
+    cacheFiles.forEach(file => {
+        // Pattern: tts_{prayer}_{event}.mp3
+        const match = file.name.match(/^tts_([a-z]+)_/);
+        if (match && prayers.includes(match[1])) {
+            groupedCache[match[1]].push(file);
+        } else {
+            groupedCache.other.push(file);
+        }
+    });
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto pb-12">
@@ -202,8 +233,85 @@ export default function FileManagerView() {
 
             <div className="grid gap-8">
                 <FileList title="Custom Files" type="custom" items={customFiles} />
-                <FileList title="TTS Cache" type="cache" items={cacheFiles} />
+                
+                {/* TTS Grouped List */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="h-px flex-1 bg-app-border"></div>
+                        <h3 className="text-app-dim font-bold text-xs uppercase tracking-widest bg-app-bg px-2">TTS Cache by Prayer</h3>
+                        <div className="h-px flex-1 bg-app-border"></div>
+                    </div>
+                    
+                    {Object.entries(groupedCache).map(([prayer, items]) => {
+                        const isCollapsed = collapsedSections[prayer];
+                        const count = items.length;
+                        if (count === 0) return null;
+
+                        return (
+                            <div key={prayer} className="bg-app-card/30 border border-app-border rounded-xl overflow-hidden">
+                                <button 
+                                    onClick={() => toggleSection(prayer)}
+                                    className="w-full px-4 py-3 bg-app-card/40 border-b border-app-border flex justify-between items-center hover:bg-app-card-hover transition-colors"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        {isCollapsed ? <ChevronRight className="w-4 h-4 text-app-dim" /> : <ChevronDown className="w-4 h-4 text-app-dim" />}
+                                        <h4 className="font-semibold text-app-text capitalize">{prayer}</h4>
+                                    </div>
+                                    <span className="text-xs text-app-dim/50">{count} files</span>
+                                </button>
+                                
+                                {!isCollapsed && (
+                                    <div className="divide-y divide-app-border">
+                                        {items.map(file => (
+                                            <div key={file.path} className="p-3 flex items-center justify-between hover:bg-app-card-hover transition-colors group">
+                                                <div className="flex items-center gap-3 pl-2">
+                                                    <div className="w-8 h-8 rounded bg-app-bg/50 flex items-center justify-center text-emerald-500/70">
+                                                        <Volume2 className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="text-sm font-medium text-app-text/90">{file.name}</span>
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+                                                    <button 
+                                                        onClick={() => handleBrowserPlay(file)}
+                                                        className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
+                                                        title="Preview in Browser"
+                                                    >
+                                                        {playingFile === file.name ? <StopCircle className="w-4 h-4 text-emerald-400" /> : <Play className="w-4 h-4" />}
+                                                    </button>
+                                                    
+                                                    <button 
+                                                        onClick={() => setTestModalFile(file)}
+                                                        className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
+                                                        title="Test on Speakers"
+                                                    >
+                                                        <Server className={`w-4 h-4 ${serverPlaying === file.name ? 'text-emerald-400 animate-pulse' : ''}`} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {cacheFiles.length === 0 && (
+                        <div className="p-8 text-center text-app-dim text-sm bg-app-card/20 border border-app-border/30 rounded-xl border-dashed">
+                            No cached speech files found
+                        </div>
+                    )}
+                </div>
             </div>
+
+            <AudioTestModal 
+                isOpen={!!testModalFile}
+                onClose={() => setTestModalFile(null)}
+                file={testModalFile}
+                consentGiven={consentGiven}
+                setConsentGiven={setConsentGiven}
+                onTest={(target) => handleServerPlay(testModalFile, target)}
+            />
         </div>
     );
 }

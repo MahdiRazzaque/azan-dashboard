@@ -1,0 +1,149 @@
+import React from 'react';
+import { X, Volume2, Monitor, Radio, AlertCircle } from 'lucide-react';
+import { useSettings } from '../contexts/SettingsContext';
+
+export default function AudioTestModal({ 
+    isOpen, 
+    onClose, 
+    file, 
+    consentGiven, 
+    setConsentGiven, 
+    onTest 
+}) {
+    const { systemHealth } = useSettings();
+
+    if (!isOpen || !file) return null;
+
+    const targets = [
+        { 
+            id: 'local', 
+            label: 'Server Speaker', 
+            icon: Volume2, 
+            description: 'Plays on the mosque PA system',
+            disabled: !systemHealth.local?.healthy
+        },
+        { 
+            id: 'browser', 
+            label: 'All Browsers', 
+            icon: Monitor, 
+            description: 'Broadcasts to all connected dashboards',
+            disabled: false 
+        },
+        { 
+            id: 'voiceMonkey', 
+            label: 'VoiceMonkey', 
+            icon: Radio, 
+            description: 'Triggers Alexa/Smart Home devices',
+            disabled: !systemHealth.voiceMonkey?.healthy
+        }
+    ];
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center isolate">
+            {/* Backdrop */}
+            <div 
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+                onClick={onClose}
+            />
+            
+            {/* Modal */}
+            <div className="bg-app-card border border-app-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden relative z-10 animate-in zoom-in-95 duration-200">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-app-border flex justify-between items-center">
+                    <h3 className="text-xl font-bold text-app-text">Test Audio Asset</h3>
+                    <button 
+                        onClick={onClose}
+                        className="text-app-dim hover:text-app-text transition-colors"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-6">
+                    {/* File Info */}
+                    <div className="flex items-center gap-3 p-3 bg-app-bg/50 rounded-lg border border-app-border/50">
+                        <div className="w-10 h-10 rounded bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                            <Volume2 className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-app-dim uppercase tracking-wider font-bold">Filename</p>
+                            <p className="text-app-text font-medium">{file.name}</p>
+                        </div>
+                    </div>
+
+                    {/* Warning Box */}
+                    <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl flex gap-3">
+                        <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                        <div className="space-y-2">
+                             <p className="text-amber-200 text-sm font-semibold">Safety Warning</p>
+                             <p className="text-amber-200/70 text-xs leading-relaxed">
+                                Playback cannot be stopped once started. Ensure volume levels are safe before triggering audio on PA systems or external devices.
+                             </p>
+                             <label className="flex items-center gap-2 cursor-pointer pt-1 group">
+                                <div className="relative">
+                                    <input 
+                                        type="checkbox" 
+                                        className="sr-only peer"
+                                        checked={consentGiven}
+                                        onChange={(e) => setConsentGiven(e.target.checked)}
+                                    />
+                                    <div className="w-5 h-5 border-2 border-amber-500/50 rounded flex items-center justify-center peer-checked:bg-amber-500 peer-checked:border-amber-500 transition-all">
+                                        {consentGiven && <X className="w-3 h-3 text-app-card stroke-[4]" />}
+                                    </div>
+                                </div>
+                                <span className="text-amber-200/90 text-sm font-medium group-hover:text-amber-200 transition-colors select-none">
+                                    I understand and acknowledge the risk.
+                                </span>
+                             </label>
+                        </div>
+                    </div>
+
+                    {/* Target Selection */}
+                    <div className="space-y-3">
+                        <p className="text-xs text-app-dim uppercase tracking-wider font-bold px-1">Select Output Target</p>
+                        <div className="grid gap-3">
+                            {targets.map((target) => (
+                                <button
+                                    key={target.id}
+                                    disabled={!consentGiven || target.disabled}
+                                    onClick={() => onTest(target.id)}
+                                    className={`
+                                        flex items-center gap-4 p-4 rounded-xl border text-left transition-all group
+                                        ${!consentGiven || target.disabled 
+                                            ? 'bg-app-bg/30 border-app-border/30 opacity-40 cursor-not-allowed' 
+                                            : 'bg-app-bg/60 border-app-border hover:bg-emerald-500/5 hover:border-emerald-500/30'
+                                        }
+                                    `}
+                                >
+                                    <div className={`
+                                        p-3 rounded-lg transition-colors
+                                        ${!consentGiven || target.disabled ? 'bg-app-border/30 text-app-dim' : 'bg-app-card text-emerald-500 group-hover:bg-emerald-500/10'}
+                                    `}>
+                                        <target.icon className="w-6 h-6" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <span className={`block font-bold ${!consentGiven || target.disabled ? 'text-app-dim' : 'text-app-text'}`}>
+                                            {target.label}
+                                        </span>
+                                        <span className="text-xs text-app-dim">
+                                            {target.description}
+                                        </span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="px-6 py-4 bg-app-bg/30 border-t border-app-border flex justify-end">
+                    <button 
+                        onClick={onClose}
+                        className="px-4 py-2 text-app-dim hover:text-app-text font-medium transition-colors"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}

@@ -120,14 +120,6 @@ const triggerEvent = async (prayer, event) => {
     }
 };
 
-const playTestAudio = (filePath) => {
-     console.log(`[Test:Local] Playing ${filePath}`);
-     const config = configService.get();
-     const audioPlayer = config.automation.audioPlayer || 'mpg123';
-     player.play(filePath, { player: audioPlayer }, (err) => {
-        if (err) console.error(`[Test:Local] Playback error:`, err);
-     });
-};
 
 const verifyCredentials = async (token, device) => {
     if (!token || !device) {
@@ -163,7 +155,10 @@ const verifyCredentials = async (token, device) => {
 };
 
 module.exports = {
+    getAudioSource,
+    handleLocal,
+    broadcastToClients,
+    handleVoiceMonkey,
     triggerEvent,
-    playTestAudio,
     verifyCredentials
 };

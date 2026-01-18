@@ -161,25 +161,47 @@ const systemController = {
      * Test playing an audio file on the server.
      */
     testAudio: async (req, res) => {
-        const { filename, type } = req.body; 
+        const { filename, type, target = 'local' } = req.body; 
         if (!filename || !type) return res.status(400).json({ error: 'Missing filename or type' });
         
-        // Sanitize type
+        // Sanitise type
         if (!['custom', 'cache'].includes(type)) return res.status(400).json({ error: 'Invalid type' });
 
-        const filePath = path.join(__dirname, `../../public/audio/${type}/${filename}`);
-        
-        // Sanitize filename
+        // Sanitise target
+        if (!['local', 'browser', 'voiceMonkey'].includes(target)) return res.status(400).json({ error: 'Invalid target' });
+
+        // Sanitise filename
         if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
              return res.status(400).json({ error: 'Invalid filename' });
         }
 
-        if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+        const filePath = path.join(__dirname, `../../public/audio/${type}/${filename}`);
+        const url = `/public/audio/${type}/${filename}`;
         
-        if (automationService.playTestAudio) {
-            automationService.playTestAudio(filePath); 
+        // Final existence check
+        if (!fs.existsSync(filePath)) {
+            console.error(`[TestAudio] File not found at ${filePath}`);
+            return res.status(404).json({ error: 'File not found on disk' });
         }
-        res.json({ success: true, message: 'Playing audio on server...' });
+
+        const prayer = 'test';
+        const event = filename;
+        const source = { filePath, url };
+
+        console.log(`[TestAudio] Target: ${target}, File: ${filename}`);
+
+        if (target === 'local') {
+            console.log(`[TestAudio] Executing handleLocal`);
+            automationService.handleLocal({}, prayer, event, source);
+        } else if (target === 'browser') {
+            console.log(`[TestAudio] Executing broadcastToClients`);
+            automationService.broadcastToClients({}, prayer, event, source);
+        } else if (target === 'voiceMonkey') {
+            console.log(`[TestAudio] Executing handleVoiceMonkey`);
+            await automationService.handleVoiceMonkey({}, prayer, event, source);
+        }
+
+        res.json({ success: true, message: `Testing audio on ${target}...` });
     },
 
     /**
