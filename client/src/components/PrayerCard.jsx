@@ -22,7 +22,13 @@ const PrayerRow = ({ name, time, iqamah, status }) => {
         <div className={`${baseClass} ${colorClass} ${bgClass} border-app-border/10`}>
             <span className="w-1/3 text-left">{label}</span>
             <span className="w-1/3 text-center">{formatTime(time)}</span>
-            <span className="w-1/3 text-right text-xl lg:text-4xl opacity-60">{iqamah ? formatTime(iqamah) : ''}</span>
+            <span className="w-1/3 text-right text-xl lg:text-4xl opacity-60">
+                {name === 'sunrise' ? (
+                    <span className="text-app-dim opacity-30 tracking-widest text-2xl lg:text-3xl">---</span>
+                ) : (
+                    iqamah ? formatTime(iqamah) : ''
+                )}
+            </span>
         </div>
     );
 };
