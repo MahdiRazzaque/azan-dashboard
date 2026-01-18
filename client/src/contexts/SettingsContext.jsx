@@ -212,6 +212,32 @@ export const SettingsProvider = ({ children }) => {
     }
   };
 
+  const bulkUpdateOffsets = (eventType, minutes) => {
+    const raw = parseInt(minutes);
+    const clampedMinutes = isNaN(raw) ? 0 : Math.min(60, Math.max(0, raw));
+    const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    
+    let count = 0;
+    setDraftConfig(prev => {
+        const next = JSON.parse(JSON.stringify(prev));
+        
+        for (const prayer of prayers) {
+            // Skip preIqamah for sunrise
+            if (eventType === 'preIqamah' && prayer === 'sunrise') continue;
+            
+            const trigger = next.automation?.triggers?.[prayer]?.[eventType];
+            if (trigger) {
+                trigger.offsetMinutes = clampedMinutes;
+                count++;
+            }
+        }
+        
+        return next;
+    });
+    
+    return count;
+  };
+
   const resetDraft = () => {
       if (config) {
           setDraftConfig(JSON.parse(JSON.stringify(config)));
@@ -333,7 +359,8 @@ export const SettingsProvider = ({ children }) => {
         refresh: fetchSettings,
         systemHealth,
         refreshHealth,
-        validateBeforeSave
+        validateBeforeSave,
+        bulkUpdateOffsets
     }}>
       {children}
     </SettingsContext.Provider>

@@ -7,13 +7,14 @@ const configService = require('../config'); // Singleton
 const CACHE_DIR = path.join(__dirname, '../../public/audio/cache');
 const ARABIC_NAMES = {
     fajr: 'فجر',
+    sunrise: 'شُروق',
     dhuhr: 'ظُهْر',
     asr: 'عصر',
     maghrib: 'مغرب',
     isha: 'عشاء'
 };
 
-const PRAYER_NAMES = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+const PRAYER_NAMES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 const ensureCacheDir = () => {
     if (!fs.existsSync(CACHE_DIR)) {

@@ -28,7 +28,7 @@ const PrayerRow = ({ name, time, iqamah, status }) => {
 };
 
 const PrayerCard = ({ prayers, nextPrayer }) => {
-    const prayerList = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    const prayerList = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
     
     const getStatus = (key) => {
         if (!nextPrayer) return 'future';

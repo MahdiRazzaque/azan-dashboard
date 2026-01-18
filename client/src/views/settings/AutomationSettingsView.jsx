@@ -66,6 +66,16 @@ export default function AutomationSettingsView() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [testError, setTestError] = useState(null);
 
+  const { bulkUpdateOffsets } = useSettings();
+  const [batchVals, setBatchVals] = useState({ preAdhan: 15, preIqamah: 10 });
+  const [toast, setToast] = useState(null);
+
+  const handleBulkUpdate = (type) => {
+      const count = bulkUpdateOffsets(type, batchVals[type]);
+      setToast(`Successfully updated ${count} ${type.replace(/([A-Z])/g, ' $1').toLowerCase()} triggers.`);
+      setTimeout(() => setToast(null), 5000);
+  };
+
   // FR-03 & Clean up: Removed VoiceMonkey logic
 
   return (
@@ -123,6 +133,84 @@ export default function AutomationSettingsView() {
             </div>
         </section>
 
+        {/* Batch Adjustments Card */}
+        <section className="bg-app-card p-6 rounded-xl border border-app-border shadow-xl">
+            <h2 className="text-xl font-semibold mb-4 text-emerald-400 flex items-center gap-2 border-b border-app-border pb-2">
+                <Zap className="w-5 h-5" />
+                Batch Adjustments
+            </h2>
+            <p className="text-sm text-app-dim mb-6">
+                Apply offset times to all prayers in one click. System will skip Sunrise for Iqamah adjustments.
+            </p>
+            
+            <div className="space-y-6">
+                 {/* Row 1: Pre-Adhan */}
+                <div className="flex flex-col md:flex-row md:items-center gap-4 bg-app-bg/20 p-4 rounded-lg border border-app-border">
+                    <div className="flex-1">
+                        <div className="font-medium text-app-text">Pre-Adhan Offset</div>
+                        <div className="text-xs text-app-dim">Minutes before Adhan delivery</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                         <div className="flex items-center gap-2 bg-app-card border border-app-border rounded px-2 py-1">
+                            <span className="text-[10px] text-app-dim font-bold uppercase">Mins</span>
+                            <input 
+                                type="number" 
+                                min="0" 
+                                max="60"
+                                value={batchVals.preAdhan}
+                                onChange={e => setBatchVals(prev => ({ ...prev, preAdhan: e.target.value }))}
+                                className="w-12 bg-transparent border-none text-sm text-app-text focus:outline-none font-mono focus:ring-0"
+                            />
+                         </div>
+                         <button 
+                            type="button"
+                            onClick={() => handleBulkUpdate('preAdhan')}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors"
+                         >
+                            Apply to All
+                         </button>
+                    </div>
+                </div>
+
+                {/* Row 2: Pre-Iqamah */}
+                <div className="flex flex-col md:flex-row md:items-center gap-4 bg-app-bg/20 p-4 rounded-lg border border-app-border">
+                    <div className="flex-1">
+                        <div className="font-medium text-app-text">Pre-Iqamah Offset</div>
+                        <div className="text-xs text-app-dim">Minutes before Iqamah delivery</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                         <div className="flex items-center gap-2 bg-app-card border border-app-border rounded px-2 py-1">
+                            <span className="text-[10px] text-app-dim font-bold uppercase">Mins</span>
+                            <input 
+                                type="number" 
+                                min="0" 
+                                max="60"
+                                value={batchVals.preIqamah}
+                                onChange={e => setBatchVals(prev => ({ ...prev, preIqamah: e.target.value }))}
+                                className="w-12 bg-transparent border-none text-sm text-app-text focus:outline-none font-mono focus:ring-0"
+                            />
+                         </div>
+                         <button 
+                            type="button"
+                            onClick={() => handleBulkUpdate('preIqamah')}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors"
+                         >
+                            Apply to All
+                         </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Notification Area */}
+            {toast && (
+                <div className="mt-4 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="bg-emerald-900/40 border border-emerald-500/50 rounded p-3 flex items-center gap-3 text-emerald-400 text-sm">
+                        <CheckCircle className="w-4 h-4" />
+                        {toast}
+                    </div>
+                </div>
+            )}
+        </section>
     </div>
   );
 }

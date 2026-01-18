@@ -10,7 +10,7 @@ const DashboardView = ({ prayers, nextPrayer, isMuted, toggleMute, blocked, onCo
             <TopControls isMuted={isMuted} toggleMute={toggleMute} blocked={blocked} />
             <DashboardLayout>
                 <PrayerCard prayers={prayers} nextPrayer={nextPrayer} />
-                <FocusCard nextPrayer={nextPrayer} onCountdownComplete={onCountdownComplete} />
+                <FocusCard nextPrayer={nextPrayer} prayers={prayers} onCountdownComplete={onCountdownComplete} />
             </DashboardLayout>
         </div>
     );

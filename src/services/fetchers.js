@@ -24,6 +24,7 @@ const MyMasjidBulkResponseSchema = z.object({
         day: z.number(),
         month: z.number(),
         fajr: z.string(),
+        shouruq: z.string().optional(),
         zuhr: z.string(),
         asr: z.string(),
         maghrib: z.string(),
@@ -136,6 +137,7 @@ async function _doFetchAladhanAnnual(config, year) {
 
         resultMap[isoDateKey] = {
             fajr: cleanTime(dayInfo.timings.Fajr),
+            sunrise: cleanTime(dayInfo.timings.Sunrise),
             dhuhr: cleanTime(dayInfo.timings.Dhuhr),
             asr: cleanTime(dayInfo.timings.Asr),
             maghrib: cleanTime(dayInfo.timings.Maghrib),
@@ -233,6 +235,7 @@ async function _doFetchMyMasjidBulk(config) {
 
       resultMap[isoDateKey] = {
           fajr: formatTime(day.fajr, dateObj),
+          sunrise: formatTime(day.shouruq, dateObj),
           dhuhr: formatTime(day.zuhr, dateObj), // API uses 'zuhr'
           asr: formatTime(day.asr, dateObj),
           maghrib: formatTime(day.maghrib, dateObj),

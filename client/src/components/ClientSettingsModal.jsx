@@ -14,6 +14,7 @@ const ClientSettingsModal = ({ onClose }) => {
 
   const prayers = [
     { id: 'fajr', label: 'Fajr' },
+    { id: 'sunrise', label: 'Sunrise' },
     { id: 'dhuhr', label: 'Dhuhr' },
     { id: 'asr', label: 'Asr' },
     { id: 'maghrib', label: 'Maghrib' },
@@ -152,6 +153,26 @@ const ClientSettingsModal = ({ onClose }) => {
                     ))}
                   </div>
                 </div>
+                
+                {/* Skip Sunrise in Countdown */}
+                <div className="flex items-center justify-between p-4 bg-app-bg/30 rounded-2xl border border-app-border/50">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-app-text">Target Dhuhr after Fajr</span>
+                    <span className="text-xs text-app-dim">Skip Sunrise in the main dashboard countdown</span>
+                  </div>
+                  <button
+                    onClick={() => updateAppearance('skipSunriseCountdown', !preferences.appearance.skipSunriseCountdown)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                      preferences.appearance.skipSunriseCountdown ? "bg-app-accent" : "bg-app-card-hover"
+                    )}
+                  >
+                    <span className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                      preferences.appearance.skipSunriseCountdown ? "translate-x-6" : "translate-x-1"
+                    )} />
+                  </button>
+                </div>
 
                 {/* Theme */}
                 <div className="space-y-4">
@@ -214,6 +235,11 @@ const ClientSettingsModal = ({ onClose }) => {
                                 <tr key={p.id}>
                                     <td className="py-4 px-3 text-sm font-bold text-app-dim uppercase tracking-tighter">{p.label}</td>
                                     {events.map(e => {
+                                        // Skip iqamah events for sunrise
+                                        if (p.id === 'sunrise' && (e.id === 'preIqamah' || e.id === 'iqamah')) {
+                                            return <td key={e.id} className="py-4 px-3 text-center text-app-dim opacity-10">—</td>;
+                                        }
+
                                         const isExcluded = isAudioExcluded(p.id, e.id);
                                         
                                         // Trigger Active Logic

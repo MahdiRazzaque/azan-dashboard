@@ -1,12 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DateTime } from 'luxon';
 import { useClientPreferences } from '../contexts/ClientPreferencesContext';
+import { useMemo } from 'react';
 
-const FocusCard = ({ nextPrayer, onCountdownComplete }) => {
+const FocusCard = ({ nextPrayer, prayers, onCountdownComplete }) => {
     const [now, setNow] = useState(DateTime.now());
     const { preferences } = useClientPreferences();
-    const { clockFormat, showSeconds, countdownMode } = preferences.appearance;
+    const { clockFormat, showSeconds, countdownMode, skipSunriseCountdown } = preferences.appearance;
     const lastTriggeredRef = useRef(null);
+
+    // Calculate effective next prayer (skip sunrise if preference is set)
+    const effectiveNextPrayer = useMemo(() => {
+        if (!nextPrayer) return null;
+        if (nextPrayer.name === 'sunrise' && skipSunriseCountdown && prayers?.dhuhr?.start) {
+            return {
+                name: 'dhuhr',
+                time: prayers.dhuhr.start,
+                isTomorrow: false
+            };
+        }
+        return nextPrayer;
+    }, [nextPrayer, skipSunriseCountdown, prayers]);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(DateTime.now()), 1000);
@@ -15,16 +29,16 @@ const FocusCard = ({ nextPrayer, onCountdownComplete }) => {
 
     // Trigger refetch when countdown completes
     useEffect(() => {
-        if (!nextPrayer || !onCountdownComplete) return;
+        if (!effectiveNextPrayer || !onCountdownComplete) return;
 
-        const target = DateTime.fromISO(nextPrayer.time);
+        const target = DateTime.fromISO(effectiveNextPrayer.time);
         const secondsLeft = Math.floor((target.toMillis() - now.toMillis()) / 1000);
 
         // Only trigger if we haven't already triggered for this specific prayer time
-        if (secondsLeft <= 0 && lastTriggeredRef.current !== nextPrayer.time) {
-            lastTriggeredRef.current = nextPrayer.time;
+        if (secondsLeft <= 0 && lastTriggeredRef.current !== effectiveNextPrayer.time) {
+            lastTriggeredRef.current = effectiveNextPrayer.time;
             
-            console.log(`[FocusCard] Countdown finished for ${nextPrayer.name}. Triggering refetch in 2s...`);
+            console.log(`[FocusCard] Countdown finished for ${effectiveNextPrayer.name}. Triggering refetch in 2s...`);
             
             const timer = setTimeout(() => {
                 onCountdownComplete();
@@ -32,11 +46,11 @@ const FocusCard = ({ nextPrayer, onCountdownComplete }) => {
             
             return () => clearTimeout(timer);
         }
-    }, [nextPrayer, now, onCountdownComplete]);
+    }, [effectiveNextPrayer, now, onCountdownComplete]);
 
     const getCountdown = () => {
-        if (!nextPrayer) return null;
-        const target = DateTime.fromISO(nextPrayer.time);
+        if (!effectiveNextPrayer) return null;
+        const target = DateTime.fromISO(effectiveNextPrayer.time);
         const secondsLeft = Math.max(0, Math.floor((target.toMillis() - now.toMillis()) / 1000));
 
         if (secondsLeft <= 0) return '0sec';
@@ -89,10 +103,10 @@ const FocusCard = ({ nextPrayer, onCountdownComplete }) => {
             </div>
 
             {/* Countdown Section */}
-            {nextPrayer && (
+            {effectiveNextPrayer && (
                 <div className="flex flex-col items-center space-y-4 z-10 mt-4">
                     <div className="text-lg lg:text-2xl text-app-accent font-semibold uppercase tracking-[0.3em] opacity-90 drop-shadow-md">
-                        Upcoming: {nextName}
+                        Upcoming: {effectiveNextPrayer.name.charAt(0).toUpperCase() + effectiveNextPrayer.name.slice(1)}
                     </div>
                     <div className="text-3xl lg:text-6xl min-w-[250px] lg:min-w-[500px] text-center font-mono text-app-text bg-app-bg/40 px-6 lg:px-10 py-2 lg:py-4 rounded-2xl backdrop-blur-lg border border-app-border/10 shadow-inner">
                         {getCountdown()}

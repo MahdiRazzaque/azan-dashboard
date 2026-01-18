@@ -114,22 +114,48 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                          );
                      })()}
                   </div>
-                 <button
-                    role="switch"
-                    aria-checked={trigger.enabled}
-                    onClick={() => update('enabled', !trigger.enabled)}
-                    className={cn(
-                        "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-app-card",
-                        trigger.enabled ? "bg-emerald-600" : "bg-app-card-hover"
-                    )}
-                 >
-                    <span
+                  <div className="flex items-center gap-4">
+                     {/* Offset Minutes Input - Only for pre* events */}
+                     {eventType?.startsWith('pre') && (
+                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 transition-all">
+                            <label className="text-[10px] text-app-dim font-bold uppercase tracking-wider">
+                                Minutes Before
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="60"
+                                value={trigger.offsetMinutes || 15}
+                                onChange={(e) => {
+                                    const raw = parseInt(e.target.value);
+                                    const clamped = isNaN(raw) ? 15 : Math.min(60, Math.max(0, raw));
+                                    update('offsetMinutes', clamped);
+                                }}
+                                aria-label="Minutes Before"
+                                disabled={!trigger.enabled || isDisabledByMaster}
+                                className="w-14 bg-app-bg border border-app-border rounded-md px-2 py-1 text-xs text-app-text 
+                                        focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 disabled:opacity-30 transition-all font-mono"
+                            />
+                        </div>
+                     )}
+
+                     <button
+                        role="switch"
+                        aria-checked={trigger.enabled}
+                        onClick={() => update('enabled', !trigger.enabled)}
                         className={cn(
-                            "inline-block h-3 w-3 transform rounded-full bg-white transition duration-200 ease-in-out",
-                            trigger.enabled ? "translate-x-5" : "translate-x-1"
+                            "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-app-card",
+                            trigger.enabled ? "bg-emerald-600" : "bg-app-card-hover"
                         )}
-                    />
-                 </button>
+                     >
+                        <span
+                            className={cn(
+                                "inline-block h-3 w-3 transform rounded-full bg-white transition duration-200 ease-in-out",
+                                trigger.enabled ? "translate-x-5" : "translate-x-1"
+                            )}
+                        />
+                     </button>
+                  </div>
              </div>
              
              {/* Collapsible Content */}
@@ -167,14 +193,14 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                      </div>
                      
                      {/* Dynamic Input based on Type */}
-                     <div className="bg-app-bg/50 p-3 rounded border border-app-border/50">
+                     <div className="bg-app-bg/20 p-3 rounded-lg border border-app-border">
                         {trigger.type === 'file' && (
                             <select 
                                 value={trigger.path || ''} 
                                 onChange={e => update('path', e.target.value)}
                                 className={cn(
-                                    "w-full bg-app-card border rounded p-2 text-sm text-app-text focus:outline-none",
-                                    error ? "border-red-500 focus:border-red-500" : "border-app-border focus:border-emerald-500"
+                                    "w-full bg-app-card border border-app-border rounded-md p-2 text-sm text-app-text focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20",
+                                    error ? "border-red-500 focus:border-red-500" : ""
                                 )}
                             >
                                 <option value="">-- Select File --</option>
@@ -187,13 +213,13 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                         {trigger.type === 'tts' && (
                             <div className="space-y-1">
                                 <span className="text-xs text-app-dim">
-                                    Variables: <code className="text-app-dim">{"{prayer}"}</code>, <code className="text-app-dim">{"{prayerArabic}"}</code>, <code className="text-app-dim">{"{minutes}"}</code>
+                                    Variables: <code className="text-app-dim">{"{prayerEnglish}"}</code>, <code className="text-app-dim">{"{prayerArabic}"}</code>, <code className="text-app-dim">{"{minutes}"}</code>
                                 </span>
                                 <input 
-                                    placeholder="TTS Template String (e.g. It is time for {prayer})"
+                                    placeholder="TTS Template String (e.g. It is time for {prayerEnglish})"
                                     className={cn(
-                                        "w-full bg-app-card border rounded p-2 text-sm text-app-text focus:outline-none",
-                                        error ? "border-red-500 focus:border-red-500" : "border-app-border focus:border-emerald-500"
+                                        "w-full bg-app-card border border-app-border rounded-md p-2 text-sm text-app-text focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20",
+                                        error ? "border-red-500 focus:border-red-500" : ""
                                     )}
                                     value={trigger.template || ''}
                                     onChange={e => update('template', e.target.value)}
@@ -205,8 +231,8 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                              <input 
                                 placeholder="https://..."
                                 className={cn(
-                                    "w-full bg-app-card border rounded p-2 text-sm text-app-text focus:outline-none",
-                                    error ? "border-red-500 focus:border-red-500" : "border-app-border focus:border-emerald-500"
+                                    "w-full bg-app-card border border-app-border rounded-md p-2 text-sm text-app-text focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20",
+                                    error ? "border-red-500 focus:border-red-500" : ""
                                 )}
                                 value={trigger.url || ''}
                                 onChange={e => update('url', e.target.value)}

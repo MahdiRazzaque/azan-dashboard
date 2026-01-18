@@ -180,7 +180,7 @@ export default function FileManagerView() {
     const cacheFiles = files.filter(f => f.type === 'cache');
 
     // Grouping logic for TTS
-    const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
     const groupedCache = prayers.reduce((acc, p) => ({ ...acc, [p]: [] }), { other: [] });
     
     cacheFiles.forEach(file => {

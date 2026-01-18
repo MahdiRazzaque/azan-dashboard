@@ -12,7 +12,7 @@ const targetSchema = z.enum(['local', 'voiceMonkey']);
 
 const triggerEventSchema = z.object({
   enabled: z.boolean(),
-  offsetMinutes: z.number().optional(),
+  offsetMinutes: z.number().min(0).max(60).optional(),
   type: triggerActionSchema,
   template: z.string().optional(),
   path: z.string().optional(),
@@ -28,6 +28,11 @@ const prayerTriggersSchema = z.object({
   preIqamah: triggerEventSchema,
   iqamah: triggerEventSchema,
   
+});
+
+const sunriseTriggersSchema = z.object({
+  preAdhan: triggerEventSchema,
+  adhan: triggerEventSchema
 });
 
 const automationSchema = z.object({
@@ -48,6 +53,7 @@ const automationSchema = z.object({
   }),
   triggers: z.object({
     fajr: prayerTriggersSchema,
+    sunrise: sunriseTriggersSchema,
     dhuhr: prayerTriggersSchema,
     asr: prayerTriggersSchema,
     maghrib: prayerTriggersSchema,
@@ -120,6 +126,7 @@ module.exports = {
   configSchema,
   automationSchema,
   prayerTriggersSchema,
+  sunriseTriggersSchema,
   triggerEventSchema,
   prayerSettingSchema
 };

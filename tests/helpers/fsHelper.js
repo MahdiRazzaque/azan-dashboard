@@ -44,6 +44,10 @@ const fsHelper = {
                         "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "Iqamah in {minutes}", "targets": ["local"] },
                         "iqamah": { "enabled": false, "type": "tts", "template": "Time for Iqamah", "targets": ["local"] }
                     },
+                    "sunrise": {
+                        "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes", "targets": ["local"] },
+                        "adhan": { "enabled": false, "type": "tts", "template": "Sunrise", "targets": ["local"] }
+                    },
                     "dhuhr": {
                         "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes", "targets": ["local"] },
                         "adhan": { "enabled": false, "type": "file", "path": "adhan.mp3", "targets": ["local"] },

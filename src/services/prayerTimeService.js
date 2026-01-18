@@ -28,7 +28,7 @@ async function getPrayersWithNext(config, timezone) {
   
   // 2. Process Prayers (Start + Iqamah)
   const prayers = {};
-  const prayerNames = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+  const prayerNames = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
   
   prayerNames.forEach(name => {
     const startISO = rawData.prayers[name]; 
@@ -37,14 +37,18 @@ async function getPrayersWithNext(config, timezone) {
         return;
     }
     
-    let iqamahISO;
-    // Use explicit Iqamah from source if available (FR-05)
-    if (rawData.prayers.iqamah && rawData.prayers.iqamah[name]) {
-        iqamahISO = rawData.prayers.iqamah[name];
-    } else {
-        // Fallback to calculation
-        const settings = config.prayers[name];
-        iqamahISO = calculateIqamah(startISO, settings, timezone);
+    let iqamahISO = null;
+    if (name !== 'sunrise') {
+        // Use explicit Iqamah from source if available (FR-05)
+        if (rawData.prayers.iqamah && rawData.prayers.iqamah[name]) {
+            iqamahISO = rawData.prayers.iqamah[name];
+        } else {
+            // Fallback to calculation
+            const settings = config.prayers[name];
+            if (settings) {
+                iqamahISO = calculateIqamah(startISO, settings, timezone);
+            }
+        }
     }
     
     prayers[name] = {

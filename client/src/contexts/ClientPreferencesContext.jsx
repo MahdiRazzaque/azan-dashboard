@@ -9,7 +9,8 @@ const DEFAULT_PREFERENCES = {
     theme: 'dark',
     clockFormat: '24h',
     showSeconds: true,
-    countdownMode: 'normal' // 'normal' | 'digital' | 'minimal'
+    countdownMode: 'normal', // 'normal' | 'digital' | 'minimal'
+    skipSunriseCountdown: false
   },
   audioExclusions: [] // Array of "prayer-event" strings, e.g., ["fajr-adhan"]
 };
@@ -63,11 +64,11 @@ export const ClientPreferencesProvider = ({ children }) => {
   };
 
   const muteAll = () => {
-    const allEvents = ['preAdhan', 'adhan', 'preIqamah', 'iqamah'];
-    const allPrayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    const allPrayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
     const exclusions = [];
     allPrayers.forEach(p => {
-      allEvents.forEach(e => {
+      const events = p === 'sunrise' ? ['preAdhan', 'adhan'] : ['preAdhan', 'adhan', 'preIqamah', 'iqamah'];
+      events.forEach(e => {
         exclusions.push(`${p}-${e}`);
       });
     });

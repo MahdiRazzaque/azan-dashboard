@@ -8,7 +8,7 @@ const getAutomationStatus = async (config) => {
     const timezone = config.location.timezone;
     const now = DateTime.now().setZone(timezone);
     const triggers = config.automation.triggers;
-    const prayerNames = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    const prayerNames = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
     
     // We need today's prayer times to calculate accurate trigger times
     // Assuming caching is handled by prayerTimeService layers
@@ -81,12 +81,14 @@ const getAutomationStatus = async (config) => {
         const preAdhanOffset = prayerTriggers.preAdhan?.offsetMinutes || 0;
         result[prayer].preAdhan = getStatus(prayerTriggers.preAdhan, start.minus({ minutes: preAdhanOffset }));
 
-        // 3. Iqamah
-        result[prayer].iqamah = getStatus(prayerTriggers.iqamah, iqamah);
+        // 3 & 4. Iqamah events (skip for sunrise)
+        if (prayer !== 'sunrise') {
+            result[prayer].iqamah = getStatus(prayerTriggers.iqamah, iqamah);
 
-        // 4. Pre-Iqamah
-        const preIqamahOffset = prayerTriggers.preIqamah?.offsetMinutes || 0;
-        result[prayer].preIqamah = getStatus(prayerTriggers.preIqamah, iqamah ? iqamah.minus({ minutes: preIqamahOffset }) : null);
+            // 4. Pre-Iqamah
+            const preIqamahOffset = prayerTriggers.preIqamah?.offsetMinutes || 0;
+            result[prayer].preIqamah = getStatus(prayerTriggers.preIqamah, iqamah ? iqamah.minus({ minutes: preIqamahOffset }) : null);
+        }
     }
 
     return result;
@@ -95,8 +97,7 @@ const getAutomationStatus = async (config) => {
 const { resolveTemplate } = require('./audioAssetService');
 
 const getTTSStatus = async (config) => {
-    const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
-    const events = ['preAdhan', 'adhan', 'preIqamah', 'iqamah'];
+    const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
     const result = {};
 
     const cacheDir = path.join(process.cwd(), 'public', 'audio', 'cache');
@@ -104,6 +105,8 @@ const getTTSStatus = async (config) => {
     for (const prayer of prayers) {
         result[prayer] = {};
         const prayerTriggers = config.automation.triggers[prayer] || {};
+        
+        const events = prayer === 'sunrise' ? ['preAdhan', 'adhan'] : ['preAdhan', 'adhan', 'preIqamah', 'iqamah'];
 
         for (const event of events) {
             const triggerConfig = prayerTriggers[event];

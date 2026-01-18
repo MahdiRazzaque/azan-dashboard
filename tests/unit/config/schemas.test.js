@@ -36,6 +36,10 @@ describe('Config Schemas', () => {
                     preIqamah: { enabled: false, type: 'tts', targets: [] },
                     iqamah: { enabled: false, type: 'tts', targets: [] }
                 },
+                sunrise: {
+                    preAdhan: { enabled: false, type: 'tts', targets: [] },
+                    adhan: { enabled: false, type: 'tts', targets: [] }
+                },
                 dhuhr: { 
                     preAdhan: { enabled: false, type: 'tts', targets: [] },
                     adhan: { enabled: false, type: 'tts', targets: [] },
@@ -91,5 +95,18 @@ describe('Config Schemas', () => {
         expect(result.data.calculation.madhab).toBe(1);
         expect(result.data.calculation.latitudeAdjustmentMethod).toBe(0);
         expect(result.data.calculation.midnightMode).toBe(0);
+    });
+    it('should fail for offsetMinutes > 60', () => {
+        const config = { ...validConfig };
+        config.automation.triggers.fajr.preAdhan.offsetMinutes = 90;
+        const result = configSchema.safeParse(config);
+        expect(result.success).toBe(false);
+    });
+
+    it('should allow offsetMinutes = 60', () => {
+        const config = { ...validConfig };
+        config.automation.triggers.fajr.preAdhan.offsetMinutes = 60;
+        const result = configSchema.safeParse(config);
+        expect(result.success).toBe(true);
     });
 });

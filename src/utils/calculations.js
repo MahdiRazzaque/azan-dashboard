@@ -57,7 +57,7 @@ function calculateIqamah(prayerStartISO, settings, timezone) {
  * @returns {object|null} Next prayer object { name, time: ISO } or null if all passed.
  */
 function calculateNextPrayer(prayers, now) {
-  const prayerNames = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+  const prayerNames = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
   
   for (const name of prayerNames) {
     if (prayers[name] && prayers[name].start) {

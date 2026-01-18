@@ -209,7 +209,7 @@ const initScheduler = async () => {
         if (!triggers) return;
 
         // Schedule jobs
-        const prayerNames = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+        const prayerNames = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
         
         for (const prayer of prayerNames) {
              const triggersForPrayer = triggers[prayer];
@@ -227,17 +227,19 @@ const initScheduler = async () => {
              
              // Determine Iqamah
              let iqamah = null;
-             const prayerConfig = config.prayers[prayer];
-             const isOverride = prayerConfig?.iqamahOverride === true;
-             
-             // 1. Explicit Iqamah from Source (Only if NOT overridden)
-             if (!isOverride && prayerData.prayers.iqamah && prayerData.prayers.iqamah[prayer]) {
-                 iqamah = DateTime.fromISO(prayerData.prayers.iqamah[prayer]).setZone(config.location.timezone);
-             } 
-             // 2. Calculated (Fallback or Forced Override)
-             else if (prayerConfig) {
-                 const calculatedIso = calculateIqamah(startISO, prayerConfig, config.location.timezone);
-                 iqamah = DateTime.fromISO(calculatedIso).setZone(config.location.timezone);
+             if (prayer !== 'sunrise') {
+                 const prayerConfig = config.prayers[prayer];
+                 const isOverride = prayerConfig?.iqamahOverride === true;
+                 
+                 // 1. Explicit Iqamah from Source (Only if NOT overridden)
+                 if (!isOverride && prayerData.prayers.iqamah && prayerData.prayers.iqamah[prayer]) {
+                     iqamah = DateTime.fromISO(prayerData.prayers.iqamah[prayer]).setZone(config.location.timezone);
+                 } 
+                 // 2. Calculated (Fallback or Forced Override)
+                 else if (prayerConfig) {
+                     const calculatedIso = calculateIqamah(startISO, prayerConfig, config.location.timezone);
+                     iqamah = DateTime.fromISO(calculatedIso).setZone(config.location.timezone);
+                 }
              }
 
              // 1. Adhan
@@ -251,7 +253,7 @@ const initScheduler = async () => {
                  scheduleEvent(start.minus({ minutes: offset }), prayer, 'preAdhan');
              }
 
-             if (iqamah) {
+             if (iqamah && prayer !== 'sunrise') {
                  // 3. Iqamah
                  if (triggersForPrayer.iqamah?.enabled) {
                      scheduleEvent(iqamah, prayer, 'iqamah');
