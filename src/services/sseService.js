@@ -12,6 +12,7 @@ const addClient = (res) => {
     res.write('retry: 10000\n\n');
     
     clients.push(res);
+    console.log(`[SSE] Client connected. Total clients: ${clients.length}`);
 
     // Send history
     if (logHistory.length > 0) {
@@ -23,6 +24,7 @@ const addClient = (res) => {
     
     res.on('close', () => {
         clients = clients.filter(c => c !== res);
+        console.log(`[SSE] Client disconnected. Total clients: ${clients.length}`);
     });
 };
 
