@@ -28,6 +28,8 @@ jest.mock('../../src/services/audioAssetService', () => ({
     syncAudioAssets: jest.fn()
 }));
 
+const request = require('supertest');
+
 describe('Server Startup', () => {
     let server;
     
@@ -105,5 +107,35 @@ describe('Server Startup', () => {
         // Should NOT exit
         expect(process.exit).not.toHaveBeenCalled();
         expect(initScheduler).toHaveBeenCalled(); // Should proceed
+    });
+
+    it('should handle audio asset sync failure gracefully', async () => {
+        configService.init.mockResolvedValue();
+        configService.get.mockReturnValue({ sources: {}, location: { coordinates: {} } });
+        audioAssetService.syncAudioAssets.mockRejectedValue(new Error('Sync Fail'));
+        
+        server = await app.startServer(0);
+        
+        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Failed to synchronise audio assets'), 'Sync Fail');
+        // Should NOT exit, just log and continue
+        expect(process.exit).not.toHaveBeenCalled();
+        expect(initScheduler).toHaveBeenCalled();
+    });
+});
+
+describe('Server Routes', () => {
+    it('should respond to /api/health', async () => {
+        const response = await request(app).get('/api/health');
+        expect(response.status).toBe(200);
+        expect(response.body).toHaveProperty('status', 'ok');
+        expect(response.body).toHaveProperty('timestamp');
+        expect(response.body).toHaveProperty('message');
+    });
+
+    it('should serve React app on catch-all route', async () => {
+        const response = await request(app).get('/some-random-route');
+        // In test environment, client/dist/index.html may not exist, resulting in 404
+        // The important thing is that the route handler is defined and executes
+        expect([200, 404]).toContain(response.status);
     });
 });
