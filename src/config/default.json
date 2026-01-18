@@ -18,7 +18,7 @@
   },
   "sources": {
     "primary": { "type": "aladhan" },
-    "backup":  { "type": "mymasjid", "masjidId": "uuid-placeholder" }
+    "backup":  null
   },
   "data": {
     "staleCheckDays": 7
