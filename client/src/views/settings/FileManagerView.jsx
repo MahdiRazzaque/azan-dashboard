@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, ChevronRight } from 'lucide-react';
 import AudioTestModal from '../../components/AudioTestModal';
+import ConfirmModal from '../../components/ConfirmModal';
 
 export default function FileManagerView() {
     const [files, setFiles] = useState([]);
@@ -13,6 +14,9 @@ export default function FileManagerView() {
     const [testModalFile, setTestModalFile] = useState(null);
     const [consentGiven, setConsentGiven] = useState(false);
     const [collapsedSections, setCollapsedSections] = useState({});
+    
+    // Overwrite confirmation state
+    const [pendingUpload, setPendingUpload] = useState(null);
     
     // Audio ref for browser playback
     const audioRef = useRef(new Audio());
@@ -35,7 +39,7 @@ export default function FileManagerView() {
         };
     }, []);
 
-    const handleUpload = async (e) => {
+    const handleUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
@@ -45,6 +49,23 @@ export default function FileManagerView() {
             return;
         }
 
+        // Check if file already exists in custom files
+        const customFiles = files.filter(f => f.type === 'custom');
+        const existingFile = customFiles.find(f => f.name === file.name);
+        
+        if (existingFile) {
+            // Show confirmation modal
+            setPendingUpload(file);
+        } else {
+            // Upload directly
+            performUpload(file);
+        }
+        
+        // Reset the input so the same file can be selected again
+        e.target.value = '';
+    };
+
+    const performUpload = async (file) => {
         const formData = new FormData();
         formData.append('file', file);
         setUploading(true);
@@ -81,6 +102,17 @@ export default function FileManagerView() {
         } finally {
             setUploading(false);
         }
+    };
+
+    const handleOverwriteConfirm = () => {
+        if (pendingUpload) {
+            performUpload(pendingUpload);
+            setPendingUpload(null);
+        }
+    };
+
+    const handleOverwriteCancel = () => {
+        setPendingUpload(null);
     };
 
     const handleDelete = async (filename) => {
@@ -330,6 +362,18 @@ export default function FileManagerView() {
                 consentGiven={consentGiven}
                 setConsentGiven={setConsentGiven}
                 onTest={(target) => handleServerPlay(testModalFile, target)}
+            />
+
+            <ConfirmModal
+                isOpen={!!pendingUpload}
+                onClose={handleOverwriteCancel}
+                onConfirm={handleOverwriteConfirm}
+                onCancel={handleOverwriteCancel}
+                title="Overwrite Existing File?"
+                message={`A file named "${pendingUpload?.name}" already exists. Do you want to replace it with the new file?`}
+                confirmText="Overwrite"
+                cancelText="Cancel"
+                isDestructive={true}
             />
         </div>
     );
