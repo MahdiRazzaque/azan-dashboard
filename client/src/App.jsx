@@ -20,7 +20,7 @@ import DeveloperSettingsView from './views/settings/DeveloperSettingsView';
 function App() {
   const { playUrl, isMuted, toggleMute, blocked } = useAudio();
   const { isAudioExcluded } = useClientPreferences();
-  const { prayers, nextPrayer } = usePrayerTimes();
+  const { prayers, nextPrayer, refetch } = usePrayerTimes();
 
   const handleAudioPlay = useCallback((prayer, event, url) => {
     if (isAudioExcluded(prayer, event)) {
@@ -57,6 +57,7 @@ function App() {
                     isMuted={isMuted} 
                     toggleMute={toggleMute} 
                     blocked={blocked} 
+                    onCountdownComplete={refetch}
                 />
             } 
         />

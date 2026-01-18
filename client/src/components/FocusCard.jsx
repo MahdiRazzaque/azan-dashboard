@@ -1,16 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DateTime } from 'luxon';
 import { useClientPreferences } from '../contexts/ClientPreferencesContext';
 
-const FocusCard = ({ nextPrayer }) => {
+const FocusCard = ({ nextPrayer, onCountdownComplete }) => {
     const [now, setNow] = useState(DateTime.now());
     const { preferences } = useClientPreferences();
     const { clockFormat, showSeconds, countdownMode } = preferences.appearance;
+    const lastTriggeredRef = useRef(null);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(DateTime.now()), 1000);
         return () => clearInterval(timer);
     }, []);
+
+    // Trigger refetch when countdown completes
+    useEffect(() => {
+        if (!nextPrayer || !onCountdownComplete) return;
+
+        const target = DateTime.fromISO(nextPrayer.time);
+        const secondsLeft = Math.floor((target.toMillis() - now.toMillis()) / 1000);
+
+        // Only trigger if we haven't already triggered for this specific prayer time
+        if (secondsLeft <= 0 && lastTriggeredRef.current !== nextPrayer.time) {
+            lastTriggeredRef.current = nextPrayer.time;
+            
+            console.log(`[FocusCard] Countdown finished for ${nextPrayer.name}. Triggering refetch in 2s...`);
+            
+            const timer = setTimeout(() => {
+                onCountdownComplete();
+            }, 2000);
+            
+            return () => clearTimeout(timer);
+        }
+    }, [nextPrayer, now, onCountdownComplete]);
 
     const getCountdown = () => {
         if (!nextPrayer) return null;
