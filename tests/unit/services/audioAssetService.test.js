@@ -2,10 +2,12 @@ const fs = require('fs');
 const axios = require('axios');
 const service = require('../../../src/services/audioAssetService');
 const configService = require('../../../src/config');
+const healthCheck = require('../../../src/services/healthCheck');
 
 jest.mock('fs');
 jest.mock('axios');
 jest.mock('../../../src/config');
+jest.mock('../../../src/services/healthCheck');
 
 describe('AudioAssetService', () => {
     const mockConfig = {
@@ -37,9 +39,16 @@ describe('AudioAssetService', () => {
         fs.utimesSync.mockImplementation(() => {});
         jest.spyOn(console, 'log').mockImplementation(() => {});
         jest.spyOn(console, 'error').mockImplementation(() => {});
+        healthCheck.getHealth.mockReturnValue({ tts: { healthy: true } });
+        healthCheck.refresh.mockResolvedValue();
     });
 
     describe('syncAudioAssets', () => {
+        it('should throw error if TTS service is offline (L133)', async () => {
+            healthCheck.getHealth.mockReturnValue({ tts: { healthy: false } });
+            await expect(service.syncAudioAssets()).rejects.toThrow('TTS Service is offline');
+        });
+
         it('should return existing file if locally cached', async () => {
             // Mock cache hit (exists + meta matches)
             fs.existsSync.mockReturnValue(true);
@@ -107,6 +116,18 @@ describe('AudioAssetService', () => {
             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Cleanup failed'), expect.any(String));
         });
     });
+
+    describe('resolveTemplate', () => {
+        it('should resolve placeholders correctly', () => {
+            const res = service.resolveTemplate('{prayerEnglish} at {minutes}', 'fajr', 10);
+            expect(res).toBe('Fajr at ten');
+        });
+        
+        it('should fallback if arabic name missing', () => {
+             const res = service.resolveTemplate('{prayerArabic}', 'unknown');
+             expect(res).toBe('unknown');
+        });
+    });
     
     describe('syncAudioAssets Edge Cases', () => {
         it('should handle TTS generation errors gracefully', async () => {
@@ -133,5 +154,19 @@ describe('AudioAssetService', () => {
             
             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Failed to force clean cache'), expect.anything());
         });
+    });
+
+    it('should throw error if quota is exceeded (L201)', async () => {
+        // Mock storageService.checkQuota
+        const storageService = require('../../../src/services/storageService');
+        jest.mock('../../../src/services/storageService', () => ({
+            checkQuota: jest.fn()
+        }));
+        const mockedStorage = require('../../../src/services/storageService');
+        mockedStorage.checkQuota.mockResolvedValue({ success: false, message: 'Full' });
+        
+        fs.existsSync.mockReturnValue(false);
+
+        await expect(service.syncAudioAssets()).rejects.toThrow('Storage Limit Exceeded');
     });
 });

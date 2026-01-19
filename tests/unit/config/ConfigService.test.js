@@ -73,6 +73,8 @@ describe('ConfigService', () => {
     it('should apply environment variable overrides', async () => {
         process.env.BASE_URL = 'http://env-override.com';
         process.env.PYTHON_SERVICE_URL = 'http://python-env.com';
+        process.env.VOICEMONKEY_TOKEN = 'env-token';
+        process.env.VOICEMONKEY_DEVICE = 'env-device';
         
         // Reload to apply
         await configService.reload();
@@ -80,10 +82,14 @@ describe('ConfigService', () => {
         
         expect(config.automation.baseUrl).toBe('http://env-override.com');
         expect(config.automation.pythonServiceUrl).toBe('http://python-env.com');
+        expect(config.automation.voiceMonkey.token).toBe('env-token');
+        expect(config.automation.voiceMonkey.device).toBe('env-device');
         
         // Cleanup
         delete process.env.BASE_URL;
         delete process.env.PYTHON_SERVICE_URL;
+        delete process.env.VOICEMONKEY_TOKEN;
+        delete process.env.VOICEMONKEY_DEVICE;
     });
 
     it('should merge arrays by overwriting', async () => {
@@ -135,5 +141,48 @@ describe('ConfigService', () => {
          expect(localConfig.automation.voiceMonkey.token).toBeUndefined();
          
          delete process.env.VOICEMONKEY_TOKEN;
+    });
+
+    it('should log error if local config fails to load with non-ENOENT error', async () => {
+        const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        jest.spyOn(fs, 'access').mockRejectedValue({ code: 'EACCES' });
+        
+        await configService.reload();
+        
+        expect(spy).toHaveBeenCalledWith(expect.stringContaining('Failed to load local config'), expect.anything());
+        spy.mockRestore();
+    });
+
+    it('should throw error if local config fails to load with non-ENOENT error in update', async () => {
+        const originalReadFile = fs.readFile;
+        jest.spyOn(fs, 'readFile').mockImplementation(async (path, opts) => {
+            if (path && typeof path === 'string' && path.includes('local.json')) {
+                throw { code: 'EACCES' };
+            }
+            return originalReadFile(path, opts);
+        });
+
+        await expect(configService.update({})).rejects.toMatchObject({ code: 'EACCES' });
+        fs.readFile.mockRestore();
+    });
+
+    it('should skip env overrides if automation is missing', () => {
+        const config = { location: {} };
+        configService._applyEnvOverrides(config);
+        expect(config.automation).toBeUndefined();
+    });
+
+    it('should not initialize twice', async () => {
+        // configService is already initialized in beforeEach
+        const spy = jest.spyOn(configService, 'reload');
+        await configService.init();
+        expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('should handle nulls in mergeDeep', () => {
+        const res = configService._mergeDeep(null, { a: 1 });
+        expect(res).toEqual({ a: 1 });
+        const res2 = configService._mergeDeep({ a: 1 }, null);
+        expect(res2).toEqual({ a: 1 });
     });
 });

@@ -33,9 +33,74 @@ describe('StorageService', () => {
             const size = storageService.getDirSize('/nonexistent');
             expect(size).toBe(0);
         });
+
+        it('should skip symbolic links', () => {
+            fs.existsSync.mockReturnValue(true);
+            fs.readdirSync.mockReturnValue(['link']);
+            fs.lstatSync.mockReturnValue({ isSymbolicLink: () => true });
+            expect(storageService.getDirSize('/fake')).toBe(0);
+        });
+
+        it('should handle lstat errors', () => {
+            jest.spyOn(console, 'warn').mockImplementation(() => {});
+            fs.existsSync.mockReturnValue(true);
+            fs.readdirSync.mockReturnValue(['bad']);
+            fs.lstatSync.mockImplementation(() => { throw new Error('fail'); });
+            expect(storageService.getDirSize('/fake')).toBe(0);
+            expect(console.warn).toHaveBeenCalled();
+        });
+
+        it('should handle readdir errors', () => {
+            jest.spyOn(console, 'error').mockImplementation(() => {});
+            fs.existsSync.mockReturnValue(true);
+            fs.readdirSync.mockImplementation(() => { throw new Error('fail'); });
+            expect(storageService.getDirSize('/fake')).toBe(0);
+            expect(console.error).toHaveBeenCalled();
+        });
+
+        it('should prevent recursion', () => {
+            fs.existsSync.mockReturnValue(true);
+            fs.readdirSync.mockReturnValue(['subdir']);
+            fs.lstatSync.mockReturnValue({ isDirectory: () => true, isSymbolicLink: () => false });
+            // readdirSync will keep returning 'subdir' if not careful
+            // But getDirSize increments visitedPaths
+            expect(storageService.getDirSize('/fake')).toBe(0); 
+        });
+    });
+
+    describe('getUsage', () => {
+        it('should get breakdown', async () => {
+             jest.spyOn(storageService, 'getDirSize').mockReturnValue(50);
+             const usage = await storageService.getUsage();
+             expect(usage.total).toBe(100);
+        });
+    });
+
+    describe('getSystemStats', () => {
+        it('should return free space', async () => {
+            const checkDiskSpace = require('check-disk-space').default;
+            checkDiskSpace.mockResolvedValue({ free: 1000 });
+            const free = await storageService.getSystemStats();
+            expect(free).toBe(1000);
+        });
+
+        it('should handle disk space error', async () => {
+            jest.spyOn(console, 'warn').mockImplementation(() => {});
+            const checkDiskSpace = require('check-disk-space').default;
+            checkDiskSpace.mockRejectedValue(new Error('fail'));
+            const free = await storageService.getSystemStats();
+            expect(free).toBeNull();
+        });
     });
 
     describe('checkQuota', () => {
+        it('should use default limit if config missing', async () => {
+             configService.get.mockReturnValue({});
+             jest.spyOn(storageService, 'getUsage').mockResolvedValue({ total: 0 });
+             const res = await storageService.checkQuota(100);
+             expect(res.success).toBe(true);
+        });
+
         it('should pass if adding bytes is within limit', async () => {
             configService.get.mockReturnValue({
                 data: { storageLimit: 1.0 } // 1GB
@@ -71,31 +136,26 @@ describe('StorageService', () => {
 
     describe('calculateRecommendedLimit', () => {
         it('should return minimum for no triggers', () => {
-            configService.get.mockReturnValue({ automation: { triggers: {} } });
+            configService.get.mockReturnValue({ automation: { triggers: null } });
             const recommended = storageService.calculateRecommendedLimit();
             expect(recommended).toBe(0.5);
         });
 
-        it('should calculate higher limit based on enabled triggers', () => {
+        it('should handle various trigger types', () => {
             configService.get.mockReturnValue({
                 automation: {
                     triggers: {
                         fajr: {
                             adhan: { enabled: true, type: 'file' },
-                            iqamah: { enabled: true, type: 'tts' }
-                        },
-                        dhuhr: {
-                            adhan: { enabled: true, type: 'file' }
+                            iqamah: { enabled: true, type: 'tts' },
+                            preAdhan: { enabled: false, type: 'file' },
+                            other: { enabled: true, type: 'url' } 
                         }
                     }
                 }
             });
-            
-            // 2 files (1MB) + 1 TTS (0.1MB) = 1.1MB
-            // Recommended = (1.1 * 2) + 100MB = ~102MB
-            // Round to 1 decimal place GB = 0.5 (min)
             const recommended = storageService.calculateRecommendedLimit();
-            expect(recommended).toBeGreaterThanOrEqual(0.1);
+            expect(recommended).toBeGreaterThanOrEqual(0.5);
         });
     });
 });

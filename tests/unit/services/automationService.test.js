@@ -169,6 +169,52 @@ describe('AutomationService', () => {
              
              expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Playback error'), expect.any(Error));
         });
+
+        it('should return nulls if audio type is unknown', () => {
+             const source = service.getAudioSource({ type: 'unknown' }, 'fajr', 'adhan');
+             expect(source.filePath).toBeNull();
+             expect(source.url).toBeNull();
+        });
+
+        it('should return early in handlers if source is missing', async () => {
+             const source = { filePath: null, url: null };
+             service.handleLocal({}, 'fajr', 'adhan', source);
+             service.broadcastToClients({}, 'fajr', 'adhan', source);
+             await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
+             
+             const playerInstance = require('play-sound')();
+             expect(playerInstance.play).not.toHaveBeenCalled();
+             expect(sseService.broadcast).not.toHaveBeenCalled();
+             expect(axios.get).not.toHaveBeenCalled();
+        });
+
+        it('should handle absolute URLs in VoiceMonkey', async () => {
+            const vmConfig = {
+                automation: {
+                    voiceMonkey: { token: 't', device: 'd' }
+                }
+            };
+            configService.get.mockReturnValue(vmConfig);
+            const source = { url: 'http://recorded-adhan.com/adhan.mp3' };
+            
+            await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
+            
+            expect(axios.get).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.objectContaining({
+                    params: expect.objectContaining({ audio: 'http://recorded-adhan.com/adhan.mp3' })
+                })
+            );
+        });
+
+        it('should catch errors in triggerEvent', async () => {
+             sseService.broadcast
+                .mockImplementationOnce(() => {}) // First call (LOG)
+                .mockImplementationOnce(() => { throw new Error('Broadcast Error'); }); // Second call (AUDIO_PLAY)
+            
+            await service.triggerEvent('fajr', 'preAdhan');
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error executing triggers'), expect.any(Error));
+        });
     });
 
     describe('verifyCredentials', () => {
@@ -209,6 +255,33 @@ describe('AutomationService', () => {
              await expect(service.verifyCredentials('token', 'device'))
                  .rejects.toThrow('Invalid Voice Monkey credentials');
         });
+
+        it('should throw generic error for response status 500', async () => {
+             const error = new Error('Server Crash');
+             error.response = { status: 500, data: {} };
+             axios.get.mockRejectedValue(error);
+             
+             await expect(service.verifyCredentials('token', 'device'))
+                 .rejects.toThrow('Server Crash');
+        });
+
+        it('should throw error if API returns success=false', async () => {
+             axios.get.mockResolvedValue({ 
+                 status: 200, 
+                 data: { success: false, error: 'Custom API Error' } 
+             });
+             await expect(service.verifyCredentials('token', 'device'))
+                 .rejects.toThrow('Custom API Error');
+        });
+
+        it('should throw default error if API returns success=false without msg', async () => {
+            axios.get.mockResolvedValue({ 
+                status: 200, 
+                data: { success: false } 
+            });
+            await expect(service.verifyCredentials('token', 'device'))
+                .rejects.toThrow('VoiceMonkey API verification failed');
+       });
 
         it('should throw if tokens missing', async () => {
             await expect(service.verifyCredentials(null, 'device'))

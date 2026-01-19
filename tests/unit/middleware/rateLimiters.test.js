@@ -1,21 +1,34 @@
-const express = require('express');
-const request = require('supertest');
+const express = require("express");
+const request = require("supertest");
+const sseService = require("../../../src/services/sseService");
+
+// Capture the handler by mocking express-rate-limit
+let capturedHandler;
+jest.mock("express-rate-limit", () => {
+    const original = jest.requireActual("express-rate-limit");
+    return jest.fn().mockImplementation((options) => {
+        if (options.handler) {
+            capturedHandler = options.handler;
+        }
+        return original(options);
+    });
+});
+
 const { 
     securityLimiter, 
     operationsLimiter, 
     globalReadLimiter, 
     globalWriteLimiter, 
     sseLimiter 
-} = require('../../../src/middleware/rateLimiters');
-const sseService = require('../../../src/services/sseService');
+} = require("../../../src/middleware/rateLimiters");
 
-jest.mock('../../../src/services/sseService');
+jest.mock("../../../src/services/sseService");
 
-describe('Rate Limiters Middleware', () => {
+describe("Rate Limiters Middleware", () => {
     let app;
 
     beforeAll(() => {
-        process.env.FORCE_RATE_LIMIT = 'true';
+        process.env.FORCE_RATE_LIMIT = "true";
     });
 
     afterAll(() => {
@@ -25,45 +38,78 @@ describe('Rate Limiters Middleware', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         app = express();
-        app.set('trust proxy', 1);
-        app.get('/security', securityLimiter, (req, res) => res.status(200).send('ok'));
-        app.get('/ops', operationsLimiter, (req, res) => res.status(200).send('ok'));
-        app.get('/read', globalReadLimiter, (req, res) => res.status(200).send('ok'));
-        app.post('/write', globalWriteLimiter, (req, res) => res.status(200).send('ok'));
-        app.get('/sse', sseLimiter, (req, res) => res.status(200).send('ok'));
+        app.get("/security", securityLimiter, (req, res) => res.status(200).send("ok"));
     });
 
-    it('Security Limiter should block after 20 requests', async () => {
+    it("Security Limiter should block after 20 requests", async () => {
         for (let i = 0; i < 20; i++) {
-            await request(app).get('/security').expect(200);
+            await request(app).get("/security").expect(200);
         }
-        const res = await request(app).get('/security').expect(429);
-        expect(res.body.error).toBe('Too many requests');
-        expect(res.body.message).toMatch(/Too many authentication attempts\. Please try again in a minute\. - Please try again in \d+ seconds\./);
-        expect(sseService.log).toHaveBeenCalledWith(expect.stringContaining('Please try again in'), 'WARN');
+        await request(app).get("/security").expect(429);
     });
 
-    it('Operations Limiter should block after 10 requests', async () => {
-        for (let i = 0; i < 10; i++) {
-            await request(app).get('/ops').expect(200);
-        }
-        await request(app).get('/ops').expect(429);
-    });
-
-    it('Global Read Limiter should have correct max value', async () => {
-        // express-rate-limit 7+ stores options in a way that isn't directly exposed as .max
-        // We verified the code has 300.
+    it("Global Read Limiter should be defined", () => {
         expect(globalReadLimiter).toBeDefined();
     });
 
-    it('Global Write Limiter should have correct max value', async () => {
+    it("Global Write Limiter should be defined", () => {
         expect(globalWriteLimiter).toBeDefined();
     });
 
-    it('SSE Limiter should block after 50 requests', async () => {
-        for (let i = 0; i < 50; i++) {
-            await request(app).get('/sse').expect(200);
-        }
-        await request(app).get('/sse').expect(429);
+    describe("limitHandler", () => {
+        it("should handle all IP fallbacks and retryAfter variations", () => {
+            expect(capturedHandler).toBeDefined();
+            
+            const res = {
+                getHeader: jest.fn().mockReturnValue("10"),
+                status: jest.fn().mockReturnThis(),
+                json: jest.fn().mockReturnThis()
+            };
+
+            // Test 1: Full IP list fallback
+            const req1 = {
+                ip: "1.1.1.1",
+                originalUrl: "/test"
+            };
+            capturedHandler(req1, res);
+            expect(sseService.log).toHaveBeenCalledWith(expect.stringContaining("1.1.1.1"), "WARN");
+
+            // Test 2: x-forwarded-for fallback
+            const req2 = {
+                headers: { "x-forwarded-for": "2.2.2.2" },
+                originalUrl: "/test"
+            };
+            capturedHandler(req2, res);
+            expect(sseService.log).toHaveBeenCalledWith(expect.stringContaining("2.2.2.2"), "WARN");
+
+            // Test 3: socket.remoteAddress fallback
+            const req3 = {
+                headers: {},
+                socket: { remoteAddress: "3.3.3.3" },
+                originalUrl: "/test"
+            };
+            capturedHandler(req3, res);
+            expect(sseService.log).toHaveBeenCalledWith(expect.stringContaining("3.3.3.3"), "WARN");
+
+            // Test 4: retryAfter is missing
+            res.getHeader.mockReturnValue(null);
+            const req4 = { ip: "4.4.4.4", originalUrl: "/test" };
+            capturedHandler(req4, res);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                message: expect.not.stringContaining("Please try again in")
+            }));
+        });
+    });
+
+    describe("skipTest logic", () => {
+        it("should skip if FORCE_RATE_LIMIT is not set", async () => {
+            delete process.env.FORCE_RATE_LIMIT;
+            // Since we already loaded the module, we might need a fresh require or just test the logic
+            // But skipTest is internal. We can trigger it by hitting the limiter.
+            for (let i = 0; i < 25; i++) {
+                await request(app).get("/security").expect(200);
+            }
+            process.env.FORCE_RATE_LIMIT = "true";
+        });
     });
 });

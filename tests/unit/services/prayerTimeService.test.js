@@ -103,6 +103,22 @@ describe('PrayerTimeService', () => {
          expect(fs.writeFileSync).toHaveBeenCalled();
     });
 
+    it('should fetch from MyMasjid if it is the primary source', async () => {
+        const today = DateTime.fromObject({ year: 2023, month: 1, day: 1 });
+        const myMasjidConfig = {
+            ...mockConfig,
+            sources: { primary: { type: 'mymasjid' } }
+        };
+        fs.readFileSync.mockReturnValue(JSON.stringify({ data: {} }));
+        fetchers.fetchMyMasjidBulk.mockResolvedValue({
+            '2023-01-01': { fajr: { start: '2023-01-01T05:00:00' } }
+        });
+
+        const result = await service.getPrayerTimes(myMasjidConfig, today);
+        expect(fetchers.fetchMyMasjidBulk).toHaveBeenCalled();
+        expect(result.meta.source).toBe('mymasjid');
+    });
+
     it('should calculate iqamah times correctly via overrides', async () => {
         // Reuse cache hit setup
         const today = DateTime.fromObject({ year: 2023, month: 1, day: 1 });
@@ -175,6 +191,26 @@ describe('PrayerTimeService', () => {
              await expect(service.getPrayerTimes(mockConfig)).rejects.toThrow('Unable to retrieve');
         });
 
+        it('should fail if primary fails and no backup is configured', async () => {
+             const noBackupConfig = { ...mockConfig, sources: { primary: { type: 'aladhan' } } };
+             fetchers.fetchAladhanAnnual.mockRejectedValue(new Error('Primary Fail'));
+             fs.readFileSync.mockReturnValue(JSON.stringify({ data: {} }));
+
+             await expect(service.getPrayerTimes(noBackupConfig)).rejects.toThrow('Unable to retrieve');
+             expect(fetchers.fetchMyMasjidBulk).not.toHaveBeenCalled();
+        });
+
+        it('should handle primary source returning empty data by trying backup', async () => {
+             fetchers.fetchAladhanAnnual.mockResolvedValue({});
+             fetchers.fetchMyMasjidBulk.mockResolvedValue({ '2023-01-01': { fajr: {} } });
+             fs.readFileSync.mockReturnValue(JSON.stringify({ data: {} }));
+
+             const result = await service.getPrayerTimes(mockConfig, DateTime.fromISO('2023-01-01'));
+             expect(fetchers.fetchAladhanAnnual).toHaveBeenCalled();
+             expect(fetchers.fetchMyMasjidBulk).toHaveBeenCalled();
+             expect(result.meta.source).toBe('mymasjid');
+        });
+
         it('should throw if date not found in result', async () => {
              const today = DateTime.fromObject({ year: 2023, month: 1, day: 1 });
              fs.readFileSync.mockReturnValue(JSON.stringify({ data: {} }));
@@ -241,6 +277,181 @@ describe('PrayerTimeService', () => {
              
              await service.getPrayerTimes(overrideConfig, today);
              expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Failed to override iqamah'), expect.anything());
+        });
+
+        it('should handle missing prayers or config in applyOverrides', async () => {
+             // applyOverrides is internal but called by getPrayerTimes
+             // We can trigger it by passing bad data to getPrayerTimes
+             const today = DateTime.now();
+             
+             // 1. No prayers for date in cache
+             fs.readFileSync.mockReturnValue(JSON.stringify({
+                 meta: {},
+                 data: { 'other-date': {} }
+             }));
+             fetchers.fetchAladhanAnnual.mockResolvedValue({ [today.toISODate()]: { fajr: {} } });
+             
+             // 2. No config.prayers
+             const result = await service.getPrayerTimes({ sources: { primary: { type: 'aladhan' } } }, today);
+             expect(result).toBeDefined();
+        });
+
+        it('should handle fs.unlinkSync failure in forceRefresh', async () => {
+             fs.existsSync.mockReturnValue(true);
+             fs.unlinkSync.mockImplementation(() => { throw new Error('Unlink Fail'); });
+             fetchers.fetchAladhanAnnual.mockResolvedValue({ [DateTime.now().toISODate()]: { fajr: {} } });
+
+             await service.forceRefresh(mockConfig);
+             // Should not throw
+             expect(fs.unlinkSync).toHaveBeenCalled();
+        });
+
+        it('should return null from tryFetch if sourceConfig is invalid', async () => {
+            // tryFetch is internal, tricky to test directly but we can trigger via getPrayerTimes
+            const badConfig = { ...mockConfig, sources: { primary: { type: null }, backup: null } };
+            fs.readFileSync.mockReturnValue(JSON.stringify({ data: {} }));
+            
+            // This will throw "Unable to retrieve" because primary returns null and there is no backup
+            await expect(service.getPrayerTimes(badConfig)).rejects.toThrow('Unable to retrieve');
+        });
+
+        it('should handle cache without data property', async () => {
+             const today = DateTime.fromObject({ year: 2023, month: 1, day: 1 });
+             fs.readFileSync.mockReturnValue(JSON.stringify({ meta: {} })); // No data prop
+             fetchers.fetchAladhanAnnual.mockResolvedValue({ '2023-01-01': { fajr: {} } });
+             
+             await service.getPrayerTimes(mockConfig, today);
+             expect(fetchers.fetchAladhanAnnual).toHaveBeenCalled();
+        });
+    });
+
+    describe('getPrayersWithNext', () => {
+        beforeEach(() => {
+            jest.spyOn(console, 'warn').mockImplementation(() => {});
+            jest.spyOn(console, 'error').mockImplementation(() => {});
+        });
+
+        it('should accurately calculate current day prayers and next prayer', async () => {
+            const mockDate = DateTime.fromISO('2023-01-01T10:00:00Z');
+            const dateKey = '2023-01-01';
+            
+            // Mock now() to be 10 AM
+            jest.spyOn(DateTime, 'now').mockReturnValue(mockDate);
+
+            const mockPrayerData = {
+                meta: { date: dateKey, source: 'test', cached: true },
+                prayers: {
+                    fajr: '2023-01-01T05:00:00Z',
+                    sunrise: '2023-01-01T06:30:00Z',
+                    dhuhr: '2023-01-01T12:00:00Z',
+                    asr: '2023-01-01T15:00:00Z',
+                    maghrib: '2023-01-01T17:00:00Z',
+                    isha: '2023-01-01T19:00:00Z',
+                    iqamah: {
+                        fajr: '2023-01-01T05:15:00Z'
+                    }
+                }
+            };
+
+            const getPrayerTimesSpy = jest.spyOn(service, 'getPrayerTimes').mockResolvedValue(mockPrayerData);
+
+            const result = await service.getPrayersWithNext(mockConfig, 'UTC');
+
+            expect(getPrayerTimesSpy).toHaveBeenCalled();
+            expect(result.nextPrayer.name).toBe('dhuhr');
+            expect(result.prayers.fajr.iqamah).toBe('2023-01-01T05:15:00Z'); // From explicit iqamah
+            expect(result.prayers.dhuhr.iqamah).toBeDefined(); // From calculation
+            
+            getPrayerTimesSpy.mockRestore();
+            DateTime.now.mockRestore();
+        });
+
+        it('should fetch tomorrow\'s Fajr if all prayers today have passed', async () => {
+            const mockDate = DateTime.fromISO('2023-01-01T22:00:00Z'); // After Isha
+            const todayKey = '2023-01-01';
+            const tomorrowKey = '2023-01-02';
+            
+            jest.spyOn(DateTime, 'now').mockReturnValue(mockDate);
+
+            const todayData = {
+                meta: { date: todayKey, source: 'test', cached: true },
+                prayers: {
+                    fajr: '2023-01-01T05:00:00Z',
+                    sunrise: '2023-01-01T06:30:00Z',
+                    dhuhr: '2023-01-01T12:00:00Z',
+                    asr: '2023-01-01T15:00:00Z',
+                    maghrib: '2023-01-01T17:00:00Z',
+                    isha: '2023-01-01T19:00:00Z'
+                }
+            };
+
+            const tomorrowData = {
+                meta: { date: tomorrowKey, source: 'test', cached: true },
+                prayers: {
+                    fajr: '2023-01-02T05:05:00Z'
+                }
+            };
+
+            const getPrayerTimesSpy = jest.spyOn(service, 'getPrayerTimes');
+            getPrayerTimesSpy
+                .mockResolvedValueOnce(todayData)
+                .mockResolvedValueOnce(tomorrowData);
+
+            const result = await service.getPrayersWithNext(mockConfig, 'UTC');
+
+            expect(getPrayerTimesSpy).toHaveBeenCalledTimes(2);
+            expect(result.nextPrayer.name).toBe('fajr');
+            expect(result.nextPrayer.isTomorrow).toBe(true);
+            expect(result.nextPrayer.time).toBe('2023-01-02T05:05:00Z');
+            
+            getPrayerTimesSpy.mockRestore();
+            DateTime.now.mockRestore();
+        });
+
+        it('should handle errors when fetching tomorrow\'s Fajr', async () => {
+            const mockDate = DateTime.fromISO('2023-01-01T22:00:00Z'); 
+            jest.spyOn(DateTime, 'now').mockReturnValue(mockDate);
+
+            const todayData = {
+                meta: { date: '2023-01-01' },
+                prayers: { isha: '2023-01-01T19:00:00Z' }
+            };
+
+            const getPrayerTimesSpy = jest.spyOn(service, 'getPrayerTimes');
+            getPrayerTimesSpy
+                .mockResolvedValueOnce(todayData)
+                .mockRejectedValueOnce(new Error('Fetch Fail'));
+
+            const result = await service.getPrayersWithNext(mockConfig, 'UTC');
+
+            expect(result.nextPrayer).toBeNull();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Failed to fetch tomorrow\'s Fajr'));
+            
+            getPrayerTimesSpy.mockRestore();
+            DateTime.now.mockRestore();
+        });
+
+        it('should warn and skip if a prayer time is missing in raw data', async () => {
+             const mockDate = DateTime.fromISO('2023-01-01T10:00:00Z');
+             jest.spyOn(DateTime, 'now').mockReturnValue(mockDate);
+
+             const incompleteData = {
+                 meta: { date: '2023-01-01' },
+                 prayers: {
+                     // Missing Fajr
+                     sunrise: '2023-01-01T06:30:00Z'
+                 }
+             };
+
+             const getPrayerTimesSpy = jest.spyOn(service, 'getPrayerTimes').mockResolvedValue(incompleteData);
+
+             const result = await service.getPrayersWithNext(mockConfig, 'UTC');
+
+             expect(result.prayers.fajr).toBeUndefined();
+             expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Missing prayer time for fajr'));
+
+             getPrayerTimesSpy.mockRestore();
+             DateTime.now.mockRestore();
         });
     });
 });

@@ -1,0 +1,156 @@
+const authController = require('../../../src/controllers/authController');
+const envManager = require('../../../src/utils/envManager');
+const authUtils = require('../../../src/utils/auth');
+const jwt = require('jsonwebtoken');
+
+jest.mock('../../../src/utils/envManager');
+jest.mock('../../../src/utils/auth');
+jest.mock('jsonwebtoken');
+
+describe('authController Unit Tests', () => {
+    let req, res;
+
+    beforeEach(() => {
+        req = { body: {}, cookies: {} };
+        res = {
+            json: jest.fn().mockReturnThis(),
+            status: jest.fn().mockReturnThis(),
+            cookie: jest.fn().mockReturnThis()
+        };
+        jest.clearAllMocks();
+    });
+
+    describe('setup', () => {
+        it('should return 403 if already configured', () => {
+            const originalPass = process.env.ADMIN_PASSWORD;
+            process.env.ADMIN_PASSWORD = 'set';
+            authController.setup(req, res);
+            expect(res.status).toHaveBeenCalledWith(403);
+            process.env.ADMIN_PASSWORD = originalPass;
+        });
+
+        it('should return 400 if password is missing', () => {
+             const originalPass = process.env.ADMIN_PASSWORD;
+             delete process.env.ADMIN_PASSWORD;
+             req.body.password = undefined; // Branch: !password
+             authController.setup(req, res);
+             expect(res.status).toHaveBeenCalledWith(400);
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Password too short' }));
+             process.env.ADMIN_PASSWORD = originalPass;
+        });
+
+        it('should handle setup error and return 500', () => {
+            const originalPass = process.env.ADMIN_PASSWORD;
+            delete process.env.ADMIN_PASSWORD;
+            req.body.password = 'validpass';
+            authUtils.hashPassword.mockImplementation(() => { throw new Error('DB Error'); });
+            
+            const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+            authController.setup(req, res);
+            expect(res.status).toHaveBeenCalledWith(500);
+            spy.mockRestore();
+            process.env.ADMIN_PASSWORD = originalPass;
+        });
+        
+        it('should generate JWT_SECRET if missing', () => {
+            const originalPass = process.env.ADMIN_PASSWORD;
+            const originalSecret = process.env.JWT_SECRET;
+            delete process.env.ADMIN_PASSWORD;
+            delete process.env.JWT_SECRET;
+            req.body.password = 'validpass';
+            
+            authUtils.hashPassword.mockReturnValue('hash');
+            envManager.generateSecret.mockReturnValue('newsecret');
+            jwt.sign.mockReturnValue('token');
+
+            authController.setup(req, res);
+            
+            expect(envManager.generateSecret).toHaveBeenCalled();
+            expect(envManager.setEnvValue).toHaveBeenCalledWith('JWT_SECRET', 'newsecret');
+            
+            process.env.ADMIN_PASSWORD = originalPass;
+            process.env.JWT_SECRET = originalSecret;
+        });
+    });
+
+    describe('changePassword', () => {
+        it('should return 400 if password missing', () => {
+             authController.changePassword(req, res);
+             expect(res.status).toHaveBeenCalledWith(400);
+        });
+
+        it('should successfully change password', () => {
+             req.body.password = 'newpass';
+             authUtils.hashPassword.mockReturnValue('hashed');
+             authController.changePassword(req, res);
+             expect(envManager.setEnvValue).toHaveBeenCalledWith('ADMIN_PASSWORD', 'hashed');
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+        });
+
+        it('should handle errors and return 500', () => {
+            req.body.password = 'pass';
+            authUtils.hashPassword.mockImplementation(() => { throw new Error('Fail'); });
+            authController.changePassword(req, res);
+            expect(res.status).toHaveBeenCalledWith(500);
+        });
+    });
+
+    describe('login', () => {
+         it('should return 500 if server not configured', () => {
+             const originalPass = process.env.ADMIN_PASSWORD;
+             delete process.env.ADMIN_PASSWORD;
+             authController.login(req, res);
+             expect(res.status).toHaveBeenCalledWith(500);
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'SETUP_REQUIRED' }));
+             process.env.ADMIN_PASSWORD = originalPass;
+         });
+
+         it('should return 401 on invalid password', () => {
+             process.env.ADMIN_PASSWORD = 'hash';
+             req.body.password = 'wrong';
+             authUtils.verifyPassword.mockReturnValue(false);
+             authController.login(req, res);
+             expect(res.status).toHaveBeenCalledWith(401);
+         });
+         
+         it('should use adminPassword as fallback secret if JWT_SECRET missing', () => {
+             const originalPass = process.env.ADMIN_PASSWORD;
+             const originalSecret = process.env.JWT_SECRET;
+             process.env.ADMIN_PASSWORD = 'adminpass';
+             delete process.env.JWT_SECRET;
+             req.body.password = 'adminpass';
+             authUtils.verifyPassword.mockReturnValue(true);
+             
+             authController.login(req, res);
+             
+             expect(jwt.sign).toHaveBeenCalledWith(expect.anything(), 'adminpass', expect.anything());
+             
+             process.env.ADMIN_PASSWORD = originalPass;
+             process.env.JWT_SECRET = originalSecret;
+         });
+    });
+
+    describe('logout', () => {
+        it('should clear cookie and return 200', () => {
+             res.clearCookie = jest.fn().mockReturnThis();
+             authController.logout(req, res);
+             expect(res.clearCookie).toHaveBeenCalledWith('auth_token');
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+        });
+    });
+
+    describe('checkStatus', () => {
+        it('should return status of ADMIN_PASSWORD', () => {
+             envManager.isConfigured.mockReturnValue(true);
+             authController.checkStatus(req, res);
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ configured: true }));
+        });
+    });
+
+    describe('checkAuth', () => {
+        it('should return 200', () => {
+             authController.checkAuth(req, res);
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ authenticated: true }));
+        });
+    });
+});
