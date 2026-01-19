@@ -26,8 +26,14 @@ Total Requests Sent: 650
 ⏱️ Time to first block:     0.82 seconds
 
 ========================================
-RATE LIMIT SUMMARY - voiceMonkey 
+RATE LIMIT SUMMARY - VoiceMonkey
 ========================================
-Was unable to complete full 60 second test
-
-170 requests sent before API blocked requests for the next 15min
+Test Duration: 60 seconds
+Total Requests Sent: 420
+--------------------
+✅ Successful (200 OK): 200
+❌ Throttled  (429):    220
+--------------------
+⚡ ESTIMATED BURST LIMIT: 200 requests
+🔄 OBSERVED RPM LIMIT:    200 requests/minute
+⏱️ Time to first block:     11.99 seconds
