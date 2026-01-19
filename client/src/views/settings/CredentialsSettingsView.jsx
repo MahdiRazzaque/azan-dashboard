@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useSettings } from '../../hooks/useSettings';
 import { Save, Lock, ShieldCheck, Zap, AlertTriangle, CheckCircle, Smartphone, Key, Trash2, Undo2 } from 'lucide-react';
 import PasswordInput from '../../components/PasswordInput';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -27,19 +27,21 @@ export default function CredentialsSettingsView() {
 
   // Initialize from config
   useEffect(() => {
-      if (config?.automation?.voiceMonkey) {
-          const t = config.automation.voiceMonkey.token || '';
-          const d = config.automation.voiceMonkey.device || '';
-          
-          setVmToken(t);
-          setVmDevice(d);
-          setInitialToken(t);
-          setInitialDevice(d);
+      if (!config?.automation?.voiceMonkey) return;
+
+      const t = config.automation.voiceMonkey.token || '';
+      const d = config.automation.voiceMonkey.device || '';
+      
+      Promise.resolve().then(() => {
+          setVmToken(prev => (t !== prev ? t : prev));
+          setVmDevice(prev => (d !== prev ? d : prev));
+          setInitialToken(prev => (t !== prev ? t : prev));
+          setInitialDevice(prev => (d !== prev ? d : prev));
           
           if (t && d) {
-              setVmStatus('success'); // Assume verified if loaded from config (since we only save verified now)
+              setVmStatus(prev => (prev === 'idle' ? 'success' : prev));
           }
-      }
+      });
   }, [config]);
 
   const isDirty = vmToken !== initialToken || vmDevice !== initialDevice;
@@ -97,7 +99,7 @@ export default function CredentialsSettingsView() {
               setShowVmConfirm(true); 
           } else {
               setVmStatus('error');
-              setVmMessage(data.message || data.error || 'Test failed. Please check credentials.');
+              setVmMessage(data.message || data.error.includes('400') ? "Invalid credentials" : 'Test failed. Please check credentials.');
           }
       } catch (e) {
           setVmStatus('error');

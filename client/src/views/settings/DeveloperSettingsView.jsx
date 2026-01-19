@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { RefreshCw, Power, RotateCcw, Activity, Database, CheckCircle, XCircle, AlertTriangle, Volume2, HardDrive, Save } from 'lucide-react';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useSettings } from '../../hooks/useSettings';
 import ConfirmModal from '../../components/ConfirmModal';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useSettings } from '../contexts/SettingsContext';
+import { useAuth } from '../hooks/useAuth';
+import { useSettings } from '../hooks/useSettings';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { 
     Menu, X, Settings, Clock, Zap, FileAudio, 
@@ -61,7 +61,7 @@ export default function SettingsLayout({ logs, processStatus }) {
     return () => {
         resetDraft();
     }
-  }, []);
+  }, [resetDraft]);
 
   // Auto-dismiss notification
   useEffect(() => {

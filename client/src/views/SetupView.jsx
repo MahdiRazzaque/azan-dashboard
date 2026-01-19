@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import PasswordInput from '../components/PasswordInput';
 import { ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
 

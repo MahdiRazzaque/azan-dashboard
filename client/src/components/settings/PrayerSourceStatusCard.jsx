@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Database, Globe, Activity, CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useSettings } from '../../hooks/useSettings';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.

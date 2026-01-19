@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Volume2, Monitor, Radio, AlertCircle } from 'lucide-react';
-import { useSettings } from '../contexts/SettingsContext';
+import { useSettings } from '../hooks/useSettings';
 
 /**
  * A modal component that allows users to test audio playback across different

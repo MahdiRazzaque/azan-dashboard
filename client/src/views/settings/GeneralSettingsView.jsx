@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useSettings } from '../../hooks/useSettings';
 import { useConstants } from '../../hooks/useConstants';
 import { Globe, MapPin, CheckCircle, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';

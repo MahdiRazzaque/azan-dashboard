@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useSettings } from '../../hooks/useSettings';
 import TriggerCard from '../../components/TriggerCard';
 import { validateTrigger } from '../../utils/validation';
 import { Clock, AlertTriangle, Save, CheckCircle, XCircle } from 'lucide-react';

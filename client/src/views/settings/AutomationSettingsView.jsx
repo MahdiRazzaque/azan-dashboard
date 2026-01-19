@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useSettings } from '../../hooks/useSettings';
 import { Save, Power, Zap, CheckCircle, XCircle, Play, BadgeCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -65,8 +65,15 @@ export default function AutomationSettingsView() {
       resetDraft,
       saving, 
       loading,
-      systemHealth
+      systemHealth,
+      bulkUpdateOffsets
     } = useSettings();
+
+    const [testing, setTesting] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [testError, setTestError] = useState(null);
+    const [batchVals, setBatchVals] = useState({ preAdhan: 15, preIqamah: 10 });
+    const [toast, setToast] = useState(null);
 
   if (loading || !draftConfig) return <div className="p-8 text-center text-app-dim">Loading...</div>;
 
@@ -83,14 +90,6 @@ export default function AutomationSettingsView() {
       const { triggers: t2, ...rest2 } = draftConfig.automation || {};
       return JSON.stringify(rest1) !== JSON.stringify(rest2);
   })();
-
-  const [testing, setTesting] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [testError, setTestError] = useState(null);
-
-  const { bulkUpdateOffsets } = useSettings();
-  const [batchVals, setBatchVals] = useState({ preAdhan: 15, preIqamah: 10 });
-  const [toast, setToast] = useState(null);
 
   const handleBulkUpdate = (type) => {
       const count = bulkUpdateOffsets(type, batchVals[type]);

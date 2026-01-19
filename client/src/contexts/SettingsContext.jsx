@@ -1,8 +1,7 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from './AuthContext';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { validateTrigger } from '../utils/validation';
-
-const SettingsContext = createContext(null);
+import { SettingsContext } from '../hooks/useSettings';
 
 export const SettingsProvider = ({ children }) => {
   const [config, setConfig] = useState(null);
@@ -15,17 +14,27 @@ export const SettingsProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pausedPolling, setPausedPolling] = useState(false);
+  
+  // Ref to hold the latest config for stable callbacks
+  // This prevents resetDraft from becoming stale or changing identity on every save
+  const configRef = useRef(config);
+
   const { isAuthenticated } = useAuth();
 
-
+  // Keep ref in sync with state
   useEffect(() => {
-    if (isAuthenticated && !pausedPolling) {
-      fetchSettings();
-      fetchHealth();
-    }
-  }, [isAuthenticated, pausedPolling]);
+      configRef.current = config;
+  }, [config]);
 
-  const fetchSettings = async () => {
+  const handleRateLimit = useCallback(() => {
+    console.warn('[SettingsContext] Rate limit hit. Pausing polling for 60 seconds.');
+    setPausedPolling(true);
+    setTimeout(() => {
+        setPausedPolling(false);
+    }, 60000);
+  }, []);
+
+  const fetchSettings = useCallback(async () => {
     if (pausedPolling) return;
     setLoading(true);
     try {
@@ -45,9 +54,9 @@ export const SettingsProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pausedPolling, handleRateLimit]);
 
-  const fetchHealth = async () => {
+  const fetchHealth = useCallback(async () => {
       if (pausedPolling) return;
       try {
           const res = await fetch('/api/system/health');
@@ -62,17 +71,18 @@ export const SettingsProvider = ({ children }) => {
       } catch (e) {
           console.error('[SettingsContext] Failed to fetch health:', e);
       }
-  };
+  }, [pausedPolling, handleRateLimit]);
 
-  const handleRateLimit = () => {
-      console.warn('[SettingsContext] Rate limit hit. Pausing polling for 60 seconds.');
-      setPausedPolling(true);
-      setTimeout(() => {
-          setPausedPolling(false);
-      }, 60000);
-  };
 
-  const refreshHealth = async (target = 'all', mode = 'silent') => {
+  useEffect(() => {
+    if (isAuthenticated && !pausedPolling) {
+      fetchSettings();
+      fetchHealth();
+    }
+  }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth]);
+
+
+  const refreshHealth = useCallback(async (target = 'all', mode = 'silent') => {
       try {
           const res = await fetch('/api/system/health/refresh', {
               method: 'POST',
@@ -91,10 +101,11 @@ export const SettingsProvider = ({ children }) => {
       } catch (e) {
            console.error('[SettingsContext] Failed to refresh health:', e);
       }
-  };
+  }, []);
 
-  const updateSetting = (path, value) => {
+  const updateSetting = useCallback((path, value) => {
     setDraftConfig(prev => {
+        if (!prev) return prev;
         const next = JSON.parse(JSON.stringify(prev));
         const parts = path.split('.');
         const last = parts.pop();
@@ -106,9 +117,9 @@ export const SettingsProvider = ({ children }) => {
         target[last] = value;
         return next;
     });
-  };
+  }, []);
 
-  const saveSettings = async (overrideConfig) => {
+  const saveSettings = useCallback(async (overrideConfig) => {
     setSaving(true);
     try {
       // Guard against event objects accidentally passed
@@ -142,7 +153,6 @@ export const SettingsProvider = ({ children }) => {
 
       // VALIDATION: Check for invalid triggers and disable them
       const prayers = configToSave.prayers ? Object.keys(configToSave.prayers) : [];
-      let warningMessage = null;
       let warningsList = [];
       let invalidCount = 0;
 
@@ -158,7 +168,6 @@ export const SettingsProvider = ({ children }) => {
                       warningsList.push(`${niceName}: ${error}`);
                       invalidCount++;
                   }
-                  // Soft Warning checks removed (Frontend). Backend handles service warnings.
               }
           }
       }
@@ -210,15 +219,16 @@ export const SettingsProvider = ({ children }) => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [draftConfig]);
 
-  const bulkUpdateOffsets = (eventType, minutes) => {
+  const bulkUpdateOffsets = useCallback((eventType, minutes) => {
     const raw = parseInt(minutes);
     const clampedMinutes = isNaN(raw) ? 0 : Math.min(60, Math.max(0, raw));
     const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
     
     let count = 0;
     setDraftConfig(prev => {
+        if (!prev) return prev;
         const next = JSON.parse(JSON.stringify(prev));
         
         for (const prayer of prayers) {
@@ -236,15 +246,16 @@ export const SettingsProvider = ({ children }) => {
     });
     
     return count;
-  };
+  }, []);
 
-  const resetDraft = () => {
-      if (config) {
-          setDraftConfig(JSON.parse(JSON.stringify(config)));
+  // Use the ref for resetDraft to ensure stability
+  const resetDraft = useCallback(() => {
+      if (configRef.current) {
+          setDraftConfig(JSON.parse(JSON.stringify(configRef.current)));
       }
-  };
+  }, []);
 
-  const resetToDefaults = async () => {
+  const resetToDefaults = useCallback(async () => {
      // Confirmation is now handled by the UI component
      setSaving(true);
      try {
@@ -262,23 +273,23 @@ export const SettingsProvider = ({ children }) => {
      } finally {
          setSaving(false);
      }
-  };
+  }, [fetchSettings]);
 
 
-  const hasUnsavedChanges = () => {
+  const hasUnsavedChanges = useCallback(() => {
       if (!config || !draftConfig) return false;
       return JSON.stringify(config) !== JSON.stringify(draftConfig);
-  };
+  }, [config, draftConfig]);
 
-    const isSectionDirty = (path) => {
+    const isSectionDirty = useCallback((path) => {
       if (!config || !draftConfig) return false;
       const getVal = (obj, p) => p.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj);
       const val1 = getVal(config, path);
       const val2 = getVal(draftConfig, path);
       return JSON.stringify(val1) !== JSON.stringify(val2);
-  };
+  }, [config, draftConfig]);
 
-  const getSectionHealth = (path) => {
+  const getSectionHealth = useCallback((path) => {
       if (!draftConfig || !systemHealth) return { healthy: true, issues: [] };
       
       const getVal = (obj, p) => p.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj);
@@ -336,12 +347,12 @@ export const SettingsProvider = ({ children }) => {
           healthy: issues.length === 0,
           issues
       };
-  };
+  }, [draftConfig, systemHealth]);
 
-  const validateBeforeSave = () => {
+  const validateBeforeSave = useCallback(() => {
       // Legacy VoiceMonkey validation removed as it is now handled in Credentials with 'Verify-to-Save'
       return { success: true };
-  };
+  }, []);
 
   return (
     <SettingsContext.Provider value={{ 
@@ -366,5 +377,3 @@ export const SettingsProvider = ({ children }) => {
     </SettingsContext.Provider>
   );
 };
-
-export const useSettings = () => useContext(SettingsContext);

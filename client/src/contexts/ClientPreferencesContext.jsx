@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-const ClientPreferencesContext = createContext();
+import React, { useState, useEffect } from 'react';
+import { ClientPreferencesContext } from '../hooks/useClientPreferences';
 
 const STORAGE_KEY = 'azan-client-prefs';
 
@@ -91,12 +90,4 @@ export const ClientPreferencesProvider = ({ children }) => {
       {children}
     </ClientPreferencesContext.Provider>
   );
-};
-
-export const useClientPreferences = () => {
-  const context = useContext(ClientPreferencesContext);
-  if (!context) {
-    throw new Error('useClientPreferences must be used within a ClientPreferencesProvider');
-  }
-  return context;
 };

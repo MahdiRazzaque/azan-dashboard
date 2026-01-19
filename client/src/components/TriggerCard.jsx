@@ -1,7 +1,7 @@
 import { Server, Monitor, Zap, AlertTriangle, XCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { useSettings } from '../contexts/SettingsContext';
+import { useSettings } from '../hooks/useSettings';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
