@@ -20,9 +20,9 @@ describe('StorageService', () => {
             fs.readdirSync.mockReturnValueOnce(['file1.mp3', 'subdir'])
                          .mockReturnValueOnce(['file2.mp3']);
             
-            fs.statSync.mockReturnValueOnce({ isDirectory: () => false, size: 1000 }) // file1
-                       .mockReturnValueOnce({ isDirectory: () => true })            // subdir
-                       .mockReturnValueOnce({ isDirectory: () => false, size: 2000 }); // file2
+            fs.lstatSync.mockReturnValueOnce({ isDirectory: () => false, isSymbolicLink: () => false, size: 1000 }) // file1
+                       .mockReturnValueOnce({ isDirectory: () => true, isSymbolicLink: () => false })            // subdir
+                       .mockReturnValueOnce({ isDirectory: () => false, isSymbolicLink: () => false, size: 2000 }); // file2
 
             const size = storageService.getDirSize('/dummy/path');
             expect(size).toBe(3000);

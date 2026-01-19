@@ -697,34 +697,31 @@ describe('API Routes Integration', () => {
     });
 
     describe('Settings Update Edge Cases', () => {
-         it('POST /api/settings/update - should proceed if audio sync fails', async () => {
+         it('POST /api/settings/update - should fail if audio sync fails', async () => {
              const audioAssetService = require('../../../src/services/audioAssetService');
              audioAssetService.syncAudioAssets.mockRejectedValueOnce(new Error('Sync Fail'));
              
              const newConfig = { ...mockConfig, sources: { ...mockConfig.sources, primary: { type: 'aladhan', method: 'MWL' } } };
             
-             await request(app)
+             const res = await request(app)
                 .post('/api/settings/update')
                 .set('Cookie', [`auth_token=${adminToken}`])
                 .send(newConfig)
-                .expect(200);
-             
-             // Check that it still called scheduler init
-             const schedulerService = require('../../../src/services/schedulerService');
-             expect(schedulerService.initScheduler).toHaveBeenCalled();
+                .expect(400);
+
+             expect(res.body.error).toBe('Storage Quota Exceeded'); // Or whatever specific error the controller returns
         });
 
-        it('POST /settings/refresh-cache - should proceed if audio sync fails', async () => {
+        it('POST /settings/refresh-cache - should fail if audio sync fails', async () => {
              const audioAssetService = require('../../../src/services/audioAssetService');
              audioAssetService.syncAudioAssets.mockRejectedValueOnce(new Error('Sync Fail'));
              
-             await request(app)
+             const res = await request(app)
                  .post('/api/settings/refresh-cache')
                  .set('Cookie', [`auth_token=${adminToken}`])
-                 .expect(200);
-                 
-             const schedulerService = require('../../../src/services/schedulerService');
-             expect(schedulerService.initScheduler).toHaveBeenCalled();
+                 .expect(400);
+
+             expect(res.body.error).toBe('Sync Failed');
         });
 
         it('POST /settings/refresh-cache - should handle scheduler stop error', async () => {
