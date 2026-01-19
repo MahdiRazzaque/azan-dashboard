@@ -1,5 +1,5 @@
 {
-  "name": "azan-dashboard-v2",
+  "name": "azan-dashboard",
   "version": "1.0.0",
   "description": "Prayer time management dashboard with automated Alexa announcements",
   "main": "src/server.js",

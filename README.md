@@ -1,4 +1,4 @@
-# Azan Dashboard v2
+# Azan Dashboard
 
 ![Azan Dashboard Screenshot](docs/images/dashboard-view.png)
 

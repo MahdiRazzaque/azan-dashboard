@@ -1,7 +1,7 @@
 # 1. Project Overview
 
 ## Project Name
-**Azan Dashboard v2**
+**Azan Dashboard**
 
 ## Description
 The Azan Dashboard is a comprehensive digital signage and automation solution designed to manage and display Islamic prayer times (Salah). Unlike standard mobile applications that simply show start times, this system is architected as a **central hub** for mosques and smart homes. It combines a visually distinct "Focus" display, accurate congregation (Iqamah) calculations, and powerful audio automation capabilities that integrate with local speakers and smart home devices (Alexa/VoiceMonkey).
