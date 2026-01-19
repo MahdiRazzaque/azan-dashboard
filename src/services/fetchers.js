@@ -40,6 +40,12 @@ const MyMasjidBulkResponseSchema = z.object({
 });
 
 // --- Constants Helper ---
+/**
+ * Resolves the calculation method ID from its display name.
+ * 
+ * @param {string} methodName - The name of the calculation method.
+ * @returns {number} The corresponding integer ID for the Aladhan API.
+ */
 const getCalculationMethodId = (methodName) => {
     // Reverse lookup
     for (const [id, name] of Object.entries(CALCULATION_METHODS)) {
@@ -49,6 +55,12 @@ const getCalculationMethodId = (methodName) => {
     return 2; // Default ISNA
 };
 
+/**
+ * Resolves the madhab (Asr juristic method) ID from its display name.
+ * 
+ * @param {string} madhabName - The name of the madhab.
+ * @returns {number} The corresponding integer ID for the Aladhan API.
+ */
 const getMadhabId = (madhabName) => {
     for (const [id, name] of Object.entries(ASR_JURISTIC_METHODS)) {
         if (name.includes(madhabName)) return parseInt(id);
@@ -81,8 +93,14 @@ function deduplicate(key, fetchFn) {
 // --- Fetchers ---
 
 /**
- * Internal logic for Aladhan annual fetch
+ * Internal logic for Aladhan annual fetch.
+ * Orchestrates raw API requests and processes the response into a standardised format.
+ * 
  * @private
+ * @param {Object} config - The application configuration object.
+ * @param {number} year - The year to fetch prayer times for.
+ * @returns {Promise<Object>} A map of ISO dates to prayer time data.
+ * @throws {Error} If the API request fails or schema validation fails.
  */
 async function _doFetchAladhanAnnual(config, year) {
   const { coordinates, timezone } = config.location;
@@ -128,6 +146,12 @@ async function _doFetchAladhanAnnual(config, year) {
         const dateObj = DateTime.fromObject({ day: d, month: m, year: y }, { zone: timezone });
         const isoDateKey = dateObj.toISODate(); // YYYY-MM-DD
 
+        /**
+         * Cleans and formats the raw time string from the API into an ISO string.
+         * 
+         * @param {string} timeStr - The raw time string (e.g., "05:30 (BST)").
+         * @returns {string|null} The ISO 8601 formatted time string.
+         */
         const cleanTime = (timeStr) => {
             if (!timeStr) return null;
             const t = timeStr.split(' ')[0]; // Remove (BST)
@@ -151,7 +175,11 @@ async function _doFetchAladhanAnnual(config, year) {
 }
 
 /**
- * Fetches Annual schedule from Aladhan API (Queued & Deduplicated)
+ * Fetches Annual schedule from Aladhan API (Queued & Deduplicated).
+ * 
+ * @param {Object} config - The application configuration object.
+ * @param {number} year - The year to fetch prayer times for.
+ * @returns {Promise<Object>} A promise originating from the deduplication queue.
  */
 function fetchAladhanAnnual(config, year) {
     const key = `aladhan-${config.location.coordinates.lat}-${config.location.coordinates.long}-${year}`;
@@ -159,8 +187,13 @@ function fetchAladhanAnnual(config, year) {
 }
 
 /**
- * Internal logic for MyMasjid bulk fetch
+ * Internal logic for MyMasjid bulk fetch.
+ * Orchestrates raw API requests and processes the response into a standardised format.
+ * 
  * @private
+ * @param {Object} config - The application configuration object.
+ * @returns {Promise<Object>} A map of ISO dates to prayer and iqamah time data.
+ * @throws {Error} If the API request fails or schema validation fails.
  */
 async function _doFetchMyMasjidBulk(config) {
   const { sources, location } = config;
@@ -227,6 +260,13 @@ async function _doFetchMyMasjidBulk(config) {
 
       const isoDateKey = dateObj.toISODate();
       
+      /**
+       * Formats a time string into an ISO string using a base date.
+       * 
+       * @param {string} t - The time string (e.g., "12:30").
+       * @param {import('luxon').DateTime} dateBase - The Luxon DateTime object for the corresponding day.
+       * @returns {string|null} The ISO 8601 formatted time string.
+       */
       const formatTime = (t, dateBase) => {
           if (!t) return null;
           const [h, m] = t.split(':').map(Number);
@@ -254,7 +294,10 @@ async function _doFetchMyMasjidBulk(config) {
 }
 
 /**
- * Fetches Bulk schedule from MyMasjid API (Queued & Deduplicated)
+ * Fetches Bulk schedule from MyMasjid API (Queued & Deduplicated).
+ * 
+ * @param {Object} config - The application configuration object.
+ * @returns {Promise<Object>} A promise originating from the deduplication queue.
  */
 function fetchMyMasjidBulk(config) {
     const source = (config.sources.primary && config.sources.primary.type === 'mymasjid') 

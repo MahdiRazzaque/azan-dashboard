@@ -2,7 +2,11 @@ const rateLimit = require('express-rate-limit');
 const sseService = require('../services/sseService');
 
 /**
- * Helper to handle rate limit response and logging
+ * Helper to handle rate limit response and logging.
+ * Returns a handler function that logs the violation and sends a 429 response.
+ * 
+ * @param {string} baseMessage - The base error message to display to the user.
+ * @returns {Function} A rate limit handler function.
  */
 const limitHandler = (baseMessage) => (req, res) => {
     const clientIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -26,6 +30,12 @@ const limitHandler = (baseMessage) => (req, res) => {
 };
 
 // Common configuration to skip during tests unless forced (for unit tests)
+/**
+ * Condition to skip rate limiting during tests.
+ * Rate limiting is skipped in the test environment unless explicitly forced.
+ * 
+ * @returns {boolean} True if rate limiting should be skipped.
+ */
 const skipTest = () => process.env.NODE_ENV === 'test' && !process.env.FORCE_RATE_LIMIT;
 
 // Tier 1: Security (Strict) - Login, Setup, Password change

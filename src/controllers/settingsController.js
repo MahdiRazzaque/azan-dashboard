@@ -10,11 +10,16 @@ const healthCheck = require('../services/healthCheck');
 const { validateConfigSource } = require('../services/validationService');
 
 /**
- * Controller for Settings related operations.
+ * Controller for settings-related operations, managing application configuration,
+ * system resets, and external service credentials.
  */
 const settingsController = {
     /**
-     * Get current application settings.
+     * Retrieves the current application settings.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the settings are sent.
      */
     getSettings: async (req, res) => {
         await configService.reload();
@@ -22,7 +27,11 @@ const settingsController = {
     },
 
     /**
-     * Update application settings with validation and service restart.
+     * Updates application settings, validates them, and synchronises dependent services.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the update completes.
      */
     updateSettings: async (req, res) => {
         const newConfig = req.body;
@@ -31,7 +40,7 @@ const settingsController = {
         }
         console.log('[SettingsController] Received update request:', JSON.stringify(newConfig.data));
 
-        // 1. Validation
+        // Validate the incoming configuration source for correct masjid identification
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Validating Configuration...' } });
         try {
             await validateConfigSource(newConfig);
@@ -42,24 +51,24 @@ const settingsController = {
             return res.status(400).json({ error: `Validation Failed: ${e.message}` });
         }
 
-        // 2. Save
-        const previousConfig = configService.get(); // Need it for potential rollback
+        // Persist the changes to disk; store previous state for rollback if needed
+        const previousConfig = configService.get();
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Saving to Disk...' } });
         await configService.update(newConfig);
         
-        // 3. Refresh Cache
+        // Force a refresh of the prayer time cache to reflect the updated settings
         console.log('[SettingsController] Settings updated, forcing cache refresh...');
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Refreshing Prayer Data...' } });
         const result = await forceRefresh(configService.get());
         
-        // 4. Sync Audio Assets
+        // Synchronise audio assets, such as TTS and custom files, while checking storage limits
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Generating Audio Assets...' } });
         try {
             await audioAssetService.syncAudioAssets();
         } catch (err) {
             console.error('[SettingsController] Audio asset synchronization failed. Rolling back config.', err.message);
             
-            // ROLLBACK: Restore previous config
+            // Revert configuration if audio synchronisation fails to maintain system consistency
             await configService.update(previousConfig);
             
             return res.status(400).json({
@@ -68,11 +77,11 @@ const settingsController = {
             });
         }
 
-        // 5. Restart Scheduler
+        // Re-initialise the scheduler with the new timing and configuration
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Restarting Scheduler...' } });
         await schedulerService.initScheduler(); 
 
-        // 6. Calculate Warnings
+        // Generate warnings if configured automation services are currently offline
         const warnings = [];
         const health = healthCheck.getHealth();
         
@@ -105,7 +114,11 @@ const settingsController = {
     },
 
     /**
-     * Reset settings to defaults by deleting local.json.
+     * Resets settings to factory defaults by removing the local configuration file.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the reset completes.
      */
     resetSettings: async (req, res) => {
         const localPath = path.join(__dirname, '../config/local.json');
@@ -129,17 +142,21 @@ const settingsController = {
 
         await schedulerService.initScheduler(); 
 
-        res.json({ message: 'Settings reset to defaults.', meta: result.meta, warnings });
+        res.json({ message: 'Settings reset to defaults.', meta: result.meta, warnings: [] });
     },
 
     /**
-     * Force refresh the prayer times cache.
+     * Forces a refresh of the calculated prayer times from online sources.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the cache is refreshed.
      */
     refreshCache: async (req, res) => {
         await configService.reload();
         const config = configService.get(); 
 
-        // Safeguard check
+        // Ensure at least one external source is available before discarding the cache
         const primaryHealth = await healthCheck.checkSource('primary');
         let backupHealth = { healthy: false };
         if (config.sources.backup && config.sources.backup.enabled !== false) {
@@ -182,7 +199,10 @@ const settingsController = {
     },
 
     /**
-     * Handle file upload response (Multer does the work).
+     * Handles custom audio file uploads and returns the stored file information.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
      */
     uploadFile: (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -194,7 +214,10 @@ const settingsController = {
     },
 
     /**
-     * Delete a custom audio file.
+     * Deletes a specific custom audio file from the server's storage.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
      */
     deleteFile: (req, res) => {
         const { filename } = req.body;
@@ -202,6 +225,7 @@ const settingsController = {
         
         const filePath = path.join(__dirname, '../../public/audio/custom', filename);
         
+        // Prevent directory traversal attacks by sanitising the filename
         if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
@@ -219,7 +243,11 @@ const settingsController = {
     },
 
     /**
-     * Save VoiceMonkey credentials.
+     * Persists VoiceMonkey API credentials to the environment configuration.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when credentials are saved.
      */
     saveVoiceMonkey: async (req, res) => {
         const { token, device } = req.body;
@@ -237,7 +265,11 @@ const settingsController = {
     },
 
     /**
-     * Remove VoiceMonkey credentials.
+     * Removes VoiceMonkey API credentials from the environment configuration.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when credentials are removed.
      */
     deleteVoiceMonkey: async (req, res) => {
         envManager.deleteEnvValue('VOICEMONKEY_TOKEN');

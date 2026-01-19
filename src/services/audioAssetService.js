@@ -16,12 +16,24 @@ const ARABIC_NAMES = {
 
 const PRAYER_NAMES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
+/**
+ * Ensures that the audio cache directory exists.
+ * Creates the directory if it does not already exist.
+ * 
+ * @returns {void}
+ */
 const ensureCacheDir = () => {
     if (!fs.existsSync(CACHE_DIR)) {
         fs.mkdirSync(CACHE_DIR, { recursive: true });
     }
 };
 
+/**
+ * Cleans up old audio files from the cache directory.
+ * Deletes files that are older than 30 days.
+ * 
+ * @returns {Promise<void>}
+ */
 const cleanupCache = async () => {
     ensureCacheDir();
     const now = Date.now();
@@ -42,6 +54,15 @@ const cleanupCache = async () => {
     }
 };
 
+/**
+ * Resolves a message template by replacing placeholders with actual values.
+ * Placeholders include {prayerEnglish}, {prayerArabic}, and {minutes}.
+ * 
+ * @param {string} template - The message template string.
+ * @param {string} prayerKey - The English name of the prayer.
+ * @param {number} [offsetMinutes] - The offset in minutes.
+ * @returns {string} The resolved message string.
+ */
 const resolveTemplate = (template, prayerKey, offsetMinutes) => {
     let result = template;
     
@@ -62,6 +83,14 @@ const resolveTemplate = (template, prayerKey, offsetMinutes) => {
 };
 
 // Added serviceUrl parameter to make dependency explicit
+/**
+ * Generates an audio file using Text-to-Speech.
+ * 
+ * @param {string} filename - The name of the file to save.
+ * @param {string} text - The text to convert to speech.
+ * @param {string} serviceUrl - The URL of the TTS service.
+ * @returns {Promise<void>}
+ */
 const generateTTS = async (filename, text, serviceUrl) => {
     try {
         const url = `${serviceUrl}/generate-tts`;
@@ -78,6 +107,14 @@ const generateTTS = async (filename, text, serviceUrl) => {
     }
 };
 
+/**
+ * Synchronises audio assets with the current configuration.
+ * Generates missing TTS files and optionally cleans the cache.
+ * 
+ * @param {boolean} [forceClean=false] - Whether to clear the cache before synchronising.
+ * @returns {Promise<Object>} A report containing any warnings encountered during synchronisation.
+ * @throws {Error} If the TTS service is unavailable.
+ */
 const syncAudioAssets = async (forceClean = false) => {
     console.log('[AudioService] Synchronising audio assets...');
     ensureCacheDir();
@@ -121,9 +158,9 @@ const syncAudioAssets = async (forceClean = false) => {
 
         // Iterate events: preAdhan, adhan, preIqamah, iqamah
         for (const [event, settings] of Object.entries(prayerTriggers)) {
-            //console.log(event, settings);
+            // console.log(event, settings);
             if (!settings.enabled || settings.type !== 'tts' || !settings.template) {
-                //console.log(`[AudioService] Skipping ${prayer} - ${event} (disabled or not TTS)`);
+                // console.log(`[AudioService] Skipping ${prayer} - ${event} (disabled or not TTS)`);
                 continue;
             }
 

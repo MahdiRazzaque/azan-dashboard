@@ -18,25 +18,28 @@ const {
 } = require('../utils/constants');
 
 /**
- * Controller for System related operations.
+ * Controller for system-related operations, handling health checks, logs,
+ * automation diagnostics, and hardware testing.
  */
 const systemController = {
     /**
-     * Get system health status. 
-     * Returns 503 if critical services are unhealthy.
+     * Retrieves the overall system health status.
+     * Returns a 503 service unavailable status if critical components are offline.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {void}
      */
     getHealth: (req, res) => {
         const health = healthCheck.getHealth();
         
-        // Determine critical health
-        // Local audio and TTS are always critical. 
-        // Prayer source is critical if both primary and backup are down.
+        // Assess critical dependencies to determine overall system availability
         const isLocalHealthy = health.local?.healthy;
         const isTTSHealthy = health.tts?.healthy;
         const isPrimaryHealthy = health.primarySource?.healthy;
         const isBackupHealthy = health.backupSource?.healthy;
         
-        // Backup might be disabled or not configured
+        // Determine if a backup source is configured and required
         const isBackupNeeded = configService.get().sources.backup?.enabled !== false;
         const isSourceHealthy = isPrimaryHealthy || (isBackupNeeded && isBackupHealthy);
 
@@ -48,17 +51,24 @@ const systemController = {
     },
 
     /**
-     * Trigger a refresh of the system health status.
+     * Initiates a fresh health check for specified system components.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the health check completes.
      */
     refreshHealth: async (req, res) => {
         const { target, mode } = req.body;
-        // target defaults to 'all' if not checking a specific one, mode defaults to 'silent'
+        // Default to checking all components in silent mode if not specified
         const result = await healthCheck.refresh(target || 'all', mode || 'silent');
         res.json(result);
     },
 
     /**
-     * Get the current scheduled jobs.
+     * Retrieves a list of currently scheduled background jobs.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
      */
     getJobs: (req, res) => {
         if (schedulerService.getJobs) {
@@ -69,22 +79,36 @@ const systemController = {
     },
 
     /**
-     * Handle Server-Sent Events (SSE) logs connection.
+     * Establishes a Server-Sent Events (SSE) connection for streaming system logs.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
      */
     getLogs: (req, res) => {
         sseService.addClient(res);
     },
 
     /**
-     * List custom and cached audio files.
+     * Catalogues available custom and cached audio files from the server's storage.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
      */
     getAudioFiles: (req, res) => {
         const customDir = path.join(__dirname, '../../public/audio/custom');
         const cacheDir = path.join(__dirname, '../../public/audio/cache');
         
+        // Ensure necessary directories exist before reading
         if (!fs.existsSync(customDir)) fs.mkdirSync(customDir, { recursive: true });
         if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
 
+        /**
+         * Scans a directory for MP3 files and formats them for the client.
+         * 
+         * @param {string} dir - The directory path to scan.
+         * @param {string} type - The category label (e.g., 'custom', 'cache').
+         * @returns {Array<Object>} An array of file descriptors.
+         */
         const getFiles = (dir, type) => {
             return fs.readdirSync(dir)
                 .filter(f => f.endsWith('.mp3'))
@@ -98,7 +122,11 @@ const systemController = {
     },
 
     /**
-     * Helper to convert map to array of objects object { id, label } and sort by label
+     * Transforms a key-value mapping into a sorted array of choice objects.
+     * 
+     * @param {Object} obj - The mapping object to convert.
+     * @returns {Array<{id: number, label: string}>} A sorted array of objects.
+     * @private
      */
     _toSortedArray: (obj) => {
         if (!obj) return [];
@@ -108,7 +136,10 @@ const systemController = {
     },
 
     /**
-     * Get system constants (Aladhan methods, etc).
+     * Provides static system constants such as calculation methods and juristic settings.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
      */
     getConstants: (req, res) => {
         res.json({
@@ -120,7 +151,11 @@ const systemController = {
     },
 
     /**
-     * Get automation status diagnostics.
+     * Performs a diagnostic check on the current automation service status.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when diagnostics complete.
      */
     getAutomationStatus: async (req, res) => {
         await configService.reload();
@@ -130,7 +165,11 @@ const systemController = {
     },
 
     /**
-     * Get TTS status diagnostics.
+     * Performs a diagnostic check on the Text-to-Speech (TTS) engine's health.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when diagnostics complete.
      */
     getTTSStatus: async (req, res) => {
         await configService.reload();
@@ -140,7 +179,11 @@ const systemController = {
     },
 
     /**
-     * Trigger manual regeneration of TTS assets.
+     * Forces the regeneration of Text-to-Speech assets by clearing and resyncing caches.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when regeneration is complete.
      */
     regenerateTTS: async (req, res) => {
         try {
@@ -160,7 +203,11 @@ const systemController = {
     },
 
     /**
-     * Hot reload the scheduler.
+     * Performs a hot reload of the prayer scheduler without terminating the process.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the scheduler restarts.
      */
     restartScheduler: async (req, res) => {
         await configService.reload();
@@ -169,19 +216,21 @@ const systemController = {
     },
 
     /**
-     * Test playing an audio file on the server.
+     * Executes a playback test for a specific audio file on a target output device.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the playback is triggered.
      */
     testAudio: async (req, res) => {
         const { filename, type, target = 'local' } = req.body; 
         if (!filename || !type) return res.status(400).json({ error: 'Missing filename or type' });
         
-        // Sanitise type
+        // Input sanitisation for path category and output target
         if (!['custom', 'cache'].includes(type)) return res.status(400).json({ error: 'Invalid type' });
-
-        // Sanitise target
         if (!['local', 'browser', 'voiceMonkey'].includes(target)) return res.status(400).json({ error: 'Invalid target' });
 
-        // Sanitise filename
+        // Mitigate directory traversal by allowing only simple filenames
         if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
              return res.status(400).json({ error: 'Invalid filename' });
         }
@@ -189,7 +238,7 @@ const systemController = {
         const filePath = path.join(__dirname, `../../public/audio/${type}/${filename}`);
         const url = `/public/audio/${type}/${filename}`;
         
-        // Final existence check
+        // Confirm the existence of the file before attempt playback
         if (!fs.existsSync(filePath)) {
             console.error(`[TestAudio] File not found at ${filePath}`);
             return res.status(404).json({ error: 'File not found on disk' });
@@ -216,7 +265,11 @@ const systemController = {
     },
 
     /**
-     * Validate an external URL.
+     * Validates that an external URL is reachable via HTTP HEAD or GET.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when validation completes.
      */
     validateUrl: async (req, res) => {
         const { url } = req.body;
@@ -226,7 +279,7 @@ const systemController = {
             await axios.head(url, { timeout: 5000 });
             res.json({ valid: true });
         } catch (e) {
-            // Retry with GET if HEAD fails (some servers block HEAD)
+            // Attempt a GET request if the server rejects HEAD requests
             try {
                 await axios.get(url, { timeout: 5000, responseType: 'stream' });
                 res.json({ valid: true });
@@ -238,7 +291,11 @@ const systemController = {
     },
 
     /**
-     * Test prayer source connectivity.
+     * Tests connectivity and data retrieval for a configured prayer time source.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the test completes.
      */
     testSource: async (req, res) => {
         const { target } = req.body;
@@ -274,7 +331,7 @@ const systemController = {
 
             const daysCount = Object.keys(result).length;
 
-            // Update Health Cache after successful manual test
+            // Mark source as healthy in the cache after a successful manual test
             await healthCheck.refresh(healthKey);
 
             res.json({
@@ -282,18 +339,22 @@ const systemController = {
                 message: `Source responded with ${daysCount} days of data.`
             });
         } catch (error) {
-            // Even if fetch fails, we should refresh the health status for that source
+            // Update health status to reflected failure even if data retrieval fails
             try {
                 await healthCheck.refresh(healthKey);
             } catch (healthError) {
                 console.error(`[SystemController] Failed to refresh health after test failure:`, healthError.message);
             }
-            throw error; // Let global handler handle it
+            throw error;
         }
     },
 
     /**
-     * Test VoiceMonkey integration.
+     * Initiates a test announcement via VoiceMonkey to verify API connectivity.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the test announcement succeeds.
      */
     testVoiceMonkey: async (req, res) => {
         const { token, device } = req.body;
@@ -312,7 +373,11 @@ const systemController = {
     },
 
     /**
-     * Get storage quota and usage information.
+     * Retrieves information regarding storage usage, quotas, and system-free space.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when storage status is retrieved.
      */
     async getStorageStatus(req, res) {
         const storageService = require('../services/storageService');

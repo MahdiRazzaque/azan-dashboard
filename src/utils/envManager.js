@@ -4,6 +4,11 @@ const crypto = require('crypto');
 
 const ENV_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../../.env');
 
+/**
+ * Parses the .env file and returns its content as an object.
+ * 
+ * @returns {Object} An object containing the environment variables.
+ */
 const parseEnv = () => {
     if (!fs.existsSync(ENV_PATH)) return {};
     const content = fs.readFileSync(ENV_PATH, 'utf-8');
@@ -20,6 +25,13 @@ const parseEnv = () => {
     return result;
 };
 
+/**
+ * Sets an environment variable in the .env file and updates the current process.
+ * 
+ * @param {string} key - The environment variable key.
+ * @param {string} value - The environment variable value.
+ * @returns {void}
+ */
 const setEnvValue = (key, value) => {
     // Read existing
     let content = '';
@@ -51,6 +63,12 @@ const setEnvValue = (key, value) => {
     process.env[key] = value;
 };
 
+/**
+ * Deletes an environment variable from the .env file and removes it from the current process.
+ * 
+ * @param {string} key - The environment variable key to delete.
+ * @returns {void}
+ */
 const deleteEnvValue = (key) => {
     if (!fs.existsSync(ENV_PATH)) return;
 
@@ -65,14 +83,26 @@ const deleteEnvValue = (key) => {
     }
 };
 
+/**
+ * Generates a secure random secret string using the crypto module.
+ * 
+ * @returns {string} A 64-character hexadecimal string.
+ */
 const generateSecret = () => {
     return crypto.randomBytes(32).toString('hex');
 };
+
+/**
+ * Checks if the application is correctly configured by verifying the presence of critical environment variables.
+ * 
+ * @returns {boolean} True if the application is configured, otherwise false.
+ */
+const isConfigured = () => !!process.env.ADMIN_PASSWORD;
 
 module.exports = {
     getEnv: parseEnv,
     setEnvValue,
     deleteEnvValue,
     generateSecret,
-    isConfigured: () => !!process.env.ADMIN_PASSWORD
+    isConfigured
 };

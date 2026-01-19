@@ -7,6 +7,14 @@ const { voiceMonkeyQueue } = require('../utils/requestQueue');
 
 const AUDIO_DIR = path.join(__dirname, '../../public/audio');
 
+/**
+ * Resolves the audio source path and URL based on the trigger settings.
+ * 
+ * @param {Object} settings - The trigger settings for the specific prayer event.
+ * @param {string} prayer - The name of the prayer.
+ * @param {string} event - The type of event (e.g., preAdhan, adhan).
+ * @returns {Object} An object containing the absolute file path and relative URL of the audio.
+ */
 const getAudioSource = (settings, prayer, event) => {
     if (settings.type === 'tts') {
         const filename = `tts_${prayer}_${event}.mp3`;
@@ -29,6 +37,15 @@ const getAudioSource = (settings, prayer, event) => {
     return { filePath: null, url: null };
 };
 
+/**
+ * Handles local audio playback on the server.
+ * 
+ * @param {Object} settings - The trigger settings for the specific prayer event.
+ * @param {string} prayer - The name of the prayer.
+ * @param {string} event - The type of event.
+ * @param {Object} source - The resolved audio source information.
+ * @returns {void}
+ */
 const handleLocal = (settings, prayer, event, source) => {
     if (!source.filePath) return;
     const config = configService.get();
@@ -41,6 +58,15 @@ const handleLocal = (settings, prayer, event, source) => {
     });
 };
 
+/**
+ * Broadcasts an audio playback event to all connected SSE clients.
+ * 
+ * @param {Object} settings - The trigger settings for the specific prayer event.
+ * @param {string} prayer - The name of the prayer.
+ * @param {string} event - The type of event.
+ * @param {Object} source - The resolved audio source information.
+ * @returns {void}
+ */
 const broadcastToClients = (settings, prayer, event, source) => {
     if (!source.url) return;
     
@@ -55,6 +81,15 @@ const broadcastToClients = (settings, prayer, event, source) => {
     console.log(`[SSE:Broadcast] Sent AUDIO_PLAY for ${prayer} ${event}`);
 };
 
+/**
+ * Triggers an announcement via Voice Monkey.
+ * 
+ * @param {Object} settings - The trigger settings for the specific prayer event.
+ * @param {string} prayer - The name of the prayer.
+ * @param {string} event - The type of event.
+ * @param {Object} source - The resolved audio source information.
+ * @returns {Promise<void>}
+ */
 const handleVoiceMonkey = async (settings, prayer, event, source) => {
     if (!source.url) return;
     
@@ -85,6 +120,14 @@ const handleVoiceMonkey = async (settings, prayer, event, source) => {
     }
 };
 
+/**
+ * Main entry point for triggering an automated prayer event.
+ * Orchestrates local playback, SSE broadcasting, and remote automation triggers.
+ * 
+ * @param {string} prayer - The name of the prayer.
+ * @param {string} event - The type of event.
+ * @returns {Promise<void>}
+ */
 const triggerEvent = async (prayer, event) => {
     const config = configService.get();
     const settings = config.automation?.triggers?.[prayer]?.[event];
@@ -120,7 +163,14 @@ const triggerEvent = async (prayer, event) => {
     }
 };
 
-
+/**
+ * Verifies Voice Monkey API credentials by attempting a test announcement.
+ * 
+ * @param {string} token - The Voice Monkey API token.
+ * @param {string} device - The Voice Monkey Device ID.
+ * @returns {Promise<boolean>} A promise that resolves to true if verification succeeds.
+ * @throws {Error} If credentials are missing or invalid.
+ */
 const verifyCredentials = async (token, device) => {
     if (!token || !device) {
         throw new Error('Missing API Token or Device ID');

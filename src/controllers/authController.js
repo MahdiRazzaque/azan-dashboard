@@ -3,11 +3,15 @@ const envManager = require('../utils/envManager');
 const { hashPassword, verifyPassword } = require('../utils/auth');
 
 /**
- * Controller for Authentication related operations.
+ * Controller for authentication-related operations, managing login sessions,
+ * password resets, and system initialisation.
  */
 const authController = {
     /**
-     * Get the current authentication and configuration status.
+     * Retrieves the current authentication and configuration status of the system.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
      */
     checkStatus: (req, res) => {
         res.json({ 
@@ -17,10 +21,14 @@ const authController = {
     },
 
     /**
-     * Initial system setup: set admin password and generate JWT secret.
+     * Performs initial system setup by setting the admin password and generating a JWT secret.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {void}
      */
     setup: (req, res) => {
-        // Only allow if NOT configured
+        // Prevent setup if an admin password is already configured
         if (process.env.ADMIN_PASSWORD) {
             return res.status(403).json({ error: 'System already configured. Login to change settings.' });
         }
@@ -34,14 +42,14 @@ const authController = {
             const hashed = hashPassword(password);
             envManager.setEnvValue('ADMIN_PASSWORD', hashed);
             
-            // Auto-generate JWT Secret if missing
+            // Automatically generate a secret for JWT signing if one is not already present
             let jwtSecret = process.env.JWT_SECRET;
             if (!jwtSecret) {
                 jwtSecret = envManager.generateSecret();
                 envManager.setEnvValue('JWT_SECRET', jwtSecret);
             }
 
-            // Auto-login logic
+            // Generate an initial token for immediate login after setup
             const token = jwt.sign({ role: 'admin' }, jwtSecret, { expiresIn: '24h' });
             res.cookie('auth_token', token, {
                 httpOnly: true,
@@ -58,7 +66,11 @@ const authController = {
     },
 
     /**
-     * Change the admin password.
+     * Updates the administrative password for the system.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {void}
      */
     changePassword: (req, res) => {
         const { password } = req.body;
@@ -74,7 +86,11 @@ const authController = {
     },
 
     /**
-     * Login with admin password and receive a JWT cookie.
+     * Authenticates a user with the admin password and issues a JWT as a cookie.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {void}
      */
     login: (req, res) => {
         const { password } = req.body;
@@ -88,6 +104,7 @@ const authController = {
         }
 
         if (verifyPassword(password, adminPassword)) {
+            // Revert to password as fallback secret if JWT_SECRET is unexpectedly missing
             const secret = process.env.JWT_SECRET || adminPassword;
             const token = jwt.sign({ role: 'admin' }, secret, { expiresIn: '24h' });
 
@@ -105,7 +122,10 @@ const authController = {
     },
 
     /**
-     * Logout by clearing the auth cookie.
+     * Terminates the current session by clearing the authentication cookie.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
      */
     logout: (req, res) => {
         res.clearCookie('auth_token');
@@ -113,7 +133,10 @@ const authController = {
     },
 
     /**
-     * Simple check to see if the current token is valid.
+     * Validates the current session token to confirm authentication status.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
      */
     checkAuth: (req, res) => {
         res.json({ authenticated: true });

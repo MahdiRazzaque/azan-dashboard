@@ -7,11 +7,27 @@ const fs = require('fs');
  * Files are saved to public/audio/custom.
  */
 const storage = multer.diskStorage({
+    /**
+     * Determines the destination directory for uploaded files.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {Object} file - The file object provided by Multer.
+     * @param {Function} cb - The callback function to signal the destination.
+     * @returns {void}
+     */
     destination: (req, file, cb) => {
         const dir = path.join(__dirname, '../../public/audio/custom');
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
         cb(null, dir);
     },
+    /**
+     * Determines the filename for the uploaded file.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {Object} file - The file object provided by Multer.
+     * @param {Function} cb - The callback function to signal the filename.
+     * @returns {void}
+     */
     filename: (req, file, cb) => {
         cb(null, file.originalname);
     }
@@ -20,6 +36,14 @@ const storage = multer.diskStorage({
 const upload = multer({ 
     storage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    /**
+     * Filters files based on their type and extension.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {Object} file - The file object provided by Multer.
+     * @param {Function} cb - The callback function to signal acceptance or rejection.
+     * @returns {void}
+     */
     fileFilter: (req, file, cb) => {
         if (file.mimetype === 'audio/mpeg' || file.originalname.endsWith('.mp3')) {
             cb(null, true);

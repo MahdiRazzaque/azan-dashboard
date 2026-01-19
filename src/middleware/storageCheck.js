@@ -3,6 +3,11 @@ const storageService = require('../services/storageService');
 /**
  * Middleware to check if an incoming file upload would exceed the storage quota.
  * Uses the Content-Length header for a pre-check before Multer processes the file.
+ * 
+ * @param {import('express').Request} req - The Express request object.
+ * @param {import('express').Response} res - The Express response object.
+ * @param {import('express').NextFunction} next - The next middleware function.
+ * @returns {Promise<void|import('express').Response>} A promise that resolves when the check is complete.
  */
 const storageCheck = async (req, res, next) => {
     const contentLength = parseInt(req.headers['content-length'], 10);

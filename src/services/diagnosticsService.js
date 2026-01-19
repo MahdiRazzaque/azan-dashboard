@@ -4,6 +4,13 @@ const { DateTime } = require('luxon');
 const prayerTimeService = require('./prayerTimeService');
 const { calculateIqamah } = require('../utils/calculations');
 
+/**
+ * Calculates the current status of all automation triggers for the given configuration.
+ * Determines if triggers have passed or are upcoming based on the current time and state.
+ * 
+ * @param {Object} config - The application configuration object.
+ * @returns {Promise<Object>} A report containing the status and details of each prayer event trigger.
+ */
 const getAutomationStatus = async (config) => {
     const timezone = config.location.timezone;
     const now = DateTime.now().setZone(timezone);
@@ -46,7 +53,13 @@ const getAutomationStatus = async (config) => {
              iqamah = DateTime.fromISO(calculatedIso).setZone(timezone);
         }
 
-        // Helper to determine status
+        /**
+         * Internal helper to determine the status and details of a single trigger.
+         * 
+         * @param {Object} triggerConfig - The configuration for a specific trigger.
+         * @param {import('luxon').DateTime} time - The calculated time for the trigger.
+         * @returns {Object} The status, time, and descriptive details of the trigger.
+         */
         const getStatus = (triggerConfig, time) => {
             const enabled = triggerConfig?.enabled;
             if (!enabled) return { status: 'DISABLED' };
@@ -96,6 +109,13 @@ const getAutomationStatus = async (config) => {
 
 const { resolveTemplate } = require('./audioAssetService');
 
+/**
+ * Checks the status of TTS (Text-to-Speech) assets for the given configuration.
+ * Identifies if assets are configured, cached, or missing.
+ * 
+ * @param {Object} config - The application configuration object.
+ * @returns {Promise<Object>} A report of the TTS status for all relevant prayer events.
+ */
 const getTTSStatus = async (config) => {
     const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
     const result = {};

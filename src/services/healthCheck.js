@@ -21,6 +21,12 @@ try {
     if (port) healthCache.ports.tts = port;
 } catch (e) { /* ignore */ }
 
+/**
+ * Checks the local audio environment, including the presence of playback software
+ * and hardware sound devices (Linux specific).
+ * 
+ * @returns {Promise<Object>} An object containing health status and a descriptive message.
+ */
 async function checkLocalAudio() {
     try {
         await new Promise((resolve, reject) => {
@@ -64,6 +70,11 @@ async function checkLocalAudio() {
     }
 }
 
+/**
+ * Checks the connectivity and availability of the local TTS (Text-to-Speech) service.
+ * 
+ * @returns {Promise<Object>} An object containing health status and a descriptive message.
+ */
 async function checkPythonService() {
     try {
         const ttsUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
@@ -76,6 +87,12 @@ async function checkPythonService() {
     }
 }
 
+/**
+ * Checks the Voice Monkey API connectivity and credentials.
+ * 
+ * @param {string} [mode='silent'] - The check mode ('silent' or 'loud'). 'Loud' uses actual devices.
+ * @returns {Promise<Object>} An object containing health status and a descriptive message.
+ */
 async function checkVoiceMonkey(mode = 'silent') {
     const config = configService.get();
     const token = config.automation?.voiceMonkey?.token;
@@ -93,7 +110,7 @@ async function checkVoiceMonkey(mode = 'silent') {
     }
 
     const deviceToCheck = mode === 'silent' ? `azan_check_${Date.now()}` : device;
-    //console.log(`[Health] VoiceMonkey (${mode}): Checking device ${deviceToCheck}`);
+    // console.log(`[Health] VoiceMonkey (${mode}): Checking device ${deviceToCheck}`);
     try {
         // Check if we can reach the API
         const response = await axios.get(`https://api-v2.voicemonkey.io/announcement`, {
@@ -105,7 +122,7 @@ async function checkVoiceMonkey(mode = 'silent') {
             timeout: 5000
         });
 
-        //console.log(`[Health] VoiceMonkey (${mode}): Response`, response.data);
+        // console.log(`[Health] VoiceMonkey (${mode}): Response`, response.data);
 
         if (response.data && response.data.success === true) {
              console.log(`[Health] VoiceMonkey (${mode}): OK`);
@@ -121,6 +138,13 @@ async function checkVoiceMonkey(mode = 'silent') {
     }
 }
 
+/**
+ * Checks the health of a specific prayer time data source (Primary or Backup).
+ * Validates connectivity and the ability to fetch data for the current year.
+ * 
+ * @param {string} target - The source target to check ('primary' or 'backup').
+ * @returns {Promise<Object>} An object containing health status and a descriptive message.
+ */
 async function checkSource(target) {
     const config = configService.get();
     const source = config.sources[target];
@@ -144,6 +168,13 @@ async function checkSource(target) {
     }
 }
 
+/**
+ * Refreshes the health status cache for specified targets.
+ * 
+ * @param {string} [target='all'] - The components to refresh ('all', 'local', 'tts', 'voicemonkey', etc.).
+ * @param {string} [mode='silent'] - The check mode for automation services.
+ * @returns {Promise<Object>} The updated health cache object.
+ */
 async function refresh(target = 'all', mode = 'silent') {
     console.log(`[Health] Refreshing target: ${target}, mode: ${mode}`);
     
@@ -180,6 +211,11 @@ async function refresh(target = 'all', mode = 'silent') {
     return healthCache;
 }
 
+/**
+ * Retrieves the current health status cache.
+ * 
+ * @returns {Object} The health status cache object.
+ */
 function getHealth() {
     return healthCache;
 }

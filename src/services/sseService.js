@@ -2,6 +2,12 @@ let clients = [];
 const logHistory = [];
 const MAX_HISTORY = 200;
 
+/**
+ * Initialises and adds a new client to the SSE (Server-Sent Events) stream.
+ * 
+ * @param {import('express').Response} res - The Express response object for the SSE connection.
+ * @returns {void}
+ */
 const addClient = (res) => {
     // Send initial ping or retry info
     res.writeHead(200, {
@@ -28,12 +34,25 @@ const addClient = (res) => {
     });
 };
 
+/**
+ * Broadcasts data to all currently connected SSE clients.
+ * 
+ * @param {Object} data - The data object to broadcast.
+ * @returns {void}
+ */
 const broadcast = (data) => {
     clients.forEach(client => {
         client.write(`data: ${JSON.stringify(data)}\n\n`);
     });
 };
 
+/**
+ * Logs a message, stores it in the local history, and broadcasts it to all connected SSE clients.
+ * 
+ * @param {string} message - The log message.
+ * @param {string} [level='info'] - The log level (e.g., 'info', 'warn', 'error').
+ * @returns {void}
+ */
 const log = (message, level = 'info') => {
     const entry = {
         timestamp: new Date().toISOString(),

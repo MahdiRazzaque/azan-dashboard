@@ -9,6 +9,12 @@ const healthCheck = require('./healthCheck');
 
 let jobs = [];
 
+/**
+ * Clears all currently scheduled jobs.
+ * This ensures no duplicate triggers or stale jobs remain in memory.
+ * 
+ * @returns {void}
+ */
 const clearJobs = () => {
     jobs.forEach(j => {
         if (j) j.cancel();
@@ -17,6 +23,15 @@ const clearJobs = () => {
     console.log('[Scheduler] All jobs cleared.');
 };
 
+/**
+ * Schedules a single automation event for a specific prayer and time.
+ * Validates global automation switches and ensures events are only scheduled for the future.
+ * 
+ * @param {import('luxon').DateTime} date - The date and time to trigger the event.
+ * @param {string} prayer - The name of the prayer.
+ * @param {string} event - The type of event (e.g., adhan, iqamah).
+ * @returns {void}
+ */
 const scheduleEvent = (date, prayer, event) => {
     const config = configService.get();
     // Check Global Switches
@@ -56,6 +71,12 @@ const scheduleEvent = (date, prayer, event) => {
     }
 };
 
+/**
+ * Schedules recurring system maintenance jobs.
+ * Includes tasks for stale data checks, year boundary handling, system health monitoring, and audio asset maintenance.
+ * 
+ * @returns {void}
+ */
 const scheduleMaintenanceJobs = () => {
     // 1. Stale Check - Run Weekly (Sunday 03:00)
     const staleJob = schedule.scheduleJob('0 3 * * 0', async () => {
@@ -172,6 +193,12 @@ const scheduleMaintenanceJobs = () => {
     }
 };
 
+/**
+ * Initialises the main scheduler.
+ * Clears existing jobs, schedules maintenance tasks, and queues all prayer-related automation for the current day.
+ * 
+ * @returns {Promise<void>}
+ */
 const initScheduler = async () => {
     const config = configService.get();
     try {
@@ -274,7 +301,18 @@ const initScheduler = async () => {
     }
 };
 
+/**
+ * Retrieves a categorised list of all currently scheduled jobs.
+ * 
+ * @returns {Object} An object containing maintenance and automation jobs with their next invocation times.
+ */
 const getJobs = () => {
+    /**
+     * Internal helper to format a single job for reporting.
+     * 
+     * @param {Object} j - The node-schedule job object.
+     * @returns {Object} A formatted job object with name, next invocation, and category.
+     */
     const formatJob = (j) => {
         let next = null;
         try { 
@@ -320,6 +358,12 @@ const getJobs = () => {
     return { maintenance, automation };
 };
 
+/**
+ * Performs a hot reload of the scheduler.
+ * Re-initialises all jobs based on the latest configuration.
+ * 
+ * @returns {Promise<void>}
+ */
 const hotReload = () => {
     console.log('[Scheduler] Hot Reloading...');
     return initScheduler();

@@ -5,13 +5,23 @@ const dotenv = require('dotenv');
 const { configSchema } = require('./schemas');
 
 class ConfigNotInitializedError extends Error {
+    /**
+     * Initialises a new instance of the ConfigNotInitializedError class.
+     */
     constructor() {
         super('ConfigService not initialized. Call init() first.');
         this.name = 'ConfigNotInitializedError';
     }
 }
 
+/**
+ * Service responsible for managing application configuration, including loading,
+ * merging local overrides, and applying environment variable overrides.
+ */
 class ConfigService {
+    /**
+     * Initialises the ConfigService instance with default paths and state.
+     */
     constructor() {
         this._config = null;
         this._isInitialized = false;
@@ -29,12 +39,23 @@ class ConfigService {
         this._isSaving = false;
     }
 
+    /**
+     * Initialises the configuration service by loading it from disk.
+     * 
+     * @returns {Promise<void>} A promise that resolves when initialisation is complete.
+     */
     async init() {
         if (this._isInitialized) return;
         await this.reload();
         this._isInitialized = true;
     }
 
+    /**
+     * Retrieves the current configuration object.
+     * 
+     * @throws {ConfigNotInitializedError} If the service has not been initialised.
+     * @returns {Object} The current configuration object.
+     */
     get() {
         if (!this._config) {
             throw new ConfigNotInitializedError();
@@ -42,35 +63,47 @@ class ConfigService {
         return this._config;
     }
 
+    /**
+     * Reloads the configuration from disk, applying default, local, and environment overrides.
+     * 
+     * @returns {Promise<void>} A promise that resolves when the configuration is reloaded.
+     */
     async reload() {
-        // Reload environment variables
+        // Reload environment variables from the specified .env file
         const ENV_FILE_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../../.env');
         dotenv.config({ path: ENV_FILE_PATH, override: true });
 
-        // Load Default Config
+        // Load default configuration from the JSON file
         const defaultContent = await fs.readFile(this._configPath, 'utf-8');
         let rawConfig = JSON.parse(defaultContent);
 
-        // Load Local Config (if exists)
+        // Load local configuration overrides if the file exists
         try {
             await fs.access(this._localPath);
             const localContent = await fs.readFile(this._localPath, 'utf-8');
             const localConfig = JSON.parse(localContent);
             rawConfig = this._mergeDeep(rawConfig, localConfig);
         } catch (e) {
-            // It's okay if local.json doesn't exist
+            // It is acceptable if local.json does not exist; we continue with defaults
             if (e.code !== 'ENOENT') {
                 console.error('Failed to load local config:', e);
             }
         }
 
-        // Merge Environment Variables
+        // Merge environment variables to override file-based settings
         this._applyEnvOverrides(rawConfig);
 
-        // Validate
+        // Validate the final configuration against the Zod schema
         this._config = configSchema.parse(rawConfig);
     }
 
+    /**
+     * Updates the local configuration with partial changes and persists them to disk.
+     * 
+     * @param {Object} partialConfig - The partial configuration object to merge.
+     * @throws {Error} If a save operation is already in progress.
+     * @returns {Promise<void>} A promise that resolves when the update is complete.
+     */
     async update(partialConfig) {
         if (this._isSaving) {
             throw new Error('Configuration save in progress');
@@ -96,28 +129,26 @@ class ConfigService {
 
             const newLocalCandidate = this._mergeDeep(currentLocal, partialConfig);
             
-            // We need to protect secrets from being written to local.json
-            // FR-08: Write Protection
+            // Protect secrets from being written to local.json as per requirement FR-08
             this._stripSecrets(newLocalCandidate);
 
-            // Construct full candidate to validate schema
+            // Construct full candidate to validate against the schema
             const defaultContent = await fs.readFile(this._configPath, 'utf-8');
             const defaultConfig = JSON.parse(defaultContent);
             
-            // Re-apply envs temporarily for validation (because full config needs them)
-            // But we don't save them.
+            // Re-apply environment overrides temporarily for validation
+            // These are not saved to the local configuration file.
             const fullCandidate = this._mergeDeep(defaultConfig, newLocalCandidate);
             this._applyEnvOverrides(fullCandidate);
 
-            // Validation FR-05
+            // Validate against the configuration schema (FR-05)
             configSchema.parse(fullCandidate);
-            // Logic validation (external checks) is currently handled by the caller (API layer)
-            // to avoid circular dependencies with fetchers.
+            // Logic validation is handled by the API layer to avoid circular dependencies.
 
-            // Write to disk
+            // Persist the updated local configuration to disk
             await fs.writeFile(this._localPath, JSON.stringify(newLocalCandidate, null, 2));
 
-            // Reload to update memory
+            // Reload the configuration to update the in-memory state
             await this.reload();
 
         } finally {
@@ -125,29 +156,43 @@ class ConfigService {
         }
     }
 
+    /**
+     * Deeply merges a source object into a target object.
+     * 
+     * @param {Object} target - The target object to merge into.
+     * @param {Object} source - The source object containing overrides.
+     * @returns {Object} The resulting merged object.
+     * @private
+     */
     _mergeDeep(target, source) {
         if (typeof target !== 'object' || target === null) return source;
         if (typeof source !== 'object' || source === null) return target;
         
-        // Clone target to allow immutability if needed, but here we usually merge into a fresh object or existing.
-        // For simple recursive merge:
+        // Create a shallow clone to maintain potential immutability
         const output = Array.isArray(target) ? [...target] : { ...target };
 
         for (const key in source) {
             if (Array.isArray(source[key])) {
-                // If both are arrays, usually we overwrite in this config system (as seen in existing code)
-                // Existing code: target[key] = source[key] (overwrite array)
+                // Arrays are completely overwritten in this configuration system
                  output[key] = source[key];
             } else if (typeof source[key] === 'object' && source[key] !== null && 
                        typeof output[key] === 'object' && output[key] !== null) {
+                // Recursively merge nested objects
                 output[key] = this._mergeDeep(output[key], source[key]);
             } else {
+                // Direct assignment for primitive values
                 output[key] = source[key];
             }
         }
         return output;
     }
 
+    /**
+     * Applies environment variable overrides to the configuration object.
+     * 
+     * @param {Object} config - The configuration object to modify.
+     * @private
+     */
     _applyEnvOverrides(config) {
         if (!config.automation) return;
         
@@ -162,21 +207,20 @@ class ConfigService {
         }
     }
 
+    /**
+     * Removes sensitive environment-managed keys before saving to disk.
+     * 
+     * @param {Object} config - The configuration object to strip.
+     * @private
+     */
     _stripSecrets(config) {
-        // Helper to remove env-managed keys from the object to be saved
-        // We shouldn't remove the keys entirely if they are required by schema, 
-        // but we definitely shouldn't save the *values* from env.
+        // Enforces "Environment as Source of Truth" by preventing secrets from persisting to disk
         
         if (config.automation) {
-            // These are managed by ENV, so do not save them to local.json
-            // If the user tries to change them via UI, it won't persist if we strip them.
-            // This enforces "Env as Source of Truth" for these specific keys.
             if (process.env.BASE_URL) delete config.automation.baseUrl;
             if (process.env.PYTHON_SERVICE_URL) delete config.automation.pythonServiceUrl;
             
             if (config.automation.voiceMonkey) {
-                 // Always remove token and device from the object to be saved
-                 // This ensures they are never written to local.json
                  delete config.automation.voiceMonkey.token;
                  delete config.automation.voiceMonkey.device;
             }

@@ -16,9 +16,9 @@ if (!fs.existsSync(dataDir)) {
  * Gets prayer times for a date with next prayer calculation.
  * Encapsulates the logic previously in the /api/prayers route.
  * 
- * @param {object} config - Application configuration
- * @param {string} timezone - Timezone
- * @returns {Promise<object>} Object containing meta, prayers, and nextPrayer
+ * @param {Object} config - Application configuration.
+ * @param {string} timezone - Timezone string.
+ * @returns {Promise<Object>} Object containing meta, prayers, and nextPrayer.
  */
 async function getPrayersWithNext(config, timezone) {
   const now = DateTime.now().setZone(timezone);
@@ -94,9 +94,9 @@ async function getPrayersWithNext(config, timezone) {
  * Service to orchestrate fetching and caching of prayer times.
  * Supports Annual/Bulk fetching strategy.
  * 
- * @param {object} config - Application configuration.
- * @param {DateTime} date - Date to fetch for.
- * @returns {Promise<object>} Prayer times object + meta.
+ * @param {Object} config - Application configuration.
+ * @param {import('luxon').DateTime} date - Date to fetch for.
+ * @returns {Promise<Object>} Prayer times object + meta.
  */
 async function getPrayerTimes(config, date = DateTime.now()) {
   const dateKey = date.toISODate();
@@ -125,6 +125,13 @@ async function getPrayerTimes(config, date = DateTime.now()) {
   let newDataMap = null;
   let sourceUsed = null;
 
+  /**
+   * Internal helper to attempt fetching prayer times from a specific source.
+   * 
+   * @param {Object} sourceConfig - The configuration for the data source.
+   * @returns {Promise<Object|null>} A map of prayer times if successful, otherwise null.
+   * @throws {Error} If the source type is unknown.
+   */
   const tryFetch = async (sourceConfig) => {
     if (!sourceConfig || !sourceConfig.type) return null;
     console.log(`[PrayerService] Attempting fetch from source: ${sourceConfig.type}`);
@@ -199,6 +206,11 @@ async function getPrayerTimes(config, date = DateTime.now()) {
   };
 }
 
+/**
+ * Reads the prayer times cache from the file system.
+ * 
+ * @returns {Object} The parsed cache object, or an empty object if the file is missing or corrupt.
+ */
 function readCache() {
   try {
     if (fs.existsSync(CACHE_FILE)) {
@@ -216,6 +228,12 @@ function readCache() {
   return {};
 }
 
+/**
+ * Writes the prayer times cache to the file system.
+ * 
+ * @param {Object} data - The cache object to save.
+ * @returns {void}
+ */
 function writeCache(data) {
   try {
     fs.writeFileSync(CACHE_FILE, JSON.stringify(data, null, 2));
@@ -224,6 +242,13 @@ function writeCache(data) {
   }
 }
 
+/**
+ * Applies locally configured iqamah overrides to the fetched prayer times.
+ * 
+ * @param {Object} prayers - The standard prayer times object.
+ * @param {Object} config - The application configuration containing overrides.
+ * @returns {Object} The prayer times object with overrides applied.
+ */
 function applyOverrides(prayers, config) {
     if (!prayers) return prayers;
     if (!config || !config.prayers) return prayers;
@@ -246,7 +271,10 @@ function applyOverrides(prayers, config) {
 }
 
 /**
- * Force refresh logic (Task 6 helper)
+ * Forces a refresh of the prayer times by deleting the cache and re-fetching.
+ * 
+ * @param {Object} config - The application configuration object.
+ * @returns {Promise<Object>} The fresh prayer times data.
  */
 async function forceRefresh(config) {
     if (fs.existsSync(CACHE_FILE)) {

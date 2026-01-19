@@ -44,6 +44,13 @@ app.get(/.*/, (req, res) => {
 });
 
 // Startup Logic Encapsulated
+/**
+ * Initialises and starts the Express server.
+ * Handles the initialisation of configuration services and application logic.
+ * 
+ * @param {number} [port=PORT] - The port to listen on.
+ * @returns {Promise<import('http').Server>} A promise that resolves with the server instance.
+ */
 const startServer = async (port = PORT) => {
   return new Promise((resolve) => {
       const server = app.listen(port, async () => {

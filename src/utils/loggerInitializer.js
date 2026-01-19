@@ -1,5 +1,12 @@
 const sseService = require('../services/sseService');
 
+/**
+ * Initialises the global logger by overriding standard console methods.
+ * Captures console output and broadcasts it via the SSE service while 
+ * maintaining the original console functionality.
+ * 
+ * @returns {void}
+ */
 const initLogger = () => {
     const originalLog = console.log;
     const originalError = console.error;
