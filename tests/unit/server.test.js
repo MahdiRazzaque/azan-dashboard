@@ -162,10 +162,15 @@ describe('Server Startup', () => {
         });
 
         it('GET /random-page should serve index.html', async () => {
+            // Mock sendFile to avoid 404 in environments without a built client
+            const sendFileSpy = jest.spyOn(app.response, 'sendFile').mockImplementation(function() {
+                return this.status(200).send('Mocked index.html');
+            });
+
             const res = await request(app).get('/some-random-ui-route');
             expect(res.status).toBe(200);
-            // Since we don't actually have client/dist/index.html in most test envs, 
-            // express might return 404 if file missing, but the line IS hit.
+            
+            sendFileSpy.mockRestore();
         });
     });
 });
