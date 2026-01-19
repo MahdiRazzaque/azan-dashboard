@@ -3,8 +3,25 @@ import { Eye, EyeOff, Check, X, ShieldAlert } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ *
+ * @param {...any} inputs - The class names or objects to merge.
+ * @returns {string} The merged class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+/**
+ * A custom password input component with integrated visibility toggling and optional 
+ * password strength validation.
+ *
+ * @param {object} props - The component props.
+ * @param {string} props.value - The current value of the input.
+ * @param {Function} props.onChange - Callback function for when the input value changes.
+ * @param {string} [props.placeholder="Enter password"] - Placeholder text for the input.
+ * @param {boolean} [props.showStrength=false] - Whether to display the password strength indicator.
+ * @returns {JSX.Element} The rendered password input component.
+ */
 export default function PasswordInput({ value, onChange, placeholder = "Enter password", showStrength = false }) {
     const [show, setShow] = useState(false);
     const [touched, setTouched] = useState(false);

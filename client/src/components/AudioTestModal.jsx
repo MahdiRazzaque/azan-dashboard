@@ -2,6 +2,19 @@ import React from 'react';
 import { X, Volume2, Monitor, Radio, AlertCircle } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 
+/**
+ * A modal component that allows users to test audio playback across different
+ * output targets, such as the server speaker or connected browsers.
+ *
+ * @param {object} props - The component props.
+ * @param {boolean} props.isOpen - Whether the modal is currently visible.
+ * @param {Function} props.onClose - Function to call when closing the modal.
+ * @param {object} props.file - The audio file object to be tested.
+ * @param {boolean} props.consentGiven - Whether the user has provided consent for playback.
+ * @param {Function} props.setConsentGiven - Function to update the consent state.
+ * @param {Function} props.onTest - Function to trigger the actual audio test.
+ * @returns {JSX.Element|null} The rendered modal or null if not open.
+ */
 export default function AudioTestModal({ 
     isOpen, 
     onClose, 

@@ -5,8 +5,22 @@ import { useSettings } from '../contexts/SettingsContext';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ *
+ * @param {...any} inputs - The class names or objects to merge.
+ * @returns {string} The merged class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+/**
+ * A modal component that allows users to manage client-specific preferences,
+ * such as appearance settings and audio exclusion rules.
+ *
+ * @param {object} props - The component props.
+ * @param {Function} props.onClose - Function to call when closing the modal.
+ * @returns {JSX.Element} The rendered modal component.
+ */
 const ClientSettingsModal = ({ onClose }) => {
   const { preferences, updateAppearance, toggleAudioExclusion, isAudioExcluded, muteAll, unmuteAll } = useClientPreferences();
   const { config } = useSettings();

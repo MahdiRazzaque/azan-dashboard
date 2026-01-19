@@ -3,8 +3,29 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSettings } from '../contexts/SettingsContext';
 
+/**
+ * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ *
+ * @param {...any} inputs - The class names or objects to merge.
+ * @returns {string} The merged class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+/**
+ * A card component representing an automation trigger, allowing users to configure
+ * audio files and view the current activation status.
+ *
+ * @param {object} props - The component props.
+ * @param {string} props.label - The display name of the trigger.
+ * @param {object} props.trigger - The trigger configuration object.
+ * @param {Function} props.onChange - Callback function for when trigger settings change.
+ * @param {Array} props.files - A list of available audio files for selection.
+ * @param {string} [props.error] - An optional error message to display.
+ * @param {boolean} [props.isDirty] - Whether the trigger state has unsaved changes.
+ * @param {string} props.eventType - The type of event this trigger belongs to (e.g., 'adhan').
+ * @param {React.ReactNode} [props.extraContent] - Optional additional content to render in the card.
+ * @returns {JSX.Element} The rendered trigger card component.
+ */
 export default function TriggerCard({ label, trigger, onChange, files, error, isDirty, eventType, extraContent }) {
     const { systemHealth, config } = useSettings();
     

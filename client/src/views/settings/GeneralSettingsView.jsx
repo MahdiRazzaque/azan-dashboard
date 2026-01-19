@@ -6,8 +6,20 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import SourceConfigurator from '../../components/settings/SourceConfigurator';
 
+/**
+ * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ *
+ * @param {...any} inputs - The class names or objects to merge.
+ * @returns {string} The merged class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+/**
+ * A view component for configuring general system settings, such as the prayer 
+ * time calculation source and location-specific details.
+ *
+ * @returns {JSX.Element} The rendered general settings view.
+ */
 export default function GeneralSettingsView() {
   const { 
     draftConfig, 

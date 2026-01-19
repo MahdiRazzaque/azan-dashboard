@@ -4,8 +4,22 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSettings } from '../../contexts/SettingsContext';
 
+/**
+ * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ *
+ * @param {...any} inputs - The class names or objects to merge.
+ * @returns {string} The merged class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+/**
+ * A card component that displays the status of the primary and backup prayer time 
+ * data sources, allowing users to verify connectivity and see which source is active.
+ *
+ * @param {object} props - The component props.
+ * @param {object} props.config - The prayer source configuration object.
+ * @returns {JSX.Element} The rendered prayer source status card.
+ */
 export default function PrayerSourceStatusCard({ config }) {
     const { systemHealth, refreshHealth } = useSettings();
     const [activeSource, setActiveSource] = useState(null);

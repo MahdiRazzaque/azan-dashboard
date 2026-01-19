@@ -6,10 +6,22 @@ import { Clock, AlertTriangle, Save, CheckCircle, XCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ *
+ * @param {...any} inputs - The class names or objects to merge.
+ * @returns {string} The merged class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 const PRAYERS = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
+/**
+ * A view component for managing prayer-specific settings, including individual 
+ * automation triggers and audio event configurations for each prayer time.
+ *
+ * @returns {JSX.Element} The rendered prayer settings view.
+ */
 export default function PrayerSettingsView() {
     const { 
         draftConfig, 

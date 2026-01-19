@@ -6,8 +6,24 @@ import { twMerge } from 'tailwind-merge';
 import PasswordInput from '../../components/PasswordInput';
 import ConfirmModal from '../../components/ConfirmModal';
 
+/**
+ * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ *
+ * @param {...any} inputs - The class names or objects to merge.
+ * @returns {string} The merged class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+/**
+ * A reusable toggle switch component used for boolean settings.
+ *
+ * @param {object} props - The component props.
+ * @param {boolean} props.checked - Whether the toggle is currently on.
+ * @param {Function} props.onChange - Callback function for when the toggle state changes.
+ * @param {string} props.label - The label text for the toggle.
+ * @param {string} [props.description] - An optional descriptive text for the toggle.
+ * @returns {JSX.Element} The rendered toggle component.
+ */
 const Toggle = ({ checked, onChange, label, description }) => (
     <div className="flex items-center justify-between py-3">
         <div className="mr-4">
@@ -34,6 +50,12 @@ const Toggle = ({ checked, onChange, label, description }) => (
     </div>
 );
 
+/**
+ * A view component for managing global automation settings, including master switches
+ * for different types of automated events (e.g., adhan, iqamah).
+ *
+ * @returns {JSX.Element} The rendered automation settings view.
+ */
 export default function AutomationSettingsView() {
     const { 
       config,

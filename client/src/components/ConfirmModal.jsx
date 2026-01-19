@@ -1,6 +1,23 @@
 import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 
+/**
+ * A standardised confirmation modal component used for destructive actions or important decisions.
+ *
+ * @param {object} props - The component props.
+ * @param {boolean} props.isOpen - Whether the modal is visible.
+ * @param {Function} props.onClose - Function to call when closing the modal (e.g., via backdrop click).
+ * @param {Function} props.onConfirm - Function to call when the primary action is confirmed.
+ * @param {Function} props.onCancel - Function to call when the action is cancelled.
+ * @param {Function} [props.onRetry] - Optional function to call for retrying an operation.
+ * @param {string} [props.retryText] - The label for the retry button.
+ * @param {string} props.title - The title text for the modal.
+ * @param {string} props.message - The informative message displayed in the modal body.
+ * @param {string} [props.confirmText='Confirm'] - The label for the confirmation button.
+ * @param {string} [props.cancelText='Cancel'] - The label for the cancellation button.
+ * @param {boolean} [props.isDestructive=false] - Whether the action is destructive (e.g., delete), affecting styling.
+ * @returns {JSX.Element|null} The rendered modal or null if not open.
+ */
 export default function ConfirmModal({ isOpen, onClose, onConfirm, onCancel, onRetry, retryText, title, message, confirmText = 'Confirm', cancelText = 'Cancel', isDestructive = false }) {
     if (!isOpen) return null;
 

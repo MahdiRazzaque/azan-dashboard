@@ -3,6 +3,12 @@ import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, Chevron
 import AudioTestModal from '../../components/AudioTestModal';
 import ConfirmModal from '../../components/ConfirmModal';
 
+/**
+ * A view component for managing audio files, allowing users to upload, preview,
+ * and delete custom audio assets for prayer alerts.
+ *
+ * @returns {JSX.Element} The rendered file manager view.
+ */
 export default function FileManagerView() {
     const [files, setFiles] = useState([]);
     const [uploading, setUploading] = useState(false);

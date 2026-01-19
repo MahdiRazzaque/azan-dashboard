@@ -4,6 +4,12 @@ import { useAuth } from '../contexts/AuthContext';
 import PasswordInput from '../components/PasswordInput';
 import { ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
 
+/**
+ * A view component for initial system setup, primarily focused on establishing
+ * the administrative password for the dashboard.
+ *
+ * @returns {JSX.Element} The rendered setup view.
+ */
 export default function SetupView() {
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');

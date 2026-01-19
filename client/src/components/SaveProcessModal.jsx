@@ -3,10 +3,28 @@ import { Loader2, CheckCircle, AlertTriangle, XCircle, ArrowRight, ExternalLink 
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ *
+ * @param {...any} inputs - The class names or objects to merge.
+ * @returns {string} The merged class string.
+ */
 function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * A modal component that displays the real-time progress and final outcome of 
+ * a server-side saving or data processing operation.
+ *
+ * @param {object} props - The component props.
+ * @param {boolean} props.isOpen - Whether the modal is visible.
+ * @param {Function} props.onClose - Function to call when closing the modal.
+ * @param {string} props.status - The current status string from the parent.
+ * @param {object} props.result - The final result object from the server.
+ * @param {object} props.processStatus - The real-time process status updates.
+ * @returns {JSX.Element|null} The rendered modal or null if not open.
+ */
 export default function SaveProcessModal({ isOpen, onClose, status, result, processStatus }) {
   if (!isOpen) return null;
 

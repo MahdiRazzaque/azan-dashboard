@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react';
 
+/**
+ * A custom hook that fetches and manages system-wide constants, such as 
+ * prayer calculation methods, madhabs, and adjustment modes.
+ *
+ * @returns {object} An object containing the constants, loading state, and any error encountered.
+ */
 export function useConstants() {
     const [constants, setConstants] = useState({
         calculationMethods: [],

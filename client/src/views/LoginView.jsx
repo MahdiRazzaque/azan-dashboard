@@ -3,6 +3,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Lock } from 'lucide-react';
 
+/**
+ * A view component that renders the login screen, allowing users to authenticate
+ * using a password to access the restricted settings area.
+ *
+ * @returns {JSX.Element} The rendered login view.
+ */
 export default function LoginView() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');

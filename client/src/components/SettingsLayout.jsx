@@ -12,10 +12,25 @@ import SaveProcessModal from './SaveProcessModal';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ *
+ * @param {...any} inputs - The class names or objects to merge.
+ * @returns {string} The merged class string.
+ */
 function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * A layout component for the settings pages, providing a sidebar navigation,
+ * header area, and a common state for handling configuration saves and resets.
+ *
+ * @param {object} props - The component props.
+ * @param {Array} props.logs - Array of log messages to display or process.
+ * @param {object} props.processStatus - Real-time status update for ongoing processes.
+ * @returns {JSX.Element} The rendered settings layout component.
+ */
 export default function SettingsLayout({ logs, processStatus }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);

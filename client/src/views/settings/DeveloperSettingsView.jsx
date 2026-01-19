@@ -7,8 +7,20 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import PrayerSourceStatusCard from '../../components/settings/PrayerSourceStatusCard';
 
+/**
+ * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ *
+ * @param {...any} inputs - The class names or objects to merge.
+ * @returns {string} The merged class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+/**
+ * A comprehensive developer view providing diagnostics, system logs, job scheduling 
+ * status, and advanced system controls like restarts and cache clearing.
+ *
+ * @returns {JSX.Element} The rendered developer settings view.
+ */
 export default function DeveloperSettingsView() {
     const { logs } = useOutletContext();
     const { systemHealth, refreshHealth, config, draftConfig, resetDraft, refresh } = useSettings();
@@ -734,6 +746,14 @@ export default function DeveloperSettingsView() {
     );
 }
 
+/**
+ * A component for managing local storage, displaying usage statistics,
+ * and allowing users to configure storage limits.
+ *
+ * @param {object} props - The component props.
+ * @param {object} props.config - The system configuration object.
+ * @returns {JSX.Element} The rendered storage management card.
+ */
 function StorageManagementCard({ config }) {
     const [storage, setStorage] = useState(null);
     const [loading, setLoading] = useState(true);

@@ -5,6 +5,12 @@ import { Save, Lock, ShieldCheck, Zap, AlertTriangle, CheckCircle, Smartphone, K
 import PasswordInput from '../../components/PasswordInput';
 import ConfirmModal from '../../components/ConfirmModal';
 
+/**
+ * A view component for managing security credentials and third-party integrations,
+ * such as dashboard passwords and VoiceMonkey API settings.
+ *
+ * @returns {JSX.Element} The rendered credentials settings view.
+ */
 export default function CredentialsSettingsView() {
   const { logout } = useAuth();
   const { config, refresh, refreshHealth } = useSettings();

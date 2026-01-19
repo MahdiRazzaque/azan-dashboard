@@ -17,6 +17,13 @@ import PrayerSettingsView from './views/settings/PrayerSettingsView';
 import FileManagerView from './views/settings/FileManagerView';
 import DeveloperSettingsView from './views/settings/DeveloperSettingsView';
 
+/**
+ * The main application component that manages the core state, including audio playback,
+ * prayer times, and real-time updates via Server-Sent Events (SSE). It also handles
+ * the primary routing and authentication flow of the dashboard.
+ *
+ * @returns {JSX.Element} The rendered application component.
+ */
 function App() {
   const { playUrl, isMuted, toggleMute, blocked } = useAudio();
   const { isAudioExcluded } = useClientPreferences();

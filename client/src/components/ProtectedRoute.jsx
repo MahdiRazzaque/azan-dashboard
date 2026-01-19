@@ -2,6 +2,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
+/**
+ * A wrapper component that restricts access to its children based on the user's
+ * authentication status. Redirects unauthenticated users to the login page.
+ *
+ * @param {object} props - The component props.
+ * @param {React.ReactNode} props.children - The components to render if authenticated.
+ * @returns {JSX.Element} The rendered children or a navigation redirect.
+ */
 export default function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();

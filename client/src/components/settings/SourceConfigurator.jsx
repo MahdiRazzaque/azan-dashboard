@@ -3,8 +3,29 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useConstants } from '../../hooks/useConstants';
 
+/**
+ * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ *
+ * @param {...any} inputs - The class names or objects to merge.
+ * @returns {string} The merged class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+/**
+ * A configuration component for selecting and customising prayer time data sources,
+ * including location settings and calculation methods.
+ *
+ * @param {object} props - The component props.
+ * @param {object} props.source - The current source configuration.
+ * @param {Function} props.onChange - Callback function for when the source type changes.
+ * @param {Array} [props.disabledTypes=[]] - A list of source types that should be disabled.
+ * @param {boolean} [props.showCoordinates=true] - Whether to show coordinate input fields.
+ * @param {object} [props.locationData={}] - Current location-related data (city, country, etc.).
+ * @param {object} [props.calculationData={}] - Current calculation method settings.
+ * @param {Function} props.onLocationChange - Callback function for location data changes.
+ * @param {Function} props.onCalculationChange - Callback function for calculation data changes.
+ * @returns {JSX.Element} The rendered source configurator component.
+ */
 export default function SourceConfigurator({ 
     source, 
     onChange, 
