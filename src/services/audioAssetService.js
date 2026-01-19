@@ -129,7 +129,7 @@ const syncAudioAssets = async (forceClean = false) => {
     await healthCheck.refresh('tts');
     const health = healthCheck.getHealth();
     
-    if (!health.tts) {
+    if (!health.tts?.healthy) {
         console.error('[AudioService] Aborting: TTS Service is offline.');
         throw new Error('TTS Service is offline. Cannot generate audio assets.');
     }
