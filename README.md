@@ -1,78 +1,59 @@
 # Azan Dashboard v2
 
-A prayer time management dashboard with automated Alexa announcements and local audio support.
+![Azan Dashboard Screenshot](docs/images/dashboard-view.png)
 
-## Docker Deployment (Recommended)
+A comprehensive digital signage and automation solution designed for Mosques and Smart Homes. It acts as a central hub for Islamic prayer times, combining accurate calculations, congregation (Iqamah) management, and multi-room audio automation.
 
-The easiest way to deploy the Azan Dashboard is using Docker. This packages the Node.js backend, React frontend, and Python TTS service into a single container.
+## 📖 Documentation
 
-### 1. Standard Setup (Windows, Mac, WSL)
-Use this method if you are running on Windows, Docker Desktop, or a Linux server without speakers attached.
+We have comprehensive documentation available for users, developers, and maintainers:
 
-1.  **Start the container:**
-    ```bash
-    docker-compose up -d
-    ```
-2.  **Access the dashboard:**
-    Open `http://localhost:3000`
-
-### 2. Linux Setup with Local Audio
-Use this method **only on Linux hosts** (e.g., Raspberry Pi) where you want the application to play the Adhan directly through the device's 3.5mm jack or HDMI audio.
-
-1.  **Start with Audio Support:**
-    We use a separate configuration file to map the hardware device (`/dev/snd`), preventing errors on non-Linux systems.
-    ```bash
-    docker-compose -f docker-compose.yml -f docker-compose.audio.yml up -d
-    ```
-
-    > **Tip:** To avoid typing this long command every time, you can rename `docker-compose.audio.yml` to `docker-compose.override.yml`. Docker will then automatically include it when you run `docker-compose up -d`.
-
-### Persistence & Configuration
-
-The application automatically creates the following folders in your project root to ensure your data survives container updates:
-
-- `config/`: Stores `local.json` (settings) and `.env` (passwords/secrets).
-- `data/`: Stores the prayer time cache.
-- `public/audio/custom/`: Place your own MP3 files here.
-- `public/audio/cache/`: Generated TTS announcements.
-
-**Note:** You do not need to manually create these files. The container will initialize them on the first run.
+1.  [**Project Overview**](docs/01-project-overview.md) - Purpose, problem statement, and target audience.
+2.  [**Features**](docs/02-features.md) - Deep dive into functionality, the settings panel, and automation capabilities.
+3.  [**Setup & Installation**](docs/03-setup-installation.md) - Detailed prerequisites, environment config, and manual setup guides.
+4.  [**Architecture**](docs/04-architecture.md) - Tech stack, backend patterns, and data flow diagrams.
+5.  [**Automation Logic**](docs/05-automation-logic.md) - How the scheduler, TTS engine, and audio routing works.
+6.  [**API Reference**](docs/06-api-reference.md) - Endpoints, authentication, and status codes.
+7.  [**Operations & Deployment**](docs/07-ops-deployment.md) - Security hardening, health checks, and performance tuning.
+8.  [**Development Guide**](docs/08-development-guide.md) - Contributing, testing strategy, and coding standards.
 
 ---
 
-## Manual Development Setup
+## 🚀 Quick Start (Docker)
 
-If you prefer to run the services manually for development (without Docker):
+For detailed installation instructions, please see [Setup & Installation](docs/03-setup-installation.md).
 
-### Prerequisites
-- Node.js v18+
-- Python 3.8+
-- `mpg123` (Linux/Mac) or a command-line player for Windows
+The easiest way to deploy is using Docker. This packages the Node.js backend, React frontend, and Python TTS service into a single container.
 
-### 1. Backend
+### 1. Standard Setup (Windows, Mac, Docker Desktop)
+Use this if you do not need the server to play audio out of its own physical speakers (e.g., you rely on Browser or Alexa audio).
+
 ```bash
-npm install
-npm start
-# Or for hot-reloading:
-npm run server:dev
+docker-compose up -d
 ```
 
-### 2. Frontend
+### 2. Linux Setup (Raspberry Pi / Server)
+Use this if you want the application to play the Adhan directly through the device's 3.5mm jack or HDMI audio.
+
 ```bash
-cd client
-npm install
-npm run dev
+docker-compose -f docker-compose.yml -f docker-compose.audio.yml up -d
 ```
 
-### 3. TTS Microservice
-```bash
-cd src/microservices/tts
-python -m venv venv
-# Linux/Mac:
-source venv/bin/activate
-# Windows:
-venv\Scripts\activate
+**Access the Dashboard:** `http://localhost:3000`
 
-pip install -r requirements.txt
-python server.py
-```
+---
+
+## 📂 Persistence
+
+The container will automatically create these folders in your project root to ensure data survives updates:
+
+*   `config/`: Stores `local.json` (settings) and `.env` (passwords/secrets).
+*   `data/`: Stores the prayer time cache.
+*   `public/audio/`: Stores custom MP3s and generated TTS cache.
+
+## 🛠️ Tech Stack
+
+*   **Frontend:** React, Vite, Tailwind CSS
+*   **Backend:** Node.js, Express, SQLite (via JSON cache)
+*   **Microservice:** Python (FastAPI, Edge-TTS)
+*   **DevOps:** Docker, Supervisord
