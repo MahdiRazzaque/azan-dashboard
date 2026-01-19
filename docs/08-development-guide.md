@@ -4,7 +4,10 @@ This guide is for developers who wish to extend the Azan Dashboard or contribute
 
 ## Development Workflow
 
-### Project Standards
+### Coding Standards
+*   **Linting:** ESLint is enforced for both the Backend (Node.js) and Frontend (React). Please ensure all code passes linting rules before committing.
+    *   **Backend:** Run `npm run lint` in the root directory.
+    *   **Frontend:** Run `npm run lint` in the `client/` directory.
 *   **Imports:** Use CommonJS (`require`) for the backend (Node.js compatibility) and ES Modules (`import`) for the frontend (Vite/React).
 *   **State Management:** The backend uses a Singleton pattern for Configuration management (`ConfigService`). The frontend relies on React Context (`SettingsContext`) to maintain a "draft" state before saving.
 
@@ -46,5 +49,5 @@ Open `coverage/lcov-report/index.html` to view the detailed breakdown.
 ## Contributing
 1.  Fork the repository.
 2.  Create a feature branch.
-3.  Ensure all tests pass (`npm test`).
+3.  Ensure code passes linting (`npm run lint`) and tests (`npm test`).
 4.  Submit a Pull Request with a clear description of the change.
