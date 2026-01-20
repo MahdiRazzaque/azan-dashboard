@@ -1,6 +1,6 @@
 const fs = require('fs/promises');
 const fsHelper = require('../../helpers/fsHelper');
-const configService = require('../../../src/config'); 
+const configService = require('@config');
 
 jest.mock('dotenv'); // Prevent loading real .env files
 

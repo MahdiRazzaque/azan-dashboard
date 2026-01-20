@@ -1,7 +1,7 @@
-const storageCheck = require('../../../src/middleware/storageCheck');
-const storageService = require('../../../src/services/storageService');
+const storageCheck = require('@middleware/storageCheck');
+const storageService = require('@services/system/storageService');
 
-jest.mock('../../../src/services/storageService');
+jest.mock('@services/system/storageService');
 
 describe('StorageCheck Middleware', () => {
     let req;

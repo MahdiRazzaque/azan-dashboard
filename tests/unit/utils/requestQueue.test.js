@@ -4,7 +4,7 @@ describe('Request Queues (Bottleneck)', () => {
     beforeEach(() => {
         jest.useFakeTimers();
         jest.isolateModules(() => {
-            queues = require('../../../src/utils/requestQueue');
+            queues = require('@utils/requestQueue');
         });
     });
 

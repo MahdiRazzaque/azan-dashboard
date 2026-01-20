@@ -1,4 +1,4 @@
-const { hashPassword, verifyPassword } = require('../../../src/utils/auth');
+const { hashPassword, verifyPassword } = require('@utils/passwordUtils');
 
 describe('Auth Utils', () => {
     describe('hashPassword', () => {

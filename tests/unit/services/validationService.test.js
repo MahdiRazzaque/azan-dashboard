@@ -1,8 +1,8 @@
-const { validateConfigSource } = require('../../../src/services/validationService');
-const fetchers = require('../../../src/services/fetchers');
+const { validateConfigSource } = require('@services/core/validationService');
+const fetchers = require('@adapters/prayerApiAdapter');
 const { DateTime } = require('luxon');
 
-jest.mock('../../../src/services/fetchers');
+jest.mock('@adapters/prayerApiAdapter');
 
 describe('ValidationService', () => {
     beforeEach(() => {

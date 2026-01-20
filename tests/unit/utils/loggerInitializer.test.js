@@ -1,7 +1,7 @@
-const initLogger = require('../../../src/utils/loggerInitializer');
-const sseService = require('../../../src/services/sseService');
+const initLogger = require('@utils/loggerInitializer');
+const sseService = require('@services/system/sseService');
 
-jest.mock('../../../src/services/sseService', () => ({
+jest.mock('@services/system/sseService', () => ({
     log: jest.fn()
 }));
 

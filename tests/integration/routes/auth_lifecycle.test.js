@@ -8,16 +8,16 @@ const mockEnvManager = {
     generateSecret: jest.fn(() => 'generated-secret'),
     getEnvValue: jest.fn()
 };
-jest.mock('../../../src/utils/envManager', () => mockEnvManager);
+jest.mock('@utils/envManager', () => mockEnvManager);
 
 // 2. Mock others
-jest.mock('../../../src/config', () => ({
+jest.mock('@config', () => ({
     init: jest.fn(),
     get: jest.fn(() => ({ sources: {}, location: { coordinates: {} } })),
     update: jest.fn()
 }));
-jest.mock('../../../src/services/schedulerService', () => ({ initScheduler: jest.fn() }));
-jest.mock('../../../src/services/prayerTimeService', () => ({ forceRefresh: jest.fn() }));
+jest.mock('@services/core/schedulerService', () => ({ initScheduler: jest.fn() }));
+jest.mock('@services/core/prayerTimeService', () => ({ forceRefresh: jest.fn() }));
 
 const app = require('../../../src/server');
 
@@ -63,7 +63,7 @@ describe('Auth Lifecycle Integration', () => {
     });
 
     it('POST /api/auth/login - should login with correct password', async () => {
-        const { hashPassword } = require('../../../src/utils/auth');
+        const { hashPassword } = require('@utils/passwordUtils');
         process.env.ADMIN_PASSWORD = hashPassword('correctPassword');
         
         const res = await request(app)
@@ -75,7 +75,7 @@ describe('Auth Lifecycle Integration', () => {
     });
 
     it('POST /api/auth/login - should fail with wrong password', async () => {
-        const { hashPassword } = require('../../../src/utils/auth');
+        const { hashPassword } = require('@utils/passwordUtils');
         process.env.ADMIN_PASSWORD = hashPassword('correctPassword');
         
         await request(app)

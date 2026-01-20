@@ -2,7 +2,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const fsHelper = require('../helpers/fsHelper');
 const authHelper = require('../helpers/authHelper');
-const configService = require('../../src/config');
+const configService = require('@config');
 
 describe('Test Helpers', () => {
     describe('fsHelper', () => {

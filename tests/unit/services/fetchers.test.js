@@ -1,7 +1,7 @@
-const fetchers = require('../../../src/services/fetchers');
+const fetchers = require('@adapters/prayerApiAdapter');
 
 // Mock requestQueue to avoid delays in fetcher tests
-jest.mock('../../../src/utils/requestQueue', () => ({
+jest.mock('@utils/requestQueue', () => ({
     aladhanQueue: { schedule: (fn) => fn() },
     myMasjidQueue: { schedule: (fn) => fn() }
 }));
@@ -38,14 +38,26 @@ describe('Fetchers Service', () => {
             status: 'OK',
             data: {
                 "1": [{
-                    date: { gregorian: { date: '01-01-2024' } },
+                    date: { 
+                        gregorian: { 
+                            date: '01-01-2024', 
+                            day: '01',
+                            month: { number: 1 },
+                            year: '2024'
+                        } 
+                    },
                     timings: {
                         Fajr: '05:00 (BST)',
+                        Sunrise: '07:00 (BST)',
                         Dhuhr: '12:00 (BST)',
                         Asr: '15:00 (BST)',
+                        Sunset: '18:00 (BST)',
                         Maghrib: '18:00 (BST)',
-                        Isha: '19:30 (BST)'
-                    }
+                        Isha: '19:30 (BST)',
+                        Imsak: '04:50 (BST)',
+                        Midnight: '00:00 (BST)'
+                    },
+                    meta: { timezone: 'Europe/London' }
                 }]
             }
         };
@@ -136,9 +148,12 @@ describe('Fetchers Service', () => {
                  salahTimings: [
                      {
                          day: 1, month: 1,
-                         fajr: '05:00', zuhr: '12:30', asr: '15:30', maghrib: '17:00', isha: '19:00',
-                         shouruq: '07:00',
-                         iqamah_Fajr: '05:30'
+                         fajr: [{ salahName: 'Fajr', salahTime: '05:00', iqamahTime: '05:30' }],
+                         zuhr: [{ salahName: 'Dhuhr', salahTime: '12:30', iqamahTime: null }],
+                         asr: [{ salahName: 'Asr', salahTime: '15:30', iqamahTime: null }],
+                         maghrib: [{ salahName: 'Maghrib', salahTime: '17:00', iqamahTime: null }],
+                         isha: [{ salahName: 'Isha', salahTime: '19:00', iqamahTime: null }],
+                         shouruq: [{ salahName: 'Sunrise', salahTime: '07:00', iqamahTime: null }]
                      }
                  ]
              }
@@ -209,7 +224,15 @@ describe('Fetchers Service', () => {
            const badDateResponse = {
                model: {
                    salahTimings: [
-                       { day: 32, month: 1, fajr: '05:00', zuhr: '12:00', asr: '15:00', maghrib: '18:00', isha: '20:00' }
+                       { 
+                           day: 32, month: 1, 
+                           fajr: [{ salahName: 'Fajr', salahTime: '05:00', iqamahTime: '05:30' }], 
+                           zuhr: [{ salahName: 'Dhuhr', salahTime: '12:00', iqamahTime: null }], 
+                           asr: [{ salahName: 'Asr', salahTime: '15:00', iqamahTime: null }], 
+                           maghrib: [{ salahName: 'Maghrib', salahTime: '18:00', iqamahTime: null }], 
+                           isha: [{ salahName: 'Isha', salahTime: '20:00', iqamahTime: null }],
+                           shouruq: [{ salahName: 'Shouruq', salahTime: '07:00', iqamahTime: null }]
+                       }
                    ]
                }
            };
@@ -222,8 +245,15 @@ describe('Fetchers Service', () => {
            const partialResponse = {
                model: {
                    salahTimings: [
-                       { day: 1, month: 1, fajr: '05:00', zuhr: '12:00', asr: '15:00', maghrib: '18:00', isha: '20:00' }
-                       // iqamah missing
+                       { 
+                           day: 1, month: 1, 
+                           fajr: [{ salahName: 'Fajr', salahTime: '05:00', iqamahTime: null }], 
+                           zuhr: [{ salahName: 'Dhuhr', salahTime: '12:00', iqamahTime: null }], 
+                           asr: [{ salahName: 'Asr', salahTime: '15:00', iqamahTime: null }], 
+                           maghrib: [{ salahName: 'Maghrib', salahTime: '18:00', iqamahTime: null }], 
+                           isha: [{ salahName: 'Isha', salahTime: '20:00', iqamahTime: null }],
+                           shouruq: [{ salahName: 'Shouruq', salahTime: '07:00', iqamahTime: null }]
+                       }
                    ]
                }
            };

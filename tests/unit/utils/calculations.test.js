@@ -1,4 +1,4 @@
-const { calculateIqamah, calculateNextPrayer } = require('../../../src/utils/calculations');
+const { calculateIqamah, calculateNextPrayer } = require('@utils/calculations');
 const { DateTime } = require('luxon');
 
 describe('Calculation Utils', () => {

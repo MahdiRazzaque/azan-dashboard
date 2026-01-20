@@ -1,33 +1,33 @@
-const settingsController = require('../../../src/controllers/settingsController');
-const configService = require('../../../src/config');
-const sseService = require('../../../src/services/sseService');
-const audioAssetService = require('../../../src/services/audioAssetService');
-const schedulerService = require('../../../src/services/schedulerService');
-const healthCheck = require('../../../src/services/healthCheck');
-const envManager = require('../../../src/utils/envManager');
+const settingsController = require('@controllers/settingsController');
+const configService = require('@config');
+const sseService = require('@services/system/sseService');
+const audioAssetService = require('@services/system/audioAssetService');
+const schedulerService = require('@services/core/schedulerService');
+const healthCheck = require('@services/system/healthCheck');
+const envManager = require('@utils/envManager');
 const fs = require('fs');
 const path = require('path');
 
-jest.mock('../../../src/config');
-jest.mock('../../../src/services/sseService');
-jest.mock('../../../src/services/audioAssetService');
-jest.mock('../../../src/services/schedulerService', () => ({
+jest.mock('@config');
+jest.mock('@services/system/sseService');
+jest.mock('@services/system/audioAssetService');
+jest.mock('@services/core/schedulerService', () => ({
     initScheduler: jest.fn(),
     stopAll: jest.fn()
 }));
-jest.mock('../../../src/services/healthCheck');
-jest.mock('../../../src/utils/envManager');
+jest.mock('@services/system/healthCheck');
+jest.mock('@utils/envManager');
 jest.mock('fs');
-jest.mock('../../../src/services/prayerTimeService', () => ({
+jest.mock('@services/core/prayerTimeService', () => ({
     forceRefresh: jest.fn()
 }));
-jest.mock('../../../src/services/validationService', () => ({
+jest.mock('@services/core/validationService', () => ({
     validateConfigSource: jest.fn(),
     validateConfig: jest.fn()
 }));
 
-const { forceRefresh } = require('../../../src/services/prayerTimeService');
-const { validateConfigSource, validateConfig } = require('../../../src/services/validationService');
+const { forceRefresh } = require('@services/core/prayerTimeService');
+const { validateConfigSource, validateConfig } = require('@services/core/validationService');
 
 describe('settingsController Unit Tests', () => {
     let req, res;

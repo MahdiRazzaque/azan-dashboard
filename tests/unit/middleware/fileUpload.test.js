@@ -1,4 +1,4 @@
-const upload = require('../../../src/utils/fileUpload');
+const upload = require('@middleware/fileUpload');
 const fs = require('fs');
 const path = require('path');
 

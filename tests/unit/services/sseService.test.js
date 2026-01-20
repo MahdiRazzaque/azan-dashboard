@@ -10,7 +10,7 @@ describe('SSE Service', () => {
 
     beforeEach(() => {
         jest.resetModules();
-        sseService = require('../../../src/services/sseService');
+        sseService = require('@services/system/sseService');
         res = { ...mockRes, write: jest.fn(), on: jest.fn() };
     });
 
@@ -56,7 +56,7 @@ describe('SSE Service', () => {
         beforeEach(() => {
             jest.useFakeTimers();
             jest.resetModules();
-            sseService = require('../../../src/services/sseService');
+            sseService = require('@services/system/sseService');
             res = { ...mockRes, write: jest.fn(), on: jest.fn() };
         });
         afterEach(() => {

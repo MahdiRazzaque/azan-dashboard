@@ -1,3 +1,4 @@
+require('module-alias/register');
 // Global setup file to suppress console logs
 global.console = {
   ...console,

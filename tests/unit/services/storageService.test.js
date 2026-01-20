@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const storageService = require('../../../src/services/storageService');
-const configService = require('../../../src/config');
+const storageService = require('@services/system/storageService');
+const configService = require('@config');
 
-jest.mock('../../../src/config');
+jest.mock('@config');
 jest.mock('fs');
 jest.mock('check-disk-space', () => ({
     default: jest.fn().mockResolvedValue({ free: 50 * 1024 * 1024 * 1024 }) // 50GB

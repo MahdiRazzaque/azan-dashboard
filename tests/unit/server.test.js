@@ -1,31 +1,31 @@
 const request = require('supertest');
 const app = require('../../src/server');
-const configService = require('../../src/config');
-const healthCheck = require('../../src/services/healthCheck');
-const { forceRefresh } = require('../../src/services/prayerTimeService');
-const { initScheduler } = require('../../src/services/schedulerService');
-const audioAssetService = require('../../src/services/audioAssetService');
+const configService = require('@config');
+const healthCheck = require('@services/system/healthCheck');
+const { forceRefresh } = require('@services/core/prayerTimeService');
+const { initScheduler } = require('@services/core/schedulerService');
+const audioAssetService = require('@services/system/audioAssetService');
 
 // Mocks
-jest.mock('../../src/config', () => ({
+jest.mock('@config', () => ({
     init: jest.fn(),
     get: jest.fn()
 }));
 
-jest.mock('../../src/services/healthCheck', () => ({
+jest.mock('@services/system/healthCheck', () => ({
     checkSystemHealth: jest.fn(),
     refresh: jest.fn()
 }));
 
-jest.mock('../../src/services/prayerTimeService', () => ({
+jest.mock('@services/core/prayerTimeService', () => ({
     forceRefresh: jest.fn()
 }));
 
-jest.mock('../../src/services/schedulerService', () => ({
+jest.mock('@services/core/schedulerService', () => ({
     initScheduler: jest.fn()
 }));
 
-jest.mock('../../src/services/audioAssetService', () => ({
+jest.mock('@services/system/audioAssetService', () => ({
     syncAudioAssets: jest.fn()
 }));
 

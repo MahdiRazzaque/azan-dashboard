@@ -1,18 +1,18 @@
 const schedule = require('node-schedule');
-const service = require('../../../src/services/schedulerService');
-const configService = require('../../../src/config');
-const prayerTimeService = require('../../../src/services/prayerTimeService');
-const automationService = require('../../../src/services/automationService');
-const healthCheck = require('../../../src/services/healthCheck');
-const audioAssetService = require('../../../src/services/audioAssetService');
+const service = require('@services/core/schedulerService');
+const configService = require('@config');
+const prayerTimeService = require('@services/core/prayerTimeService');
+const automationService = require('@services/core/automationService');
+const healthCheck = require('@services/system/healthCheck');
+const audioAssetService = require('@services/system/audioAssetService');
 const { DateTime } = require('luxon');
 
 jest.mock('node-schedule');
-jest.mock('../../../src/config');
-jest.mock('../../../src/services/prayerTimeService');
-jest.mock('../../../src/services/automationService');
-jest.mock('../../../src/services/audioAssetService'); 
-jest.mock('../../../src/services/healthCheck');
+jest.mock('@config');
+jest.mock('@services/core/prayerTimeService');
+jest.mock('@services/core/automationService');
+jest.mock('@services/system/audioAssetService'); 
+jest.mock('@services/system/healthCheck');
 describe('SchedulerService', () => {
     const mockConfig = {
         location: { timezone: 'UTC', coordinates: { lat: 0, long: 0 } },

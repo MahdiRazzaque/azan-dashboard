@@ -1,4 +1,4 @@
-const { configSchema } = require('../../../src/config/schemas');
+const { configSchema } = require('@config/schemas');
 
 describe('Config Schemas', () => {
     const validConfig = {

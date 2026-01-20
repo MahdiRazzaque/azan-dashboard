@@ -1,6 +1,6 @@
 const express = require("express");
 const request = require("supertest");
-const sseService = require("../../../src/services/sseService");
+const sseService = require("@services/system/sseService");
 
 // Capture the handler by mocking express-rate-limit
 let capturedHandler;
@@ -20,9 +20,9 @@ const {
     globalReadLimiter, 
     globalWriteLimiter, 
     sseLimiter 
-} = require("../../../src/middleware/rateLimiters");
+} = require("@middleware/rateLimiters");
 
-jest.mock("../../../src/services/sseService");
+jest.mock("@services/system/sseService");
 
 describe("Rate Limiters Middleware", () => {
     let app;

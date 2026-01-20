@@ -1,7 +1,7 @@
 const fs = require('fs/promises');
 const path = require('path');
 const os = require('os');
-const configService = require('../../src/config'); 
+const configService = require('@config'); 
 
 const fsHelper = {
     tempDir: null,

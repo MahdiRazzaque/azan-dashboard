@@ -1,13 +1,13 @@
 const fs = require('fs');
 const axios = require('axios');
-const service = require('../../../src/services/audioAssetService');
-const configService = require('../../../src/config');
-const healthCheck = require('../../../src/services/healthCheck');
+const service = require('@services/system/audioAssetService');
+const configService = require('@config');
+const healthCheck = require('@services/system/healthCheck');
 
 jest.mock('fs');
 jest.mock('axios');
-jest.mock('../../../src/config');
-jest.mock('../../../src/services/healthCheck');
+jest.mock('@config');
+jest.mock('@services/system/healthCheck');
 
 describe('AudioAssetService', () => {
     const mockConfig = {
@@ -158,11 +158,11 @@ describe('AudioAssetService', () => {
 
     it('should throw error if quota is exceeded (L201)', async () => {
         // Mock storageService.checkQuota
-        const storageService = require('../../../src/services/storageService');
-        jest.mock('../../../src/services/storageService', () => ({
+        const storageService = require('@services/system/storageService');
+        jest.mock('@services/system/storageService', () => ({
             checkQuota: jest.fn()
         }));
-        const mockedStorage = require('../../../src/services/storageService');
+        const mockedStorage = require('@services/system/storageService');
         mockedStorage.checkQuota.mockResolvedValue({ success: false, message: 'Full' });
         
         fs.existsSync.mockReturnValue(false);

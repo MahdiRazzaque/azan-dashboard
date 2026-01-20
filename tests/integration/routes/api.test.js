@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 // const fs = require('fs'); // We will mock fs
 
+const mockMockFactory = require('../../helpers/mockFactory');
+
 // --- 1. Define Mocks BEFORE requiring modules ---
 
 jest.mock('axios'); // Mock Axios for validate-url
@@ -24,108 +26,42 @@ jest.mock('fs', () => {
 const fs = require('fs');
 
 // Mock Config Service
-const mockConfig = {
-    sources: { 
-        primary: { type: 'aladhan', method: 'ISNA' }, 
-        backup: { type: 'calculational' } 
-    },
-    location: { 
-        coordinates: { lat: 51.5, long: -0.1 },
-        timezone: 'Europe/London'
-    },
-    timings: {
-        fajr: { angle: 18 },
-        isha: { angle: 18 }
-    },
-    prayers: {
-        fajr: {}, dhuhr: {}, asr: {}, maghrib: {}, isha: {}
-    }
-};
-
-const mockConfigService = {
-    get: jest.fn(() => mockConfig),
-    update: jest.fn(),
-    reload: jest.fn(),
-    init: jest.fn()
-};
-jest.mock('../../../src/config', () => mockConfigService);
+const mockConfig = mockMockFactory.createMockConfig();
+const mockConfigService = mockMockFactory.createMockConfigService(mockConfig);
+jest.mock('@config', () =>   mockConfigService);
 
 // Mock Services
-jest.mock('../../../src/services/schedulerService', () => ({
-    initScheduler: jest.fn(),
-    hotReload: jest.fn(),
-    getJobs: jest.fn(() => [
-        { jobName: 'Test Job', nextInvocation: '2024-01-01T00:00:00.000Z' }
-    ]),
-    stopAll: jest.fn()
-}));
+jest.mock('@services/core/schedulerService', () => mockMockFactory.createMockSchedulerService());
+jest.mock('@services/core/prayerTimeService', () => mockMockFactory.createMockPrayerTimeService());
+const prayerTimeService = require('@services/core/prayerTimeService');
 
-jest.mock('../../../src/services/prayerTimeService', () => ({
-    getPrayerTimes: jest.fn(),
-    getPrayersWithNext: jest.fn(),
-    forceRefresh: jest.fn(() => Promise.resolve({ meta: { success: true, timestamp: Date.now() } })),
-    readCache: jest.fn(() => ({}))
+jest.mock('@services/core/automationService', () => ({
+    ...mockMockFactory.createMockAutomationService(),
+    getAudioSource: jest.requireActual('@services/core/automationService').getAudioSource
 }));
-const prayerTimeService = require('../../../src/services/prayerTimeService');
+const automationService = require('@services/core/automationService');
 
-jest.mock('../../../src/services/automationService', () => ({
-    getAudioSource: jest.requireActual('../../../src/services/automationService').getAudioSource,
-    handleLocal: jest.fn(),
-    handleVoiceMonkey: jest.fn(),
-    broadcastToClients: jest.fn(),
-    triggerEvents: jest.fn()
-}));
-const automationService = require('../../../src/services/automationService');
+jest.mock('@services/system/sseService', () => mockMockFactory.createMockSSEService());
+const sseService = require('@services/system/sseService');
 
-jest.mock('../../../src/services/sseService', () => ({
-    broadcast: jest.fn(),
-    log: jest.fn(),
-    addClient: jest.fn()
-}));
-const sseService = require('../../../src/services/sseService');
+jest.mock('@services/system/audioAssetService', () => mockMockFactory.createMockAudioAssetService());
+const audioAssetService = require('@services/system/audioAssetService');
 
-jest.mock('../../../src/services/audioAssetService', () => ({
-    syncAudioAssets: jest.fn()
-}));
-const audioAssetService = require('../../../src/services/audioAssetService');
-
-jest.mock('../../../src/services/fetchers', () => ({
+jest.mock('@adapters/prayerApiAdapter', () => ({
     fetchMyMasjidBulk: jest.fn(),
     fetchAladhanAnnual: jest.fn()
 }));
 
-jest.mock('../../../src/services/healthCheck', () => ({
-    getHealth: jest.fn(() => ({ 
-        tts: { healthy: true }, 
-        local: { healthy: true }, 
-        voiceMonkey: { healthy: true } 
-    })),
-    refresh: jest.fn(),
-    checkSource: jest.fn(() => Promise.resolve({ healthy: true }))
-}));
-const healthCheck = require('../../../src/services/healthCheck');
+jest.mock('@services/system/healthCheck', () => mockMockFactory.createMockHealthCheck());
+const healthCheck = require('@services/system/healthCheck');
 
-jest.mock('../../../src/services/diagnosticsService', () => ({
-    getAutomationStatus: jest.fn(() => Promise.resolve({ lastTrigger: 'never' })),
-    getTTSStatus: jest.fn(() => Promise.resolve({ status: 'ok' }))
-}));
-const diagnosticsService = require('../../../src/services/diagnosticsService');
+jest.mock('@services/system/diagnosticsService', () => mockMockFactory.createMockDiagnosticsService());
+const diagnosticsService = require('@services/system/diagnosticsService');
 
-// Mock EnvManager
-jest.mock('../../../src/utils/envManager', () => ({
-    isConfigured: jest.fn(() => true),
-    setEnvValue: jest.fn(),
-    deleteEnvValue: jest.fn(),
-    generateSecret: jest.fn(() => 'gen-secret'),
-    getEnv: jest.fn(() => ({}))
-}));
-const envManager = require('../../../src/utils/envManager');
+jest.mock('@utils/envManager', () => mockMockFactory.createMockEnvManager());
+const envManager = require('@utils/envManager');
 
-// Mock Auth Utils
-jest.mock('../../../src/utils/auth', () => ({
-    hashPassword: jest.fn(() => 'hashed'),
-    verifyPassword: jest.fn(() => true) 
-}));
+jest.mock('@utils/passwordUtils', () => mockMockFactory.createMockAuthUtils());
 
 
 // --- 2. Require App ---
@@ -316,7 +252,7 @@ describe('API Routes Integration', () => {
                 .expect(200);
             
             // Check validation call
-            const fetchers = require('../../../src/services/fetchers');
+            const fetchers = require('@adapters/prayerApiAdapter');
             expect(fetchers.fetchAladhanAnnual).toHaveBeenCalled();
             
             // Check update call
@@ -325,12 +261,12 @@ describe('API Routes Integration', () => {
             }));
             
             // Check reload/refresh calls
-            const schedulerService = require('../../../src/services/schedulerService');
+            const schedulerService = require('@services/core/schedulerService');
             expect(schedulerService.initScheduler).toHaveBeenCalled();
         });
 
         it('POST /api/settings/update - should fail on validation error', async () => {
-            const fetchers = require('../../../src/services/fetchers');
+            const fetchers = require('@adapters/prayerApiAdapter');
             fetchers.fetchAladhanAnnual.mockRejectedValueOnce(new Error('Validation Failed: API Down'));
 
             const res = await request(app)
@@ -383,7 +319,7 @@ describe('API Routes Integration', () => {
 
         it('POST /settings/refresh-cache - should handle errors in stopAll', async () => {
              healthCheck.checkSource.mockResolvedValue({ healthy: true });
-             const schedulerService = require('../../../src/services/schedulerService');
+             const schedulerService = require('@services/core/schedulerService');
              schedulerService.stopAll.mockRejectedValueOnce(new Error('Stop Fail'));
              
              await request(app)
@@ -427,7 +363,7 @@ describe('API Routes Integration', () => {
                 .set('Cookie', [`auth_token=${adminToken}`])
                 .expect(200);
             
-            const schedulerService = require('../../../src/services/schedulerService');
+            const schedulerService = require('@services/core/schedulerService');
             expect(schedulerService.hotReload).toHaveBeenCalled();
         });
     });
@@ -573,7 +509,7 @@ describe('API Routes Integration', () => {
         });
 
         it('POST /api/auth/setup - should handle internal errors', async () => {
-             const authUtils = require('../../../src/utils/auth');
+             const authUtils = require('@utils/passwordUtils');
              authUtils.hashPassword.mockImplementationOnce(() => { throw new Error('Hash Fail'); });
              
              // Setup requires no admin password set
@@ -698,7 +634,7 @@ describe('API Routes Integration', () => {
 
     describe('Settings Update Edge Cases', () => {
          it('POST /api/settings/update - should fail if audio sync fails', async () => {
-             const audioAssetService = require('../../../src/services/audioAssetService');
+             const audioAssetService = require('@services/system/audioAssetService');
              audioAssetService.syncAudioAssets.mockRejectedValueOnce(new Error('Sync Fail'));
              
              const newConfig = { ...mockConfig, sources: { ...mockConfig.sources, primary: { type: 'aladhan', method: 'MWL' } } };
@@ -713,7 +649,7 @@ describe('API Routes Integration', () => {
         });
 
         it('POST /settings/refresh-cache - should fail if audio sync fails', async () => {
-             const audioAssetService = require('../../../src/services/audioAssetService');
+             const audioAssetService = require('@services/system/audioAssetService');
              audioAssetService.syncAudioAssets.mockRejectedValueOnce(new Error('Sync Fail'));
              
              const res = await request(app)
@@ -725,7 +661,7 @@ describe('API Routes Integration', () => {
         });
 
         it('POST /settings/refresh-cache - should handle scheduler stop error', async () => {
-             const schedulerService = require('../../../src/services/schedulerService');
+             const schedulerService = require('@services/core/schedulerService');
              schedulerService.stopAll.mockRejectedValueOnce(new Error('Stop Fail'));
              
              // This logs error but continues
@@ -751,7 +687,7 @@ describe('API Routes Integration', () => {
                 .send(newConfig)
                 .expect(200);
              
-             const fetchers = require('../../../src/services/fetchers');
+             const fetchers = require('@adapters/prayerApiAdapter');
              expect(fetchers.fetchMyMasjidBulk).toHaveBeenCalled();
         });
 

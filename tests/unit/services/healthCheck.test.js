@@ -1,6 +1,6 @@
-const configService = require('../../../src/config');
+const configService = require('@config');
 
-jest.mock('../../../src/config', () => ({
+jest.mock('@config', () => ({
     get: jest.fn(() => ({
         location: { timezone: 'Europe/London' },
         sources: {
@@ -16,7 +16,7 @@ jest.mock('../../../src/config', () => ({
     }))
 }));
 
-jest.mock('../../../src/services/fetchers', () => ({
+jest.mock('@adapters/prayerApiAdapter', () => ({
     fetchAladhanAnnual: jest.fn(),
     fetchMyMasjidBulk: jest.fn()
 }));
@@ -28,10 +28,10 @@ jest.mock('fs', () => ({
     readFileSync: jest.fn()
 }));
 
-const healthCheck = require('../../../src/services/healthCheck');
+const healthCheck = require('@services/system/healthCheck');
 const { exec } = require('child_process');
 const axios = require('axios');
-const fetchers = require('../../../src/services/fetchers');
+const fetchers = require('@adapters/prayerApiAdapter');
 
 jest.mock('child_process');
 jest.mock('axios');

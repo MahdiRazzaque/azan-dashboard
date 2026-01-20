@@ -1,10 +1,10 @@
-const authController = require('../../../src/controllers/authController');
-const envManager = require('../../../src/utils/envManager');
-const authUtils = require('../../../src/utils/auth');
+const authController = require('@controllers/authController');
+const envManager = require('@utils/envManager');
+const authUtils = require('@utils/passwordUtils');
 const jwt = require('jsonwebtoken');
 
-jest.mock('../../../src/utils/envManager');
-jest.mock('../../../src/utils/auth');
+jest.mock('@utils/envManager');
+jest.mock('@utils/passwordUtils');
 jest.mock('jsonwebtoken');
 
 describe('authController Unit Tests', () => {

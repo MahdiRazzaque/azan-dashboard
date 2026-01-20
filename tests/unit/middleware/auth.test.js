@@ -1,4 +1,4 @@
-const authenticateToken = require('../../../src/middleware/auth');
+const authenticateToken = require('@middleware/auth');
 const jwt = require('jsonwebtoken');
 
 describe('Auth Middleware', () => {

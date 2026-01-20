@@ -1,4 +1,4 @@
-const errorHandler = require('../../../src/middleware/errorHandler');
+const errorHandler = require('@middleware/errorHandler');
 
 describe('ErrorHandler Middleware', () => {
     let req;

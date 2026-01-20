@@ -1,5 +1,5 @@
-const fetchers = require('../../../src/services/fetchers');
-const { aladhanQueue, myMasjidQueue } = require('../../../src/utils/requestQueue');
+const fetchers = require('@adapters/prayerApiAdapter');
+const { aladhanQueue, myMasjidQueue } = require('@utils/requestQueue');
 
 describe('Fetcher Deduplication', () => {
     afterEach(() => {

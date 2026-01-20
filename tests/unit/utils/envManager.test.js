@@ -1,4 +1,4 @@
-const envManager = require('../../../src/utils/envManager');
+const envManager = require('@utils/envManager');
 const fs = require('fs');
 
 jest.mock('fs');

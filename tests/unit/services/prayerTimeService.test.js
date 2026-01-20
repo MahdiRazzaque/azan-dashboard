@@ -1,10 +1,10 @@
 const fs = require('fs');
-const service = require('../../../src/services/prayerTimeService');
-const fetchers = require('../../../src/services/fetchers');
+const service = require('@services/core/prayerTimeService');
+const fetchers = require('@adapters/prayerApiAdapter');
 const { DateTime } = require('luxon');
 
 jest.mock('fs');
-jest.mock('../../../src/services/fetchers');
+jest.mock('@adapters/prayerApiAdapter');
 
 describe('PrayerTimeService', () => {
     const mockConfig = {

@@ -1,24 +1,24 @@
 const request = require('supertest');
 const express = require('express');
-const systemRouter = require('../../../src/routes/system');
-const configService = require('../../../src/config');
-const fetchers = require('../../../src/services/fetchers');
-const healthCheck = require('../../../src/services/healthCheck');
-const errorHandler = require('../../../src/middleware/errorHandler');
+const systemRouter = require('@routes/system');
+const configService = require('@config');
+const fetchers = require('@adapters/prayerApiAdapter');
+const healthCheck = require('@services/system/healthCheck');
+const errorHandler = require('@middleware/errorHandler');
 
 // Mock middleware
-jest.mock('../../../src/middleware/auth', () => (req, res, next) => next());
+jest.mock('@middleware/auth', () => (req, res, next) => next());
 
 // Mock services
-jest.mock('../../../src/config', () => ({
+jest.mock('@config', () => ({
     get: jest.fn(),
     reload: jest.fn().mockResolvedValue()
 }));
-jest.mock('../../../src/services/fetchers', () => ({
+jest.mock('@adapters/prayerApiAdapter', () => ({
     fetchAladhanAnnual: jest.fn(),
     fetchMyMasjidBulk: jest.fn()
 }));
-jest.mock('../../../src/services/healthCheck', () => ({
+jest.mock('@services/system/healthCheck', () => ({
     refresh: jest.fn().mockResolvedValue()
 }));
 

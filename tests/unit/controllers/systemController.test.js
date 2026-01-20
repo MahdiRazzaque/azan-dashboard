@@ -1,24 +1,24 @@
-const systemController = require('../../../src/controllers/systemController');
-const healthCheck = require('../../../src/services/healthCheck');
-const schedulerService = require('../../../src/services/schedulerService');
-const sseService = require('../../../src/services/sseService');
-const automationService = require('../../../src/services/automationService');
-const audioAssetService = require('../../../src/services/audioAssetService');
-const diagnosticsService = require('../../../src/services/diagnosticsService');
-const configService = require('../../../src/config');
-const fetchers = require('../../../src/services/fetchers');
+const systemController = require('@controllers/systemController');
+const healthCheck = require('@services/system/healthCheck');
+const schedulerService = require('@services/core/schedulerService');
+const sseService = require('@services/system/sseService');
+const automationService = require('@services/core/automationService');
+const audioAssetService = require('@services/system/audioAssetService');
+const diagnosticsService = require('@services/system/diagnosticsService');
+const configService = require('@config');
+const fetchers = require('@adapters/prayerApiAdapter');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-jest.mock('../../../src/services/healthCheck');
-jest.mock('../../../src/services/schedulerService');
-jest.mock('../../../src/services/sseService');
-jest.mock('../../../src/services/automationService');
-jest.mock('../../../src/services/audioAssetService');
-jest.mock('../../../src/services/diagnosticsService');
-jest.mock('../../../src/config');
-jest.mock('../../../src/services/fetchers');
+jest.mock('@services/system/healthCheck');
+jest.mock('@services/core/schedulerService');
+jest.mock('@services/system/sseService');
+jest.mock('@services/core/automationService');
+jest.mock('@services/system/audioAssetService');
+jest.mock('@services/system/diagnosticsService');
+jest.mock('@config');
+jest.mock('@adapters/prayerApiAdapter');
 jest.mock('axios');
 jest.mock('fs');
 
@@ -407,8 +407,8 @@ describe('SystemController', () => {
 
     describe('getStorageStatus', () => {
         it('should return storage status', async () => {
-            const storageService = require('../../../src/services/storageService');
-            jest.mock('../../../src/services/storageService', () => ({
+            const storageService = require('@services/system/storageService');
+            jest.mock('@services/system/storageService', () => ({
                 getUsage: jest.fn().mockResolvedValue({ total: 100, custom: 50, cache: 50 }),
                 getSystemStats: jest.fn().mockResolvedValue(1000),
                 calculateRecommendedLimit: jest.fn().mockReturnValue(2.0)

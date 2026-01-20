@@ -9,14 +9,14 @@ const getPlaySoundMock = () => {
 jest.mock('play-sound', () => getPlaySoundMock());
 
 const axios = require('axios');
-const service = require('../../../src/services/automationService');
-const configService = require('../../../src/config');
-const sseService = require('../../../src/services/sseService');
+const service = require('@services/core/automationService');
+const configService = require('@config');
+const sseService = require('@services/system/sseService');
 
 jest.mock('axios');
-jest.mock('../../../src/config');
-jest.mock('../../../src/services/sseService');
-jest.mock('../../../src/utils/requestQueue', () => ({
+jest.mock('@config');
+jest.mock('@services/system/sseService');
+jest.mock('@utils/requestQueue', () => ({
     voiceMonkeyQueue: { schedule: (fn) => fn() }
 }));
 

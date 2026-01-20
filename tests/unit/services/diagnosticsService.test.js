@@ -1,11 +1,11 @@
-const diagnosticsService = require('../../../src/services/diagnosticsService');
-const prayerTimeService = require('../../../src/services/prayerTimeService');
-const audioAssetService = require('../../../src/services/audioAssetService');
+const diagnosticsService = require('@services/system/diagnosticsService');
+const prayerTimeService = require('@services/core/prayerTimeService');
+const audioAssetService = require('@services/system/audioAssetService');
 const fs = require('fs');
 const { DateTime } = require('luxon');
 
-jest.mock('../../../src/services/prayerTimeService');
-jest.mock('../../../src/services/audioAssetService');
+jest.mock('@services/core/prayerTimeService');
+jest.mock('@services/system/audioAssetService');
 jest.mock('fs');
 
 describe('Diagnostics Service', () => {
