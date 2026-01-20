@@ -1,13 +1,13 @@
 const fs = require('fs');
 const path = require('path');
-const configService = require('../config');
-const envManager = require('../utils/envManager');
-const sseService = require('../services/sseService');
-const { forceRefresh } = require('../services/prayerTimeService');
-const schedulerService = require('../services/schedulerService');
-const audioAssetService = require('../services/audioAssetService');
-const healthCheck = require('../services/healthCheck');
-const { validateConfigSource } = require('../services/validationService');
+const configService = require('@config');
+const envManager = require('@utils/envManager');
+const sseService = require('@services/system/sseService');
+const { forceRefresh } = require('@services/core/prayerTimeService');
+const schedulerService = require('@services/core/schedulerService');
+const audioAssetService = require('@services/system/audioAssetService');
+const healthCheck = require('@services/system/healthCheck');
+const { validateConfigSource } = require('@services/core/validationService');
 
 /**
  * Controller for settings-related operations, managing application configuration,

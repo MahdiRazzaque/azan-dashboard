@@ -1,43 +1,13 @@
-const { z } = require('zod');
 const { DateTime } = require('luxon');
 const {
   CALCULATION_METHODS,
   ASR_JURISTIC_METHODS,
   API_BASE_URL
-} = require('../utils/constants');
-
-// --- Schemas ---
-
-const AladhanDaySchema = z.any();
-
-// Response from /v1/calendar/:year
-// data is structured as { "1": [days...], "2": [days...] }
-const AladhanAnnualResponseSchema = z.object({
-  code: z.number(),
-  status: z.string(),
-  data: z.any(), // keys are month numbers "1", "2" etc.
-});
-
-const MyMasjidBulkResponseSchema = z.object({
-  model: z.object({
-    salahTimings: z.array(z.object({
-        day: z.number(),
-        month: z.number(),
-        fajr: z.string(),
-        shouruq: z.string().optional(),
-        zuhr: z.string(),
-        asr: z.string(),
-        maghrib: z.string(),
-        isha: z.string(),
-        // Optional iqamah fields
-        iqamah_Fajr: z.string().optional(),
-        iqamah_Zuhr: z.string().optional(),
-        iqamah_Asr: z.string().optional(),
-        iqamah_Maghrib: z.string().optional(),
-        iqamah_Isha: z.string().optional(),
-    }).passthrough())
-  }).passthrough()
-});
+} = require('@utils/constants');
+const {
+  AladhanAnnualResponseSchema,
+  MyMasjidBulkResponseSchema
+} = require('../config/apiSchemas');
 
 // --- Constants Helper ---
 /**
@@ -68,7 +38,7 @@ const getMadhabId = (madhabName) => {
     return 0; // Default Shafi
 };
 
-const { aladhanQueue, myMasjidQueue } = require('../utils/requestQueue');
+const { aladhanQueue, myMasjidQueue } = require('@utils/requestQueue');
 
 // Request deduplication store
 const activeFetches = new Map();
@@ -237,7 +207,7 @@ async function _doFetchMyMasjidBulk(config) {
     console.log('[MyMasjid] Validation passed.');
   } catch (error) {
     console.error('[MyMasjid] Validation FAILED:', error.issues || error.message);
-    console.log('[MyMasjid] Raw JSON Dump for Debugging:', JSON.stringify(json, null, 2));
+    // console.log('[MyMasjid] Raw JSON Dump for Debugging:', JSON.stringify(json, null, 2));
     throw new Error('MyMasjid Schema Validation Failed');
   }
   
@@ -273,19 +243,48 @@ async function _doFetchMyMasjidBulk(config) {
           return dateBase.set({ hour: h, minute: m, second: 0 }).toISO();
       };
 
+      /**
+       * Helper to extract prayer time from either nested array or flat structure.
+       * @param {string} key - Prayer key (e.g. 'fajr', 'shouruq')
+       * @param {Object} dayObj - The day data object
+       */
+      const getTime = (key, dayObj) => {
+          const val = dayObj[key];
+          if (Array.isArray(val)) {
+              return (val && val.length > 0) ? val[0].salahTime : null;
+          }
+          return typeof val === 'string' ? val : null;
+      };
+
+      /**
+       * Helper to extract iqamah time from either nested array or flat structure.
+       * @param {string} key - Prayer key (e.g. 'fajr', 'zuhr')
+       * @param {Object} dayObj - The day data object
+       */
+      const getIqamah = (key, dayObj) => {
+          // Check nested format: day.fajr[0].iqamahTime
+          if (Array.isArray(dayObj[key])) {
+               return (dayObj[key] && dayObj[key].length > 0) ? dayObj[key][0].iqamahTime : null;
+          }
+          
+          // Check flat format: day.iqamah_Fajr
+          const flatKey = `iqamah_${key.charAt(0).toUpperCase() + key.slice(1)}`;
+          return typeof dayObj[flatKey] === 'string' ? dayObj[flatKey] : null;
+      };
+
       resultMap[isoDateKey] = {
-          fajr: formatTime(day.fajr, dateObj),
-          sunrise: formatTime(day.shouruq, dateObj),
-          dhuhr: formatTime(day.zuhr, dateObj), // API uses 'zuhr'
-          asr: formatTime(day.asr, dateObj),
-          maghrib: formatTime(day.maghrib, dateObj),
-          isha: formatTime(day.isha, dateObj),
+          fajr: formatTime(getTime('fajr', day), dateObj),
+          sunrise: formatTime(getTime('shouruq', day), dateObj),
+          dhuhr: formatTime(getTime('zuhr', day), dateObj),
+          asr: formatTime(getTime('asr', day), dateObj),
+          maghrib: formatTime(getTime('maghrib', day), dateObj),
+          isha: formatTime(getTime('isha', day), dateObj),
           iqamah: {
-              fajr: formatTime(day.iqamah_Fajr, dateObj),
-              dhuhr: formatTime(day.iqamah_Zuhr, dateObj),
-              asr: formatTime(day.iqamah_Asr, dateObj),
-              maghrib: formatTime(day.iqamah_Maghrib, dateObj),
-              isha: formatTime(day.iqamah_Isha, dateObj),
+              fajr: formatTime(getIqamah('fajr', day), dateObj),
+              dhuhr: formatTime(getIqamah('zuhr', day), dateObj),
+              asr: formatTime(getIqamah('asr', day), dateObj),
+              maghrib: formatTime(getIqamah('maghrib', day), dateObj),
+              isha: formatTime(getIqamah('isha', day), dateObj),
           }
       }
   });

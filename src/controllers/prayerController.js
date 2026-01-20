@@ -1,5 +1,5 @@
-const configService = require('../config');
-const { getPrayersWithNext } = require('../services/prayerTimeService');
+const configService = require('@config');
+const { getPrayersWithNext } = require('@services/core/prayerTimeService');
 
 /**
  * Controller for prayer-related operations, handling retrieval of prayer times.

@@ -1,15 +1,16 @@
+require('module-alias/register');
 const express = require('express');
 const path = require('path');
 const dotenv = require('dotenv');
 const ENV_FILE_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../.env');
 dotenv.config({ path: ENV_FILE_PATH });
 
-require('./utils/loggerInitializer')(); // Initialize global logger interception
+require('@utils/loggerInitializer')(); // Initialize global logger interception
 
-const apiRoutes = require('./routes/index');
-const { initScheduler } = require('./services/schedulerService');
-const healthCheck = require('./services/healthCheck');
-const { forceRefresh } = require('./services/prayerTimeService');
+const apiRoutes = require('@routes/index');
+const { initScheduler } = require('@services/core/schedulerService');
+const healthCheck = require('@services/system/healthCheck');
+const { forceRefresh } = require('@services/core/prayerTimeService');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -58,7 +59,7 @@ const startServer = async (port = PORT) => {
         console.log(`Health check available at http://localhost:${PORT}/api/health`);
         
         // Initialize Config Service
-        const configService = require('./config');
+        const configService = require('@config');
         try {
             await configService.init();
             console.log('[Startup] ConfigService initialized.');
@@ -100,7 +101,7 @@ const startServer = async (port = PORT) => {
         }
 
         // Generate Audio Assets (Decoupled from Scheduler)
-        const audioAssetService = require('./services/audioAssetService');
+        const audioAssetService = require('@services/system/audioAssetService');
         try {
             await audioAssetService.syncAudioAssets();
         } catch (e) {

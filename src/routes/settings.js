@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const asyncHandler = require('../middleware/asyncHandler');
-const settingsController = require('../controllers/settingsController');
-const { operationsLimiter } = require('../middleware/rateLimiters');
-const authenticateToken = require('../middleware/auth');
-const upload = require('../utils/fileUpload');
-const storageCheck = require('../middleware/storageCheck');
+const asyncHandler = require('@middleware/asyncHandler');
+const settingsController = require('@controllers/settingsController');
+const { operationsLimiter } = require('@middleware/rateLimiters');
+const authenticateToken = require('@middleware/auth');
+const upload = require('@middleware/fileUpload');
+const storageCheck = require('@middleware/storageCheck');
 
 router.get('/', authenticateToken, asyncHandler(settingsController.getSettings));
 router.post('/update', authenticateToken, asyncHandler(settingsController.updateSettings));

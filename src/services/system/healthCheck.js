@@ -1,8 +1,8 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const axios = require('axios');
-const configService = require('../config');
-const fetchers = require('./fetchers');
+const configService = require('@config');
+const fetchers = require('@adapters/prayerApiAdapter');
 
 let healthCache = {
     local: { healthy: false, message: 'Initialising...' },

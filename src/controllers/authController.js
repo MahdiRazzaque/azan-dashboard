@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
-const envManager = require('../utils/envManager');
-const { hashPassword, verifyPassword } = require('../utils/auth');
+const envManager = require('@utils/envManager');
+const { hashPassword, verifyPassword } = require('@utils/passwordUtils');
 
 /**
  * Controller for authentication-related operations, managing login sessions,

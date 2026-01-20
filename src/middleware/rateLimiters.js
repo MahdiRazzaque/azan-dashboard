@@ -1,5 +1,5 @@
 const rateLimit = require('express-rate-limit');
-const sseService = require('../services/sseService');
+const sseService = require('@services/system/sseService');
 
 /**
  * Helper to handle rate limit response and logging.

@@ -2,20 +2,20 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { DateTime } = require('luxon');
-const healthCheck = require('../services/healthCheck');
-const schedulerService = require('../services/schedulerService');
-const sseService = require('../services/sseService');
-const automationService = require('../services/automationService');
-const audioAssetService = require('../services/audioAssetService');
-const diagnosticsService = require('../services/diagnosticsService');
-const configService = require('../config');
-const fetchers = require('../services/fetchers');
+const healthCheck = require('@services/system/healthCheck');
+const schedulerService = require('@services/core/schedulerService');
+const sseService = require('@services/system/sseService');
+const automationService = require('@services/core/automationService');
+const audioAssetService = require('@services/system/audioAssetService');
+const diagnosticsService = require('@services/system/diagnosticsService');
+const configService = require('@config');
+const fetchers = require('@adapters/prayerApiAdapter');
 const { 
     CALCULATION_METHODS, 
     ASR_JURISTIC_METHODS, 
     LATITUDE_ADJUSTMENT_METHODS, 
     MIDNIGHT_MODES 
-} = require('../utils/constants');
+} = require('@utils/constants');
 
 /**
  * Controller for system-related operations, handling health checks, logs,
@@ -380,8 +380,8 @@ const systemController = {
      * @returns {Promise<void>} A promise that resolves when storage status is retrieved.
      */
     async getStorageStatus(req, res) {
-        const storageService = require('../services/storageService');
-        const configService = require('../config');
+        const storageService = require('@services/system/storageService');
+        const configService = require('@config');
         const config = configService.get();
         
         const usage = await storageService.getUsage();

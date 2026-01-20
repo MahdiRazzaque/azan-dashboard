@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const asyncHandler = require('../middleware/asyncHandler');
-const systemController = require('../controllers/systemController');
-const { operationsLimiter } = require('../middleware/rateLimiters');
-const authenticateToken = require('../middleware/auth');
+const asyncHandler = require('@middleware/asyncHandler');
+const systemController = require('@controllers/systemController');
+const { operationsLimiter } = require('@middleware/rateLimiters');
+const authenticateToken = require('@middleware/auth');
 
 router.get('/health', asyncHandler(systemController.getHealth));
 router.post('/health/refresh', operationsLimiter, authenticateToken, asyncHandler(systemController.refreshHealth));

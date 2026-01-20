@@ -1,4 +1,4 @@
-const sseService = require('../services/sseService');
+const sseService = require('@services/system/sseService');
 
 /**
  * Initialises the global logger by overriding standard console methods.

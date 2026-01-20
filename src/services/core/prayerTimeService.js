@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
-const { fetchAladhanAnnual, fetchMyMasjidBulk } = require('./fetchers');
+const { fetchAladhanAnnual, fetchMyMasjidBulk } = require('@adapters/prayerApiAdapter');
 const { DateTime } = require('luxon');
-const { calculateIqamah, calculateNextPrayer } = require('../utils/calculations');
+const { calculateIqamah, calculateNextPrayer } = require('@utils/calculations');
 
 const CACHE_FILE = path.join(process.cwd(), 'data', 'cache.json');
 

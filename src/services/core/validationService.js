@@ -1,5 +1,5 @@
 const { DateTime } = require('luxon');
-const fetchers = require('./fetchers');
+const fetchers = require('@adapters/prayerApiAdapter');
 
 /**
  * Validates configuration sources by testing API connectivity.

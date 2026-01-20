@@ -1,9 +1,9 @@
 const path = require('path');
 const player = require('play-sound')({});
 const axios = require('axios');
-const configService = require('../config'); // Singleton
-const sseService = require('./sseService');
-const { voiceMonkeyQueue } = require('../utils/requestQueue');
+const configService = require('@config'); // Singleton
+const sseService = require('@services/system/sseService');
+const { voiceMonkeyQueue } = require('@utils/requestQueue');
 
 const AUDIO_DIR = path.join(__dirname, '../../public/audio');
 

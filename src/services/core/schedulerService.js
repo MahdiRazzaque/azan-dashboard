@@ -1,11 +1,11 @@
 const schedule = require('node-schedule');
 const { DateTime } = require('luxon');
-const configService = require('../config'); // Singleton
-const prayerTimeService = require('./prayerTimeService');
+const configService = require('@config'); // Singleton
+const prayerTimeService = require('@services/core/prayerTimeService');
 
-const automationService = require('./automationService');
-const { calculateIqamah } = require('../utils/calculations');
-const healthCheck = require('./healthCheck');
+const automationService = require('@services/core/automationService');
+const { calculateIqamah } = require('@utils/calculations');
+const healthCheck = require('@services/system/healthCheck');
 
 let jobs = [];
 
@@ -161,7 +161,7 @@ const scheduleMaintenanceJobs = () => {
     // 4. Audio Asset Maintenance - Run Daily at 03:30 AM
     const assetMaintenanceJob = schedule.scheduleJob('30 3 * * *', async () => {
         console.log('[Maintenance] Running Daily Audio Asset Maintenance...');
-        const audioAssetService = require('./audioAssetService');
+        const audioAssetService = require('@services/system/audioAssetService');
         try {
             // false = do not force delete everything, just sync missing and clean old
             await audioAssetService.syncAudioAssets(false); 

@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const { DateTime } = require('luxon');
-const prayerTimeService = require('./prayerTimeService');
-const { calculateIqamah } = require('../utils/calculations');
+const prayerTimeService = require('@services/core/prayerTimeService');
+const { calculateIqamah } = require('@utils/calculations');
 
 /**
  * Calculates the current status of all automation triggers for the given configuration.

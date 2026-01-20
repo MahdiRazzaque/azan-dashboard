@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const numberToWords = require('number-to-words');
-const configService = require('../config'); // Singleton
+const configService = require('@config'); // Singleton
 
 const CACHE_DIR = path.join(__dirname, '../../public/audio/cache');
 const ARABIC_NAMES = {

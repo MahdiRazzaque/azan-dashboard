@@ -1,4 +1,4 @@
-const storageService = require('../services/storageService');
+const storageService = require('@services/system/storageService');
 
 /**
  * Middleware to check if an incoming file upload would exceed the storage quota.
