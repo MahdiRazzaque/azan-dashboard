@@ -27,7 +27,7 @@ The application uses environment variables for sensitive configuration. When run
 This is the easiest way to get started. It bundles the Backend, Frontend, and Python TTS service into a single container.
 
 1.  **Prepare Directory:**
-    Ensure you have `docker-compose.yml` and `Dockerfile` in your directory.
+    Ensure you have the `docker` directory containing `docker-compose.yml` and `Dockerfile`.
     
 2.  **Create Placeholder Configs:**
     Run the following to ensure permissions are correct for mapped volumes:
@@ -40,13 +40,13 @@ This is the easiest way to get started. It bundles the Backend, Frontend, and Py
 
 3.  **Start the Container:**
     ```bash
-    docker-compose up -d
+    docker compose -f docker/docker-compose.yml up -d
     ```
 
     **For Linux Users needing Local Audio:**
     If you want the container to play sound on the host's speakers (e.g., Raspberry Pi), use the audio override file:
     ```bash
-    docker-compose -f docker-compose.yml -f docker-compose.audio.yml up -d
+    docker compose -f docker/docker-compose.yml -f docker/docker-compose.audio.yml up -d
     ```
 
 4.  **Access:**

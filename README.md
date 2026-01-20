@@ -29,14 +29,14 @@ The easiest way to deploy is using Docker. This packages the Node.js backend, Re
 Use this if you do not need the server to play audio out of its own physical speakers (e.g., you rely on Browser or Alexa audio).
 
 ```bash
-docker-compose up -d
+docker compose -f docker/docker-compose.yml up -d
 ```
 
 ### 2. Linux Setup (Raspberry Pi / Server)
 Use this if you want the application to play the Adhan directly through the device's 3.5mm jack or HDMI audio.
 
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.audio.yml up -d
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.audio.yml up -d
 ```
 
 **Access the Dashboard:** `http://localhost:3000`
