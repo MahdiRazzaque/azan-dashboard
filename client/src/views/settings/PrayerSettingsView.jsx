@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useSettings } from '../../hooks/useSettings';
-import TriggerCard from '../../components/TriggerCard';
-import { validateTrigger } from '../../utils/validation';
+import { useSettings } from '@/hooks/useSettings';
+import TriggerCard from '@/components/settings/TriggerCard';
+import { validateTrigger } from '@/utils/validation';
 import { Clock, AlertTriangle, Save, CheckCircle, XCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';

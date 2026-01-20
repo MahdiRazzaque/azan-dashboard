@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AuthContext } from '../hooks/useAuth';
+import { AuthContext } from '@/hooks/useAuth';
 
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(null); // null = unknown/loading

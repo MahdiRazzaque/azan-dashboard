@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, ChevronRight } from 'lucide-react';
-import AudioTestModal from '../../components/AudioTestModal';
-import ConfirmModal from '../../components/ConfirmModal';
+import AudioTestModal from '@/components/common/AudioTestModal';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 /**
  * A view component for managing audio files, allowing users to upload, preview,

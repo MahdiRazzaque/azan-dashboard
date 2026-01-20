@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import { useSettings } from '../../hooks/useSettings';
+import { useAuth } from '@/hooks/useAuth';
+import { useSettings } from '@/hooks/useSettings';
 import { Save, Lock, ShieldCheck, Zap, AlertTriangle, CheckCircle, Smartphone, Key, Trash2, Undo2 } from 'lucide-react';
-import PasswordInput from '../../components/PasswordInput';
-import ConfirmModal from '../../components/ConfirmModal';
+import PasswordInput from '@/components/common/PasswordInput';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 /**
  * A view component for managing security credentials and third-party integrations,

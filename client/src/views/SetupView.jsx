@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import PasswordInput from '../components/PasswordInput';
+import PasswordInput from '@/components/common/PasswordInput';
 import { ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
 
 /**

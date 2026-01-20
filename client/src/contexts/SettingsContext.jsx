@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { validateTrigger } from '../utils/validation';
-import { SettingsContext } from '../hooks/useSettings';
+import { useAuth } from '@/hooks/useAuth';
+import { validateTrigger } from '@/utils/validation';
+import { SettingsContext } from '@/hooks/useSettings';
 
 export const SettingsProvider = ({ children }) => {
   const [config, setConfig] = useState(null);

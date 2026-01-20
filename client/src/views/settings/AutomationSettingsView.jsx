@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useSettings } from '../../hooks/useSettings';
+import { useSettings } from '@/hooks/useSettings';
 import { Save, Power, Zap, CheckCircle, XCircle, Play, BadgeCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import PasswordInput from '../../components/PasswordInput';
-import ConfirmModal from '../../components/ConfirmModal';
+import PasswordInput from '@/components/common/PasswordInput';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.

@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useSettings } from '../hooks/useSettings';
+import { useAuth } from '@/hooks/useAuth';
+import { useSettings } from '@/hooks/useSettings';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { 
     Menu, X, Settings, Clock, Zap, FileAudio, 
     Terminal, LogOut, ChevronLeft, Shield, Save, RotateCcw, AlertTriangle
 } from 'lucide-react';
-import ConfirmModal from './ConfirmModal';
-import SaveProcessModal from './SaveProcessModal';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import SaveProcessModal from '@/components/common/SaveProcessModal';
 
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Monitor, Palette, Clock, Bell, VolumeX, Volume2, Check, Layout, Timer, AlertTriangle } from 'lucide-react';
-import { useClientPreferences } from '../hooks/useClientPreferences';
-import { useSettings } from '../hooks/useSettings';
+import { useClientPreferences } from '@/hooks/useClientPreferences';
+import { useSettings } from '@/hooks/useSettings';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 

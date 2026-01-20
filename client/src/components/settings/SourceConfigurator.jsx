@@ -1,7 +1,7 @@
 import { Globe, MapPin, CheckCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { useConstants } from '../../hooks/useConstants';
+import { useConstants } from '@/hooks/useConstants';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.

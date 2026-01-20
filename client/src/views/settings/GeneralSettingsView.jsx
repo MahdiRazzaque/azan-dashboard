@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useSettings } from '../../hooks/useSettings';
-import { useConstants } from '../../hooks/useConstants';
+import { useSettings } from '@/hooks/useSettings';
+import { useConstants } from '@/hooks/useConstants';
 import { Globe, MapPin, CheckCircle, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import SourceConfigurator from '../../components/settings/SourceConfigurator';
+import SourceConfigurator from '@/components/settings/SourceConfigurator';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.

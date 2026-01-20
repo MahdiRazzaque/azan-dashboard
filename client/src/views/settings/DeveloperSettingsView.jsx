@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { RefreshCw, Power, RotateCcw, Activity, Database, CheckCircle, XCircle, AlertTriangle, Volume2, HardDrive, Save } from 'lucide-react';
-import { useSettings } from '../../hooks/useSettings';
-import ConfirmModal from '../../components/ConfirmModal';
+import { useSettings } from '@/hooks/useSettings';
+import ConfirmModal from '@/components/common/ConfirmModal';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import PrayerSourceStatusCard from '../../components/settings/PrayerSourceStatusCard';
+import PrayerSourceStatusCard from '@/components/settings/PrayerSourceStatusCard';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.

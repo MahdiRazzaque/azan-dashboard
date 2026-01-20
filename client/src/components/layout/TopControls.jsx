@@ -1,7 +1,7 @@
 import { Volume2, VolumeX, Settings, Monitor } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import ClientSettingsModal from './ClientSettingsModal';
+import ClientSettingsModal from '@/components/settings/ClientSettingsModal';
 
 const TopControls = ({ isMuted, toggleMute, blocked }) => {
   const [showSettings, setShowSettings] = useState(false);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DateTime } from 'luxon';
-import { useClientPreferences } from '../hooks/useClientPreferences';
+import { useClientPreferences } from '@/hooks/useClientPreferences';
 import { useMemo } from 'react';
 
 const FocusCard = ({ nextPrayer, prayers, onCountdownComplete }) => {

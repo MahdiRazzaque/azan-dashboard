@@ -1,21 +1,21 @@
 import { useState, useCallback } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { usePrayerTimes } from './hooks/usePrayerTimes';
-import { useSSE } from './hooks/useSSE';
-import { useAudio } from './hooks/useAudio';
-import { useAuth } from './hooks/useAuth';
-import { useClientPreferences } from './hooks/useClientPreferences';
-import DashboardView from './views/DashboardView';
-import LoginView from './views/LoginView';
-import SetupView from './views/SetupView';
-import ProtectedRoute from './components/ProtectedRoute';
-import SettingsLayout from './components/SettingsLayout';
-import GeneralSettingsView from './views/settings/GeneralSettingsView';
-import CredentialsSettingsView from './views/settings/CredentialsSettingsView';
-import AutomationSettingsView from './views/settings/AutomationSettingsView';
-import PrayerSettingsView from './views/settings/PrayerSettingsView';
-import FileManagerView from './views/settings/FileManagerView';
-import DeveloperSettingsView from './views/settings/DeveloperSettingsView';
+import { usePrayerTimes } from '@/hooks/usePrayerTimes';
+import { useSSE } from '@/hooks/useSSE';
+import { useAudio } from '@/hooks/useAudio';
+import { useAuth } from '@/hooks/useAuth';
+import { useClientPreferences } from '@/hooks/useClientPreferences';
+import DashboardView from '@/views/DashboardView';
+import LoginView from '@/views/LoginView';
+import SetupView from '@/views/SetupView';
+import ProtectedRoute from '@/components/layout/ProtectedRoute';
+import SettingsLayout from '@/components/layout/SettingsLayout';
+import GeneralSettingsView from '@/views/settings/GeneralSettingsView';
+import CredentialsSettingsView from '@/views/settings/CredentialsSettingsView';
+import AutomationSettingsView from '@/views/settings/AutomationSettingsView';
+import PrayerSettingsView from '@/views/settings/PrayerSettingsView';
+import FileManagerView from '@/views/settings/FileManagerView';
+import DeveloperSettingsView from '@/views/settings/DeveloperSettingsView';
 
 /**
  * The main application component that manages the core state, including audio playback,

@@ -1,8 +1,8 @@
 import React from 'react';
-import DashboardLayout from '../components/DashboardLayout';
-import TopControls from '../components/TopControls';
-import PrayerCard from '../components/PrayerCard';
-import FocusCard from '../components/FocusCard';
+import DashboardLayout from '@/components/layout/DashboardLayout';
+import TopControls from '@/components/layout/TopControls';
+import PrayerCard from '@/components/dashboard/PrayerCard';
+import FocusCard from '@/components/dashboard/FocusCard';
 
 const DashboardView = ({ prayers, nextPrayer, isMuted, toggleMute, blocked, onCountdownComplete }) => {
     return (
