@@ -4,14 +4,16 @@
   "description": "Prayer time management dashboard with automated Alexa announcements",
   "main": "src/server.js",
   "scripts": {
-    "test": "jest --runInBand",
-    "test:coverage": "jest --coverage --runInBand",
+    "test": "jest --config .config/jest.config.js --runInBand",
+    "test:coverage": "jest --config .config/jest.config.js --coverage --runInBand",
     "start": "node src/server.js",
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
-    "server:dev": "nodemon src/server.js",
+    "server:dev": "nodemon --config .config/nodemon.json src/server.js",
     "client:dev": "cd client && npm run dev",
     "client:install": "cd client && npm install",
-    "lint": "eslint ."
+    "lint": "eslint . --config .config/eslint.config.mjs",
+    "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
+    "docker:build": "docker-compose -f docker/docker-compose.yml build" 
   },
   "keywords": [
     "azan",
@@ -32,12 +34,22 @@
     "express-rate-limit": "^8.2.1",
     "jsonwebtoken": "^9.0.3",
     "luxon": "^3.7.2",
+    "module-alias": "^2.2.3",
     "multer": "^2.0.2",
     "node-schedule": "^2.1.1",
     "number-to-words": "^1.2.4",
     "play-sound": "^1.1.6",
     "zod": "^4.3.5"
   },
+  "_moduleAliases": {
+    "@adapters": "src/adapters",
+    "@config": "src/config",
+    "@services": "src/services",
+    "@utils": "src/utils",
+    "@controllers": "src/controllers",
+    "@middleware": "src/middleware",
+    "@routes": "src/routes"
+},
   "devDependencies": {
     "concurrently": "^9.2.1",
     "eslint": "^9.39.2",
