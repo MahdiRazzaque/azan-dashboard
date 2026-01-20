@@ -1,4 +1,5 @@
 module.exports = {
+  rootDir: '../',
   testEnvironment: 'node',
   verbose: true,
   moduleFileExtensions: ['js', 'json', 'node'],
@@ -16,5 +17,15 @@ module.exports = {
     "/client/",
     "/public/"
   ],
+  moduleNameMapper: {
+    '^@adapters/(.*)$': '<rootDir>/src/adapters/$1',
+    '^@services/(.*)$': '<rootDir>/src/services/$1',
+    '^@config$': '<rootDir>/src/config',
+    '^@config/(.*)$': '<rootDir>/src/config/$1',
+    '^@utils/(.*)$': '<rootDir>/src/utils/$1',
+    '^@controllers/(.*)$': '<rootDir>/src/controllers/$1',
+    '^@middleware/(.*)$': '<rootDir>/src/middleware/$1',
+    '^@routes/(.*)$': '<rootDir>/src/routes/$1'
+  },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
 };

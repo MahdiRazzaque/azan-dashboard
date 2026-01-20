@@ -48,7 +48,7 @@ COPY .env.example ./.env
 RUN mkdir -p data config public/audio/custom public/audio/cache
 
 # Copy Supervisor Configuration
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY .config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Set Environment Variables
 ENV NODE_ENV=production
