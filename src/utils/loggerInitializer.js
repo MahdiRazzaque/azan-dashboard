@@ -20,7 +20,7 @@ const initLogger = () => {
         // Broadcast to SSE
         sseService.log(message, 'info');
         
-        // Original behavior
+        // Original behaviour
         originalLog.apply(console, args);
     };
 

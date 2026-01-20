@@ -9,7 +9,7 @@ class ConfigNotInitializedError extends Error {
      * Initialises a new instance of the ConfigNotInitializedError class.
      */
     constructor() {
-        super('ConfigService not initialized. Call init() first.');
+        super('ConfigService not initialised. Call init() first.');
         this.name = 'ConfigNotInitializedError';
     }
 }

@@ -202,7 +202,7 @@ const scheduleMaintenanceJobs = () => {
 const initScheduler = async () => {
     const config = configService.get();
     try {
-        console.log('[Scheduler] Initializing...');
+        console.log('[Scheduler] Initialising...');
         
         // Cancel existing jobs (Hot Reload scenario)
         clearJobs();

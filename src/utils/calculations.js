@@ -42,6 +42,8 @@ function calculateIqamah(prayerStartISO, settings, timezone) {
   if (roundTo > 0) {
     const remainder = minute % roundTo;
     if (remainder !== 0) {
+      // Round up to the next interval (e.g., 5, 10, 15 minutes) to ensure collective 
+      // predictability and ease of memory for congregation members.
       const minutesToAdd = roundTo - remainder;
       iqamahTime = iqamahTime.plus({ minutes: minutesToAdd });
     }

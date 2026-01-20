@@ -5,7 +5,7 @@ const dotenv = require('dotenv');
 const ENV_FILE_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../.env');
 dotenv.config({ path: ENV_FILE_PATH });
 
-require('@utils/loggerInitializer')(); // Initialize global logger interception
+require('@utils/loggerInitializer')(); // Initialise global logger interception
 
 const apiRoutes = require('@routes/index');
 const { initScheduler } = require('@services/core/schedulerService');
@@ -58,13 +58,13 @@ const startServer = async (port = PORT) => {
         console.log(`Server is running on http://localhost:${PORT}`);
         console.log(`Health check available at http://localhost:${PORT}/api/health`);
         
-        // Initialize Config Service
+        // Initialise Config Service
         const configService = require('@config');
         try {
             await configService.init();
-            console.log('[Startup] ConfigService initialized.');
+            console.log('[Startup] ConfigService initialised.');
         } catch (e) {
-            console.error('[Startup] Failed to initialize ConfigService:', e);
+            console.error('[Startup] Failed to initialise ConfigService:', e);
             process.exit(1);
         }
         const config = configService.get();
