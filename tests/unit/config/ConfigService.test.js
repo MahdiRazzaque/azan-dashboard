@@ -24,7 +24,7 @@ describe('ConfigService', () => {
 
     it('should throw error if get() called before init()', () => {
         configService.reset();
-        expect(() => configService.get()).toThrow('ConfigService not initialized');
+        expect(() => configService.get()).toThrow('ConfigService not initialised. Call init() first.');
     });
 
     it('should update configuration and strict merge', async () => {

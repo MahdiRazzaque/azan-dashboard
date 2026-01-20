@@ -121,7 +121,7 @@ describe('Server Startup', () => {
         
         server = await app.startServer(0);
         
-        expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize'), expect.anything());
+        expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to initialise'), expect.anything());
         expect(process.exit).toHaveBeenCalledWith(1);
         errorSpy.mockRestore();
     });
