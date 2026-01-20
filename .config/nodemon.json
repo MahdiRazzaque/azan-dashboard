@@ -5,7 +5,8 @@
     "src/**/*.test.js",
     "src/**/*.spec.js",
     "data/*",
-    "public/*"
+    "public/*",
+    "src/config/local.json"
   ],
   "exec": "node src/server.js"
 }
