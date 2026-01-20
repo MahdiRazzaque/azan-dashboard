@@ -39,11 +39,24 @@ Orchestrates the business logic flow.
 *   **Responsibility:** Calls necessary Services, formats the HTTP response, and handles high-level errors. It does *not* contain core business logic (e.g., calculation algorithms).
 
 ### 3. Service Layer (`src/services/`)
-Contains the core business logic and reusable functions.
+Contains the core business logic and reusable functions, now organised into sub-domains:
+
+#### Core Services (`src/services/core/`)
 *   `prayerTimeService.js`: Fetches data, applies offsets, and writes to cache.
 *   `schedulerService.js`: Manages `node-schedule` jobs and hot-reloading.
 *   `automationService.js`: Handles trigger execution and audio routing.
+
+#### System Services (`src/services/system/`)
 *   `audioAssetService.js`: Manages TTS generation and file cleanup.
+*   `storageService.js`: Handles storage quota and cleanup operations.
+*   `healthCheck.js`: Monitors service health status.
+*   `diagnosticsService.js`: Provides diagnostic information.
+*   `sseService.js`: Manages Server-Sent Events connections.
+
+### 4. Adapter Layer (`src/adapters/`)
+Handles all external API integrations and data transformation.
+*   `prayerApiAdapter.js`: Fetches prayer time data from Aladhan and MyMasjid APIs, validates responses with Zod schemas, and transforms data into a standardised format.
+*   **Responsibility:** Isolates external dependencies from business logic. If an API changes, only the adapter needs updating.
 
 ## Frontend Architecture
 The frontend is a Single Page Application (SPA) designed for resilience.

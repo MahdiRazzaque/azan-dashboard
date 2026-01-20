@@ -9,6 +9,9 @@ This guide is for developers who wish to extend the Azan Dashboard or contribute
     *   **Backend:** Run `npm run lint` in the root directory.
     *   **Frontend:** Run `npm run lint` in the `client/` directory.
 *   **Imports:** Use CommonJS (`require`) for the backend (Node.js compatibility) and ES Modules (`import`) for the frontend (Vite/React).
+*   **Path Aliases:** Use path aliases for cleaner imports:
+    *   **Backend:** `@adapters`, `@services`, `@config`, `@utils`.
+    *   **Frontend:** `@/` (points to `client/src/`).
 *   **State Management:** The backend uses a Singleton pattern for Configuration management (`ConfigService`). The frontend relies on React Context (`SettingsContext`) to maintain a "draft" state before saving.
 
 ### Branching Strategy
@@ -23,6 +26,7 @@ The project aims for **>90% Code Coverage** on the backend logic.
 ### 1. Unit Tests (`tests/unit/`)
 *   **Scope:** Services (`prayerTimeService`, `schedulerService`), Utils (`calculations`, `auth`), and Configuration logic.
 *   **Mocking:** All external dependencies (File System, Network requests, System Time) MUST be mocked using Jest.
+*   **Helpers:** Use `tests/helpers/mockFactory.js` to generate standardised mocks for services and config.
 *   **Command:** `npm run test`
 
 ### 2. Integration Tests (`tests/integration/`)

@@ -32,9 +32,11 @@ This is the easiest way to get started. It bundles the Backend, Frontend, and Py
 2.  **Create Placeholder Configs:**
     Run the following to ensure permissions are correct for mapped volumes:
     ```bash
+    mkdir config
     touch config/local.json
-    cp .env.example .env
+    cp .env.example config/.env
     ```
+    *Note: Docker volume maps the `config` directory, so `.env` must reside inside it.*
 
 3.  **Start the Container:**
     ```bash
