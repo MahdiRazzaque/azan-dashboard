@@ -30,3 +30,4 @@ src/config/local.json
 /coverage
 repomixBat.bat
 COVERAGE_SUMMARY.md
+/src/public/audio/cache
