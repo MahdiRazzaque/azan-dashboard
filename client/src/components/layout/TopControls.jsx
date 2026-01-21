@@ -24,7 +24,7 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
     if (preferences.appearance.wakeLockAutoStart && wakeLock.isSupported && !wakeLock.isActive) {
         wakeLock.request();
     }
-  }, [preferences.appearance.wakeLockAutoStart, wakeLock.isSupported]);
+  }, [preferences.appearance.wakeLockAutoStart, wakeLock]);
 
   const getWakeLockTitle = () => {
     if (!wakeLock.isSupported) return "Not supported (Requires HTTPS)";

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 /**
  * Custom hook to manage the Screen Wake Lock API.
@@ -68,11 +68,11 @@ export const useWakeLock = () => {
         };
     }, []);
 
-    return {
+    return useMemo(() => ({
         isSupported,
         isActive,
         error,
         request,
         release
-    };
+    }), [isSupported, isActive, error, request, release]);
 };
