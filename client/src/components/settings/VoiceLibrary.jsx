@@ -281,6 +281,12 @@ const VoiceLibrary = () => {
   const savedDefault = config.automation?.defaultVoice;
   // Pending state (what's queued for save in the draft)
   const pendingDefault = draftConfig?.automation?.defaultVoice;
+  // Check if we should show the Arabic warning
+  const activeVoiceShortName = pendingDefault || savedDefault;
+  const activeVoice = voices.find(v => v.ShortName === activeVoiceShortName);
+  const isNonArabicVoice = activeVoice && !activeVoice.Locale.startsWith('ar-');
+  const showArabicWarning = hasArabic && isNonArabicVoice;
+
   // Check if there's an unsaved change
   const hasPendingChange = pendingDefault && pendingDefault !== savedDefault;
 
@@ -326,6 +332,9 @@ const VoiceLibrary = () => {
                   className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-emerald-500 transition-all font-medium"
                   placeholder="{minutes} minutes until {prayerArabic}"
                 />
+                <p className="text-[10px] text-app-dim mt-1.5 ml-1">
+                  Use <code className="bg-app-card border border-app-border px-1 py-0.5 rounded text-[10px] text-emerald-500 font-mono">{"{prayerEnglish}"}</code> or <code className="bg-app-card border border-app-border px-1 py-0.5 rounded text-[10px] text-emerald-500 font-mono">{"{prayerArabic}"}</code> to insert the prayer name.
+                </p>
               </div>
               <button
                 onClick={handleResetPreviewText}
@@ -334,12 +343,7 @@ const VoiceLibrary = () => {
                 <RotateCcw className="w-3.5 h-3.5 group-hover:rotate-[-180deg] transition-transform duration-500" />
                 Reset Template
               </button>
-              {hasArabic && (
-                 <div className="flex items-center gap-2 text-[10px] text-amber-500 font-medium bg-amber-500/5 p-2 rounded border border-amber-500/20">
-                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                    Warning: Non-Arabic voices may struggle with Arabic pronunciation
-                 </div>
-              )}
+
             </div>
 
             {/* Right Column: Prayer & Minutes */}
@@ -523,10 +527,22 @@ const VoiceLibrary = () => {
         )}
       </div>
 
+      {/* 4. Warnings and Contextual Info */}
+      {showArabicWarning && (
+        <div className="flex items-center gap-2 text-[10px] text-amber-500 font-medium bg-amber-500/5 p-3 rounded-lg border border-amber-500/20">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <p>
+            <span className="font-bold uppercase tracking-tight mr-1">Pronunciation Warning:</span>
+            The selected voice ({activeVoice?.FriendlyName || activeVoiceShortName}) is not natively Arabic. 
+            It may struggle with the Arabic text or variables in your preview template.
+          </p>
+        </div>
+      )}
+
       {/* Footer Info */}
-      <div className="flex items-center justify-between text-[10px] text-app-dim px-1 font-bold uppercase tracking-widest">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[10px] text-app-dim px-1 font-bold uppercase tracking-widest">
         <span>{filteredVoices.length} voices available</span>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-4">
           {hasPendingChange && (
             <div className="flex items-center gap-2 text-orange-500">
                <span>Pending:</span>
