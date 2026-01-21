@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import axios from 'axios';
+
 import { useSettings } from '@/hooks/useSettings';
 import SearchableSelect from '@/components/common/SearchableSelect';
 
@@ -235,14 +235,25 @@ const VoiceLibrary = () => {
   const handlePlayPreview = async (voiceShortName) => {
     setPreviewing(voiceShortName);
     try {
-      const response = await axios.post('/api/system/preview-tts', { 
-        template: previewText,
-        prayerKey: previewPrayer,
-        offsetMinutes: previewMinutes,
-        voice: voiceShortName 
+      const response = await fetch('/api/system/preview-tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          template: previewText,
+          prayerKey: previewPrayer,
+          offsetMinutes: previewMinutes,
+          voice: voiceShortName
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
       
-      const audio = new Audio(response.data.url);
+      const data = await response.json();
+      const audio = new Audio(data.url);
       audio.onended = () => setPreviewing(null);
       audio.onerror = () => {
         console.error('[VoiceLibrary] Audio playback failed');
