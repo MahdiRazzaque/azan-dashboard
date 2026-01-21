@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Monitor, Palette, Clock, Bell, VolumeX, Volume2, Check, Layout, Timer, AlertTriangle } from 'lucide-react';
 import { useClientPreferences } from '@/hooks/useClientPreferences';
 import { useSettings } from '@/hooks/useSettings';
+import { useWakeLock } from '@/hooks/useWakeLock';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -24,6 +25,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
 const ClientSettingsModal = ({ onClose }) => {
   const { preferences, updateAppearance, toggleAudioExclusion, isAudioExcluded, muteAll, unmuteAll } = useClientPreferences();
   const { config } = useSettings();
+  const wakeLock = useWakeLock();
   const [activeTab, setActiveTab] = useState('appearance');
 
   const prayers = [
@@ -213,6 +215,35 @@ const ClientSettingsModal = ({ onClose }) => {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Wake Lock */}
+                <div className={cn(
+                  "flex items-center justify-between p-4 bg-app-bg/30 rounded-2xl border border-app-border/50",
+                  !wakeLock.isSupported && "opacity-50 grayscale"
+                )}>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-app-text">Auto-enable Wake Lock</span>
+                    <span className="text-xs text-app-dim">
+                      {wakeLock.isSupported 
+                        ? "Keep screen on automatically when dashboard loads" 
+                        : "Not supported (Requires HTTPS)"}
+                    </span>
+                  </div>
+                  <button
+                    disabled={!wakeLock.isSupported}
+                    onClick={() => updateAppearance('wakeLockAutoStart', !preferences.appearance.wakeLockAutoStart)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                      preferences.appearance.wakeLockAutoStart ? "bg-app-accent" : "bg-app-card-hover",
+                      !wakeLock.isSupported && "cursor-not-allowed"
+                    )}
+                  >
+                    <span className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                      preferences.appearance.wakeLockAutoStart ? "translate-x-6" : "translate-x-1"
+                    )} />
+                  </button>
                 </div>
               </div>
             )}

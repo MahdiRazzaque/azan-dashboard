@@ -9,7 +9,8 @@ const DEFAULT_PREFERENCES = {
     clockFormat: '24h',
     showSeconds: true,
     countdownMode: 'normal', // 'normal' | 'digital' | 'minimal'
-    skipSunriseCountdown: false
+    skipSunriseCountdown: false,
+    wakeLockAutoStart: false
   },
   audioExclusions: [] // Array of "prayer-event" strings, e.g., ["fajr-adhan"]
 };

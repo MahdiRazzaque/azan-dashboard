@@ -80,6 +80,9 @@ All configuration updates are validated against a strict `Zod` schema.
 *   **Sanitisation:** Prevents injection of invalid data types.
 *   **Logic Checks:** Ensures start times are valid ISO strings and offsets are within safe bounds (0-60 mins).
 
+### 4. Wake Lock API (HTTPS Requirement)
+The Screen Wake Lock API **only functions over HTTPS** (or strictly `localhost`). If the dashboard is served over plain HTTP, the "Keep Screen On" feature will be unavailable. Ensure your deployment serves the application over a secure connection.
+
 ## Monitoring & Logging
 
 ### Real-time Logs

@@ -1,14 +1,55 @@
-import { Volume2, VolumeX, Settings, Monitor } from 'lucide-react';
+import { Volume2, VolumeX, Settings, Monitor, Power } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ClientSettingsModal from '@/components/settings/ClientSettingsModal';
+import { useWakeLock } from '@/hooks/useWakeLock';
+import { useClientPreferences } from '@/hooks/useClientPreferences';
 
 const TopControls = ({ isMuted, toggleMute, blocked }) => {
   const [showSettings, setShowSettings] = useState(false);
   const navigate = useNavigate();
+  const wakeLock = useWakeLock();
+  const { preferences } = useClientPreferences();
+
+  const handleWakeLockToggle = async () => {
+    if (wakeLock.isActive) {
+      await wakeLock.release();
+    } else {
+      await wakeLock.request();
+    }
+  };
+
+  // Auto-start logic
+  useEffect(() => {
+    if (preferences.appearance.wakeLockAutoStart && wakeLock.isSupported && !wakeLock.isActive) {
+        wakeLock.request();
+    }
+  }, [preferences.appearance.wakeLockAutoStart, wakeLock.isSupported]);
+
+  const getWakeLockTitle = () => {
+    if (!wakeLock.isSupported) return "Not supported (Requires HTTPS)";
+    if (wakeLock.error) return `Error: ${wakeLock.error.message}. Click to retry.`;
+    if (wakeLock.isActive) return "Wake Lock Active (Screen will stay on)";
+    if (preferences.appearance.wakeLockAutoStart && !wakeLock.isActive) return "Wake Lock paused for this session";
+    return "Enable Screen Wake Lock";
+  };
 
   return (
     <div className="absolute top-3 right-3 lg:top-6 lg:right-6 flex gap-3 z-50">
+      <button 
+        onClick={handleWakeLockToggle}
+        disabled={!wakeLock.isSupported}
+        className={`p-2 lg:p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
+          !wakeLock.isSupported ? 'bg-app-card/50 text-app-dim cursor-not-allowed opacity-50' :
+          wakeLock.error ? 'bg-app-danger/20 text-app-danger animate-pulse border border-app-danger/50' :
+          wakeLock.isActive ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/30' : 
+          'bg-app-card hover:bg-app-card/80 text-app-dim hover:text-white'
+        }`}
+        title={getWakeLockTitle()}
+      >
+        <Power size={20} className="lg:scale-100 scale-90" />
+      </button>
+
       <button 
         onClick={toggleMute}
         className={`p-2 lg:p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
