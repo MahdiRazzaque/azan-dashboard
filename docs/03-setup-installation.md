@@ -5,8 +5,8 @@ To run the Azan Dashboard, you need a system capable of running containers or No
 
 *   **Preferred:** Docker & Docker Compose (Platform agnostic).
 *   **Manual:**
-    *   **Node.js:** v18.0.0 or higher.
-    *   **Python:** v3.8+ (for TTS microservice).
+    *   **Node.js:** v22.0.0 or higher.
+    *   **Python:** v3.11+ (for TTS microservice).
     *   **System Tools:** `mpg123` (for local audio playback on Linux/Mac).
 
 ## Environment Configuration

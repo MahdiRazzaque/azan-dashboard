@@ -1,5 +1,6 @@
 # --- Stage 1: Build Frontend ---
-FROM node:18-bullseye-slim AS frontend-builder
+# Updated to Node 22 (Bookworm) to match local environment
+FROM node:22-bookworm-slim AS frontend-builder
 
 WORKDIR /app
 COPY client/package*.json ./client/
@@ -14,9 +15,10 @@ WORKDIR /app/client
 RUN npm run build
 
 # --- Stage 2: Runtime Environment ---
-FROM node:18-bullseye-slim
+# Updated to Node 22 (Bookworm) which includes Python 3.11+
+FROM node:22-bookworm-slim
 
-# Install Python 3, pip, mpg123 (for local audio), and supervisor
+# Install Python 3, pip, mpg123, alsa-utils, and supervisor
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
@@ -33,8 +35,10 @@ RUN npm ci --omit=dev
 
 # Copy Python Dependencies
 COPY src/microservices/tts/requirements.txt ./src/microservices/tts/
+
 # Install Python packages globally in the container
-RUN pip3 install --no-cache-dir -r src/microservices/tts/requirements.txt
+# Added --break-system-packages because Debian 12 implements PEP 668
+RUN pip3 install --no-cache-dir --break-system-packages -r src/microservices/tts/requirements.txt
 
 # Copy Built Frontend from Stage 1
 COPY --from=frontend-builder /app/client/dist ./client/dist

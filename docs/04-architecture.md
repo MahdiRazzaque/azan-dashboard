@@ -5,7 +5,7 @@
 The Azan Dashboard is built on a modern, polyglot stack designed for reliability and ease of deployment.
 
 ### Backend
-*   **Runtime:** Node.js (v18+)
+*   **Runtime:** Node.js (v22+)
 *   **Framework:** Express.js (REST API & Static File Serving)
 *   **Scheduling:** `node-schedule` for precise job execution.
 *   **Audio Processing:** `play-sound` (wrapper for `mpg123`) and `edge-tts`.
@@ -19,7 +19,7 @@ The Azan Dashboard is built on a modern, polyglot stack designed for reliability
 *   **Real-time Communication:** Server-Sent Events (SSE) for logs and audio triggers.
 
 ### Microservices
-*   **TTS Service:** Python 3.8+ using `FastAPI` and `uvicorn`. Wraps the `edge-tts` library to generate neural speech audio files.
+*   **TTS Service:** Python 3.11+ using `FastAPI` and `uvicorn`. Wraps the `edge-tts` library to generate neural speech audio files.
 
 ### Storage
 *   **Configuration:** File-based JSON (`config/local.json`) with environment variable overrides.
