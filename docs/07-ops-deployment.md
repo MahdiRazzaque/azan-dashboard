@@ -22,6 +22,46 @@ For the system to play audio on the host's speakers (e.g., a Raspberry Pi connec
 *   **Flag:** `--device /dev/snd`
 *   **Constraint:** This works natively on Linux hosts. On Windows/Mac (Docker Desktop), hardware pass-through is limited, so "Local" audio targets will likely fail (but Browser/Alexa targets will work).
 
+## Reverse Proxy Configuration
+
+If you are deploying the dashboard behind a reverse proxy (Nginx, Apache, Traefik, etc.), you **must** ensure that response buffering is disabled for the SSE (Server-Sent Events) endpoint (`/api/logs`).
+
+Without this configuration, the proxy will attempt to buffer the small log messages to optimise bandwidth, causing the dashboard logs to hang on "Connecting..." or appear empty until the buffer fills up.
+
+### Nginx Configuration
+Add this specific location block **before** your main root (`/`) location block in your site configuration.
+
+```nginx
+# Handle Server-Sent Events (SSE) for logs
+location /api/logs {
+    # Match your upstream (e.g. http://localhost:3000 or http://azan-dashboard:3000)
+    proxy_pass http://localhost:3000; 
+
+    # CRITICAL: Disable buffering so data is sent immediately
+    proxy_buffering off;
+    proxy_cache off;
+    
+    # Connection settings required for SSE
+    proxy_set_header Connection '';
+    proxy_http_version 1.1;
+    chunked_transfer_encoding off;
+    
+    # Prevent Nginx from timing out the idle connection (24 hours)
+    proxy_read_timeout 24h;
+    
+    # Standard headers
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+### Other Web Servers
+*   **Apache:** Ensure `mod_proxy` is configured with `flushpackets=on` for the `/api/logs` path, or set environment variables `no-gzip` and `proxy-nokeepalive`.
+*   **Caddy:** Generally handles streaming well, but ensure `flush_interval` is set to `-1` if issues arise.
+*   **Cloudflare:** Cloudflare buffers responses by default. You must create a **Page Rule** for `yourdomain.com/api/logs*` setting **Cache Level** to **Bypass**.
+
 ## Security Considerations
 
 ### 1. Authentication
