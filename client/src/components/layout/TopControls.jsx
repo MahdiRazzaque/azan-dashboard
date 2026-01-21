@@ -7,24 +7,37 @@ import { useClientPreferences } from '@/hooks/useClientPreferences';
 
 const TopControls = ({ isMuted, toggleMute, blocked }) => {
   const [showSettings, setShowSettings] = useState(false);
+  const [isManuallyPaused, setIsManuallyPaused] = useState(false);
   const navigate = useNavigate();
   const wakeLock = useWakeLock();
   const { preferences } = useClientPreferences();
 
   const handleWakeLockToggle = async () => {
     if (wakeLock.isActive) {
+      setIsManuallyPaused(true);
       await wakeLock.release();
     } else {
+      setIsManuallyPaused(false);
       await wakeLock.request();
     }
   };
 
   // Auto-start logic
   useEffect(() => {
-    if (preferences.appearance.wakeLockAutoStart && wakeLock.isSupported && !wakeLock.isActive) {
+    const shouldAutoStart = preferences.appearance.wakeLockAutoStart && 
+                           wakeLock.isSupported && 
+                           !wakeLock.isActive && 
+                           !isManuallyPaused;
+
+    if (shouldAutoStart) {
         wakeLock.request();
     }
-  }, [preferences.appearance.wakeLockAutoStart, wakeLock]);
+  }, [preferences.appearance.wakeLockAutoStart, wakeLock, isManuallyPaused]);
+
+  // Reset override if user toggles the setting in the modal
+  useEffect(() => {
+    setIsManuallyPaused(false);
+  }, [preferences.appearance.wakeLockAutoStart]);
 
   const getWakeLockTitle = () => {
     if (!wakeLock.isSupported) return "Not supported (Requires HTTPS)";
