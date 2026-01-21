@@ -13,7 +13,7 @@ const ARABIC_NAMES = {
     dhuhr: 'ظُهْر',
     asr: 'عصر',
     maghrib: 'مغرب',
-    isha: 'عشاء'
+    isha: 'عِشَا'
 };
 
 const PRAYER_NAMES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
