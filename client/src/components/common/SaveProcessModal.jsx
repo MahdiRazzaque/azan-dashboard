@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, CheckCircle, AlertTriangle, XCircle, ArrowRight, ExternalLink } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -26,6 +26,7 @@ function cn(...inputs) {
  * @returns {JSX.Element|null} The rendered modal or null if not open.
  */
 export default function SaveProcessModal({ isOpen, onClose, status, result, processStatus }) {
+  const navigate = useNavigate();
   if (!isOpen) return null;
 
   // status: 'processing', 'success', 'warning', 'error'
@@ -143,7 +144,7 @@ export default function SaveProcessModal({ isOpen, onClose, status, result, proc
             <div className="mt-8 flex flex-col w-full gap-2 animate-in fade-in fill-mode-forwards delay-100">
                 {visualState === 'warning' && (
                      <button 
-                        onClick={() => { onClose(); /* Navigate logic handled by parent if needed */ window.location.hash = '#/settings/developer'; }}
+                        onClick={() => { onClose(); navigate('/settings/developer'); }}
                         className="w-full bg-app-card hover:bg-app-card-hover text-app-dim py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                      >
                         <ExternalLink className="w-4 h-4" />
