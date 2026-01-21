@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
 
+/**
+ * Custom hook for managing Server-Sent Events (SSE) connections.
+ * It listens for log updates, audio playback triggers, and process status changes.
+ * 
+ * @param {Function} [onAudioPlay] - Optional callback function triggered when an audio play event is received.
+ * @returns {Object} An object containing connection status, logs, and current process status.
+ */
 export const useSSE = (onAudioPlay) => {
     const [logs, setLogs] = useState([]);
     const [isConnected, setIsConnected] = useState(false);

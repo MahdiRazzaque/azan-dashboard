@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 
+/**
+ * Custom hook for fetching and managing prayer times and the next upcoming prayer.
+ * It handles initial data loading and periodically refreshes the data.
+ * 
+ * @returns {Object} An object containing prayer data, the next prayer, metadata, loading state, and error state.
+ */
 export const usePrayerTimes = () => {
     const [prayers, setPrayers] = useState({});
     const [nextPrayer, setNextPrayer] = useState(null);

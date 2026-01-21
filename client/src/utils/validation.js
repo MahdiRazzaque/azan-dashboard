@@ -1,3 +1,10 @@
+/**
+ * Validates a single automation trigger configuration.
+ * It checks for required fields based on the trigger type (TTS, file, or URL).
+ * 
+ * @param {Object} trigger - The trigger configuration object to validate.
+ * @returns {Promise<string|null>} A promise that resolves to an error message string if invalid, or null if valid.
+ */
 export const validateTrigger = async (trigger) => {
     if (!trigger.enabled) return null;
 

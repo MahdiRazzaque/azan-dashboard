@@ -11,6 +11,12 @@ import axios from 'axios';
 import { useSettings } from '@/hooks/useSettings';
 import SearchableSelect from '@/components/common/SearchableSelect';
 
+/**
+ * Merges Tailwind CSS classes using clsx and tailwind-merge logic.
+ * 
+ * @param {...*} inputs - The class values to be merged.
+ * @returns {string} The combined and de-duplicated class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 // Locale code to full language name mapping
