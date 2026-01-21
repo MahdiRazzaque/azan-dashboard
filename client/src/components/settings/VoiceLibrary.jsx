@@ -496,7 +496,7 @@ const VoiceLibrary = () => {
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right">
-                      {pendingDefault === voice.ShortName ? (
+                      {pendingDefault === voice.ShortName && pendingDefault !== savedDefault ? (
                         // Pending selection (unsaved)
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-500/10 border border-orange-500/50 text-orange-500 rounded-lg text-[10px] font-bold uppercase tracking-wider animate-pulse">
                           <CheckCircle className="w-3.5 h-3.5" /> Pending Save
