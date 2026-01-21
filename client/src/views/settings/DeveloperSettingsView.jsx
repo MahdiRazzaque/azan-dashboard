@@ -483,6 +483,20 @@ export default function DeveloperSettingsView() {
                                  </div>
                              </div>
                         </button>
+
+                        <button
+                            onClick={() => callSystemAction('tempCleanup', '/api/system/cleanup-temp-tts')}
+                            disabled={loading !== null}
+                            className="flex items-center justify-between p-4 bg-app-card rounded-lg border border-app-border hover:bg-app-card-hover hover:border-app-border/50 transition-all group disabled:opacity-50"
+                        >
+                             <div className="flex items-center gap-3">
+                                 <HardDrive className={`w-5 h-5 text-rose-400 ${loading === 'tempCleanup' ? 'animate-pulse' : ''}`} />
+                                 <div className="text-left">
+                                     <div className="font-medium text-app-text">Clean Temp TTS Files</div>
+                                     <div className="text-xs text-app-dim group-hover:text-app-text/70">Removes old preview audio files</div>
+                                 </div>
+                             </div>
+                        </button>
                     </div>
                 </div>
 

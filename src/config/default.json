@@ -28,6 +28,7 @@
     "baseUrl": "http://localhost:3000",
     "audioPlayer": "mpg123",
     "pythonServiceUrl": "http://localhost:8000",
+    "defaultVoice": "ar-DZ-IsmaelNeural",
     "voiceMonkey": {
         "enabled": false
     },

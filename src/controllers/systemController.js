@@ -9,6 +9,7 @@ const automationService = require('@services/core/automationService');
 const audioAssetService = require('@services/system/audioAssetService');
 const diagnosticsService = require('@services/system/diagnosticsService');
 const configService = require('@config');
+const voiceService = require('@services/system/voiceService');
 const fetchers = require('@adapters/prayerApiAdapter');
 const { 
     CALCULATION_METHODS, 
@@ -396,6 +397,55 @@ const systemController = {
             recommendedLimitGB: recommendedLimit,
             breakdown: { custom: usage.custom, cache: usage.cache }
         });
+    },
+
+    /**
+     * Retrieves the list of available TTS voices.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    async getVoices(req, res) {
+        const voices = voiceService.getVoices();
+        res.json(voices);
+    },
+
+    /**
+     * Proxies a request to generate a TTS preview audio file after resolving placeholders.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    async previewTTS(req, res) {
+        const { template, prayerKey, offsetMinutes, voice } = req.body;
+        
+        if (!template || !prayerKey || !voice) {
+            return res.status(400).json({ error: 'Template, prayerKey, and voice are required' });
+        }
+
+        try {
+            const data = await audioAssetService.previewTTS(template, prayerKey, offsetMinutes, voice);
+            res.json(data);
+        } catch (error) {
+            console.error('[SystemController] Preview generation failed:', error.message);
+            res.status(500).json({ error: error.message || 'Failed to generate preview audio' });
+        }
+    },
+
+    /**
+     * Manually triggers cleanup of temporary TTS preview files.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    async cleanupTempTTS(req, res) {
+        try {
+            await audioAssetService.cleanupTempAudio(true);
+            res.json({ success: true, message: 'Temporary TTS files cleaned up successfully.' });
+        } catch (error) {
+            console.error('[SystemController] Temp TTS cleanup failed:', error.message);
+            res.status(500).json({ error: 'Failed to clean up temporary files' });
+        }
     }
 };
 

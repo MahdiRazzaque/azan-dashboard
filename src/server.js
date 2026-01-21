@@ -91,6 +91,15 @@ const startServer = async (port = PORT) => {
         // Run System Health Checks
         await healthCheck.refresh('all', 'silent');
 
+        // Initialise Voice Cache (Decoupled from Scheduler)
+        const voiceService = require('@services/system/voiceService');
+        try {
+            await voiceService.init();
+            console.log('[Startup] VoiceService initialised.');
+        } catch (e) {
+            console.error('[Startup] VoiceService init failed (non-critical):', e.message);
+        }
+
         // Ensure cache is cleared and refreshed at startup
         try {
           console.log('[Startup] Clearing and refreshing cache...');

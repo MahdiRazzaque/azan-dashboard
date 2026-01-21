@@ -2,6 +2,7 @@ import { Server, Monitor, Zap, AlertTriangle, XCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSettings } from '@/hooks/useSettings';
+import SearchableSelect from '@/components/common/SearchableSelect';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
@@ -27,7 +28,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
  * @returns {JSX.Element} The rendered trigger card component.
  */
 export default function TriggerCard({ label, trigger, onChange, files, error, isDirty, eventType, extraContent }) {
-    const { systemHealth, config } = useSettings();
+    const { systemHealth, config, voices } = useSettings();
     
     // Cascading Master Switch Logic - Returns { disabled: boolean, reason: string }
     const masterSwitchState = (() => {
@@ -216,19 +217,17 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                      {/* Dynamic Input based on Type */}
                      <div className="bg-app-bg/20 p-3 rounded-lg border border-app-border">
                         {trigger.type === 'file' && (
-                            <select 
-                                value={trigger.path || ''} 
-                                onChange={e => update('path', e.target.value)}
-                                className={cn(
-                                    "w-full bg-app-card border border-app-border rounded-md p-2 text-sm text-app-text focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20",
-                                    error ? "border-red-500 focus:border-red-500" : ""
-                                )}
-                            >
-                                <option value="">-- Select File --</option>
-                                {files.map(f => (
-                                    <option key={f.path} value={f.path}>{f.name} ({f.type})</option>
-                                ))}
-                            </select>
+                            <SearchableSelect 
+                                value={trigger.path || ""} 
+                                placeholder="Select Audio File..."
+                                onChange={val => update('path', val)}
+                                options={files.map(f => ({
+                                    value: f.path,
+                                    label: f.name,
+                                    sublabel: f.type
+                                }))}
+                                className={cn(error ? "border-red-500" : "")}
+                            />
                         )}
                         
                         {trigger.type === 'tts' && (
@@ -244,6 +243,25 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                                     )}
                                     value={trigger.template || ''}
                                     onChange={e => update('template', e.target.value)}
+                                />
+                            </div>
+                        )}
+
+                        {trigger.type === 'tts' && (
+                            <div className="space-y-1 mt-3">
+                                <label className="text-[10px] font-bold text-app-dim uppercase tracking-wider">Voice Selection</label>
+                                <SearchableSelect 
+                                    value={trigger.voice || ""}
+                                    placeholder={`Default (${config.automation?.defaultVoice || 'ar-DZ-IsmaelNeural'})`}
+                                    onChange={val => update('voice', val)}
+                                    options={[
+                                        { value: "", label: `System Default (${config.automation?.defaultVoice || 'Fallback'})`, sublabel: "Inherit global setting" },
+                                        ...(voices || []).map(v => ({
+                                            value: v.ShortName,
+                                            label: v.FriendlyName || v.Name.split('(')[1].split(',')[1].replace(')', '').trim(),
+                                            sublabel: v.ShortName
+                                        }))
+                                    ]}
                                 />
                             </div>
                         )}

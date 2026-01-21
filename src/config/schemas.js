@@ -17,6 +17,7 @@ const triggerEventSchema = z.object({
   template: z.string().optional(),
   path: z.string().optional(),
   url: z.string().optional(),
+  voice: z.string().optional(),
   targets: z.array(z.union([targetSchema, z.literal('browser')]))
     .transform(arr => arr.filter(t => t !== 'browser'))
     .default([]),
@@ -46,6 +47,7 @@ const automationSchema = z.object({
   baseUrl: z.string(),
   audioPlayer: z.string(),
   pythonServiceUrl: z.string(),
+  defaultVoice: z.string().optional(),
   voiceMonkey: z.object({
     enabled: z.boolean(),
     token: z.string().optional(),

@@ -14,6 +14,9 @@ export const SettingsProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pausedPolling, setPausedPolling] = useState(false);
+  const [voices, setVoices] = useState([]);
+  const [voicesLoading, setVoicesLoading] = useState(false);
+  const [voicesError, setVoicesError] = useState(null);
   
   // Ref to hold the latest config for stable callbacks
   // This prevents resetDraft from becoming stale or changing identity on every save
@@ -73,13 +76,33 @@ export const SettingsProvider = ({ children }) => {
       }
   }, [pausedPolling, handleRateLimit]);
 
+  const fetchVoices = useCallback(async () => {
+    setVoicesLoading(true);
+    setVoicesError(null);
+    try {
+        const res = await fetch('/api/system/voices');
+        if (res.ok) {
+            const data = await res.json();
+            setVoices(data);
+        } else {
+            setVoicesError('Failed to fetch voices');
+        }
+    } catch (e) {
+        console.error('[SettingsContext] Failed to fetch voices:', e);
+        setVoicesError(e.message);
+    } finally {
+        setVoicesLoading(false);
+    }
+  }, []);
+
 
   useEffect(() => {
     if (isAuthenticated && !pausedPolling) {
       fetchSettings();
       fetchHealth();
+      fetchVoices();
     }
-  }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth]);
+  }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth, fetchVoices]);
 
 
   const refreshHealth = useCallback(async (target = 'all', mode = 'silent') => {
@@ -371,7 +394,11 @@ export const SettingsProvider = ({ children }) => {
         systemHealth,
         refreshHealth,
         validateBeforeSave,
-        bulkUpdateOffsets
+        bulkUpdateOffsets,
+        voices,
+        voicesLoading,
+        voicesError,
+        fetchVoices
     }}>
       {children}
     </SettingsContext.Provider>
