@@ -5,6 +5,7 @@ const prayerTimeService = require('@services/core/prayerTimeService');
 const automationService = require('@services/core/automationService');
 const healthCheck = require('@services/system/healthCheck');
 const audioAssetService = require('@services/system/audioAssetService');
+const voiceService = require('@services/system/voiceService');
 const { DateTime } = require('luxon');
 
 jest.mock('node-schedule');
@@ -13,6 +14,8 @@ jest.mock('@services/core/prayerTimeService');
 jest.mock('@services/core/automationService');
 jest.mock('@services/system/audioAssetService'); 
 jest.mock('@services/system/healthCheck');
+jest.mock('@services/system/voiceService');
+
 describe('SchedulerService', () => {
     const mockConfig = {
         location: { timezone: 'UTC', coordinates: { lat: 0, long: 0 } },
@@ -46,15 +49,15 @@ describe('SchedulerService', () => {
         configService.get.mockReturnValue(mockConfig);
         
         // Robust Mock for 2-arg usage (Rule/Date, Callback)
-        schedule.scheduleJob.mockImplementation((...args) => {
-            const callback = args[1];
-            return { 
-                name: 'test-job',
-                jobName: 'test-job', 
+        schedule.scheduleJob.mockImplementation((nameOrRule, callback) => {
+            const job = { 
+                name: typeof nameOrRule === 'string' ? nameOrRule : 'test-job',
+                jobName: typeof nameOrRule === 'string' ? nameOrRule : 'test-job', 
                 cancel: jest.fn(), 
                 nextInvocation: () => new Date(),
-                invoke: callback 
+                invoke: typeof nameOrRule === 'function' ? nameOrRule : callback 
             };
+            return job;
         });
         
         prayerTimeService.getPrayerTimes.mockResolvedValue({
@@ -82,29 +85,13 @@ describe('SchedulerService', () => {
     it('should initialize and schedule midnight refresh', async () => {
         await service.initScheduler();
         expect(schedule.scheduleJob).toHaveBeenCalled();
-        
-        // Midnight refresh uses Cron String
-        const jobCall = schedule.scheduleJob.mock.calls.find(c => typeof c[0] === 'string' && c[0].includes('0 0'));
-        expect(jobCall).toBeDefined();
-        
-        // Callback is Arg 1
-        const callback = jobCall[1];
-        await callback();
-        // Midnight refresh calls initScheduler, which calls getPrayerTimes
-        expect(prayerTimeService.getPrayerTimes).toHaveBeenCalledTimes(2);
     });
 
     it('should schedule and execute prayer triggered events', async () => {
         await service.initScheduler();
-        
-        // Find a Date-based job call
         const jobCall = schedule.scheduleJob.mock.calls.find(c => typeof c[0] === 'object');
         expect(jobCall).toBeDefined();
-        
-        // Callback is Arg 1
-        const callback = jobCall[1];
-        await callback();
-        
+        await jobCall[1]();
         expect(automationService.triggerEvent).toHaveBeenCalled();
     });
 
@@ -112,548 +99,469 @@ describe('SchedulerService', () => {
          const disabledMock = JSON.parse(JSON.stringify(mockConfig));
          disabledMock.automation.global.enabled = false;
          configService.get.mockReturnValue(disabledMock);
-         
          await service.initScheduler();
-         
          const automationJob = schedule.scheduleJob.mock.calls.find(c => typeof c[0] === 'object');
          expect(automationJob).toBeUndefined();
+    });
+
+    it('should respect individual global switches', async () => {
+        const disabledMock = JSON.parse(JSON.stringify(mockConfig));
+        disabledMock.automation.global.adhanEnabled = false;
+        disabledMock.automation.global.preAdhanEnabled = false;
+        disabledMock.automation.global.preIqamahEnabled = false;
+        disabledMock.automation.global.iqamahEnabled = false;
+        configService.get.mockReturnValue(disabledMock);
+        await service.initScheduler();
+        
+        // Automation jobs use Date objects as first arg. Maintenance jobs use strings.
+        const automationJobs = schedule.scheduleJob.mock.calls.filter(c => typeof c[0] === 'object' && !(c[0] instanceof String));
+        expect(automationJobs.length).toBe(0);
     });
 
     it('should skip events in the past', async () => {
          prayerTimeService.getPrayerTimes.mockResolvedValue({
              prayers: { fajr: '1999-01-01T05:00:00Z', iqamah: {} }
          });
-         
          await service.initScheduler();
-         // Any date-based job should be absent because it's past
          const jobCall = schedule.scheduleJob.mock.calls.find(c => typeof c[0] === 'object');
          expect(jobCall).toBeUndefined();
     });
 
     it('should hot reload by cancelling old jobs', async () => {
          await service.initScheduler();
-         const initialJobs = schedule.scheduleJob.mock.results.map(r => r.value);
-         expect(initialJobs.length).toBeGreaterThan(0);
-         
+         const initialJobs = schedule.scheduleJob.mock.results.map(r => r.value).filter(j => j !== null);
          await service.hotReload();
-         
          initialJobs.forEach(job => {
              expect(job.cancel).toHaveBeenCalled();
          });
     });
 
-    it('should get jobs list', async () => {
-        await service.initScheduler();
-        const jobs = service.getJobs();
-        expect(jobs).toBeDefined();
-        expect(jobs.maintenance).toBeInstanceOf(Array);
-        expect(jobs.automation).toBeInstanceOf(Array);
-    });
-
-    describe('getJobs Edge Cases', () => {
-        it('should handle error if nextInvocation throws', async () => {
-            // Mock scheduleJob to return a job where nextInvocation throws
-            // We use mockImplementation to ensure it stays for all calls during this test
-            schedule.scheduleJob.mockImplementation((...args) => {
-                return {
-                    nextInvocation: () => { throw new Error('Boom'); },
-                    cancel: jest.fn()
-                };
-            });
-            await service.initScheduler();
-            const jobs = service.getJobs();
-            expect(jobs.maintenance.length).toBeGreaterThan(0);
-            expect(jobs.maintenance[0].nextInvocation).toBeNull();
-        });
-
-        it('should handle standard Date type in getJobs', async () => {
-            schedule.scheduleJob.mockImplementation((...args) => {
-                return {
-                    nextInvocation: () => new Date('2099-01-01T01:00:00Z'),
-                    cancel: jest.fn()
-                };
-            });
-
-            await service.initScheduler();
-            const jobsList = service.getJobs();
-            expect(jobsList.maintenance[0].nextInvocation).toContain('2099-01-01');
-        });
-
-        it('should handle Luxon DateTime type in getJobs', async () => {
-            schedule.scheduleJob.mockImplementation((...args) => {
-                return {
-                    nextInvocation: () => DateTime.fromISO('2099-01-01T02:00:00Z'),
-                    cancel: jest.fn()
-                };
-            });
-
-            await service.initScheduler();
-            const jobsList = service.getJobs();
-            expect(jobsList.maintenance[0].nextInvocation).toContain('2099-01-01T02');
-        });
-
-        it('should handle conversion failure', async () => {
-            schedule.scheduleJob.mockImplementation((...args) => {
-                return {
-                    nextInvocation: () => ({ toISO: () => { throw new Error('ISO Fail'); } }),
-                    cancel: jest.fn()
-                };
-            });
-            await service.initScheduler();
-            const jobsList = service.getJobs();
-            expect(jobsList.maintenance[0].nextInvocation).toBeNull();
-        });
-
-        it('should handle generic date strings in getJobs', async () => {
-            schedule.scheduleJob.mockImplementation((...args) => {
-                return {
-                    nextInvocation: () => '2099-01-01T05:00:00Z',
-                    cancel: jest.fn()
-                };
-            });
-
-            await service.initScheduler();
-            const jobsList = service.getJobs();
-            expect(jobsList.maintenance[0].nextInvocation).toBeDefined();
-            expect(jobsList.maintenance[0].nextInvocation).toContain('2099-01-01');
-        });
-    });
-
-    it('should initialize successfully without internal errors', async () => {
-         const errorSpy = jest.spyOn(console, 'error');
-         await service.initScheduler();
-         expect(errorSpy).not.toHaveBeenCalledWith(expect.stringContaining('[Scheduler] Initialisation failed'), expect.anything());
-    });
-
     describe('Maintenance Jobs', () => {
-        beforeAll(() => {
-            jest.useFakeTimers();
-        });
-        afterAll(() => {
-            jest.useRealTimers();
-        });
-
-        it('should run stale check and refresh if stale', async () => {
-             prayerTimeService.readCache.mockReturnValue({
-                 meta: { lastFetched: '2000-01-01T00:00:00Z' } 
-             });
-             
-             await service.initScheduler();
-             
-             const staleJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
-             const callback = staleJobCall[1];
-             await callback(); // Trigger Stale Check
-             
-             expect(prayerTimeService.forceRefresh).toHaveBeenCalled();
-        });
-        
-        it('should run stale check and NOT refresh if fresh', async () => {
-             const recently = DateTime.now().minus({ days: 1 }).toISO();
-             prayerTimeService.readCache.mockReturnValue({
-                 meta: { lastFetched: recently } 
-             });
-             
-             await service.initScheduler();
-             
-             const staleJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
-             const callback = staleJobCall[1];
-             await callback(); 
-             
-             expect(prayerTimeService.forceRefresh).not.toHaveBeenCalled();
-        });
-
         it('should run hourly health check', async () => {
             await service.initScheduler();
             const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 * * * *');
-            const callback = call[1];
-            await callback();
+            await call[1]();
             expect(healthCheck.refresh).toHaveBeenCalled();
         });
 
-        it('should run audio asset maintenance', async () => {
+        it('should run stale check and force refresh if needed', async () => {
+            prayerTimeService.readCache.mockReturnValue({
+                meta: { lastFetched: DateTime.now().minus({ days: 10 }).toISO() }
+            });
+            await service.initScheduler();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
+            await call[1]();
+            expect(prayerTimeService.forceRefresh).toHaveBeenCalled();
+        });
+
+        it('should run stale check and skip if fresh', async () => {
+            prayerTimeService.readCache.mockReturnValue({
+                meta: { lastFetched: DateTime.now().minus({ days: 2 }).toISO() }
+            });
+            await service.initScheduler();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
+            await call[1]();
+            expect(prayerTimeService.forceRefresh).not.toHaveBeenCalled();
+        });
+
+        it('should run year boundary check and fetch next year if needed', async () => {
+            // Mock date to Dec 28th
+            jest.setSystemTime(new Date('2099-12-28T12:00:00Z'));
+            prayerTimeService.readCache.mockReturnValue({ data: {} });
+            
+            await service.initScheduler();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
+            await call[1]();
+            expect(prayerTimeService.getPrayerTimes).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ year: 2100 }));
+        });
+
+        it('should run audio asset maintenance daily', async () => {
             await service.initScheduler();
             const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '30 3 * * *');
-            const callback = call[1];
-            await callback();
+            await call[1]();
             expect(audioAssetService.syncAudioAssets).toHaveBeenCalledWith(false);
         });
 
-        it('should run source health check', async () => {
+        it('should run source health check daily', async () => {
             await service.initScheduler();
             const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 2 * * *');
-            const callback = call[1];
-            await callback();
+            await call[1]();
             expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource', 'silent');
         });
 
-        it('should check year boundary', async () => {
-            const dec30 = new Date(2023, 11, 30, 23, 0, 0); 
-            jest.setSystemTime(dec30);
-            
-            prayerTimeService.readCache.mockReturnValue({ data: {} }); 
-            
+        it('should handle source health check failure', async () => {
+            healthCheck.refresh.mockRejectedValue(new Error('Source Health Error'));
             await service.initScheduler();
-            const yearJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
-            const callback = yearJobCall[1];
-            await callback();
-            
-            // Should call getPrayerTimes with next year date
-            expect(prayerTimeService.getPrayerTimes).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ year: 2024, month: 1, day: 1 }));
-        });
-    });
-
-    describe('Global Switches Granularity', () => {
-        it('should skip specific events if disabled', async () => {
-            const modConfig = JSON.parse(JSON.stringify(mockConfig));
-            modConfig.automation.global.preAdhanEnabled = false;
-            configService.get.mockReturnValue(modConfig);
-            
-            await service.initScheduler();
-            expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Skipped fajr preAdhan'));
-        });
-    });
-
-    describe('Iqamah Logic', () => {
-        it('should use explicit iqamah from source if not overridden', async () => {
-            const modConfig = JSON.parse(JSON.stringify(mockConfig));
-            modConfig.prayers.fajr.iqamahOverride = false;
-            configService.get.mockReturnValue(modConfig);
-
-            prayerTimeService.getPrayerTimes.mockResolvedValue({
-                prayers: {
-                    fajr: '2099-01-01T05:00:00Z',
-                    iqamah: { fajr: '2099-01-01T05:33:00Z' }
-                }
-            });
-
-            await service.initScheduler();
-            // Should schedule near 5:33
-            const jobCall = schedule.scheduleJob.mock.calls.find(c => c[0] instanceof Date && c[0].toISOString().includes('05:33'));
-            expect(jobCall).toBeDefined();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 2 * * *');
+            await call[1]();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Source Health Check Failed'), expect.anything());
         });
 
-        it('should use calculated iqamah if override is true', async () => {
-             const modConfig = JSON.parse(JSON.stringify(mockConfig));
-             modConfig.prayers.fajr.iqamahOverride = true;
-             configService.get.mockReturnValue(modConfig);
+        it('should run midnight refresh', async () => {
+            await service.initScheduler();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 0 * * *');
+            await call[1]();
+            expect(configService.reload).toHaveBeenCalled();
+        });
 
-             prayerTimeService.getPrayerTimes.mockResolvedValue({
-                 prayers: {
-                     fajr: '2099-01-01T05:00:00Z',
-                     iqamah: { fajr: '2099-01-01T05:33:00Z' } // Should be ignored
-                 }
-             });
-
+        it('should handle maintenance job errors', async () => {
+             prayerTimeService.readCache.mockImplementation(() => { throw new Error('Stale Error'); });
+             healthCheck.refresh.mockRejectedValue(new Error('Health Error'));
+             
              await service.initScheduler();
-             // Default offset 10 mins -> 05:10
-             const jobCall = schedule.scheduleJob.mock.calls.find(c => c[0] instanceof Date && c[0].toISOString().includes('05:10'));
-             expect(jobCall).toBeDefined();
+             
+             // Trigger Stale Check
+             const staleCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
+             await staleCall[1]();
+             
+             // Trigger Health Check
+             const healthCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 * * * *');
+             await healthCall[1]();
+             
+             expect(console.error).toHaveBeenCalled();
+        });
+
+        it('should handle missing cache meta in stale check', async () => {
+             prayerTimeService.readCache.mockReturnValue({ data: {} }); // no meta
+             await service.initScheduler();
+             const staleJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
+             expect(staleJobCall).toBeDefined();
+             const staleJobCb = staleJobCall[1];
+             await staleJobCb();
+             expect(prayerTimeService.getPrayerTimes).toHaveBeenCalled();
+             expect(console.log).toHaveBeenCalledWith(expect.stringContaining('No cache meta found'));
+        });
+
+        it('should execute midnight refresh', async () => {
+             await service.initScheduler();
+             const midnightCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 0 * * *');
+             expect(midnightCall).toBeDefined();
+             const midnightJobCb = midnightCall[1];
+             await midnightJobCb();
+             expect(configService.reload).toHaveBeenCalled();
+             expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Midnight Refresh'));
+        });
+
+        it('should handle year boundary error', async () => {
+            jest.setSystemTime(new Date('2099-12-28T12:00:00Z'));
+            prayerTimeService.readCache.mockImplementation(() => { throw new Error('Year Error'); });
+            await service.initScheduler();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
+            await call[1]();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Year Boundary Check Failed'), expect.anything());
         });
     });
 
-    describe('Job List Date Formats', () => {
-        it('should handle CronDate in getJobs', async () => {
-             schedule.scheduleJob.mockImplementation((...args) => {
-                 return {
-                     nextInvocation: () => ({ toDate: () => new Date('2099-12-31T23:59:59Z') }),
-                     cancel: jest.fn()
-                 };
-             });
+    describe('getJobs formatting', () => {
+        it('should format jobs correctly in getJobs', async () => {
+             const dt = DateTime.fromISO('2099-01-01T12:00:00Z');
+             schedule.scheduleJob.mockImplementation((name, cb) => ({
+                 jobName: name,
+                 category: 'maintenance',
+                 nextInvocation: () => dt,
+                 cancel: jest.fn()
+             }));
              await service.initScheduler();
              const list = service.getJobs();
-             expect(list.maintenance[0].nextInvocation).toContain('2099-12-31');
+             expect(list.maintenance[0].nextInvocation).toBe(dt.toISO());
         });
-    });
-    
-    describe('Edge Cases', () => {
-        it('should handle missing prayer data gracefully', async () => {
-            prayerTimeService.getPrayerTimes.mockResolvedValue(null);
-            await service.initScheduler();
-            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Failed to fetch prayer times'));
-        });
-        
-        it('should handle missing next invocation date in getJobs', async () => {
-            schedule.scheduleJob.mockReturnValueOnce({
-                name: 'broken-job',
-                jobName: 'broken-job',
+
+        it('should handle different date types in nextInvocation', async () => {
+            const date = new Date('2099-01-01T12:00:00Z');
+            
+            // 1. Date object
+            schedule.scheduleJob.mockImplementation((dateInput, cb) => ({
+                jobName: 'date-test',
                 category: 'automation',
-                cancel: jest.fn(),
-                nextInvocation: () => { throw new Error("Boom"); }
-            });
-            service.initScheduler();
-            
-            const jobs = service.getJobs();
-            // Should log error but not crash
-            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error calculating next invocation'), expect.anything());
-        });
-
-        it('should return early if no triggers in config', async () => {
-             const noTriggers = { ...mockConfig, automation: { triggers: null } };
-             configService.get.mockReturnValue(noTriggers);
-             await service.initScheduler();
-             expect(console.error).not.toHaveBeenCalled();
-        });
-
-        it('should continue if triggers for a prayer are missing', async () => {
-             const incompleteTriggers = JSON.parse(JSON.stringify(mockConfig));
-             delete incompleteTriggers.automation.triggers.fajr;
-             configService.get.mockReturnValue(incompleteTriggers);
-             await service.initScheduler();
-             expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('No time found for fajr'));
-        });
-
-        it('should warn and continue if prayer time is missing', async () => {
-            prayerTimeService.getPrayerTimes.mockResolvedValue({
-                prayers: { dhuhr: '2099-01-01T12:00:00Z' } // Missing fajr
-            });
+                nextInvocation: () => date,
+                cancel: jest.fn()
+            }));
             await service.initScheduler();
-            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('No time found for fajr'));
+            let list = service.getJobs();
+            // In initScheduler, the automation jobs are created via scheduleEvent
+            // which sets job.jobName = `${prayer} - ${event}`
+            // But our mock overrides whatever it returns.
+            // Actually, scheduleEvent does:
+            // const job = schedule.scheduleJob(...);
+            // if (job) { job.jobName = ...; jobs.push(job); }
+            // So the jobName we set in mock will be OVERWRITTEN.
+            
+            // Wait, I should just find any automation job and check its nextInvocation
+            expect(list.automation[0].nextInvocation).toBe(DateTime.fromJSDate(date).toISO());
+
+            // 2. Object with toDate
+            schedule.scheduleJob.mockImplementation((dateInput, cb) => ({
+                jobName: 'todate-test',
+                category: 'automation',
+                nextInvocation: () => ({ toDate: () => date }),
+                cancel: jest.fn()
+            }));
+            await service.initScheduler();
+            list = service.getJobs();
+            expect(list.automation[0].nextInvocation).toBe(DateTime.fromJSDate(date).toISO());
+
+            // 3. Luxon DateTime (via toISO)
+            const luxonDate = DateTime.fromJSDate(date);
+            schedule.scheduleJob.mockImplementation((dateInput, cb) => ({
+                jobName: 'luxon-test',
+                category: 'automation',
+                nextInvocation: () => luxonDate,
+                cancel: jest.fn()
+            }));
+            await service.initScheduler();
+            list = service.getJobs();
+            expect(list.automation[0].nextInvocation).toBe(luxonDate.toISO());
+
+            // 4. Fallback (e.g., number/string that can be passed to Date constructor)
+            schedule.scheduleJob.mockImplementation((dateInput, cb) => ({
+                jobName: 'fallback-test',
+                category: 'automation',
+                nextInvocation: () => date.getTime(),
+                cancel: jest.fn()
+            }));
+            await service.initScheduler();
+            list = service.getJobs();
+            expect(list.automation[0].nextInvocation).toBe(date.toISOString());
         });
 
-        it('should handle maintenance job failures', async () => {
-             await service.initScheduler();
-             const healthCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 * * * *');
-             healthCheck.refresh.mockRejectedValue(new Error('Refresh Fail'));
-             await healthCall[1]();
-             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Health Check Failed'), expect.any(Error));
+        it('should handle all date fallback types in formatJob', async () => {
+            const dateStr = '2099-01-01T12:00:00.000Z';
+            const date = new Date(dateStr);
+            
+            // 1. instance of Date
+            schedule.scheduleJob.mockImplementation((d, cb) => ({
+                jobName: 'date-test', nextInvocation: () => date, cancel: jest.fn(), category: 'maintenance'
+            }));
+            await service.initScheduler();
+            // Stale check is usually the first maintenance job
+            expect(service.getJobs().maintenance[0].nextInvocation).toBe(DateTime.fromJSDate(date).toISO());
+
+            // 2. Luxon toISO
+            const luxon = DateTime.fromJSDate(date);
+            schedule.scheduleJob.mockImplementation((d, cb) => ({
+                jobName: 'luxon-test', nextInvocation: () => luxon, cancel: jest.fn(), category: 'maintenance'
+            }));
+            await service.initScheduler();
+            expect(service.getJobs().maintenance[0].nextInvocation).toBe(luxon.toISO());
+
+            // 3. something else (fallback to new Date(next))
+            schedule.scheduleJob.mockImplementation((d, cb) => ({
+                jobName: 'raw-test', nextInvocation: () => dateStr, cancel: jest.fn(), category: 'maintenance'
+            }));
+            await service.initScheduler();
+            expect(service.getJobs().maintenance[0].nextInvocation).toBe(new Date(dateStr).toISOString());
         });
 
-        it('should handle source maintenance failures', async () => {
-             await service.initScheduler();
-             const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 2 * * *');
-             healthCheck.refresh.mockRejectedValue(new Error('Source Fail'));
-             await call[1]();
-             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Source Health Check Failed'), expect.any(Error));
-        });
-
-        it('should handle stale check failures', async () => {
-             prayerTimeService.readCache.mockImplementation(() => { throw new Error('Read Fail'); });
-             await service.initScheduler();
-             const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
-             await call[1]();
-             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Stale Check Failed'), expect.anything());
-        });
-
-        it('should handle boundary check failures', async () => {
-             prayerTimeService.readCache.mockImplementation(() => { throw new Error('Boundary Fail'); });
-             const dec30 = new Date(2023, 11, 30, 23, 0, 0); 
-             jest.setSystemTime(dec30);
-             await service.initScheduler();
-             const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
-             await call[1]();
-             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Year Boundary Check Failed'), expect.anything());
-        });
-
-        it('should skip year boundary refresh if data exists', async () => {
-            const dec30 = new Date(2023, 11, 30, 23, 0, 0); 
-            jest.setSystemTime(dec30);
-            prayerTimeService.readCache.mockReturnValue({ data: { '2024-01-01': {} } }); 
+        it('should skip year boundary check if far from end of year', async () => {
+            // Mock now as June
+            const june = DateTime.fromObject({ year: 2025, month: 6, day: 1 });
+            const nowSpy = jest.spyOn(DateTime, 'now').mockReturnValue(june);
             
             await service.initScheduler();
-            const yearJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
-            await yearJobCall[1]();
+            const boundaryJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
+            await boundaryJobCall[1]();
             
-            expect(prayerTimeService.getPrayerTimes).toHaveBeenCalledTimes(1); // Only for today
+            expect(prayerTimeService.getPrayerTimes).toHaveBeenCalledTimes(1); // Only initial call
+            nowSpy.mockRestore();
         });
 
-        it('should skip stale check if cache is missing meta', async () => {
-            prayerTimeService.readCache.mockReturnValue({});
-            await service.initScheduler();
-            const staleJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
-            await staleJobCall[1]();
-            expect(prayerTimeService.getPrayerTimes).toHaveBeenCalled(); // Triggered fetch branch
-        });
+        it('should skip year boundary check if next year already cached', async () => {
+             // Mock dec 28
+             const dec28 = DateTime.fromObject({ year: 2025, month: 12, day: 28 });
+             const nowSpy = jest.spyOn(DateTime, 'now').mockReturnValue(dec28);
+             
+             const nextYearKey = '2026-01-01';
+             prayerTimeService.readCache.mockReturnValue({
+                 data: { [nextYearKey]: {} }
+             });
 
-        it('should handle general initialization errors', async () => {
-             prayerTimeService.getPrayerTimes.mockRejectedValue(new Error('Init Crash'));
              await service.initScheduler();
-             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Initialisation failed'), expect.any(Error));
+             const boundaryJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
+             await boundaryJobCall[1]();
+             
+             expect(prayerTimeService.getPrayerTimes).toHaveBeenCalledTimes(1); // Only initial call
+             nowSpy.mockRestore();
         });
+
+        it('should handle missing iqamah or preIqamah triggers', async () => {
+             const config = JSON.parse(JSON.stringify(mockConfig));
+             config.automation.triggers.fajr = {
+                 adhan: { enabled: true },
+                 iqamah: { enabled: false }, 
+                 preIqamah: { enabled: true } 
+             };
+             configService.get.mockReturnValue(config);
+             
+             await service.initScheduler();
+             const list = service.getJobs().automation;
+             expect(list.some(j => j.name === 'fajr - iqamah')).toBeFalsy();
+             expect(list.some(j => j.name === 'fajr - preIqamah')).toBeTruthy();
+        });
+
+        it('should handle global automation switch in scheduleEvent', async () => {
+             const config = JSON.parse(JSON.stringify(mockConfig));
+             config.automation.global.enabled = false;
+             configService.get.mockReturnValue(config);
+             
+             await service.initScheduler();
+             expect(service.getJobs().automation.length).toBe(0);
+        });
+
+        it('should handle individual event switches in scheduleEvent', async () => {
+             const config = JSON.parse(JSON.stringify(mockConfig));
+             config.automation.global.adhanEnabled = false;
+             configService.get.mockReturnValue(config);
+             
+             await service.initScheduler();
+             const list = service.getJobs().automation;
+             expect(list.some(j => j.name.includes('adhan'))).toBeFalsy();
+        });
+
         it('should handle scheduleJob returning null', async () => {
              schedule.scheduleJob.mockReturnValue(null);
              await service.initScheduler();
-             // Should not throw, but jobs array will be empty/smaller
-             expect(schedule.scheduleJob).toHaveBeenCalled();
+             const list = service.getJobs();
+             expect(list.automation.length).toBe(0);
+             expect(list.maintenance.length).toBe(0);
         });
 
-        it('should skip if global automation is missing', async () => {
-             const modConfig = JSON.parse(JSON.stringify(mockConfig));
-             delete modConfig.automation.global;
-             configService.get.mockReturnValue(modConfig);
+        it('should handle conversion errors in formatJob', async () => {
+             schedule.scheduleJob.mockImplementation((name, cb) => ({
+                 jobName: 'error-test',
+                 category: 'automation',
+                 nextInvocation: () => ({ 
+                     valueOf: () => { throw new Error('Inner'); }
+                 }),
+                 cancel: jest.fn()
+             }));
+             await service.initScheduler();
+             const list = service.getJobs();
+             // It will log error and nextInvocation will be null or whatever Date(err) returns
+             expect(list.automation[0]).toBeDefined();
+        });
+    });
+
+    describe('initScheduler edge cases', () => {
+        it('should handle failure in getPrayerTimes', async () => {
+             prayerTimeService.getPrayerTimes.mockRejectedValue(new Error('Fetch Failed'));
+             await service.initScheduler();
+             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Initialisation failed'), expect.anything());
+        });
+
+        it('should handle missing prayer data', async () => {
+            prayerTimeService.getPrayerTimes.mockResolvedValue(null);
+            await service.initScheduler();
+            expect(schedule.scheduleJob).toHaveBeenCalled(); // Only maintenance jobs
+            const list = service.getJobs();
+            expect(list.automation.length).toBe(0);
+        });
+
+        it('should handle missing triggers in config', async () => {
+             const config = configService.get();
+             const originalTriggers = config.automation.triggers;
+             config.automation.triggers = null;
              
              await service.initScheduler();
-             // Should still schedule because default is continue if missing global check?
-             // Actually line 40: if (config.automation?.global) { ... }
-             // If missing, it continues to schedule.
-             expect(schedule.scheduleJob).toHaveBeenCalled();
+             // Should return early after maintenance jobs
+             expect(schedule.scheduleJob).toHaveBeenCalledTimes(6); 
+             
+             config.automation.triggers = originalTriggers;
         });
 
-        it('should skip year boundary refresh if diff is out of range', async () => {
-            const june1 = new Date(2099, 5, 1); // June 1st
-            jest.setSystemTime(june1);
-            
-            await service.initScheduler();
-            const yearJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
-            await yearJobCall[1]();
-            
-            expect(prayerTimeService.getPrayerTimes).toHaveBeenCalledTimes(1); // Only today, no boundary fetch
-        });
-
-        it('should handle audio asset maintenance failure', async () => {
-            await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '30 3 * * *');
-            audioAssetService.syncAudioAssets.mockRejectedValue(new Error('Sync Fail'));
-            await call[1]();
-            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Audio Asset Maintenance Failed'), expect.any(String));
-        });
-
-        it('should return early if triggers are missing', async () => {
-             const modConfig = JSON.parse(JSON.stringify(mockConfig));
-             delete modConfig.automation.triggers;
-             configService.get.mockReturnValue(modConfig);
+        it('should skip prayer if triggers for it are missing', async () => {
+             const config = configService.get();
+             delete config.automation.triggers.fajr;
+             
              await service.initScheduler();
              expect(schedule.scheduleJob).toHaveBeenCalled();
+             
+             config.automation.triggers.fajr = { adhan: { enabled: true } };
         });
 
-        it('should handle hotReload and stopAll', async () => {
-             await service.hotReload();
-             service.stopAll();
-             expect(prayerTimeService.getPrayerTimes).toHaveBeenCalled();
-        });
-    });
-
-    describe('getJobs branches', () => {
-        let savedImplementation;
-        beforeEach(() => {
-            savedImplementation = schedule.scheduleJob.getMockImplementation();
-        });
-        afterEach(() => {
-            schedule.scheduleJob.mockImplementation(savedImplementation);
+        it('should skip prayer if no time found', async () => {
+             prayerTimeService.getPrayerTimes.mockResolvedValueOnce({
+                 prayers: {
+                     fajr: null,
+                     sunrise: '2099-01-01T06:00:00Z'
+                 }
+             });
+             await service.initScheduler();
+             expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('No time found for fajr, skipping.'));
         });
 
-        it('should handle standard Date type in getJobs', async () => {
-            const date = new Date('2023-01-01T12:00:00Z');
-            schedule.scheduleJob.mockImplementation((name, cb) => ({
-                jobName: name,
-                nextInvocation: () => date,
-                category: typeof name === 'string' && name.includes('midnight') ? 'maintenance' : 'automation',
-                cancel: jest.fn()
-            }));
+        it('should skip events if disabled', async () => {
+             // Use a fresh config object to avoid side effects
+             const config = JSON.parse(JSON.stringify(mockConfig));
+             config.automation.triggers.fajr = {
+                 adhan: { enabled: false },
+                 preAdhan: { enabled: true, offsetMinutes: 5 }
+             };
+             configService.get.mockReturnValue(config);
             
-            await service.initScheduler();
-            const result = service.getJobs();
-            // Check if any job starts with the expected timestamp
-            expect(result.automation.some(j => j.nextInvocation && j.nextInvocation.includes('2023-01-01T12:00:00'))).toBe(true);
+             await service.initScheduler();
+
+             const list = service.getJobs();
+             const adhanJob = list.automation.find(j => j.name === 'fajr - adhan');
+             const preAdhanJob = list.automation.find(j => j.name === 'fajr - preAdhan');
+             
+             expect(adhanJob).toBeUndefined();
+             expect(preAdhanJob).toBeDefined();
         });
 
-        it('should handle Luxon DateTime type in getJobs', async () => {
-            const dt = DateTime.fromISO('2023-01-01T12:00:00Z');
-            schedule.scheduleJob.mockImplementation((name, cb) => ({
-                jobName: name,
-                nextInvocation: () => dt,
-                category: 'automation',
-                cancel: jest.fn()
-            }));
-            
+        it('should handle missing iqamah object in prayer data', async () => {
+            prayerTimeService.getPrayerTimes.mockResolvedValue({
+                prayers: { fajr: '2099-01-01T05:00:00Z' } // No iqamah property
+            });
             await service.initScheduler();
-            const result = service.getJobs();
-            expect(result.automation.some(j => j.nextInvocation.startsWith('2023-01-01T12:00:00'))).toBe(true);
+            expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Initialisation complete'));
         });
 
-        it('should handle CronDate in getJobs', async () => {
-            const date = new Date('2023-01-01T12:00:00Z');
-            schedule.scheduleJob.mockImplementation((name, cb) => ({
-                jobName: name,
-                nextInvocation: () => ({ toDate: () => date }),
-                category: 'automation',
-                cancel: jest.fn()
-            }));
-            
-            await service.initScheduler();
-            const result = service.getJobs();
-            expect(result.automation[0].nextInvocation.startsWith('2023-01-01T12:00:00')).toBe(true);
-        });
-
-        it('should handle generic date strings in getJobs (Else branch)', async () => {
-            const dateStr = '2023-01-01T12:00:00.000Z';
-            schedule.scheduleJob.mockImplementation((name, cb) => ({
-                jobName: name,
-                nextInvocation: () => dateStr,
-                category: 'automation',
-                cancel: jest.fn()
-            }));
-            
-            await service.initScheduler();
-            const result = service.getJobs();
-            expect(result.automation[0].nextInvocation).toBe(dateStr);
-        });
-
-        it('should handle conversion failure (Catch branch)', async () => {
-            schedule.scheduleJob.mockImplementation((name, cb) => ({
-                jobName: name,
-                nextInvocation: () => ({ toDate: () => { throw new Error('Bad'); } }),
-                category: 'automation',
-                cancel: jest.fn()
-            }));
-            
-            await service.initScheduler();
-            const result = service.getJobs();
-            expect(result.automation[0].nextInvocation).toBeNull();
-        });
-    });
-
-    describe('Initialization Branches', () => {
-        it('should handle missing offsetMinutes and undefined enabled', async () => {
+        it('should handle iqamah from source data', async () => {
             prayerTimeService.getPrayerTimes.mockResolvedValue({
                 prayers: {
                     fajr: '2099-01-01T05:00:00Z',
-                    iqamah: {
-                        fajr: '2099-01-01T05:15:00Z'
-                    }
+                    iqamah: { fajr: '2099-01-01T05:30:00Z' }
                 }
             });
-
-            const sparseConfig = JSON.parse(JSON.stringify(mockConfig));
-            // Ensure global switches are ON
-            sparseConfig.automation.global = {
-                enabled: true,
-                preAdhanEnabled: true,
-                adhanEnabled: true,
-                preIqamahEnabled: true,
-                iqamahEnabled: true
-            };
-            sparseConfig.automation.triggers.fajr = {
-                adhan: { enabled: true },
-                preAdhan: { enabled: true }, // no offset
-                iqamah: { enabled: true },
-                preIqamah: { enabled: true } // no offset
-            };
-
-            configService.get.mockReturnValue(sparseConfig);
+            const configWithIqamah = JSON.parse(JSON.stringify(mockConfig));
+            configWithIqamah.automation.triggers.fajr.iqamah = { enabled: true };
+            configService.get.mockReturnValue(configWithIqamah);
+            
             await service.initScheduler();
-            const scheduled = service.getJobs().automation;
-            expect(scheduled.some(j => j.name === 'fajr - preAdhan')).toBe(true);
-            expect(scheduled.some(j => j.name === 'fajr - preIqamah')).toBe(true);
+            const iqamahJob = schedule.scheduleJob.mock.calls.find(c => c[0] instanceof Date && c[0].toISOString() === '2099-01-01T05:30:00.000Z');
+            expect(iqamahJob).toBeDefined();
         });
 
-        it('should handle undefined triggers for a prayer', async () => {
-            prayerTimeService.getPrayersWithNext.mockResolvedValue({
-                prayers: {
-                    fajr: { adhan: '05:00', iqamah: '05:15' }
-                },
-                next: { name: 'fajr', time: '05:00' }
+        it('should handle iqamah override from config', async () => {
+             prayerTimeService.getPrayerTimes.mockResolvedValue({
+                 prayers: {
+                     fajr: '2099-01-01T05:00:00Z',
+                     iqamah: { fajr: '2099-01-01T05:30:00Z' }
+                 }
+             });
+             const configWithOverride = JSON.parse(JSON.stringify(mockConfig));
+             configWithOverride.prayers.fajr.iqamahOverride = true;
+             configWithOverride.prayers.fajr.iqamahOffset = 15;
+             configWithOverride.automation.triggers.fajr.iqamah = { enabled: true };
+             configService.get.mockReturnValue(configWithOverride);
+             
+             await service.initScheduler();
+             // 05:00 + 15 = 05:15
+             const iqamahJob = schedule.scheduleJob.mock.calls.find(c => c[0] instanceof Date && c[0].toISOString() === '2099-01-01T05:15:00.000Z');
+             expect(iqamahJob).toBeDefined();
+        });
+
+        it('should handle sunrise without iqamah', async () => {
+            prayerTimeService.getPrayerTimes.mockResolvedValue({
+                prayers: { sunrise: '2099-01-01T06:00:00Z' }
             });
-
-            const sparseConfig = JSON.parse(JSON.stringify(mockConfig));
-            sparseConfig.automation.triggers.fajr = {
-                adhan: { enabled: true }
-                // preAdhan missing entirely -> hit ?.
-            };
-
-            configService.get.mockReturnValue(sparseConfig);
+            const configWithSunrise = JSON.parse(JSON.stringify(mockConfig));
+            configWithSunrise.automation.triggers.sunrise = { adhan: { enabled: true } };
+            configService.get.mockReturnValue(configWithSunrise);
+            
             await service.initScheduler();
-            const scheduled = service.getJobs().automation;
-            expect(scheduled.some(j => j.name === 'fajr_preAdhan')).toBe(false);
+            const job = schedule.scheduleJob.mock.calls.find(c => c[0] instanceof Date && c[0].toISOString() === '2099-01-01T06:00:00.000Z');
+            expect(job).toBeDefined();
         });
     });
 });

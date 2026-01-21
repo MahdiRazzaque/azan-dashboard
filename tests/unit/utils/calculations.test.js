@@ -6,8 +6,21 @@ describe('Calculation Utils', () => {
 
     describe('calculateIqamah', () => {
         it('should throw error for invalid inputs', () => {
-            expect(() => calculateIqamah(null, {}, timezone)).toThrow();
-            expect(() => calculateIqamah('2023-01-01', null, timezone)).toThrow();
+            expect(() => calculateIqamah(null, {}, timezone)).toThrow('Invalid arguments');
+            expect(() => calculateIqamah('2023-01-01', null, timezone)).toThrow('Invalid arguments');
+            expect(() => calculateIqamah('2023-01-01', {}, null)).toThrow('Invalid arguments');
+        });
+
+        it('should throw error for invalid ISO format', () => {
+            expect(() => calculateIqamah('invalid-date', {}, timezone)).toThrow('Invalid prayerStartISO format');
+        });
+
+        it('should not round if roundTo is 0', () => {
+            const prayerStart = DateTime.fromObject({ hour: 12, minute: 7 }, { zone: timezone }).toISO();
+            const settings = { iqamahOffset: 10, roundTo: 0, fixedTime: null };
+            const result = calculateIqamah(prayerStart, settings, timezone);
+            const resDt = DateTime.fromISO(result).setZone(timezone);
+            expect(resDt.minute).toBe(17);
         });
 
         it('should calculate dynamic offset', () => {
@@ -85,6 +98,18 @@ describe('Calculation Utils', () => {
              const now = today.set({ hour: 21 });
              const next = calculateNextPrayer(prayers, now);
              expect(next).toBeNull();
+        });
+
+        it('should skip prayers without start time', () => {
+            const incompletePrayers = {
+                fajr: { start: today.set({ hour: 5 }).toISO() },
+                dhuhr: { }, // Missing start
+                asr: { start: today.set({ hour: 16 }).toISO() }
+            };
+            const now = today.set({ hour: 10 });
+            const next = calculateNextPrayer(incompletePrayers, now);
+            // Should skip dhuhr and find asr
+            expect(next.name).toBe('asr');
         });
     });
 });

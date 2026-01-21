@@ -5,6 +5,8 @@ const sseService = require('@services/system/sseService');
 const automationService = require('@services/core/automationService');
 const audioAssetService = require('@services/system/audioAssetService');
 const diagnosticsService = require('@services/system/diagnosticsService');
+const voiceService = require('@services/system/voiceService');
+const storageService = require('@services/system/storageService');
 const configService = require('@config');
 const fetchers = require('@adapters/prayerApiAdapter');
 const axios = require('axios');
@@ -17,6 +19,8 @@ jest.mock('@services/system/sseService');
 jest.mock('@services/core/automationService');
 jest.mock('@services/system/audioAssetService');
 jest.mock('@services/system/diagnosticsService');
+jest.mock('@services/system/voiceService');
+jest.mock('@services/system/storageService');
 jest.mock('@config');
 jest.mock('@adapters/prayerApiAdapter');
 jest.mock('axios');
@@ -407,12 +411,9 @@ describe('SystemController', () => {
 
     describe('getStorageStatus', () => {
         it('should return storage status', async () => {
-            const storageService = require('@services/system/storageService');
-            jest.mock('@services/system/storageService', () => ({
-                getUsage: jest.fn().mockResolvedValue({ total: 100, custom: 50, cache: 50 }),
-                getSystemStats: jest.fn().mockResolvedValue(1000),
-                calculateRecommendedLimit: jest.fn().mockReturnValue(2.0)
-            }));
+            storageService.getUsage.mockResolvedValue({ total: 100, custom: 50, cache: 50 });
+            storageService.getSystemStats.mockResolvedValue(1000);
+            storageService.calculateRecommendedLimit.mockReturnValue(2.0);
             
             configService.get.mockReturnValue({ data: { storageLimit: 1.5 } });
             
@@ -422,6 +423,57 @@ describe('SystemController', () => {
                 usedBytes: 100,
                 limitBytes: 1.5 * 1024 * 1024 * 1024
             }));
+        });
+    });
+
+    describe('getVoices', () => {
+        it('should return voices from voiceService', async () => {
+            const mockVoices = [{ id: 'v1', name: 'Voice 1' }];
+            voiceService.getVoices.mockReturnValue(mockVoices);
+            await systemController.getVoices(req, res);
+            expect(res.json).toHaveBeenCalledWith(mockVoices);
+        });
+    });
+
+    describe('previewTTS', () => {
+        it('should return 400 if missing fields', async () => {
+            req.body = { template: 'test' };
+            await systemController.previewTTS(req, res);
+            expect(res.status).toHaveBeenCalledWith(400);
+        });
+
+        it('should return data from audioAssetService', async () => {
+            req.body = { template: 'test', prayerKey: 'fajr', voice: 'v1' };
+            const mockData = { url: 'http://temp.mp3' };
+            audioAssetService.previewTTS.mockResolvedValue(mockData);
+            await systemController.previewTTS(req, res);
+            expect(res.json).toHaveBeenCalledWith(mockData);
+        });
+
+        it('should handle errors and return 500', async () => {
+            req.body = { template: 'test', prayerKey: 'fajr', voice: 'v1' };
+            audioAssetService.previewTTS.mockRejectedValue(new Error('Preview Error'));
+            await systemController.previewTTS(req, res);
+            expect(res.status).toHaveBeenCalledWith(500);
+            expect(res.json).toHaveBeenCalledWith({ error: 'Preview Error' });
+        });
+    });
+
+    describe('cleanupTempTTS', () => {
+        it('should call cleanup and return 200', async () => {
+            await systemController.cleanupTempTTS(req, res);
+            expect(audioAssetService.cleanupTempAudio).toHaveBeenCalledWith(true);
+            expect(res.json).toHaveBeenCalledWith({ 
+                success: true, 
+                message: 'Temporary TTS files cleaned up successfully.' 
+            });
+        });
+
+        it('should handle errors and return 500', async () => {
+            audioAssetService.cleanupTempAudio.mockRejectedValue(new Error('Cleanup Error'));
+            await systemController.cleanupTempTTS(req, res);
+            expect(res.status).toHaveBeenCalledWith(500);
+            expect(res.json).toHaveBeenCalledWith({ error: 'Failed to clean up temporary files' });
         });
     });
 });

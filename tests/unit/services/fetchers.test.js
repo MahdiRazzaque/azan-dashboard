@@ -77,6 +77,45 @@ describe('Fetchers Service', () => {
             expect(result['2024-01-01'].fajr).toContain('T05:00:00');
         });
 
+        it('should use default values for unknown Aladhan adjustments and modes', async () => {
+            const malformedConfig = {
+                ...mockConfig,
+                calculation: {
+                    ...mockConfig.calculation,
+                    latitudeAdjustmentMethod: 'InvalidAdjustment',
+                    midnightMode: 'InvalidMode'
+                }
+            };
+            
+            global.fetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    code: 200,
+                    status: 'OK',
+                    data: { 
+                        "1": [{ 
+                            date: { 
+                                gregorian: { 
+                                    date: '01-01-2024', 
+                                    day: '01', 
+                                    month: { number: 1 }, 
+                                    year: '2024' 
+                                } 
+                            }, 
+                            timings: { Fajr: '05:00', Dhuhr: '12:00', Asr: '15:00', Maghrib: '18:00', Isha: '19:00', Sunrise: '06:00', Sunset: '18:10', Imsak: '04:50', Midnight: '23:00' },
+                            meta: { timezone: 'Europe/London' }
+                        }] 
+                    }
+                })
+            });
+
+            await fetchers.fetchAladhanAnnual(malformedConfig, 2024);
+            
+            // Should contain defaults (0)
+            expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('latitudeAdjustmentMethod=0'));
+            expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('midnightMode=0'));
+        });
+
         it('should throw on API error', async () => {
              global.fetch.mockResolvedValue({
                 ok: false,
@@ -107,6 +146,48 @@ describe('Fetchers Service', () => {
            expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('school=1'));
            expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('latitudeAdjustmentMethod=3'));
            expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('midnightMode=1'));
+       });
+
+       it('should map Aladhan method and adjustment names to IDs', async () => {
+           global.fetch.mockResolvedValue({
+               ok: true,
+               json: () => Promise.resolve(mockResponse)
+           });
+           const namedConfig = {
+               ...mockConfig,
+               location: { ...mockConfig.location, coordinates: { lat: 52, long: 0 } },
+               calculation: { 
+                   method: 'Muslim World League', 
+                   madhab: 'Hanafi', 
+                   latitudeAdjustmentMethod: 'Middle of the Night',
+                   midnightMode: 'Jafari'
+               }
+           };
+           await fetchers.fetchAladhanAnnual(namedConfig, 2024);
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('method=3')); // MWL
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('school=1')); // Hanafi
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('latitudeAdjustmentMethod=1')); // MOTN
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('midnightMode=1')); // Jafari
+       });
+
+       it('should handle missing adjustment or midnight mode names', async () => {
+           global.fetch.mockResolvedValue({
+               ok: true,
+               json: () => Promise.resolve(mockResponse)
+           });
+           const emptyConfig = {
+               ...mockConfig,
+               location: { ...mockConfig.location, coordinates: { lat: 53, long: 0 } },
+               calculation: { 
+                   method: 3, 
+                   madhab: 1, 
+                   latitudeAdjustmentMethod: null,
+                   midnightMode: undefined
+               }
+           };
+           await fetchers.fetchAladhanAnnual(emptyConfig, 2024);
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('latitudeAdjustmentMethod=0'));
+           expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('midnightMode=0'));
        });
 
        it('should use default calculation method and madhab for unknown names', async () => {
@@ -260,6 +341,59 @@ describe('Fetchers Service', () => {
            global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(partialResponse) });
            const result = await fetchers.fetchMyMasjidBulk(mockConfig);
            const key = `${new Date().getFullYear()}-01-01`;
+           expect(result[key].iqamah.fajr).toBeNull();
+       });
+
+       it('should handle flat format in MyMasjid response', async () => {
+           const flatResponse = {
+               model: {
+                   salahTimings: [
+                       { 
+                           day: 1, month: 1, 
+                           fajr: '05:00', 
+                           zuhr: '12:00', 
+                           asr: '15:00', 
+                           maghrib: '18:00', 
+                           isha: '20:00',
+                           shouruq: '07:00',
+                           iqamah_Fajr: '05:30',
+                           iqamah_Zuhr: '12:30',
+                           iqamah_Asr: '15:30',
+                           iqamah_Maghrib: '18:15',
+                           iqamah_Isha: '20:30'
+                       }
+                   ]
+               }
+           };
+           global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(flatResponse) });
+           const result = await fetchers.fetchMyMasjidBulk(mockConfig);
+           const key = `${new Date().getFullYear()}-01-01`;
+           expect(result[key].fajr).toContain('T05:00:00');
+           expect(result[key].iqamah.fajr).toContain('T05:30:00');
+       });
+
+       it('should handle empty arrays for prayer times or iqamah in MyMasjid response', async () => {
+           const emptyArrayResponse = {
+               model: {
+                   salahTimings: [
+                       { 
+                           day: 1, month: 1, 
+                           fajr: [], 
+                           zuhr: [], 
+                           asr: [], 
+                           maghrib: [], 
+                           isha: [],
+                           shouruq: []
+                       }
+                   ]
+               }
+           };
+           // Note: This might fail Zod validation if the schema doesn't allow empty arrays or missing fields.
+           // However MyMasjidNestedDaySchema has z.array(MyMasjidSalahEntrySchema), which defaults to allowing empty.
+           global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(emptyArrayResponse) });
+           const result = await fetchers.fetchMyMasjidBulk(mockConfig);
+           const key = `${new Date().getFullYear()}-01-01`;
+           expect(result[key].fajr).toBeNull();
            expect(result[key].iqamah.fajr).toBeNull();
        });
 

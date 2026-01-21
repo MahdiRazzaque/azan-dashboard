@@ -323,6 +323,26 @@ describe('PrayerTimeService', () => {
              await service.getPrayerTimes(mockConfig, today);
              expect(fetchers.fetchAladhanAnnual).toHaveBeenCalled();
         });
+
+        it('should handle writeCache errors', async () => {
+            const today = DateTime.fromObject({ year: 2023, month: 1, day: 1 });
+            fs.readFileSync.mockReturnValue(JSON.stringify({ data: {} }));
+            fetchers.fetchAladhanAnnual.mockResolvedValue({ '2023-01-01': { fajr: { start: '2023-01-01T05:00:00Z' } } });
+            fs.writeFileSync.mockImplementation(() => { throw new Error('Write Fail'); });
+            
+            await service.getPrayerTimes(mockConfig, today);
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error writing cache file'));
+        });
+
+        it('should create data directory if it does not exist', () => {
+            jest.isolateModules(() => {
+                const fs = require('fs');
+                fs.existsSync.mockReturnValue(false);
+                // Re-require to trigger the top-level directory check
+                require('@services/core/prayerTimeService');
+                expect(fs.mkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+            });
+        });
     });
 
     describe('getPrayersWithNext', () => {

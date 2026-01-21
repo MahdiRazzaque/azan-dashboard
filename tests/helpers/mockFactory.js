@@ -74,7 +74,8 @@ const createMockSSEService = () => ({
 
 const createMockAudioAssetService = () => ({
     syncAudioAssets: jest.fn().mockResolvedValue(),
-    resolveTemplate: jest.fn((t) => t)
+    resolveTemplate: jest.fn((t) => t),
+    previewTTS: jest.fn().mockResolvedValue({ url: 'http://temp.mp3' })
 });
 
 const createMockHealthCheck = () => ({

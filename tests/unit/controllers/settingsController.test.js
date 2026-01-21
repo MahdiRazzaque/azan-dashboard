@@ -47,6 +47,97 @@ describe('settingsController Unit Tests', () => {
         jest.spyOn(console, 'error').mockImplementation(() => {});
     });
 
+    describe('getSettings', () => {
+        it('should reload and return settings', async () => {
+            const mockConfig = { key: 'value' };
+            configService.get.mockReturnValue(mockConfig);
+            await settingsController.getSettings(req, res);
+            expect(configService.reload).toHaveBeenCalled();
+            expect(res.json).toHaveBeenCalledWith(mockConfig);
+        });
+    });
+
+    describe('updateSettings Edge Cases', () => {
+        it('should handle non-MasjidID validation errors', async () => {
+            validateConfigSource.mockRejectedValue(new Error('Other Error'));
+            req.body = { data: {} };
+            await settingsController.updateSettings(req, res);
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith({ error: 'Validation Failed: Other Error' });
+        });
+
+        it('should generate voiceMonkey warnings if type is voiceMonkey', async () => {
+            const newConfig = {
+                automation: {
+                    triggers: {
+                        fajr: { adhan: { enabled: true, type: 'voiceMonkey' } }
+                    }
+                }
+            };
+            req.body = newConfig;
+            healthCheck.getHealth.mockReturnValue({ voiceMonkey: { healthy: false, message: 'Offline' } });
+            
+            configService.get.mockReturnValue({});
+            forceRefresh.mockResolvedValue({});
+            
+            await settingsController.updateSettings(req, res);
+            
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                warnings: expect.arrayContaining(['Fajr Adhan: Offline'])
+            }));
+        });
+
+        it('should generate voiceMonkey warnings if targets includes voiceMonkey', async () => {
+             const newConfig = {
+                 automation: {
+                     triggers: {
+                         fajr: { adhan: { enabled: true, targets: ['voiceMonkey'] } }
+                     }
+                 }
+             };
+             req.body = newConfig;
+             healthCheck.getHealth.mockReturnValue({ voiceMonkey: { healthy: false, message: 'Offline' } });
+             
+             configService.get.mockReturnValue({});
+             forceRefresh.mockResolvedValue({});
+             
+             await settingsController.updateSettings(req, res);
+             
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                 warnings: expect.arrayContaining(['Fajr Adhan: Offline'])
+             }));
+         });
+
+         it('should cover all branches in warning loops', async () => {
+             const newConfig = {
+                 automation: {
+                     triggers: {
+                         fajr: { 
+                             adhan: { enabled: true, type: 'tts' },
+                             preAdhan: { enabled: false }
+                         },
+                         sunrise: {
+                             adhan: { enabled: true, targets: ['local'] }
+                         }
+                     }
+                 }
+             };
+             req.body = newConfig;
+             healthCheck.getHealth.mockReturnValue({ 
+                 tts: { healthy: false }, 
+                 local: { healthy: false },
+                 voiceMonkey: { healthy: true } 
+             });
+             
+             configService.get.mockReturnValue({});
+             forceRefresh.mockResolvedValue({});
+             
+             await settingsController.updateSettings(req, res);
+             
+             expect(res.json).toHaveBeenCalled();
+         });
+    });
+
     describe('updateSettings', () => {
         it('should return 400 if newConfig is not an object', async () => {
             req.body = null;

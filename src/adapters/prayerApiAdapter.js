@@ -2,6 +2,8 @@ const { DateTime } = require('luxon');
 const {
   CALCULATION_METHODS,
   ASR_JURISTIC_METHODS,
+  LATITUDE_ADJUSTMENT_METHODS,
+  MIDNIGHT_MODES,
   API_BASE_URL
 } = require('@utils/constants');
 const {
@@ -36,6 +38,28 @@ const getMadhabId = (madhabName) => {
         if (name.includes(madhabName)) return parseInt(id);
     }
     return 0; // Default Shafi
+};
+
+/**
+ * Resolves the latitude adjustment method ID from its display name.
+ */
+const getLatAdjId = (name) => {
+    if (!name) return 0;
+    for (const [id, val] of Object.entries(LATITUDE_ADJUSTMENT_METHODS)) {
+        if (val.includes(name)) return parseInt(id);
+    }
+    return 0;
+};
+
+/**
+ * Resolves the midnight mode ID from its display name.
+ */
+const getMidnightId = (name) => {
+    if (!name) return 0;
+    for (const [id, val] of Object.entries(MIDNIGHT_MODES)) {
+        if (val.includes(name)) return parseInt(id);
+    }
+    return 0;
 };
 
 const { aladhanQueue, myMasjidQueue } = require('@utils/requestQueue');
@@ -79,8 +103,8 @@ async function _doFetchAladhanAnnual(config, year) {
   // Config now guarantees numbers (IDs) due to schema transformation
   const methodId = typeof method === 'number' ? method : getCalculationMethodId(method);
   const school = typeof madhab === 'number' ? madhab : getMadhabId(madhab);
-  const latAdj = typeof latitudeAdjustmentMethod === 'number' ? latitudeAdjustmentMethod : 0;
-  const midnight = typeof midnightMode === 'number' ? midnightMode : 0;
+  const latAdj = typeof latitudeAdjustmentMethod === 'number' ? latitudeAdjustmentMethod : getLatAdjId(latitudeAdjustmentMethod);
+  const midnight = typeof midnightMode === 'number' ? midnightMode : getMidnightId(midnightMode);
 
   const url = `${API_BASE_URL}/calendar/${year}?latitude=${coordinates.lat}&longitude=${coordinates.long}&method=${methodId}&school=${school}&latitudeAdjustmentMethod=${latAdj}&midnightMode=${midnight}`; 
 
@@ -209,11 +233,6 @@ async function _doFetchMyMasjidBulk(config) {
     console.error('[MyMasjid] Validation FAILED:', error.issues || error.message);
     // console.log('[MyMasjid] Raw JSON Dump for Debugging:', JSON.stringify(json, null, 2));
     throw new Error('MyMasjid Schema Validation Failed');
-  }
-  
-  if (!validData.model || !validData.model.salahTimings) {
-      console.warn('[MyMasjid] headings/timings missing in response.');
-      return {};
   }
 
   const resultMap = {};

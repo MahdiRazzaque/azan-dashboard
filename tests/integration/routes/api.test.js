@@ -61,6 +61,12 @@ const diagnosticsService = require('@services/system/diagnosticsService');
 jest.mock('@utils/envManager', () => mockMockFactory.createMockEnvManager());
 const envManager = require('@utils/envManager');
 
+jest.mock('@services/system/voiceService', () => ({
+    getVoices: jest.fn(() => [{ Name: 'Test', ShortName: 'T', Gender: 'Male', Locale: 'en-US' }]),
+    init: jest.fn()
+}));
+const voiceService = require('@services/system/voiceService');
+
 jest.mock('@utils/passwordUtils', () => mockMockFactory.createMockAuthUtils());
 
 
@@ -230,6 +236,43 @@ describe('API Routes Integration', () => {
                 .expect(200)
                 .expect(res => expect(res.body.valid).toBe(false));
         });
+
+        it('GET /api/system/voices - should return voices list', async () => {
+             const res = await request(app)
+                .get('/api/system/voices')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .expect(200);
+             expect(Array.isArray(res.body)).toBe(true);
+             expect(res.body[0].ShortName).toBe('T');
+        });
+
+        it('GET /api/logs - should skip globalReadLimiter', async () => {
+             const sseService = require('@services/system/sseService');
+             const sseSpy = jest.spyOn(sseService, 'addClient').mockImplementation((req, res) => {
+                 res.end();
+             });
+
+             await request(app)
+                .get('/api/logs')
+                .set('Cookie', [`auth_token=${adminToken}`]);
+             
+             sseSpy.mockRestore();
+        });
+
+        it('POST /api/system/preview-tts - should generate preview', async () => {
+             axios.post.mockResolvedValueOnce({ data: { success: true } });
+             const res = await request(app)
+                .post('/api/system/preview-tts')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send({ template: 'Hello {prayerEnglish}', prayerKey: 'fajr', voice: 'T', offsetMinutes: 5 });
+             
+             if (res.status !== 200) {
+                 throw new Error(`Integration test failed with status ${res.status}: ${JSON.stringify(res.body)}`);
+             }
+             expect(res.status).toBe(200);
+             expect(res.body.url).toBe('http://temp.mp3');
+        });
+
     });
 
     describe('Settings Routes', () => {

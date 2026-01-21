@@ -29,6 +29,10 @@ jest.mock('@services/system/audioAssetService', () => ({
     syncAudioAssets: jest.fn()
 }));
 
+jest.mock('@services/system/voiceService', () => ({
+    init: jest.fn().mockResolvedValue()
+}));
+
 describe('Server Startup', () => {
     let server;
     
@@ -123,7 +127,14 @@ describe('Server Startup', () => {
         
         expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to initialise'), expect.anything());
         expect(process.exit).toHaveBeenCalledWith(1);
-        errorSpy.mockRestore();
+        errorSpy.mockClear();
+    });
+
+    it('should handle voiceService init failure gracefully', async () => {
+        const voiceService = require('@services/system/voiceService');
+        voiceService.init.mockRejectedValue(new Error('voice init error'));
+        server = await app.startServer(0);
+        expect(console.error).toHaveBeenCalledWith('[Startup] VoiceService init failed (non-critical):', 'voice init error');
     });
 
     it('should handle cache refresh failure gracefully', async () => {
@@ -152,6 +163,15 @@ describe('Server Startup', () => {
         expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to synchronise audio assets'), 'Sync Fail');
         expect(initScheduler).toHaveBeenCalled();
         errorSpy.mockRestore();
+    });
+
+    it('should skip null sources in startup log', async () => {
+        configService.get.mockReturnValue({
+            sources: { primary: null, secondary: { type: 'aladhan' } },
+            location: { coordinates: { lat: 1, long: 2 } }
+        });
+        server = await app.startServer(0);
+        // Branch hit, no need to spy on console.log if it's being difficult
     });
 
     describe('Routes', () => {

@@ -158,6 +158,16 @@ describe('AutomationService', () => {
             expect(axios.get).not.toHaveBeenCalled();
         });
 
+        it('should use default audio player if not configured', () => {
+             const configWithoutPlayer = JSON.parse(JSON.stringify(mockConfig));
+             delete configWithoutPlayer.automation.audioPlayer;
+             configService.get.mockReturnValue(configWithoutPlayer);
+             
+             const playerInstance = require('play-sound')();
+             service.handleLocal({}, 'fajr', 'adhan', { filePath: 'f.mp3' });
+             expect(playerInstance.play).toHaveBeenCalledWith('f.mp3', { player: 'mpg123' }, expect.any(Function));
+        });
+
         it('should handle local playback errors', async () => {
              const playerInstance = require('play-sound')();
              playerInstance.play.mockImplementationOnce((file, opts, cb) => {
@@ -215,6 +225,15 @@ describe('AutomationService', () => {
             await service.triggerEvent('fajr', 'preAdhan');
             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error executing triggers'), expect.any(Error));
         });
+
+        it('should handle unknown targets gracefully', async () => {
+            const config = JSON.parse(JSON.stringify(mockConfig));
+            config.automation.triggers.fajr.preAdhan.targets = ['unknown-target'];
+            configService.get.mockReturnValue(config);
+            
+            await service.triggerEvent('fajr', 'preAdhan');
+            // Simply ensures no crash and covers the map branches
+        });
     });
 
     describe('verifyCredentials', () => {
@@ -258,7 +277,7 @@ describe('AutomationService', () => {
 
         it('should throw generic error for response status 500', async () => {
              const error = new Error('Server Crash');
-             error.response = { status: 500, data: {} };
+             error.response = { status: 500, data: { error: 'Broken' } };
              axios.get.mockRejectedValue(error);
              
              await expect(service.verifyCredentials('token', 'device'))
@@ -275,17 +294,23 @@ describe('AutomationService', () => {
         });
 
         it('should throw default error if API returns success=false without msg', async () => {
-            axios.get.mockResolvedValue({ 
-                status: 200, 
-                data: { success: false } 
-            });
+             axios.get.mockResolvedValue({ 
+                 status: 200, 
+                 data: { success: false } 
+             });
+             await expect(service.verifyCredentials('token', 'device'))
+                 .rejects.toThrow('VoiceMonkey API verification failed');
+        });
+
+        it('should re-throw generic error if error has no response', async () => {
+            axios.get.mockRejectedValue(new Error('No Response Error'));
             await expect(service.verifyCredentials('token', 'device'))
-                .rejects.toThrow('VoiceMonkey API verification failed');
-       });
+                .rejects.toThrow('No Response Error');
+        });
 
         it('should throw if tokens missing', async () => {
-            await expect(service.verifyCredentials(null, 'device'))
-                .rejects.toThrow('Missing');
+             await expect(service.verifyCredentials(null, 'device'))
+                 .rejects.toThrow('Missing API Token');
         });
     });
 });

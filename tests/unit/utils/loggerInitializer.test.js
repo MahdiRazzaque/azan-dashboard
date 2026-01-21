@@ -51,9 +51,9 @@ describe('Logger Initializer', () => {
         
         initLogger();
         
-        console.error('error msg');
-        expect(sseService.log).toHaveBeenCalledWith('error msg', 'error');
-        expect(spy).toHaveBeenCalledWith('error msg');
+        console.error('error msg', { detail: 'err' });
+        expect(sseService.log).toHaveBeenCalledWith('error msg {"detail":"err"}', 'error');
+        expect(spy).toHaveBeenCalledWith('error msg', { detail: 'err' });
     });
 
     test('should wrap console.warn', () => {
@@ -62,8 +62,8 @@ describe('Logger Initializer', () => {
         
         initLogger();
         
-        console.warn('warn msg');
-        expect(sseService.log).toHaveBeenCalledWith('warn msg', 'warn');
-        expect(spy).toHaveBeenCalledWith('warn msg');
+        console.warn('warn msg', { detail: 'warn' });
+        expect(sseService.log).toHaveBeenCalledWith('warn msg {"detail":"warn"}', 'warn');
+        expect(spy).toHaveBeenCalledWith('warn msg', { detail: 'warn' });
     });
 });
