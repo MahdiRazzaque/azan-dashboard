@@ -33,3 +33,4 @@ COVERAGE_SUMMARY.md
 /src/public/audio/cache
 /public/audio/temp
 src/data/voices.json
+/.agent
