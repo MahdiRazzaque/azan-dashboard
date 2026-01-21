@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import TriggerCard from '@/components/settings/TriggerCard';
 import { validateTrigger } from '@/utils/validation';
-import { Clock, AlertTriangle, Save, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, AlertTriangle, Save, CheckCircle, XCircle, Info } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -220,12 +220,18 @@ export default function PrayerSettingsView() {
                 </div>
             )}
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-app-text mb-2">Prayer Configuration</h2>
                     <p className="text-app-dim">Configure timing rules and automation triggers for each prayer.</p>
                 </div>
 
+                <div className="flex items-start gap-3 px-3 py-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg text-[10px] text-app-dim max-w-sm md:max-w-[240px]">
+                    <Info className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                    <p className="leading-tight font-medium">
+                        Enabled automations are automatically broadcasted to all devices with the dashboard open.
+                    </p>
+                </div>
             </div>
 
             {/* Navigation Pills */}
