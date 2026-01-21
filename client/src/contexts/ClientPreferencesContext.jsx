@@ -10,7 +10,8 @@ const DEFAULT_PREFERENCES = {
     showSeconds: true,
     countdownMode: 'normal', // 'normal' | 'digital' | 'minimal'
     skipSunriseCountdown: false,
-    wakeLockAutoStart: false
+    wakeLockAutoStart: false,
+    autoUnmute: false
   },
   audioExclusions: [] // Array of "prayer-event" strings, e.g., ["fajr-adhan"]
 };

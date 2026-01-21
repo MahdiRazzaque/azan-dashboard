@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-export const useAudio = () => {
+export const useAudio = ({ autoUnmute = false } = {}) => {
     const audioContextRef = useRef(null);
     const [isMuted, setIsMuted] = useState(true);
     const [blocked, setBlocked] = useState(false);
@@ -16,22 +16,58 @@ export const useAudio = () => {
     const toggleMute = useCallback(async () => {
         const ctx = initContext();
         if (ctx.state === 'suspended') {
-            await ctx.resume();
+            try {
+                await ctx.resume();
+            } catch (err) {
+                console.error('Audio Resume Error:', err);
+            }
         } else if (ctx.state === 'running') {
             await ctx.suspend();
         }
         
-        setIsMuted(ctx.state !== 'running');
-        if (ctx.state === 'running') setBlocked(false);
+        const isRunning = ctx.state === 'running';
+        setIsMuted(!isRunning);
+        if (isRunning) setBlocked(false);
+        else if (ctx.state === 'suspended' && blocked) {
+            // If we were blocked and we're still suspended after a click, 
+            // the click might not have been registered as a gesture by the browser
+            // or there's another policy issue. 
+        }
 
-    }, [initContext]);
+    }, [initContext, blocked]);
     
+    // Auto-unmute on mount
+    useEffect(() => {
+        if (!autoUnmute) return;
+
+        const attemptAutoUnmute = async () => {
+            const ctx = initContext();
+            if (ctx.state === 'running') return;
+
+            // We don't await here because resume() can hang in some browsers
+            // until a user interaction happens, which is exactly what we're testing.
+            ctx.resume().catch(() => {});
+
+            // Brief delay to see if the browser allowed it
+            setTimeout(() => {
+                const isStillBlocked = ctx.state !== 'running';
+                setIsMuted(isStillBlocked);
+                setBlocked(isStillBlocked);
+            }, 500);
+        };
+
+        attemptAutoUnmute();
+    }, [autoUnmute, initContext]);
+
+    // Synchronize state with context
     useEffect(() => {
         const ctx = initContext();
         setIsMuted(ctx.state !== 'running');
         
         const stateHandler = () => {
-             setIsMuted(ctx.state !== 'running');
+             const isRunning = ctx.state === 'running';
+             setIsMuted(!isRunning);
+             if (isRunning) setBlocked(false);
         };
         
         ctx.addEventListener('statechange', stateHandler);
@@ -48,11 +84,7 @@ export const useAudio = () => {
         }
 
         try {
-            // Check if URL is relative or absolute
-            const fullUrl = url.startsWith('http') ? url : url; 
-            // Note: fetch works with relative paths comfortably if on same origin
-            
-            const response = await fetch(fullUrl);
+            const response = await fetch(url);
             const arrayBuffer = await response.arrayBuffer();
             const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
             

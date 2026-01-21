@@ -56,7 +56,7 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
           blocked ? 'bg-app-danger animate-pulse text-white' : 
           isMuted ? 'bg-app-card hover:bg-app-card/80 text-app-dim' : 'bg-app-card hover:bg-app-card/80 text-app-accent'
         }`}
-        title={blocked ? "Audio Blocked - Click to Enable" : isMuted ? "Unmute" : "Mute"}
+        title={blocked ? "Auto-play blocked. Click to enable." : isMuted ? "Unmute" : "Mute"}
       >
         {isMuted || blocked ? <VolumeX size={20} className="lg:scale-100 scale-90" /> : <Volume2 size={20} className="lg:scale-100 scale-90" />}
       </button>

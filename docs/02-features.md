@@ -26,11 +26,19 @@
         *   **Browser:** All connected dashboard clients.
         *   **VoiceMonkey:** External Alexa/Smart Home devices.
 
-### Kiosk Mode & Wake Lock
-*   **Purpose:** Prevents the display device from sleeping, ideal for TV screens and dedicated tablets.
-*   **Quick Toggle:** Use the Power icon on the dashboard overlay to enable/disable for the current session.
-*   **Persistent Setting:** Enable "Auto-enable Wake Lock" in Display Settings → Appearance to activate automatically on page load.
-*   **Requirements:** Requires a secure context (HTTPS or localhost).
+### Kiosk Mode & System Logic
+*   **Purpose:** Provides control over browser-level system behaviours, grouped in the **Display Settings → System** tab.
+*   **Focus Logic:** 
+    *   **Skip Sunrise:** Use "Target Dhuhr after Fajr" to remove Sunrise from the main dashboard countdown.
+*   **Screen Wake Lock:** 
+    *   Prevents the display device from sleeping, ideal for TV screens and dedicated tablets.
+    *   Use the Power icon on the dashboard overlay for session-level control.
+    *   Enable "Auto-enable Wake Lock" in settings to activate automatically on page load.
+*   **Auto-unmute:** 
+    *   Attempts to resume the browser's `AudioContext` automatically on page load.
+    *   If blocked by browser policy, a pulsing red icon appears with the tooltip "Auto-play blocked. Click to enable."
+    *   A single click on the icon resolves the block for the session.
+*   **Requirements:** Most system logic (Wake Lock, Auto-unmute) requires a secure context (HTTPS or localhost).
 
 ### Settings Interface
 The administration panel provides granular control over the system:

@@ -25,8 +25,10 @@ import DeveloperSettingsView from '@/views/settings/DeveloperSettingsView';
  * @returns {JSX.Element} The rendered application component.
  */
 function App() {
-  const { playUrl, isMuted, toggleMute, blocked } = useAudio();
-  const { isAudioExcluded } = useClientPreferences();
+  const { preferences, isAudioExcluded } = useClientPreferences();
+  const { playUrl, isMuted, toggleMute, blocked } = useAudio({
+    autoUnmute: preferences.appearance.autoUnmute
+  });
   const { prayers, nextPrayer, refetch } = usePrayerTimes();
 
   const handleAudioPlay = useCallback((prayer, event, url) => {

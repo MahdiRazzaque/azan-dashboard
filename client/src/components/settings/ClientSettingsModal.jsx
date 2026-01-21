@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Monitor, Palette, Clock, Bell, VolumeX, Volume2, Check, Layout, Timer, AlertTriangle } from 'lucide-react';
+import { X, Monitor, Palette, Clock, Bell, VolumeX, Volume2, Check, Layout, Timer, AlertTriangle, Cpu } from 'lucide-react';
 import { useClientPreferences } from '@/hooks/useClientPreferences';
 import { useSettings } from '@/hooks/useSettings';
 import { useWakeLock } from '@/hooks/useWakeLock';
@@ -80,13 +80,24 @@ const ClientSettingsModal = ({ onClose }) => {
             <Bell size={18} />
             <span>Prayer Audio</span>
           </button>
+
+          <button 
+            onClick={() => setActiveTab('system')}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-300",
+              activeTab === 'system' ? "bg-app-accent text-app-bg" : "text-app-dim hover:text-app-text hover:bg-app-card-hover"
+            )}
+          >
+            <Cpu size={18} />
+            <span>System</span>
+          </button>
         </div>
 
         {/* Main Area */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-app-border">
-            <h2 className="text-xl font-bold text-app-text capitalize">{activeTab} Settings</h2>
+            <h2 className="text-xl font-bold text-app-text capitalize">{activeTab === 'prayers' ? 'Prayer Audio' : activeTab} Settings</h2>
             <button onClick={onClose} className="p-2 text-app-dim hover:text-app-text transition-colors">
               <X size={20} />
             </button>
@@ -169,26 +180,6 @@ const ClientSettingsModal = ({ onClose }) => {
                     ))}
                   </div>
                 </div>
-                
-                {/* Skip Sunrise in Countdown */}
-                <div className="flex items-center justify-between p-4 bg-app-bg/30 rounded-2xl border border-app-border/50">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-app-text">Target Dhuhr after Fajr</span>
-                    <span className="text-xs text-app-dim">Skip Sunrise in the main dashboard countdown</span>
-                  </div>
-                  <button
-                    onClick={() => updateAppearance('skipSunriseCountdown', !preferences.appearance.skipSunriseCountdown)}
-                    className={cn(
-                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                      preferences.appearance.skipSunriseCountdown ? "bg-app-accent" : "bg-app-card-hover"
-                    )}
-                  >
-                    <span className={cn(
-                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
-                      preferences.appearance.skipSunriseCountdown ? "translate-x-6" : "translate-x-1"
-                    )} />
-                  </button>
-                </div>
 
                 {/* Theme */}
                 <div className="space-y-4">
@@ -215,35 +206,6 @@ const ClientSettingsModal = ({ onClose }) => {
                       </button>
                     ))}
                   </div>
-                </div>
-
-                {/* Wake Lock */}
-                <div className={cn(
-                  "flex items-center justify-between p-4 bg-app-bg/30 rounded-2xl border border-app-border/50",
-                  !wakeLock.isSupported && "opacity-50 grayscale"
-                )}>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-app-text">Auto-enable Wake Lock</span>
-                    <span className="text-xs text-app-dim">
-                      {wakeLock.isSupported 
-                        ? "Keep screen on automatically when dashboard loads" 
-                        : "Not supported (Requires HTTPS)"}
-                    </span>
-                  </div>
-                  <button
-                    disabled={!wakeLock.isSupported}
-                    onClick={() => updateAppearance('wakeLockAutoStart', !preferences.appearance.wakeLockAutoStart)}
-                    className={cn(
-                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                      preferences.appearance.wakeLockAutoStart ? "bg-app-accent" : "bg-app-card-hover",
-                      !wakeLock.isSupported && "cursor-not-allowed"
-                    )}
-                  >
-                    <span className={cn(
-                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
-                      preferences.appearance.wakeLockAutoStart ? "translate-x-6" : "translate-x-1"
-                    )} />
-                  </button>
                 </div>
               </div>
             )}
@@ -331,6 +293,79 @@ const ClientSettingsModal = ({ onClose }) => {
                             ))}
                         </tbody>
                     </table>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'system' && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Target Dhuhr after Fajr */}
+                <div className="flex items-center justify-between p-4 bg-app-bg/30 rounded-2xl border border-app-border/50">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-app-text">Target Dhuhr after Fajr</span>
+                    <span className="text-xs text-app-dim">Skip Sunrise in the main dashboard countdown</span>
+                  </div>
+                  <button
+                    onClick={() => updateAppearance('skipSunriseCountdown', !preferences.appearance.skipSunriseCountdown)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                      preferences.appearance.skipSunriseCountdown ? "bg-app-accent" : "bg-app-card-hover"
+                    )}
+                  >
+                    <span className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                      preferences.appearance.skipSunriseCountdown ? "translate-x-6" : "translate-x-1"
+                    )} />
+                  </button>
+                </div>
+
+                {/* Wake Lock */}
+                <div className={cn(
+                  "flex items-center justify-between p-4 bg-app-bg/30 rounded-2xl border border-app-border/50",
+                  !wakeLock.isSupported && "opacity-50 grayscale"
+                )}>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-app-text">Auto-enable Wake Lock</span>
+                    <span className="text-xs text-app-dim">
+                      {wakeLock.isSupported 
+                        ? "Keep screen on automatically when dashboard loads" 
+                        : "Not supported (Requires HTTPS)"}
+                    </span>
+                  </div>
+                  <button
+                    disabled={!wakeLock.isSupported}
+                    onClick={() => updateAppearance('wakeLockAutoStart', !preferences.appearance.wakeLockAutoStart)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                      preferences.appearance.wakeLockAutoStart ? "bg-app-accent" : "bg-app-card-hover",
+                      !wakeLock.isSupported && "cursor-not-allowed"
+                    )}
+                  >
+                    <span className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                      preferences.appearance.wakeLockAutoStart ? "translate-x-6" : "translate-x-1"
+                    )} />
+                  </button>
+                </div>
+
+                {/* Auto Unmute */}
+                <div className="flex items-center justify-between p-4 bg-app-bg/30 rounded-2xl border border-app-border/50">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-app-text">Auto-unmute on Load</span>
+                    <span className="text-xs text-app-dim">Attempt to enable audio automatically when page loads</span>
+                  </div>
+                  <button
+                    onClick={() => updateAppearance('autoUnmute', !preferences.appearance.autoUnmute)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                      preferences.appearance.autoUnmute ? "bg-app-accent" : "bg-app-card-hover"
+                    )}
+                  >
+                    <span className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                      preferences.appearance.autoUnmute ? "translate-x-6" : "translate-x-1"
+                    )} />
+                  </button>
                 </div>
               </div>
             )}
