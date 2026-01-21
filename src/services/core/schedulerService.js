@@ -191,6 +191,19 @@ const scheduleMaintenanceJobs = () => {
         sourceHealthJob.category = 'maintenance';
         jobs.push(sourceHealthJob);
     }
+
+    // 6. Midnight Refresh - Reload config and reschedule at midnight
+    const midnightJob = schedule.scheduleJob('0 0 * * *', async () => {
+        console.log('[Scheduler] Midnight Refresh');
+        await configService.reload();
+        initScheduler();
+    });
+
+    if (midnightJob) {
+        midnightJob.jobName = 'System: Midnight Refresh';
+        midnightJob.category = 'maintenance';
+        jobs.push(midnightJob);
+    }
 };
 
 /**
@@ -206,22 +219,9 @@ const initScheduler = async () => {
         
         // Cancel existing jobs (Hot Reload scenario)
         clearJobs();
-        
-        // Schedule Maintenance
-        scheduleMaintenanceJobs();
 
-        // Schedule Midnight Refresh
-        // Recurrence rule: 0 0 * * * (Midnight)
-        const midnightJob = schedule.scheduleJob('0 0 * * *', async () => {
-            console.log('[Scheduler] Midnight Refresh');
-            await configService.reload();
-            initScheduler();
-        });
-        if (midnightJob) {
-            midnightJob.jobName = 'System: Midnight Refresh';
-            midnightJob.category = 'maintenance';
-            jobs.push(midnightJob);
-        }
+        // Schedule Maintenance (includes midnight refresh)
+        scheduleMaintenanceJobs();
         
         // Prepare data for today
         const now = DateTime.now().setZone(config.location.timezone);
