@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Lock } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Lock, ArrowLeft } from 'lucide-react';
 
 /**
  * A view component that renders the login screen, allowing users to authenticate
@@ -29,7 +29,15 @@ export default function LoginView() {
   };
 
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-app-bg text-app-text">
+    <div className="flex flex-col h-screen w-full items-center justify-center bg-app-bg text-app-text p-4">
+      <Link 
+        to="/" 
+        className="mb-8 flex items-center gap-2 text-app-dim hover:text-app-text transition-colors group"
+      >
+        <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
+        <span className="font-medium">Back to Dashboard</span>
+      </Link>
+
       <form onSubmit={handleLogin} className="w-full max-w-sm p-8 bg-app-card rounded-lg shadow-xl border border-app-border">
         <div className="flex flex-col items-center mb-6">
             <div className="p-3 bg-emerald-500/10 rounded-full mb-3">
