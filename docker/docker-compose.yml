@@ -3,10 +3,10 @@ services:
     build:
       context: ..              # Correct: Sets build context to project root
       dockerfile: docker/Dockerfile # Correct: Finds Dockerfile inside docker folder
-    container_name: azan-dashboard
+    #container_name: azan-dashboard
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${APP_PORT}:3000"
     volumes:      
       # Persist configuration and secrets
       - ../config:/app/config
