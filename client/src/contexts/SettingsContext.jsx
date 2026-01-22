@@ -42,7 +42,7 @@ export const SettingsProvider = ({ children }) => {
     setLoading(true);
     try {
       const endpoint = isAuthenticated ? '/api/settings' : '/api/settings/public';
-      const res = await fetch(endpoint);
+      const res = await fetch(`${endpoint}?t=${Date.now()}`);
       if (res.status === 429) {
           handleRateLimit();
           return;
@@ -63,7 +63,7 @@ export const SettingsProvider = ({ children }) => {
   const fetchHealth = useCallback(async () => {
       if (pausedPolling) return;
       try {
-          const res = await fetch('/api/system/health');
+          const res = await fetch(`/api/system/health?t=${Date.now()}`);
           if (res.status === 429) {
               handleRateLimit();
               return;

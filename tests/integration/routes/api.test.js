@@ -789,5 +789,22 @@ describe('API Routes Integration', () => {
                  .expect(400);
         });
     });
+
+    describe('API Cache Headers', () => {
+        it('GET /api/prayers - should include no-cache headers (REQ-01)', async () => {
+            const res = await request(app).get('/api/prayers');
+            expect(res.headers['cache-control']).toBe('no-store, no-cache, must-revalidate, proxy-revalidate');
+            expect(res.headers['pragma']).toBe('no-cache');
+            expect(res.headers['expires']).toBe('0');
+            expect(res.headers['surrogate-control']).toBe('no-store');
+        });
+
+        it('GET /api/settings - should include no-cache headers (REQ-01)', async () => {
+            const res = await request(app)
+                .get('/api/settings')
+                .set('Cookie', [`auth_token=${adminToken}`]);
+            expect(res.headers['cache-control']).toContain('no-store');
+        });
+    });
 });
 

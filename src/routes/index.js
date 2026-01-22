@@ -3,6 +3,17 @@ const router = express.Router();
 const { globalReadLimiter, globalWriteLimiter, sseLimiter } = require('@middleware/rateLimiters');
 const systemController = require('@controllers/systemController');
 
+// No-cache middleware for all API routes (REQ-01)
+router.use((req, res, next) => {
+    res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store'
+    });
+    next();
+});
+
 // Global Rate Limiting
 router.use((req, res, next) => {
     if (req.method === 'GET') {

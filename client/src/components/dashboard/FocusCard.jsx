@@ -38,11 +38,11 @@ const FocusCard = ({ nextPrayer, prayers, onCountdownComplete }) => {
         if (secondsLeft <= 0 && lastTriggeredRef.current !== effectiveNextPrayer.time) {
             lastTriggeredRef.current = effectiveNextPrayer.time;
             
-            console.log(`[FocusCard] Countdown finished for ${effectiveNextPrayer.name}. Triggering refetch in 2s...`);
+            console.log(`[FocusCard] Countdown finished for ${effectiveNextPrayer.name}. Triggering refetch in 5s...`);
             
             const timer = setTimeout(() => {
                 onCountdownComplete();
-            }, 2000);
+            }, 5000);
             
             return () => clearTimeout(timer);
         }

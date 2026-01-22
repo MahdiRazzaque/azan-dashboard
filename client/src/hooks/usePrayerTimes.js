@@ -16,7 +16,7 @@ export const usePrayerTimes = () => {
     const fetchPrayers = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
         try {
-            const res = await fetch('/api/prayers');
+            const res = await fetch(`/api/prayers?t=${Date.now()}`);
             if (!res.ok) throw new Error(`API Error: ${res.status}`);
             const data = await res.json();
             
