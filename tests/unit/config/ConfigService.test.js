@@ -143,14 +143,43 @@ describe('ConfigService', () => {
          delete process.env.VOICEMONKEY_TOKEN;
     });
 
-    it('should log error if local config fails to load with non-ENOENT error', async () => {
-        const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
-        jest.spyOn(fs, 'access').mockRejectedValue({ code: 'EACCES' });
+    it('should log warning if local config fails to load with non-ENOENT error', async () => {
+        const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        jest.spyOn(fs, 'access').mockRejectedValue({ code: 'EACCES', message: 'Permission denied' });
         
         await configService.reload();
         
-        expect(spy).toHaveBeenCalledWith(expect.stringContaining('Failed to load local config'), expect.anything());
+        expect(spy).toHaveBeenCalledWith(expect.stringContaining('Warning: Failed to load local config'), expect.anything());
         spy.mockRestore();
+        fs.access.mockRestore();
+    });
+
+    it('should handle empty local.json gracefully', async () => {
+        await fs.writeFile(configService._localPath, '   ');
+        await configService.reload();
+        const config = configService.get();
+        expect(config).toBeDefined();
+        // Should still be at defaults
+        expect(config.location.timezone).toBe('Europe/London');
+    });
+
+    it('should handle corrupt local.json gracefully in reload', async () => {
+        const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        await fs.writeFile(configService._localPath, '{ invalid: json }');
+        await configService.reload();
+        
+        expect(spy).toHaveBeenCalledWith(expect.stringContaining('Warning: Failed to load local config'), expect.anything());
+        spy.mockRestore();
+    });
+
+    it('should handle corrupt local.json gracefully in update', async () => {
+        await fs.writeFile(configService._localPath, '{ invalid: json }');
+        
+        const updateData = { location: { timezone: 'Asia/Dubai' } };
+        await configService.update(updateData);
+        
+        const config = configService.get();
+        expect(config.location.timezone).toBe('Asia/Dubai');
     });
 
     it('should throw error if local config fails to load with non-ENOENT error in update', async () => {

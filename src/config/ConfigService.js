@@ -81,12 +81,17 @@ class ConfigService {
         try {
             await fs.access(this._localPath);
             const localContent = await fs.readFile(this._localPath, 'utf-8');
-            const localConfig = JSON.parse(localContent);
-            rawConfig = this._mergeDeep(rawConfig, localConfig);
+            
+            // Only parse if file is not empty
+            if (localContent && localContent.trim().length > 0) {
+                const localConfig = JSON.parse(localContent);
+                rawConfig = this._mergeDeep(rawConfig, localConfig);
+            }
         } catch (e) {
             // It is acceptable if local.json does not exist; we continue with defaults
+            // We also ignore SyntaxError (empty/corrupt file) and just log a warning
             if (e.code !== 'ENOENT') {
-                console.error('Failed to load local config:', e);
+                console.warn('Warning: Failed to load local config (using defaults):', e.message);
             }
         }
 
@@ -122,9 +127,15 @@ class ConfigService {
             let currentLocal = {};
             try {
                 const localContent = await fs.readFile(this._localPath, 'utf-8');
-                currentLocal = JSON.parse(localContent);
+                // Only parse if file is not empty
+                if (localContent && localContent.trim().length > 0) {
+                    currentLocal = JSON.parse(localContent);
+                }
             } catch (e) {
-                if (e.code !== 'ENOENT') throw e;
+                // If file missing or corrupt (syntax error), treat as empty object and continue
+                if (e.code !== 'ENOENT' && !(e instanceof SyntaxError)) {
+                    throw e;
+                }
             }
 
             const newLocalCandidate = this._mergeDeep(currentLocal, partialConfig);
