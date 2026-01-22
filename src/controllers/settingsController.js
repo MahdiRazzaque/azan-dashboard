@@ -27,6 +27,35 @@ const settingsController = {
     },
 
     /**
+     * Retrieves a sanitized subset of application settings for public (non-admin) access.
+     * Excludes sensitive data like VoiceMonkey credentials.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the settings are sent.
+     */
+    getPublicSettings: async (req, res) => {
+        await configService.reload();
+        const fullConfig = configService.get();
+        
+        // Sanitize automation block to ensure no secrets are leaked
+        const automation = { ...fullConfig.automation };
+        if (automation.voiceMonkey) {
+            automation.voiceMonkey = {
+                enabled: automation.voiceMonkey.enabled
+                // Explicitly exclude token and device
+            };
+        }
+
+        res.json({
+            location: fullConfig.location,
+            calculation: fullConfig.calculation,
+            prayers: fullConfig.prayers,
+            automation: automation
+        });
+    },
+
+    /**
      * Updates application settings, validates them, and synchronises dependent services.
      * 
      * @param {import('express').Request} req - The Express request object.

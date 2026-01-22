@@ -7,7 +7,9 @@ const authenticateToken = require('@middleware/auth');
 const upload = require('@middleware/fileUpload');
 const storageCheck = require('@middleware/storageCheck');
 
+router.get('/public', asyncHandler(settingsController.getPublicSettings));
 router.get('/', authenticateToken, asyncHandler(settingsController.getSettings));
+
 router.post('/update', authenticateToken, asyncHandler(settingsController.updateSettings));
 router.post('/reset', authenticateToken, asyncHandler(settingsController.resetSettings));
 router.post('/refresh-cache', operationsLimiter, authenticateToken, asyncHandler(settingsController.refreshCache));

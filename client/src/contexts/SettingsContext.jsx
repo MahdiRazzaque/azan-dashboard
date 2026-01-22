@@ -41,7 +41,8 @@ export const SettingsProvider = ({ children }) => {
     if (pausedPolling) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/settings');
+      const endpoint = isAuthenticated ? '/api/settings' : '/api/settings/public';
+      const res = await fetch(endpoint);
       if (res.status === 429) {
           handleRateLimit();
           return;
@@ -57,7 +58,7 @@ export const SettingsProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [pausedPolling, handleRateLimit]);
+  }, [pausedPolling, handleRateLimit, isAuthenticated]);
 
   const fetchHealth = useCallback(async () => {
       if (pausedPolling) return;
@@ -97,10 +98,13 @@ export const SettingsProvider = ({ children }) => {
 
 
   useEffect(() => {
-    if (isAuthenticated && !pausedPolling) {
+    if (!pausedPolling) {
       fetchSettings();
       fetchHealth();
-      fetchVoices();
+      
+      if (isAuthenticated) {
+        fetchVoices();
+      }
     }
   }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth, fetchVoices]);
 
