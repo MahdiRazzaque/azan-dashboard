@@ -1,0 +1,48 @@
+name: Deploy Multiple Instances
+
+on:
+  # Trigger on push to main
+  push:
+    branches: [ "main" ]
+  
+  # Trigger manually via GitHub UI
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project_path: 
+          - "/home/ubuntu/azan-dashboard.home.kg"
+          #- "/home/ubuntu/azan.home.kg"
+
+    steps:
+      - name: Deploy to ${{ matrix.project_path }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            echo "🚀 Starting deployment for: ${{ matrix.project_path }}"
+            
+            # 1. Navigate to the folder
+            cd ${{ matrix.project_path }}
+
+            # 2. Fetch and Reset
+            git fetch origin main
+            git reset --hard origin/main
+
+            # 3. Build & Up (Linux Version with Audio)
+            # We chain the files: Base Config + Audio Override
+            docker compose -f docker/docker-compose.yml -f docker/docker-compose.audio.yml up -d --build
+
+            # 4. Cleanup & Reload Nginx
+            docker image prune -f
+            sudo systemctl reload nginx
+
+            echo "✅ Deployment complete for: ${{ matrix.project_path }}"
