@@ -108,7 +108,7 @@ const FocusCard = ({ nextPrayer, prayers, onCountdownComplete }) => {
                     <div className="text-lg lg:text-2xl text-app-accent font-semibold uppercase tracking-[0.3em] opacity-90 drop-shadow-md">
                         Upcoming: {effectiveNextPrayer.name.charAt(0).toUpperCase() + effectiveNextPrayer.name.slice(1)}
                     </div>
-                    <div className="text-3xl lg:text-6xl min-w-[250px] lg:min-w-[500px] text-center font-mono text-app-text bg-app-bg/40 px-6 lg:px-10 py-2 lg:py-4 rounded-2xl backdrop-blur-lg border border-app-border/10 shadow-inner">
+                    <div className="text-3xl lg:text-6xl min-w-[250px] lg:min-w-[500px] text-center font-mono text-app-text bg-app-bg/40 px-6 lg:px-10 py-2 lg:py-4 rounded-2xl backdrop-blur-lg border border-app-border shadow-inner">
                         {getCountdown()}
                     </div>
                 </div>
