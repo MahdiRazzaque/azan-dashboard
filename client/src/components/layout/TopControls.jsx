@@ -6,6 +6,10 @@ import { useWakeLock } from '@/hooks/useWakeLock';
 import { useClientPreferences } from '@/hooks/useClientPreferences';
 
 const TopControls = ({ isMuted, toggleMute, blocked }) => {
+  const navigate = useNavigate();
+  const wakeLock = useWakeLock();
+  const { preferences } = useClientPreferences();
+
   const [showSettings, setShowSettings] = useState(false);
   const [isManuallyPaused, setIsManuallyPaused] = useState(false);
   const [prevAutoStart, setPrevAutoStart] = useState(preferences.appearance.wakeLockAutoStart);
@@ -15,10 +19,6 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
     setPrevAutoStart(preferences.appearance.wakeLockAutoStart);
     setIsManuallyPaused(false);
   }
-
-  const navigate = useNavigate();
-  const wakeLock = useWakeLock();
-  const { preferences } = useClientPreferences();
 
   const handleWakeLockToggle = async () => {
     if (wakeLock.isActive) {
@@ -51,11 +51,11 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
   };
 
   return (
-    <div className="absolute top-3 right-3 lg:top-6 lg:right-6 flex gap-3 z-50">
+    <div className="absolute top-2 right-2 lg:top-6 lg:right-6 flex gap-1.5 lg:gap-3 z-50">
       <button 
         onClick={handleWakeLockToggle}
         disabled={!wakeLock.isSupported}
-        className={`p-2 lg:p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
+        className={`p-1.5 lg:p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
           !wakeLock.isSupported ? 'bg-app-card/50 text-app-dim cursor-not-allowed opacity-50' :
           wakeLock.error ? 'bg-app-danger/20 text-app-danger animate-pulse border border-app-danger/50' :
           wakeLock.isActive ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/30' : 
@@ -63,34 +63,34 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
         }`}
         title={getWakeLockTitle()}
       >
-        <Power size={20} className="lg:scale-100 scale-90" />
+        <Power size={18} className="lg:size-5" />
       </button>
 
       <button 
         onClick={toggleMute}
-        className={`p-2 lg:p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
+        className={`p-1.5 lg:p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
           blocked ? 'bg-app-danger animate-pulse text-white' : 
           isMuted ? 'bg-app-card hover:bg-app-card/80 text-app-dim' : 'bg-app-card hover:bg-app-card/80 text-app-accent'
         }`}
         title={blocked ? "Auto-play blocked. Click to enable." : isMuted ? "Unmute" : "Mute"}
       >
-        {isMuted || blocked ? <VolumeX size={20} className="lg:scale-100 scale-90" /> : <Volume2 size={20} className="lg:scale-100 scale-90" />}
+        {isMuted || blocked ? <VolumeX size={18} className="lg:size-5" /> : <Volume2 size={18} className="lg:size-5" />}
       </button>
 
       <button 
         onClick={() => setShowSettings(true)}
-        className="p-2 lg:p-3 rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
+        className="p-1.5 lg:p-3 rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
         title="Display Settings"
       >
-        <Monitor size={20} className="lg:scale-100 scale-90" />
+        <Monitor size={18} className="lg:size-5" />
       </button>
       
       <button 
         onClick={() => navigate('/settings')}
-        className="p-2 lg:p-3 rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
+        className="p-1.5 lg:p-3 rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
         title="Settings"
       >
-        <Settings size={20} className="lg:scale-100 scale-90" />
+        <Settings size={18} className="lg:size-5" />
       </button>
 
       {showSettings && <ClientSettingsModal onClose={() => setShowSettings(false)} />}

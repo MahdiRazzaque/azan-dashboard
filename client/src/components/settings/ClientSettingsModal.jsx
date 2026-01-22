@@ -53,8 +53,8 @@ const ClientSettingsModal = ({ onClose }) => {
       <div className="relative w-full max-w-2xl bg-app-card border border-app-border rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[80vh] md:h-auto max-h-[90vh]">
         
         {/* Sidebar */}
-        <div className="w-full md:w-48 bg-app-bg/50 border-b md:border-b-0 md:border-r border-app-border p-4 space-y-2">
-          <div className="flex items-center gap-2 px-2 py-4 mb-2">
+        <div className="w-full md:w-48 bg-app-bg/50 border-b md:border-b-0 md:border-r border-app-border p-4 flex md:flex-col gap-2 overflow-x-auto md:overflow-visible custom-scrollbar no-scrollbar scroll-smooth">
+          <div className="hidden md:flex items-center gap-2 px-2 py-4 mb-2">
             <Monitor size={20} className="text-app-accent" />
             <span className="font-bold text-app-text text-sm uppercase tracking-widest">Display</span>
           </div>
@@ -62,33 +62,33 @@ const ClientSettingsModal = ({ onClose }) => {
           <button 
             onClick={() => setActiveTab('appearance')}
             className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-300",
+              "flex-shrink-0 md:w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-medium transition-all duration-300",
               activeTab === 'appearance' ? "bg-app-accent text-app-bg" : "text-app-dim hover:text-app-text hover:bg-app-card-hover"
             )}
           >
-            <Palette size={18} />
+            <Palette size={16} className="lg:size-[18px]" />
             <span>Appearance</span>
           </button>
           
           <button 
             onClick={() => setActiveTab('prayers')}
             className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-300",
+              "flex-shrink-0 md:w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-medium transition-all duration-300",
               activeTab === 'prayers' ? "bg-app-accent text-app-bg" : "text-app-dim hover:text-app-text hover:bg-app-card-hover"
             )}
           >
-            <Bell size={18} />
+            <Bell size={16} className="lg:size-[18px]" />
             <span>Prayer Audio</span>
           </button>
 
           <button 
             onClick={() => setActiveTab('system')}
             className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-300",
+              "flex-shrink-0 md:w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-medium transition-all duration-300",
               activeTab === 'system' ? "bg-app-accent text-app-bg" : "text-app-dim hover:text-app-text hover:bg-app-card-hover"
             )}
           >
-            <Cpu size={18} />
+            <Cpu size={16} className="lg:size-[18px]" />
             <span>System</span>
           </button>
         </div>
@@ -133,7 +133,7 @@ const ClientSettingsModal = ({ onClose }) => {
                 </div>
 
                 {/* Show Seconds */}
-                <div className="flex items-center justify-between p-4 bg-app-bg/30 rounded-2xl border border-app-border/50">
+                <div className="flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border">
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-semibold text-app-text">Show Seconds</span>
                     <span className="text-xs text-app-dim">Display seconds on the main clock</span>
@@ -300,7 +300,7 @@ const ClientSettingsModal = ({ onClose }) => {
             {activeTab === 'system' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 {/* Target Dhuhr after Fajr */}
-                <div className="flex items-center justify-between p-4 bg-app-bg/30 rounded-2xl border border-app-border/50">
+                <div className="flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border">
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-semibold text-app-text">Target Dhuhr after Fajr</span>
                     <span className="text-xs text-app-dim">Skip Sunrise in the main dashboard countdown</span>
@@ -321,7 +321,7 @@ const ClientSettingsModal = ({ onClose }) => {
 
                 {/* Wake Lock */}
                 <div className={cn(
-                  "flex items-center justify-between p-4 bg-app-bg/30 rounded-2xl border border-app-border/50",
+                  "flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border",
                   !wakeLock.isSupported && "opacity-50 grayscale"
                 )}>
                   <div className="flex flex-col gap-1">
@@ -349,7 +349,7 @@ const ClientSettingsModal = ({ onClose }) => {
                 </div>
 
                 {/* Auto Unmute */}
-                <div className="flex items-center justify-between p-4 bg-app-bg/30 rounded-2xl border border-app-border/50">
+                <div className="flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border">
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-semibold text-app-text">Auto-unmute on Load</span>
                     <span className="text-xs text-app-dim">Attempt to enable audio automatically when page loads</span>

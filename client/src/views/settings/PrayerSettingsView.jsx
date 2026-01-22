@@ -235,14 +235,14 @@ export default function PrayerSettingsView() {
             </div>
 
             {/* Navigation Pills */}
-            <div className="flex p-1 bg-app-bg/50 rounded-xl border border-app-border backdrop-blur-sm w-fit">
+            <div className="flex p-1 bg-app-bg/50 rounded-xl border border-app-border backdrop-blur-sm w-full md:w-fit overflow-x-auto md:overflow-visible flex-nowrap custom-scrollbar no-scrollbar">
                 {PRAYERS.map(p => {
                     const isDirty = isPrayerTabDirty(p);
                     return (
                     <button
                         key={p}
                         onClick={() => setActiveTab(p)}
-                        className={`px-6 py-2 rounded-lg text-sm font-medium capitalize transition-all relative flex items-center gap-2 ${
+                        className={`px-4 lg:px-6 py-1.5 lg:py-2 rounded-lg text-xs lg:text-sm font-medium capitalize transition-all relative flex items-center gap-1.5 lg:gap-2 flex-shrink-0 ${
                             activeTab === p 
                             ? 'bg-emerald-600 text-app-text shadow-lg shadow-emerald-900/20' 
                             : 'text-app-dim hover:text-app-text hover:bg-app-card-hover'
@@ -250,7 +250,7 @@ export default function PrayerSettingsView() {
                     >
                         {p}
                         {isDirty && (
-                            <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
+                            <span className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
                         )}
                         {!getSectionHealth(`prayers.${p}`).healthy && (
                             <div className="relative group/tabwarning">
@@ -349,7 +349,7 @@ export default function PrayerSettingsView() {
 
                                             {/* Override Switch - Only Visible for MyMasjid */}
                                             {isMyMasjid && (
-                                                <div className="flex items-center justify-between pb-3 border-b border-app-border/50">
+                                                <div className="flex items-center justify-between pb-3 border-b border-app-border">
                                                     <div>
                                                         <label className="text-xs font-medium text-app-dim">Override Masjid schedule</label>
                                                         <p className="text-[10px] text-app-dim mt-0.5">Calculate iqamah locally</p>
@@ -373,7 +373,7 @@ export default function PrayerSettingsView() {
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4">
                                                     <div className="space-y-2">
                                                         <label className="text-[10px] text-app-dim font-bold uppercase tracking-wider">Mode</label>
-                                                        <div className="grid grid-cols-2 gap-1 bg-app-bg/20 p-1 rounded-lg border border-app-border/50">
+                                                        <div className="grid grid-cols-2 gap-1 bg-app-bg/20 p-1 rounded-lg border border-app-border">
                                                             <button
                                                                 onClick={() => updatePrayerConfig('fixedTime', null)}
                                                                 className={`py-1.5 text-[11px] font-medium rounded transition-all ${

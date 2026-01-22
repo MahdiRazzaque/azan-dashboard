@@ -300,10 +300,11 @@ export default function SettingsLayout({ logs, processStatus }) {
                     <Menu className="w-6 h-6" />
                 </button>
                 
-                <div className="hidden lg:block">
-                     <NavLink to="/" className="flex items-center gap-2 text-sm text-app-dim hover:text-app-text">
+                <div className="flex items-center">
+                     <NavLink to="/" className="flex items-center gap-1.5 lg:gap-2 text-[10px] lg:text-sm font-bold uppercase tracking-tight lg:capitalize lg:font-normal text-app-dim hover:text-app-text transition-colors">
                         <ChevronLeft className="w-4 h-4" />
-                        Back to Dashboard
+                        <span className="hidden sm:inline">Back to Dashboard</span>
+                        <span className="sm:hidden">Dashboard</span>
                      </NavLink>
                 </div>
              </div>
