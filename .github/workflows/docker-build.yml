@@ -11,15 +11,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # We use 'include' to create specific pairs of Path + Port
         include:
-          - project_path: "/home/ubuntu/azan-dashboard.home.kg"
-            app_port: 3010
           - project_path: "/home/ubuntu/azan.home.kg"
             app_port: 3005
+            project_name: "dashboard-1"
+
+          - project_path: "/home/ubuntu/azan-dashboard.home.kg"
+            app_port: 3010
+            project_name: "dashboard-2"
 
     steps:
-      - name: Deploy to ${{ matrix.project_path }} on Port ${{ matrix.app_port }}
+      - name: Deploy to ${{ matrix.project_path }}
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
@@ -27,22 +29,28 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: 22
           script: |
+            # Stop on error
             set -e
+            
             echo "🚀 Starting deployment for: ${{ matrix.project_path }} on Port ${{ matrix.app_port }}"
             
-            # 1. Navigate to the folder
+            # 1. Navigate
             cd ${{ matrix.project_path }}
 
-            # 2. Fetch and Reset
+            # 2. FIX GIT LOCKS: Remove stale lock files if they exist
+            if [ -f .git/index.lock ]; then rm -f .git/index.lock; fi
+            if [ -f .git/refs/remotes/origin/main.lock ]; then rm -f .git/refs/remotes/origin/main.lock; fi
+
+            # 3. Fetch and Reset
             git fetch origin main
             git reset --hard origin/main
 
-            # 3. Create/Update .env file for Docker Compose variables
-            # This ensures the port sticks even if you restart the server manually later
-            echo "APP_PORT=${{ matrix.app_port }}" > .env
+            # 4. Deploy using Inline Variables
+            # We export APP_PORT directly to the shell environment so Docker is guaranteed to see it.
+            # We also set COMPOSE_PROJECT_NAME to ensure networks don't collide.
+            export APP_PORT=${{ matrix.app_port }}
+            export COMPOSE_PROJECT_NAME=${{ matrix.project_name }}
 
-            # 4. Build & Up
-            # Docker Compose automatically reads the .env file we just created
             docker compose -f docker/docker-compose.yml -f docker/docker-compose.audio.yml up -d --build
 
             # 5. Cleanup & Reload Nginx
