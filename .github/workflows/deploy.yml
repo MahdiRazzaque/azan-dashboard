@@ -1,11 +1,8 @@
 name: Deploy Multiple Instances
 
 on:
-  # Trigger on push to main
   push:
     branches: [ "main" ]
-  
-  # Trigger manually via GitHub UI
   workflow_dispatch:
 
 jobs:
@@ -14,9 +11,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project_path: 
-          - "/home/ubuntu/azan-dashboard.home.kg"
-          #- "/home/ubuntu/azan.home.kg"
+        include:          
+          - project_path: "/home/ubuntu/azan.home.kg"
+            app_port: 3005
+            project_name: "azan-dashboard-1"
+
+          - project_path: "/home/ubuntu/azan-dashboard.home.kg"
+            app_port: 3010
+            project_name: "azan-dashboard-2"
 
     steps:
       - name: Deploy to ${{ matrix.project_path }}
@@ -27,22 +29,32 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: 22
           script: |
+            # Stop on error
             set -e
-            echo "🚀 Starting deployment for: ${{ matrix.project_path }}"
             
-            # 1. Navigate to the folder
+            echo "🚀 Starting deployment for: ${{ matrix.project_path }} on Port ${{ matrix.app_port }}"
+            
+            # 1. Navigate
             cd ${{ matrix.project_path }}
 
-            # 2. Fetch and Reset
+            # 2. FIX GIT LOCKS: Remove stale lock files if they exist
+            if [ -f .git/index.lock ]; then rm -f .git/index.lock; fi
+            if [ -f .git/refs/remotes/origin/main.lock ]; then rm -f .git/refs/remotes/origin/main.lock; fi
+
+            # 3. Fetch and Reset
             git fetch origin main
             git reset --hard origin/main
 
-            # 3. Build & Up (Linux Version with Audio)
-            # We chain the files: Base Config + Audio Override
+            # 4. Deploy using Inline Variables
+            # We export APP_PORT directly to the shell environment so Docker is guaranteed to see it.
+            # We also set COMPOSE_PROJECT_NAME to ensure networks don't collide.
+            export APP_PORT=${{ matrix.app_port }}
+            export COMPOSE_PROJECT_NAME=${{ matrix.project_name }}
+
             docker compose -f docker/docker-compose.yml -f docker/docker-compose.audio.yml up -d --build
 
-            # 4. Cleanup & Reload Nginx
+            # 5. Cleanup & Reload Nginx
             docker image prune -f
             sudo systemctl reload nginx
 
-            echo "✅ Deployment complete for: ${{ matrix.project_path }}"
+            echo "✅ Deployment complete!"
