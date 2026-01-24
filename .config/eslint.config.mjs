@@ -47,7 +47,7 @@ export default [
       // 3. Force @returns existence
       "jsdoc/require-returns": "warn",         // Forces @returns tag (even for void)
       "jsdoc/require-returns-type": "warn",    // Forces {type}
-      // "jsdoc/require-returns-description": "warn", // Optional: Force return desc
+      "jsdoc/require-returns-description": "warn", // Force return desc
 
       // Misc
       "spaced-comment": ["error", "always"],
