@@ -13,7 +13,7 @@
     "client:install": "cd client && npm install",
     "lint": "eslint . --config .config/eslint.config.mjs",
     "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
-    "docker:build": "docker-compose -f docker/docker-compose.yml build" 
+    "docker:build": "docker-compose -f docker/docker-compose.yml build"
   },
   "keywords": [
     "azan",
@@ -36,6 +36,7 @@
     "luxon": "^3.7.2",
     "module-alias": "^2.2.3",
     "multer": "^2.0.2",
+    "music-metadata": "^11.11.0",
     "node-schedule": "^2.1.1",
     "number-to-words": "^1.2.4",
     "play-sound": "^1.1.6",
@@ -49,7 +50,7 @@
     "@controllers": "src/controllers",
     "@middleware": "src/middleware",
     "@routes": "src/routes"
-},
+  },
   "devDependencies": {
     "concurrently": "^9.2.1",
     "eslint": "^9.39.2",
