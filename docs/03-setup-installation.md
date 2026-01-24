@@ -18,6 +18,7 @@ The application uses environment variables for sensitive configuration. When run
 | `ADMIN_PASSWORD` | Hashed password for the admin panel (Set via Setup Wizard) | *None* |
 | `JWT_SECRET` | Secret key for signing session tokens | *Auto-generated* |
 | `PYTHON_SERVICE_URL` | URL of the TTS microservice | `http://localhost:8000` |
+| `BASE_URL` | External HTTPS URL for VoiceMonkey and Remote Access | *None* |
 | `VOICEMONKEY_TOKEN` | API Token for VoiceMonkey (Alexa) | *Managed via UI* |
 | `VOICEMONKEY_DEVICE`| Device ID for VoiceMonkey | *Managed via UI* |
 

@@ -34,7 +34,22 @@ The system determines *what* to play:
 The audio is dispatched to one or more targets simultaneously:
 *   **Local:** Executes `mpg123` on the server hardware. Ideal for Mosque PA systems connected via AUX/HDMI.
 *   **Browser:** Broadcasts an SSE event (`AUDIO_PLAY`) to all connected clients. Each client decides whether to play it based on their local mute settings.
-*   **VoiceMonkey:** Sends an HTTP request to the VoiceMonkey API, triggering a routine on Alexa devices (e.g., "Announcement").
+*   **VoiceMonkey:** Sends an HTTP request to the VoiceMonkey API, triggering a routine on Alexa devices (e.g., "Announcement"). 
+    > [!IMPORTANT]
+    > VoiceMonkey requires an **HTTPS Base URL** (`BASE_URL`) to fetch audio assets. If the server is offline or using an insecure URL, VoiceMonkey targets will be automatically skipped.
+
+### VoiceMonkey Audio Constraints
+Alexa (via VoiceMonkey) has strict requirements for audio playback. The system automatically validates all audio files (TTS and Uploads) and stores compatibility metadata.
+
+| Constraint | Requirement |
+| :--- | :--- |
+| **Format** | MP3 |
+| **Bitrate** | Maximum 48 kbps |
+| **Sample Rate** | 16000 Hz, 22050 Hz, or 24000 Hz |
+| **File Size** | Maximum 10 MB |
+| **Duration** | Maximum 90 seconds |
+
+If a file violates these constraints, the system will prevent the VoiceMonkey API call and log a warning: `[Automation] Skipped VoiceMonkey for {file}: Audio properties violate Alexa requirements.`
 
 ![Configuration Save Lifecycle Sequence](./images/save-lifecycle-sequence.png)
 
