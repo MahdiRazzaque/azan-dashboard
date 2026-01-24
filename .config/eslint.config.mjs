@@ -16,11 +16,13 @@ export default [
   {
     files: ["src/**/*.js"],
     languageOptions: {
-      globals: globals.node, // Node.js global variables (process, __dirname)
+      globals: globals.node,
     },
     plugins: { jsdoc },
     rules: {
-      // Strict JSDoc for Backend
+      // --- Strict JSDoc for Backend ---
+      
+      // 1. Force the JSDoc block to exist
       "jsdoc/require-jsdoc": [
         "warn",
         {
@@ -35,7 +37,19 @@ export default [
         }
       ],
       "jsdoc/require-description": "warn",
-      "jsdoc/check-param-names": "error",
+
+      // 2. Force @param consistency and existence
+      "jsdoc/check-param-names": "error",      // Checks name matching
+      "jsdoc/require-param": "warn",           // Forces @param tag to exist
+      "jsdoc/require-param-type": "warn",      // Forces {type}
+      "jsdoc/require-param-description": "warn", // Forces description text
+
+      // 3. Force @returns existence
+      "jsdoc/require-returns": "warn",         // Forces @returns tag (even for void)
+      "jsdoc/require-returns-type": "warn",    // Forces {type}
+      // "jsdoc/require-returns-description": "warn", // Optional: Force return desc
+
+      // Misc
       "spaced-comment": ["error", "always"],
     },
   },
@@ -47,13 +61,12 @@ export default [
     files: ["client/src/**/*.{js,jsx}"],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser, // Browser globals (window, document)
+      globals: globals.browser,
       parserOptions: {
-        ecmaFeatures: { jsx: true }, // Enable JSX parsing
+        ecmaFeatures: { jsx: true },
         sourceType: "module",
       },
     },
-    // Define React settings manually since we are in flat config
     settings: {
       react: { version: "detect" },
     },
@@ -61,28 +74,40 @@ export default [
       react,
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
-      jsdoc, // We keep JSDoc available, but relaxed
+      jsdoc,
     },
     rules: {
       // --- React Core Rules ---
       ...react.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       
-      "react/react-in-jsx-scope": "off", // Not needed in Vite/React 17+
-      "react/prop-types": "off",         // Turn "warn" if you want to force prop validation
+      "react/react-in-jsx-scope": "off",
+      "react/prop-types": "off",
       "react/jsx-no-target-blank": "off",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
 
-      // --- Relaxed JSDoc for Client ---
-      // We ONLY require JSDoc for "hooks" and "utils", not components
+      // --- JSDoc Rules for Hooks ---
+      
+      // 1. Force JSDoc block ONLY on Hooks (starting with 'use')
       "jsdoc/require-jsdoc": ["warn", {
           contexts: [
-            // Only check functions inside hooks/ or utils/ folders
-            "Program > VariableDeclaration > VariableDeclarator[id.name=/^use/] > ArrowFunctionExpression", // Custom Hooks
+            // Hooks usually declared as const useHook = () => ...
+            "Program > VariableDeclaration > VariableDeclarator[id.name=/^use/] > ArrowFunctionExpression",
+            "Program > VariableDeclaration > VariableDeclarator[id.name=/^use/] > FunctionExpression",
+            // Hooks declared as function useHook() {}
+            "FunctionDeclaration[id.name=/^use/]" 
           ]
       }],
+
+      // 2. If it is a hook, enforce params
+      "jsdoc/check-param-names": "error",
+      "jsdoc/require-param": "warn",
+      "jsdoc/require-param-type": "warn",
       
-      // Allow TODOs in client, but ensure inline comments have spaces
+      // 3. If it is a hook, enforce returns
+      "jsdoc/require-returns": "warn",
+      "jsdoc/require-returns-type": "warn",
+
       "spaced-comment": ["error", "always"],
     },
   },
