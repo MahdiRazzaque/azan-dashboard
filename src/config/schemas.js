@@ -125,11 +125,19 @@ const configSchema = z.object({
   automation: automationSchema,
 });
 
+const envUpdateSchema = z.object({
+  key: z.enum(['BASE_URL']),
+  value: z.string().url().refine(val => val.startsWith('https://'), {
+    message: "BASE_URL must use HTTPS"
+  })
+});
+
 module.exports = {
   configSchema,
   automationSchema,
   prayerTriggersSchema,
   sunriseTriggersSchema,
   triggerEventSchema,
-  prayerSettingSchema
+  prayerSettingSchema,
+  envUpdateSchema
 };

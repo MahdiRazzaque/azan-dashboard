@@ -95,31 +95,63 @@ const systemController = {
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
      */
-    getAudioFiles: (req, res) => {
-        const customDir = path.join(__dirname, '../../public/audio/custom');
-        const cacheDir = path.join(__dirname, '../../public/audio/cache');
-        
-        // Ensure necessary directories exist before reading
-        if (!fs.existsSync(customDir)) fs.mkdirSync(customDir, { recursive: true });
-        if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+    /**
+     * Catalogues available custom and cached audio files from the server's storage,
+     * including VoiceMonkey compatibility metadata.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    getAudioFiles: async (req, res) => {
+        const files = await systemController._getAudioFilesWithMetadata();
+        res.json(files);
+    },
 
-        /**
-         * Scans a directory for MP3 files and formats them for the client.
-         * 
-         * @param {string} dir - The directory path to scan.
-         * @param {string} type - The category label (e.g., 'custom', 'cache').
-         * @returns {Array<Object>} An array of file descriptors.
-         */
-        const getFiles = (dir, type) => {
-            return fs.readdirSync(dir)
+    /**
+     * Internal helper to scan directories and attach metadata from sidecar files.
+     */
+    _getAudioFilesWithMetadata: async () => {
+        const audioCustomDir = path.join(__dirname, '../../public/audio/custom');
+        const audioCacheDir = path.join(__dirname, '../../public/audio/cache');
+        const metaCustomDir = path.join(__dirname, '../public/audio/custom');
+        const metaCacheDir = path.join(__dirname, '../public/audio/cache');
+        
+        // Ensure necessary directories exist
+        if (!fs.existsSync(audioCustomDir)) fs.mkdirSync(audioCustomDir, { recursive: true });
+        if (!fs.existsSync(audioCacheDir)) fs.mkdirSync(audioCacheDir, { recursive: true });
+        if (!fs.existsSync(metaCustomDir)) fs.mkdirSync(metaCustomDir, { recursive: true });
+        if (!fs.existsSync(metaCacheDir)) fs.mkdirSync(metaCacheDir, { recursive: true });
+
+        const getFiles = (audioDir, metaDir, type) => {
+            if (!fs.existsSync(audioDir)) return [];
+            return fs.readdirSync(audioDir)
                 .filter(f => f.endsWith('.mp3'))
-                .map(f => ({ name: f, type, path: `${type}/${f}` }));
+                .map(f => {
+                    const metaPath = path.join(metaDir, f + '.json');
+                    
+                    let metadata = {};
+                    if (fs.existsSync(metaPath)) {
+                        try {
+                            metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+                        } catch (e) { /* ignore corrupt meta */ }
+                    }
+
+                    return { 
+                        name: f, 
+                        type, 
+                        path: `${type}/${f}`,
+                        url: `/public/audio/${type}/${f}`,
+                        vmCompatible: metadata.vmCompatible,
+                        vmIssues: metadata.vmIssues,
+                        metadata: metadata
+                    };
+                });
         };
         
-        const custom = getFiles(customDir, 'custom').map(f => ({ ...f, url: `/public/audio/custom/${f.name}` }));
-        const cache = getFiles(cacheDir, 'cache').map(f => ({ ...f, url: `/public/audio/cache/${f.name}` }));
+        const custom = getFiles(audioCustomDir, metaCustomDir, 'custom');
+        const cache = getFiles(audioCacheDir, metaCacheDir, 'cache');
         
-        res.json([...custom, ...cache]);
+        return [...custom, ...cache];
     },
 
     /**
@@ -237,6 +269,7 @@ const systemController = {
         }
 
         const filePath = path.join(__dirname, `../../public/audio/${type}/${filename}`);
+        const metaPath = path.join(__dirname, `../public/audio/${type}/${filename}.json`);
         const url = `/public/audio/${type}/${filename}`;
         
         // Confirm the existence of the file before attempt playback

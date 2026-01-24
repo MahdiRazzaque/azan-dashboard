@@ -186,7 +186,7 @@ export default function FileManagerView() {
             {items.length === 0 ? (
                 <div className="p-8 text-center text-app-dim text-sm">No files found</div>
             ) : (
-                <div className="divide-y divide-app-border/50">
+                <div className="divide-y divide-app-border">
                     {items.map(file => (
                         <div key={file.path} className="p-3 flex items-center justify-between hover:bg-app-card-hover transition-colors group">
                             <div className="flex items-center gap-3">

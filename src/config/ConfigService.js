@@ -103,6 +103,16 @@ class ConfigService {
     }
 
     /**
+     * Reloads environment variables from the .env file.
+     * 
+     * @returns {Promise<void>} A promise that resolves when environment variables are reloaded.
+     */
+    async reloadEnv() {
+        const ENV_FILE_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../../.env');
+        dotenv.config({ path: ENV_FILE_PATH, override: true });
+    }
+
+    /**
      * Updates the local configuration with partial changes and persists them to disk.
      * 
      * @param {Object} partialConfig - The partial configuration object to merge.

@@ -19,7 +19,6 @@ export const SettingsProvider = ({ children }) => {
   const [voicesError, setVoicesError] = useState(null);
   
   // Ref to hold the latest config for stable callbacks
-  // This prevents resetDraft from becoming stale or changing identity on every save
   const configRef = useRef(config);
 
   const { isAuthenticated } = useAuth();
@@ -50,7 +49,6 @@ export const SettingsProvider = ({ children }) => {
       if (res.ok) {
         const data = await res.json();
         setConfig(data);
-        // Reset draft on fresh fetch
         setDraftConfig(JSON.parse(JSON.stringify(data)));
       }
     } catch (e) {
@@ -95,7 +93,6 @@ export const SettingsProvider = ({ children }) => {
         setVoicesLoading(false);
     }
   }, []);
-
 
   useEffect(() => {
     if (!pausedPolling) {
@@ -149,17 +146,13 @@ export const SettingsProvider = ({ children }) => {
   const saveSettings = useCallback(async (overrideConfig) => {
     setSaving(true);
     try {
-      // Guard against event objects accidentally passed
       const isEvent = overrideConfig && (overrideConfig.nativeEvent || typeof overrideConfig.preventDefault === 'function');
       let configToSave = (overrideConfig && !isEvent) ? overrideConfig : draftConfig;
 
-      // Deep clone to avoid mutating state directly during validation
       configToSave = JSON.parse(JSON.stringify(configToSave));
 
-      // VALIDATION: General Settings (FR-05)
       if (configToSave.location) {
           const { lat, long } = configToSave.location.coordinates || {};
-          // Ensure they are numbers (UI might pass strings)
           const latNum = parseFloat(lat);
           const longNum = parseFloat(long);
 
@@ -170,7 +163,6 @@ export const SettingsProvider = ({ children }) => {
               return { success: false, error: 'Validation Error: Longitude must be between -180 and 180' };
           }
           
-          // Basic Timezone Check
           try {
               Intl.DateTimeFormat(undefined, { timeZone: configToSave.location.timezone });
           } catch (e) {
@@ -178,7 +170,6 @@ export const SettingsProvider = ({ children }) => {
           }
       }
 
-      // VALIDATION: Check for invalid triggers and disable them
       const prayers = configToSave.prayers ? Object.keys(configToSave.prayers) : [];
       let warningsList = [];
       let invalidCount = 0;
@@ -190,7 +181,6 @@ export const SettingsProvider = ({ children }) => {
               if (trigger && trigger.enabled) {
                   const error = await validateTrigger(trigger);
                   if (error) {
-                      // FR-03: Abort save on validation error
                       const niceName = `${prayer.charAt(0).toUpperCase() + prayer.slice(1)} ${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
                       warningsList.push(`${niceName}: ${error}`);
                       invalidCount++;
@@ -200,7 +190,6 @@ export const SettingsProvider = ({ children }) => {
       }
 
       if (invalidCount > 0) {
-          // FR-03: Abort immediately, do not save
           return { 
               success: false, 
               error: 'Verification Failed', 
@@ -225,15 +214,12 @@ export const SettingsProvider = ({ children }) => {
 
       if (res.ok) {
         setConfig(configToSave);
-        // Sync draft with the sanitized config
         setDraftConfig(JSON.parse(JSON.stringify(configToSave)));
-        
-        // Merge backend warnings
         const backendWarnings = data.warnings || [];
         return { 
             success: true, 
             message: data.message, 
-            warning: backendWarnings.length > 0, // Boolean flag for modal
+            warning: backendWarnings.length > 0,
             warningsList: backendWarnings 
         };
       } else {
@@ -257,25 +243,19 @@ export const SettingsProvider = ({ children }) => {
     setDraftConfig(prev => {
         if (!prev) return prev;
         const next = JSON.parse(JSON.stringify(prev));
-        
         for (const prayer of prayers) {
-            // Skip preIqamah for sunrise
             if (eventType === 'preIqamah' && prayer === 'sunrise') continue;
-            
             const trigger = next.automation?.triggers?.[prayer]?.[eventType];
             if (trigger) {
                 trigger.offsetMinutes = clampedMinutes;
                 count++;
             }
         }
-        
         return next;
     });
-    
     return count;
   }, []);
 
-  // Use the ref for resetDraft to ensure stability
   const resetDraft = useCallback(() => {
       if (configRef.current) {
           setDraftConfig(JSON.parse(JSON.stringify(configRef.current)));
@@ -283,7 +263,6 @@ export const SettingsProvider = ({ children }) => {
   }, []);
 
   const resetToDefaults = useCallback(async () => {
-     // Confirmation is now handled by the UI component
      setSaving(true);
      try {
          const res = await fetch('/api/settings/reset', { method: 'POST' });
@@ -302,13 +281,12 @@ export const SettingsProvider = ({ children }) => {
      }
   }, [fetchSettings]);
 
-
   const hasUnsavedChanges = useCallback(() => {
       if (!config || !draftConfig) return false;
       return JSON.stringify(config) !== JSON.stringify(draftConfig);
   }, [config, draftConfig]);
 
-    const isSectionDirty = useCallback((path) => {
+  const isSectionDirty = useCallback((path) => {
       if (!config || !draftConfig) return false;
       const getVal = (obj, p) => p.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj);
       const val1 = getVal(config, path);
@@ -318,32 +296,23 @@ export const SettingsProvider = ({ children }) => {
 
   const getSectionHealth = useCallback((path) => {
       if (!draftConfig || !systemHealth) return { healthy: true, issues: [] };
-      
       const getVal = (obj, p) => p.split('.').reduce((acc, part) => (acc && acc[part] !== undefined) ? acc[part] : undefined, obj);
       const section = getVal(draftConfig, path);
-      
       if (!section) return { healthy: true, issues: [] };
-
       const issues = [];
-      
-      // Helper to check a single trigger
       const checkTrigger = (trigger, name) => {
           if (!trigger || !trigger.enabled) return;
-          
           if (trigger.type === 'tts' && !systemHealth.tts?.healthy) {
               issues.push({ trigger: name, type: 'TTS Service Offline' });
           }
-          
           if (trigger.targets?.includes('local') && !systemHealth.local?.healthy) {
               issues.push({ trigger: name, type: 'Local Audio Offline' });
           }
-          
           if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey?.healthy) {
               issues.push({ trigger: name, type: systemHealth.voiceMonkey?.message || 'VoiceMonkey Offline' });
           }
       };
 
-      // If path is a prayer (e.g. 'prayers.fajr'), check triggers in 'automation.triggers.fajr'
       if (path.startsWith('prayers.')) {
           const prayerName = path.split('.')[1];
           const prayerTriggers = draftConfig.automation?.triggers?.[prayerName];
@@ -352,34 +321,45 @@ export const SettingsProvider = ({ children }) => {
                   checkTrigger(trigger, `${prayerName} ${type}`);
               });
           }
-      } 
-      // If path is 'automation', check all triggers
-      else if (path === 'automation' || path === 'automation.triggers') {
+      } else if (path === 'automation' || path === 'automation.triggers') {
           Object.entries(draftConfig.automation?.triggers || {}).forEach(([prayer, triggers]) => {
               Object.entries(triggers).forEach(([type, trigger]) => {
                   checkTrigger(trigger, `${prayer} ${type}`);
               });
           });
-      }
-      // If path is a specific trigger
-      else if (path.includes('automation.triggers.')) {
+      } else if (path.includes('automation.triggers.')) {
           const parts = path.split('.');
           const prayer = parts[2];
           const type = parts[3];
           const trigger = draftConfig.automation?.triggers?.[prayer]?.[type];
           if (trigger) checkTrigger(trigger, `${prayer} ${type}`);
       }
-
-      return {
-          healthy: issues.length === 0,
-          issues
-      };
+      return { healthy: issues.length === 0, issues };
   }, [draftConfig, systemHealth]);
 
-  const validateBeforeSave = useCallback(() => {
-      // Legacy VoiceMonkey validation removed as it is now handled in Credentials with 'Verify-to-Save'
-      return { success: true };
-  }, []);
+  const updateEnvSetting = useCallback(async (key, value) => {
+    setSaving(true);
+    try {
+        const res = await fetch('/api/settings/env', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, value })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            const path = key === 'BASE_URL' ? 'automation.baseUrl' : `automation.${key}`;
+            updateSetting(path, value);
+            await fetchSettings();
+            return { success: true };
+        } else {
+            return { success: false, error: data.message || 'Update failed' };
+        }
+    } catch (e) {
+        return { success: false, error: e.message };
+    } finally {
+        setSaving(false);
+    }
+  }, [updateSetting, fetchSettings]);
 
   return (
     <SettingsContext.Provider value={{ 
@@ -389,6 +369,7 @@ export const SettingsProvider = ({ children }) => {
         saving, 
         saveSettings, 
         updateSetting,
+        updateEnvSetting,
         resetDraft,
         resetToDefaults,
         hasUnsavedChanges,
@@ -397,7 +378,7 @@ export const SettingsProvider = ({ children }) => {
         refresh: fetchSettings,
         systemHealth,
         refreshHealth,
-        validateBeforeSave,
+        validateBeforeSave: () => ({ success: true }),
         bulkUpdateOffsets,
         voices,
         voicesLoading,

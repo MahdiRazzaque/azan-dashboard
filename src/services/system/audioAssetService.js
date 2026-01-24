@@ -4,9 +4,19 @@ const crypto = require('crypto');
 const axios = require('axios');
 const numberToWords = require('number-to-words');
 const configService = require('@config'); // Singleton
+const audioValidator = require('@utils/audioValidator');
 
-// Note: Python saves to <project>/public/audio/cache, not src/public
-const CACHE_DIR = path.join(__dirname, '../../../public/audio/cache');
+// AUDIO ROOT: public/audio (for mp3 files)
+const AUDIO_ROOT = path.join(__dirname, '../../../public/audio');
+const AUDIO_CACHE_DIR = path.join(AUDIO_ROOT, 'cache');
+const AUDIO_TEMP_DIR = path.join(AUDIO_ROOT, 'temp');
+const AUDIO_CUSTOM_DIR = path.join(AUDIO_ROOT, 'custom');
+
+// METADATA ROOT: src/public/audio (for .mp3.json files)
+const META_ROOT = path.join(__dirname, '../../public/audio');
+const META_CACHE_DIR = path.join(META_ROOT, 'cache');
+const META_CUSTOM_DIR = path.join(META_ROOT, 'custom');
+
 const ARABIC_NAMES = {
     fajr: 'فجر',
     sunrise: 'شُروق',
@@ -19,36 +29,37 @@ const ARABIC_NAMES = {
 const PRAYER_NAMES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 /**
- * Ensures that the audio cache directory exists.
- * Creates the directory if it does not already exist.
- * 
- * @returns {void}
+ * Ensures that necessary directories exist.
  */
-const ensureCacheDir = () => {
-    if (!fs.existsSync(CACHE_DIR)) {
-        fs.mkdirSync(CACHE_DIR, { recursive: true });
-    }
+const ensureDirs = () => {
+    [AUDIO_CACHE_DIR, AUDIO_TEMP_DIR, AUDIO_CUSTOM_DIR, META_CACHE_DIR, META_CUSTOM_DIR].forEach(dir => {
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+    });
 };
 
 /**
  * Cleans up old audio files from the cache directory.
- * Deletes files that are older than 30 days.
- * 
- * @returns {Promise<void>}
  */
 const cleanupCache = async () => {
-    ensureCacheDir();
+    ensureDirs();
     const now = Date.now();
     const MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
 
     try {
-        const files = fs.readdirSync(CACHE_DIR);
+        const files = fs.readdirSync(AUDIO_CACHE_DIR);
         for (const file of files) {
-            const filePath = path.join(CACHE_DIR, file);
+            const filePath = path.join(AUDIO_CACHE_DIR, file);
             const stats = fs.statSync(filePath);
             if (now - stats.mtimeMs > MAX_AGE) {
                 fs.unlinkSync(filePath);
-                console.log(`[AudioService] Deleted old cache file: ${file}`);
+                
+                // Cleanup metadata as well
+                const metaPath = path.join(META_CACHE_DIR, file + '.json');
+                if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath);
+                
+                console.log(`[AudioService] Deleted old cache file and meta: ${file}`);
             }
         }
     } catch (error) {
@@ -58,125 +69,74 @@ const cleanupCache = async () => {
 
 /**
  * Cleans up temporary preview audio files.
- * Deletes files that are older than 1 hour, or all files if force is true.
- * 
- * @param {boolean} [force=false] - Whether to delete all files regardless of age.
- * @returns {Promise<void>}
  */
 const cleanupTempAudio = async (force = false) => {
     console.log(`[AudioService] Cleaning up temporary audio files (force: ${force})...`);
-    const TEMP_DIR = path.join(__dirname, '../../../public/audio/temp');
-    if (!fs.existsSync(TEMP_DIR)) return;
+    if (!fs.existsSync(AUDIO_TEMP_DIR)) return;
 
     const now = Date.now();
     const MAX_AGE = 1 * 60 * 60 * 1000; // 1 hour
 
     try {
-        const files = fs.readdirSync(TEMP_DIR);
+        const files = fs.readdirSync(AUDIO_TEMP_DIR);
         let deletedCount = 0;
         for (const file of files) {
             if (!file.endsWith('.mp3')) continue;
+            const filePath = path.join(AUDIO_TEMP_DIR, file);
             
-            const filePath = path.join(TEMP_DIR, file);
-            
-            if (force) {
+            if (force || (now - fs.statSync(filePath).mtimeMs > MAX_AGE)) {
                 fs.unlinkSync(filePath);
                 deletedCount++;
-            } else {
-                const stats = fs.statSync(filePath);
-                if (now - stats.mtimeMs > MAX_AGE) {
-                    fs.unlinkSync(filePath);
-                    deletedCount++;
-                }
             }
         }
-        if (deletedCount > 0) {
-            console.log(`[AudioService] Cleaned up ${deletedCount} temporary preview files.`);
-        } else {
-            console.log('[AudioService] No temporary preview files found to clean up.');
-        }
+        console.log(`[AudioService] Cleaned up ${deletedCount} temporary preview files.`);
     } catch (error) {
         console.error('[AudioService] Temp cleanup failed:', error.message);
     }
 };
 
 /**
- * Resolves a message template by replacing placeholders with actual values.
- * Placeholders include {prayerEnglish}, {prayerArabic}, and {minutes}.
- * 
- * @param {string} template - The message template string.
- * @param {string} prayerKey - The English name of the prayer.
- * @param {number} [offsetMinutes] - The offset in minutes.
- * @returns {string} The resolved message string.
+ * Resolves a message template.
  */
 const resolveTemplate = (template, prayerKey, offsetMinutes) => {
     let result = template;
-    
-    // {prayerEnglish}
     result = result.replace(/{prayerEnglish}/g, prayerKey.charAt(0).toUpperCase() + prayerKey.slice(1));
-    
-    // {prayerArabic}
     result = result.replace(/{prayerArabic}/g, ARABIC_NAMES[prayerKey] || prayerKey);
-
-    // {minutes} - convert to words
     if (offsetMinutes !== undefined) {
-        // Use number-to-words for English numbers as per requirement
         const words = numberToWords.toWords(offsetMinutes);
         result = result.replace(/{minutes}/g, words);
     }
-
     return result;
 };
 
-// Added serviceUrl parameter to make dependency explicit
 /**
  * Generates an audio file using Text-to-Speech.
- * 
- * @param {string} filename - The name of the file to save.
- * @param {string} text - The text to convert to speech.
- * @param {string} serviceUrl - The URL of the TTS service.
- * @param {string} [triggerVoice] - Specific voice for this trigger.
- * @returns {Promise<void>}
  */
 const generateTTS = async (filename, text, serviceUrl, triggerVoice = null) => {
     try {
         const url = `${serviceUrl}/generate-tts`;
-        
-        // Resolve voice: Trigger > Global Default > Fallback
         const config = configService.get();
         const globalDefault = config.automation?.defaultVoice;
-        const FALLBACK_VOICE = 'ar-DZ-IsmaelNeural';
-        const voice = triggerVoice || globalDefault || FALLBACK_VOICE;
+        const voice = triggerVoice || globalDefault || 'ar-SA-HamedNeural';
                 
-        await axios.post(url, {
-            text: text,
-            filename: filename,
-            voice: voice
-        });
+        await axios.post(url, { text, filename, voice });
         console.log(`[AudioService] Generated: ${filename} using voice: ${voice}`);
     } catch (error) {
         console.error(`[AudioService] TTS Generation failed for ${filename}:`, error.message);
-        // Don't throw, just log. We don't want to break the whole loop.
     }
 };
 
 /**
  * Synchronises audio assets with the current configuration.
- * Generates missing TTS files and optionally cleans the cache.
- * 
- * @param {boolean} [forceClean=false] - Whether to clear the cache before synchronising.
- * @returns {Promise<Object>} A report containing any warnings encountered during synchronisation.
- * @throws {Error} If the TTS service is unavailable.
  */
 const syncAudioAssets = async (forceClean = false) => {
     console.log('[AudioService] Synchronising audio assets...');
-    ensureCacheDir();
+    ensureDirs();
     
     const config = configService.get();
     const triggers = config.automation?.triggers;
     const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
 
-    // Health Check: Ensure TTS service is available before doing anything
     const healthCheck = require('./healthCheck');
     console.log('[AudioService] Verifying TTS Service status...');
     await healthCheck.refresh('tts');
@@ -189,84 +149,62 @@ const syncAudioAssets = async (forceClean = false) => {
 
     if (forceClean) {
         console.log('[AudioService] Force cleaning all cached assets...');
-        try {
-            const files = fs.readdirSync(CACHE_DIR);
-            for (const file of files) {
-                if (file.endsWith('.mp3') || file.endsWith('.json')) {
-                    fs.unlinkSync(path.join(CACHE_DIR, file));
-                }
+        [AUDIO_CACHE_DIR, META_CACHE_DIR].forEach(dir => {
+            if (fs.existsSync(dir)) {
+                fs.readdirSync(dir).forEach(f => fs.unlinkSync(path.join(dir, f)));
             }
-            console.log(`[AudioService] Cleared ${files.length} files.`);
-        } catch (e) {
-            console.error('[AudioService] Failed to force clean cache:', e);
-        }
+        });
     }
 
-    const warnings = [];
-    if (!triggers) return { warnings };
+    if (!triggers) return { warnings: [] };
 
     for (const prayer of PRAYER_NAMES) {
         const prayerTriggers = triggers[prayer];
         if (!prayerTriggers) continue;
 
-        // Iterate events: preAdhan, adhan, preIqamah, iqamah
         for (const [event, settings] of Object.entries(prayerTriggers)) {
-            // console.log(event, settings);
-            if (!settings.enabled || settings.type !== 'tts' || !settings.template) {
-                // console.log(`[AudioService] Skipping ${prayer} - ${event} (disabled or not TTS)`);
-                continue;
-            }
+            if (!settings.enabled || settings.type !== 'tts' || !settings.template) continue;
 
             const text = resolveTemplate(settings.template, prayer, settings.offsetMinutes);
             const filename = `tts_${prayer}_${event}.mp3`;
-            const filePath = path.join(CACHE_DIR, filename);
-            const metaPath = filePath + '.json';
+            const audioPath = path.join(AUDIO_CACHE_DIR, filename);
+            const metaPath = path.join(META_CACHE_DIR, filename + '.json');
 
             let shouldGenerate = true;
-
-            // Check if file and metadata exist to verify if config changed
-            if (fs.existsSync(filePath) && fs.existsSync(metaPath)) {
+            if (fs.existsSync(audioPath) && fs.existsSync(metaPath)) {
                 try {
                     const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-                    
-                    // Determine the effective voice for this trigger
-                    const effectiveVoice = settings.voice || config.automation?.defaultVoice || 'ar-DZ-IsmaelNeural';
-                    
-                    // Check both text AND voice match
+                    const effectiveVoice = settings.voice || config.automation?.defaultVoice || 'ar-SA-HamedNeural';
                     if (meta.text === text && meta.voice === effectiveVoice) {
-                        // Config hasn't changed, reuse file
-                        // Touch file to prevent cleanup aging (update mtime)
                         const now = new Date();
-                        fs.utimesSync(filePath, now, now);
+                        fs.utimesSync(audioPath, now, now);
                         fs.utimesSync(metaPath, now, now);
-                        
                         shouldGenerate = false;
-                        // console.log(`[AudioService] Skipping ${prayer} - ${event} (Cached)`);
                     }
-                } catch (e) {
-                    // Meta corrupt or read error, regenerate
-                }
+                } catch (e) { /* corrupted */ }
             }
             
             if (shouldGenerate) {
                 console.log(`[AudioService] Preparing TTS for ${prayer} - ${event}`);
-                // Quota Check
                 const storageService = require('./storageService');
-                const estimatedSize = text.length * 1024; // 1KB per char upper bound
+                const estimatedSize = text.length * 1024;
                 const quotaCheck = await storageService.checkQuota(estimatedSize);
                 
                 if (!quotaCheck.success) {
-                const errorMsg = `Storage Limit Exceeded: Cannot generate ${prayer} ${event} (${quotaCheck.message})`;
-                console.error(`[AudioService] ${errorMsg}`);
-                throw new Error(errorMsg);
-            }
+                    throw new Error(`Storage Limit Exceeded: ${quotaCheck.message}`);
+                }
 
-                // Pass the URL derived from the fresh config
                 await generateTTS(filename, text, pythonServiceUrl, settings.voice);
+                
+                const metadata = await audioValidator.analyseAudioFile(audioPath);
+                const vmStatus = audioValidator.validateVoiceMonkeyCompatibility(metadata);
+                
                 fs.writeFileSync(metaPath, JSON.stringify({ 
                     text, 
-                    voice: settings.voice || config.automation?.defaultVoice || 'ar-DZ-IsmaelNeural',
-                    generatedAt: new Date().toISOString() 
+                    voice: settings.voice || config.automation?.defaultVoice || 'ar-SA-HamedNeural',
+                    generatedAt: new Date().toISOString(),
+                    ...metadata,
+                    ...vmStatus
                 }));
             }
         }
@@ -278,71 +216,91 @@ const syncAudioAssets = async (forceClean = false) => {
 };
 
 /**
- * Proxies a request to generate a TTS preview audio file after resolving placeholders.
- * Uses hash-based caching to avoid regenerating identical previews.
- * 
- * @param {string} template - The message template string.
- * @param {string} prayerKey - The English name of the prayer.
- * @param {number} offsetMinutes - The offset in minutes.
- * @param {string} voice - The voice to use for generation.
- * @returns {Promise<Object>} The response with the audio URL.
+ * Preview TTS.
  */
 const previewTTS = async (template, prayerKey, offsetMinutes, voice) => {
     const text = resolveTemplate(template, prayerKey.toLowerCase(), offsetMinutes);
     const config = configService.get();
     const pythonUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
 
-    // Create a unique hash from the resolved text and voice
     const hash = crypto.createHash('md5').update(`${text}|${voice}`).digest('hex').slice(0, 12);
     const filename = `preview_${hash}.mp3`;
-    // Note: Python saves to <project>/public/audio/temp, not src/public
-    const TEMP_DIR = path.join(__dirname, '../../../public/audio/temp');
-    const filePath = path.join(TEMP_DIR, filename);
+    const audioPath = path.join(AUDIO_TEMP_DIR, filename);
 
-    // Check if this exact preview already exists (cached)
-    if (fs.existsSync(filePath)) {
-        const stats = fs.statSync(filePath);
-        const ageMs = Date.now() - stats.mtimeMs;
-        const MAX_AGE = 1 * 60 * 60 * 1000; // 1 hour
-
-        if (ageMs < MAX_AGE) {
-            console.log(`[AudioService] Serving cached preview: ${filename}`);
-            // Touch the file to keep it alive
+    if (fs.existsSync(audioPath)) {
+        if (Date.now() - fs.statSync(audioPath).mtimeMs < 1 * 60 * 60 * 1000) {
             const now = new Date();
-            fs.utimesSync(filePath, now, now);
+            fs.utimesSync(audioPath, now, now);
             return { url: `/public/audio/temp/${filename}` };
         }
     }
 
-    // Generate new preview via Python service
     try {
-        // Check storage quota before generating new file
         const storageService = require('./storageService');
-        const estimatedSize = text.length * 1024; // 1KB per char upper bound
-        const quotaCheck = await storageService.checkQuota(estimatedSize);
-        
-        if (!quotaCheck.success) {
-            console.error('[AudioService] Preview quota exceeded:', quotaCheck.message);
-            throw new Error('Storage limit reached. Please clean up temporary TTS files in the Developer Panel → System Actions.');
-        }
-
-        console.log(`[AudioService] Generating new preview: ${filename}`);
-        const response = await axios.post(`${pythonUrl}/preview-tts`, { 
-            text, 
-            voice, 
-            filename // Pass the deterministic filename to Python
-        });
+        await storageService.checkQuota(text.length * 1024);
+        const response = await axios.post(`${pythonUrl}/preview-tts`, { text, voice, filename });
         return response.data;
     } catch (error) {
         console.error('[AudioService] Preview generation failed:', error.message);
-        throw error; // Re-throw to preserve the user-friendly message
+        throw error;
     }
 };
+
+const generateMetadataForExistingFiles = async () => {
+    ensureDirs();
+    const directories = [
+        { audio: AUDIO_CUSTOM_DIR, meta: META_CUSTOM_DIR },
+        { audio: AUDIO_CACHE_DIR, meta: META_CACHE_DIR }
+    ];
+    
+    for (const dirSet of directories) {
+        if (!fs.existsSync(dirSet.audio)) continue;
+        
+        const files = fs.readdirSync(dirSet.audio).filter(f => f.endsWith('.mp3'));
+        for (const file of files) {
+            const audioPath = path.join(dirSet.audio, file);
+            const metaPath = path.join(dirSet.meta, file + '.json');
+            
+            const legacyMetaPath = audioPath + '.json';
+            const redundantMetaPath = audioPath + '.meta.json';
+            
+            if (!fs.existsSync(metaPath)) {
+                try {
+                    console.log(`[AudioService] Generating metadata for ${file}...`);
+                    const metadata = await audioValidator.analyseAudioFile(audioPath);
+                    const vmStatus = audioValidator.validateVoiceMonkeyCompatibility(metadata);
+                    
+                    let existingData = {};
+                    if (fs.existsSync(legacyMetaPath)) {
+                        try { existingData = JSON.parse(fs.readFileSync(legacyMetaPath, 'utf8')); } catch (e) {}
+                    } else if (fs.existsSync(redundantMetaPath)) {
+                        try { existingData = JSON.parse(fs.readFileSync(redundantMetaPath, 'utf8')); } catch (e) {}
+                    }
+                    
+                    fs.writeFileSync(metaPath, JSON.stringify({
+                        ...existingData,
+                        ...metadata,
+                        ...vmStatus,
+                        updatedAt: new Date().toISOString()
+                    }));
+
+                    // Cleanup redundant ones in root public
+                    if (fs.existsSync(legacyMetaPath)) fs.unlinkSync(legacyMetaPath);
+                    if (fs.existsSync(redundantMetaPath)) fs.unlinkSync(redundantMetaPath);
+                    
+                } catch (error) {
+                    console.error(`[AudioService] Metadata generation failed for ${file}:`, error.message);
+                }
+            }
+        }
+    }
+}
 
 module.exports = {
     syncAudioAssets,
     cleanupCache,
     cleanupTempAudio,
     resolveTemplate,
-    previewTTS
+    previewTTS,
+    generateMetadataForExistingFiles
 };

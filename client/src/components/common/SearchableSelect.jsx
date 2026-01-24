@@ -89,7 +89,7 @@ const SearchableSelect = ({ value, options = [], onChange, placeholder = "Select
               />
             )}
           </div>
-          <div className="max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-app-border scrollbar-track-transparent">
+          <div className="max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-app-border scrollbar-track-transparent">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((opt) => (
                 <div 

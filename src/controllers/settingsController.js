@@ -8,6 +8,8 @@ const schedulerService = require('@services/core/schedulerService');
 const audioAssetService = require('@services/system/audioAssetService');
 const healthCheck = require('@services/system/healthCheck');
 const { validateConfigSource } = require('@services/core/validationService');
+const audioValidator = require('@utils/audioValidator');
+const systemControllerHelper = require('./systemController');
 
 /**
  * Controller for settings-related operations, managing application configuration,
@@ -115,6 +117,8 @@ const settingsController = {
         const health = healthCheck.getHealth();
         
         if (newConfig.automation && newConfig.automation.triggers) {
+            const audioFiles = await systemControllerHelper._getAudioFilesWithMetadata();
+            
             Object.entries(newConfig.automation.triggers).forEach(([prayer, triggers]) => {
                 Object.entries(triggers).forEach(([type, trigger]) => {
                     if (!trigger.enabled) return;
@@ -126,8 +130,22 @@ const settingsController = {
                     if (trigger.targets && trigger.targets.includes('local') && !health.local?.healthy) {
                         warnings.push(`${niceName}: Local Audio Service is offline`);
                     }
+                    
+                    // VoiceMonkey reachability check
                     if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !health.voiceMonkey?.healthy) {
                          warnings.push(`${niceName}: ${health.voiceMonkey?.message || 'VoiceMonkey Service is offline'}`);
+                    }
+                    
+                    // VoiceMonkey audio compatibility check
+                    if (trigger.targets?.includes('voiceMonkey')) {
+                        const file = audioFiles.find(f => 
+                            (trigger.type === 'file' && f.path === trigger.path) ||
+                            (trigger.type === 'tts' && f.name === `tts_${prayer}_${type}.mp3`)
+                        );
+                        
+                        if (file && file.vmCompatible === false) {
+                            warnings.push(`${niceName}: Audio incompatible with Alexa (${file.vmIssues?.join(', ') || 'Unknown issues'})`);
+                        }
                     }
                 });
             });
@@ -233,13 +251,40 @@ const settingsController = {
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
      */
-    uploadFile: (req, res) => {
+    uploadFile: async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-        res.json({ 
-            message: 'File uploaded successfully', 
-            filename: req.file.originalname, 
-            path: `custom/${req.file.originalname}` 
-        });
+        
+        try {
+            const audioPath = path.join(__dirname, '../../public/audio/custom', req.file.originalname);
+            const metaDir = path.join(__dirname, '../public/audio/custom');
+            const metaPath = path.join(metaDir, req.file.originalname + '.json');
+            
+            if (!fs.existsSync(metaDir)) fs.mkdirSync(metaDir, { recursive: true });
+
+            // Generate metadata sidecar in src/public
+            const metadata = await audioValidator.analyseAudioFile(audioPath);
+            const vmStatus = audioValidator.validateVoiceMonkeyCompatibility(metadata);
+            
+            fs.writeFileSync(metaPath, JSON.stringify({
+                ...metadata,
+                ...vmStatus,
+                updatedAt: new Date().toISOString()
+            }));
+            
+            res.json({ 
+                message: 'File uploaded and analysed successfully', 
+                filename: req.file.originalname, 
+                path: `custom/${req.file.originalname}`,
+                ...vmStatus
+            });
+        } catch (error) {
+            console.error('[SettingsController] Upload analysis failed:', error.message);
+            res.json({ 
+                message: 'File uploaded, but analysis failed', 
+                filename: req.file.originalname, 
+                path: `custom/${req.file.originalname}`
+            });
+        }
     },
 
     /**
@@ -252,20 +297,35 @@ const settingsController = {
         const { filename } = req.body;
         if (!filename) return res.status(400).json({ error: 'Missing filename' });
         
-        const filePath = path.join(__dirname, '../../public/audio/custom', filename);
+        const audioPath = path.join(__dirname, '../../public/audio/custom', filename);
+        const metaPath = path.join(__dirname, '../public/audio/custom', filename + '.json');
         
-        // Prevent directory traversal attacks by sanitising the filename
+        // Prevent directory traversal attacks
         if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
-        if (fs.existsSync(filePath)) {
+        let deleted = false;
+        if (fs.existsSync(audioPath)) {
             try {
-                fs.unlinkSync(filePath);
-                res.json({ success: true, message: 'File deleted' });
+                fs.unlinkSync(audioPath);
+                deleted = true;
             } catch (e) {
-                res.status(500).json({ error: 'Delete failed' });
+                console.error('[SettingsController] Failed to delete audio:', e.message);
             }
+        }
+
+        if (fs.existsSync(metaPath)) {
+            try {
+                fs.unlinkSync(metaPath);
+                deleted = true;
+            } catch (e) {
+                console.error('[SettingsController] Failed to delete meta:', e.message);
+            }
+        }
+
+        if (deleted) {
+            res.json({ success: true, message: 'File and metadata deleted' });
         } else {
             res.status(404).json({ error: 'File not found' });
         }

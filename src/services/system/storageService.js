@@ -3,7 +3,7 @@ const path = require('path');
 const checkDiskSpace = require('check-disk-space').default;
 const configService = require('@config');
 
-const AUDIO_DIR = path.join(__dirname, '../../public/audio');
+const AUDIO_DIR = path.join(__dirname, '../../../public/audio');
 const CUSTOM_DIR = path.join(AUDIO_DIR, 'custom');
 const CACHE_DIR = path.join(AUDIO_DIR, 'cache');
 

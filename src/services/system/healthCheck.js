@@ -97,6 +97,12 @@ async function checkVoiceMonkey(mode = 'silent') {
     const config = configService.get();
     const token = config.automation?.voiceMonkey?.token;
     const device = config.automation?.voiceMonkey?.device;
+    const baseUrl = config.automation?.baseUrl;
+
+    if (!baseUrl || !baseUrl.startsWith('https://')) {
+        console.warn('[Health] VoiceMonkey: Unhealthy (HTTPS BASE_URL required)');
+        return { healthy: false, message: 'Offline: HTTPS Base URL required' };
+    }
 
     if (!token) {
         console.warn('[Health] VoiceMonkey: Skipped (Token missing)');

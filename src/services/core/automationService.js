@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const player = require('play-sound')({});
 const axios = require('axios');
@@ -5,7 +6,8 @@ const configService = require('@config'); // Singleton
 const sseService = require('@services/system/sseService');
 const { voiceMonkeyQueue } = require('@utils/requestQueue');
 
-const AUDIO_DIR = path.join(__dirname, '../../public/audio');
+const AUDIO_DIR = path.join(__dirname, '../../../public/audio');
+const META_DIR = path.join(__dirname, '../../public/audio');
 
 /**
  * Resolves the audio source path and URL based on the trigger settings.
@@ -91,10 +93,31 @@ const broadcastToClients = (settings, prayer, event, source) => {
  * @returns {Promise<void>}
  */
 const handleVoiceMonkey = async (settings, prayer, event, source) => {
-    if (!source.url) return;
+    if (!source.url || !source.filePath) return;
+    
+    // Resolve metadata path: src/public/audio/.../filename.mp3.json
+    const relativePath = path.relative(AUDIO_DIR, source.filePath);
+    const metaPath = path.join(META_DIR, relativePath + '.json');
+    
+    let metadata = null;
+    if (fs.existsSync(metaPath)) {
+        try { metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8')); } catch(e) {}
+    }
+
+    if (metadata && metadata.vmCompatible === false) {
+        console.warn(`[Automation] Skipped VoiceMonkey for ${source.filePath}: Audio properties violate Alexa requirements. Issues: ${metadata.vmIssues?.join(', ')}`);
+        return;
+    }
     
     const config = configService.get();
     const baseUrl = config.automation.baseUrl || ''; 
+
+    // Guard: VoiceMonkey requires a valid HTTPS public URL for audio assets
+    if (!baseUrl || !baseUrl.startsWith('https://')) {
+        console.warn(`[Automation] Skipped VoiceMonkey for ${prayer} ${event}: Invalid or missing BASE_URL (${baseUrl}). HTTPS is required for Alexa to reach local assets.`);
+        return;
+    }
+
     const publicUrl = source.url.startsWith('http') ? source.url : `${baseUrl}${source.url}`;
     
     console.log(`[Target:VoiceMonkey] Triggering for ${publicUrl}`);

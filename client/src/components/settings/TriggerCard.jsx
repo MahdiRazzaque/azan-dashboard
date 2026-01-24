@@ -72,12 +72,12 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
 
     return (
         <div className={cn(
-            "rounded-lg border transition-all duration-300 relative overflow-hidden",
+            "rounded-lg border transition-all duration-300 relative",
             isDisabledByMaster 
-                ? "bg-app-bg/10 border-app-border opacity-60 grayscale" 
+                ? "bg-app-bg/10 border-app-border opacity-60 grayscale overflow-hidden" 
                 : trigger.enabled 
-                    ? "bg-app-card/50 border-app-border p-4" 
-                    : "bg-app-card/20 border-app-border opacity-75 p-4"
+                    ? "bg-app-card/50 border-app-border p-4 overflow-visible" 
+                    : "bg-app-card/20 border-app-border opacity-75 p-4 overflow-hidden"
         )}>
              {isDisabledByMaster && (
                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-app-bg/20 backdrop-blur-[1px]">
@@ -105,14 +105,26 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                          </div>
                      )}
                      
-                      {/* Warning icon if enabled but underlying service is dead */}
+                      {/* Warning icon if enabled but underlying service is dead or incompatible */}
                      {(() => {
                          if (!trigger.enabled || isDisabledByMaster) return null;
                          
                          const issues = [];
                          if (trigger.type === 'tts' && !systemHealth.tts?.healthy) issues.push('TTS Service Offline');
                          if (trigger.targets?.includes('local') && !systemHealth.local?.healthy) issues.push('Local Audio (mpg123) Offline');
-                         if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey?.healthy) issues.push('VoiceMonkey Service Offline');
+                         
+                         // VoiceMonkey Reachability
+                         if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey?.healthy) {
+                             issues.push('VoiceMonkey Service Offline');
+                         }
+
+                         // VoiceMonkey Compatibility (for custom files)
+                         if (trigger.type === 'file' && trigger.targets?.includes('voiceMonkey')) {
+                             const file = files?.find(f => f.path === trigger.path);
+                             if (file && file.vmCompatible === false) {
+                                 issues.push(`Alexa Incompatible: ${file.vmIssues?.join(', ') || 'Unsupported properties'}`);
+                             }
+                         }
 
                          if (issues.length === 0) return null;
 
