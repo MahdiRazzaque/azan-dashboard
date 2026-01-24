@@ -142,10 +142,10 @@ const scheduleMaintenanceJobs = () => {
         jobs.push(boundaryJob);
     }
 
-    // 3. System Health Check - Run Hourly
-    const healthJob = schedule.scheduleJob('0 * * * *', async () => {
+    // 3. System Health Check - Run Daily at 2:30 AM
+    const healthJob = schedule.scheduleJob('30 2 * * *', async () => {
         try {
-            console.log('[Maintenance] Running Hourly Health Check...');
+            console.log('[Maintenance] Running Daily Health Check...');
             await healthCheck.refresh('all', 'silent');
         } catch (e) {
             console.error('[Maintenance] Health Check Failed:', e);
