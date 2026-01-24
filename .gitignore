@@ -211,3 +211,4 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .tern-port
 .dynamodb/
 .webpack/
+/src/public
