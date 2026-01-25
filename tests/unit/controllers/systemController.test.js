@@ -480,4 +480,43 @@ describe('SystemController', () => {
             expect(res.json).toHaveBeenCalledWith({ error: 'Failed to clean up temporary files' });
         });
     });
+
+    describe('runJob', () => {
+        it('should return 400 if jobName is missing', async () => {
+            await systemController.runJob(req, res);
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
+        });
+
+        it('should call schedulerService.runJob and return result', async () => {
+            req.body = { jobName: 'Test Job' };
+            schedulerService.runJob.mockResolvedValue({ success: true, message: 'OK' });
+            
+            await systemController.runJob(req, res);
+            
+            expect(schedulerService.runJob).toHaveBeenCalledWith('Test Job');
+            expect(res.json).toHaveBeenCalledWith({ success: true, message: 'OK' });
+            expect(sseService.log).toHaveBeenCalledWith(expect.stringContaining('Manual trigger: Test Job'), 'info');
+        });
+
+        it('should return 400 if scheduler returns failure', async () => {
+            req.body = { jobName: 'Bad Job' };
+            schedulerService.runJob.mockResolvedValue({ success: false, message: 'Nope' });
+            
+            await systemController.runJob(req, res);
+            
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith({ success: false, message: 'Nope' });
+        });
+
+        it('should return 500 on unexpected error', async () => {
+            req.body = { jobName: 'Error Job' };
+            schedulerService.runJob.mockRejectedValue(new Error('Fatal'));
+            
+            await systemController.runJob(req, res);
+            
+            expect(res.status).toHaveBeenCalledWith(500);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false, message: 'Fatal' }));
+        });
+    });
 });

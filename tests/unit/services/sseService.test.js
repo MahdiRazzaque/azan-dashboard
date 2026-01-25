@@ -73,8 +73,8 @@ describe('SSE Service', () => {
         });
 
         it('should cycle log history when full', () => {
-            // MAX_HISTORY is 200
-            for (let i = 0; i < 205; i++) {
+            // MAX_HISTORY is 1000
+            for (let i = 0; i < 1005; i++) {
                 sseService.log(`msg-${i}`);
             }
             
@@ -82,10 +82,10 @@ describe('SSE Service', () => {
             sseService.addClient(newRes);
             
             const dataCalls = newRes.write.mock.calls.filter(args => args[0] && args[0].startsWith('data:'));
-            expect(dataCalls.length).toBe(200);
+            expect(dataCalls.length).toBe(1000);
             
             expect(JSON.stringify(dataCalls)).not.toContain('msg-0');
-            expect(JSON.stringify(dataCalls)).toContain('msg-204');
+            expect(JSON.stringify(dataCalls)).toContain('msg-1004');
         });
     });
 });

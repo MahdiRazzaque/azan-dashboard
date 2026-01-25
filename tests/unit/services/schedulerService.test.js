@@ -7,6 +7,7 @@ const healthCheck = require('@services/system/healthCheck');
 const audioAssetService = require('@services/system/audioAssetService');
 const voiceService = require('@services/system/voiceService');
 const { DateTime } = require('luxon');
+const jobConstants = require('@utils/jobConstants');
 
 jest.mock('node-schedule');
 jest.mock('@config');
@@ -139,8 +140,9 @@ describe('SchedulerService', () => {
     describe('Maintenance Jobs', () => {
         it('should run hourly health check', async () => {
             await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '30 2 * * *');
-            await call[1]();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_HEALTH_CHECK);
+            expect(call[1]).toBe('30 2 * * *');
+            await call[2]();
             expect(healthCheck.refresh).toHaveBeenCalled();
         });
 
@@ -149,8 +151,9 @@ describe('SchedulerService', () => {
                 meta: { lastFetched: DateTime.now().minus({ days: 10 }).toISO() }
             });
             await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
-            await call[1]();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_STALE_CHECK);
+            expect(call[1]).toBe('0 3 * * 0');
+            await call[2]();
             expect(prayerTimeService.forceRefresh).toHaveBeenCalled();
         });
 
@@ -159,8 +162,8 @@ describe('SchedulerService', () => {
                 meta: { lastFetched: DateTime.now().minus({ days: 2 }).toISO() }
             });
             await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
-            await call[1]();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_STALE_CHECK);
+            await call[2]();
             expect(prayerTimeService.forceRefresh).not.toHaveBeenCalled();
         });
 
@@ -170,37 +173,41 @@ describe('SchedulerService', () => {
             prayerTimeService.readCache.mockReturnValue({ data: {} });
             
             await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
-            await call[1]();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_YEAR_BOUNDARY);
+            expect(call[1]).toBe('0 4 * * *');
+            await call[2]();
             expect(prayerTimeService.getPrayerTimes).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ year: 2100 }));
         });
 
         it('should run audio asset maintenance daily', async () => {
             await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '30 3 * * *');
-            await call[1]();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_AUDIO_ASSETS);
+            expect(call[1]).toBe('30 3 * * *');
+            await call[2]();
             expect(audioAssetService.syncAudioAssets).toHaveBeenCalledWith(false);
         });
 
         it('should run source health check daily', async () => {
             await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 2 * * *');
-            await call[1]();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_SOURCE_HEALTH);
+            expect(call[1]).toBe('0 2 * * *');
+            await call[2]();
             expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource', 'silent');
         });
 
         it('should handle source health check failure', async () => {
             healthCheck.refresh.mockRejectedValue(new Error('Source Health Error'));
             await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 2 * * *');
-            await call[1]();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_SOURCE_HEALTH);
+            await call[2]();
             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Source Health Check Failed'), expect.anything());
         });
 
         it('should run midnight refresh', async () => {
             await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 0 * * *');
-            await call[1]();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_MIDNIGHT_REFRESH);
+            expect(call[1]).toBe('0 0 * * *');
+            await call[2]();
             expect(configService.reload).toHaveBeenCalled();
         });
 
@@ -211,12 +218,12 @@ describe('SchedulerService', () => {
              await service.initScheduler();
              
              // Trigger Stale Check
-             const staleCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
-             await staleCall[1]();
+             const staleCall = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_STALE_CHECK);
+             await staleCall[2]();
              
              // Trigger Health Check
-             const healthCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '30 2 * * *');
-             await healthCall[1]();
+             const healthCall = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_HEALTH_CHECK);
+             await healthCall[2]();
              
              expect(console.error).toHaveBeenCalled();
         });
@@ -224,9 +231,9 @@ describe('SchedulerService', () => {
         it('should handle missing cache meta in stale check', async () => {
              prayerTimeService.readCache.mockReturnValue({ data: {} }); // no meta
              await service.initScheduler();
-             const staleJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 3 * * 0');
+             const staleJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_STALE_CHECK);
              expect(staleJobCall).toBeDefined();
-             const staleJobCb = staleJobCall[1];
+             const staleJobCb = staleJobCall[2];
              await staleJobCb();
              expect(prayerTimeService.getPrayerTimes).toHaveBeenCalled();
              expect(console.log).toHaveBeenCalledWith(expect.stringContaining('No cache meta found'));
@@ -234,9 +241,9 @@ describe('SchedulerService', () => {
 
         it('should execute midnight refresh', async () => {
              await service.initScheduler();
-             const midnightCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 0 * * *');
+             const midnightCall = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_MIDNIGHT_REFRESH);
              expect(midnightCall).toBeDefined();
-             const midnightJobCb = midnightCall[1];
+             const midnightJobCb = midnightCall[2];
              await midnightJobCb();
              expect(configService.reload).toHaveBeenCalled();
              expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Midnight Refresh'));
@@ -246,8 +253,8 @@ describe('SchedulerService', () => {
             jest.setSystemTime(new Date('2099-12-28T12:00:00Z'));
             prayerTimeService.readCache.mockImplementation(() => { throw new Error('Year Error'); });
             await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
-            await call[1]();
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_YEAR_BOUNDARY);
+            await call[2]();
             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Year Boundary Check Failed'), expect.anything());
         });
     });
@@ -358,8 +365,8 @@ describe('SchedulerService', () => {
             const nowSpy = jest.spyOn(DateTime, 'now').mockReturnValue(june);
             
             await service.initScheduler();
-            const boundaryJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
-            await boundaryJobCall[1]();
+            const boundaryJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_YEAR_BOUNDARY);
+            await boundaryJobCall[2]();
             
             expect(prayerTimeService.getPrayerTimes).toHaveBeenCalledTimes(1); // Only initial call
             nowSpy.mockRestore();
@@ -376,8 +383,8 @@ describe('SchedulerService', () => {
              });
 
              await service.initScheduler();
-             const boundaryJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 4 * * *');
-             await boundaryJobCall[1]();
+             const boundaryJobCall = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_YEAR_BOUNDARY);
+             await boundaryJobCall[2]();
              
              expect(prayerTimeService.getPrayerTimes).toHaveBeenCalledTimes(1); // Only initial call
              nowSpy.mockRestore();
@@ -562,6 +569,36 @@ describe('SchedulerService', () => {
             await service.initScheduler();
             const job = schedule.scheduleJob.mock.calls.find(c => c[0] instanceof Date && c[0].toISOString() === '2099-01-01T06:00:00.000Z');
             expect(job).toBeDefined();
+        });
+    });
+
+    describe('runJob', () => {
+        const jobConstants = require('@utils/jobConstants');
+
+        it('should execute existing maintenance job and return success', async () => {
+            healthCheck.refresh.mockResolvedValue({ success: true }); // Ensure success
+            await service.initScheduler();
+            const result = await service.runJob(jobConstants.JOB_HEALTH_CHECK);
+            expect(result).toEqual({ 
+                success: true, 
+                message: expect.stringContaining('executed successfully') 
+            });
+            expect(healthCheck.refresh).toHaveBeenCalled();
+        });
+
+        it('should return failure for non-existent job', async () => {
+            await service.initScheduler();
+            const result = await service.runJob('Invalid Job');
+            expect(result.success).toBe(false);
+            expect(result.message).toContain('not found');
+        });
+
+        it('should handle errors in job execution', async () => {
+            healthCheck.refresh.mockRejectedValue(new Error('Test Error'));
+            await service.initScheduler();
+            const result = await service.runJob(jobConstants.JOB_HEALTH_CHECK);
+            expect(result.success).toBe(false);
+            expect(result.message).toBe('Test Error');
         });
     });
 });
