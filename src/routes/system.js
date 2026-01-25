@@ -16,6 +16,7 @@ router.get('/storage', authenticateToken, asyncHandler(systemController.getStora
 router.get('/voices', authenticateToken, asyncHandler(systemController.getVoices));
 router.post('/preview-tts', operationsLimiter, authenticateToken, asyncHandler(systemController.previewTTS));
 router.post('/regenerate-tts', operationsLimiter, authenticateToken, asyncHandler(systemController.regenerateTTS));
+router.post('/run-job', operationsLimiter, authenticateToken, asyncHandler(systemController.runJob));
 router.post('/restart-scheduler', operationsLimiter, authenticateToken, asyncHandler(systemController.restartScheduler));
 router.post('/test-audio', operationsLimiter, authenticateToken, asyncHandler(systemController.testAudio));
 router.post('/validate-url', operationsLimiter, authenticateToken, asyncHandler(systemController.validateUrl));

@@ -494,6 +494,33 @@ const systemController = {
             console.error('[SystemController] Temp TTS cleanup failed:', error.message);
             res.status(500).json({ error: 'Failed to clean up temporary files' });
         }
+    },
+    /**
+     * Manually triggers a scheduled maintenance job.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    async runJob(req, res) {
+        const { jobName } = req.body;
+        if (!jobName) {
+            return res.status(400).json({ success: false, message: 'jobName is required' });
+        }
+
+        try {
+            const result = await schedulerService.runJob(jobName);
+            if (!result.success) {
+                return res.status(400).json(result);
+            }
+            
+            // Log the manual action
+            sseService.log(`Manual trigger: ${jobName}`, 'info');
+            
+            return res.json(result);
+        } catch (error) {
+            console.error('[SystemController] runJob failed:', error);
+            return res.status(500).json({ success: false, message: error.message || 'Failed to trigger job' });
+        }
     }
 };
 

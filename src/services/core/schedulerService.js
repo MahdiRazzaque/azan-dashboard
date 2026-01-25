@@ -6,8 +6,11 @@ const prayerTimeService = require('@services/core/prayerTimeService');
 const automationService = require('@services/core/automationService');
 const { calculateIqamah } = require('@utils/calculations');
 const healthCheck = require('@services/system/healthCheck');
+const jobConstants = require('@utils/jobConstants');
 
 let jobs = [];
+// Store maintenance callbacks for manual execution
+const maintenanceCallbacks = {};
 
 /**
  * Clears all currently scheduled jobs.
@@ -77,9 +80,15 @@ const scheduleEvent = (date, prayer, event) => {
  * 
  * @returns {void}
  */
+/**
+ * Schedules recurring system maintenance jobs.
+ * Includes tasks for stale data checks, year boundary handling, system health monitoring, and audio asset maintenance.
+ * 
+ * @returns {void}
+ */
 const scheduleMaintenanceJobs = () => {
-    // 1. Stale Check - Run Weekly (Sunday 03:00)
-    const staleJob = schedule.scheduleJob('0 3 * * 0', async () => {
+    // 1. Stale Check
+    const staleAction = async () => {
         const config = configService.get();
         try {
             console.log('[Maintenance] Running Stale Check...');
@@ -102,26 +111,20 @@ const scheduleMaintenanceJobs = () => {
             }
         } catch (e) {
             console.error('[Maintenance] Stale Check Failed:', e);
+            throw e;
         }
-    });
-    if (staleJob) {
-        staleJob.jobName = 'Maintenance: Stale Check';
-        staleJob.category = 'maintenance';
-        jobs.push(staleJob);
-    } 
+    };
 
-    // 2. Year Boundary - Run Daily (04:00)
-    const boundaryJob = schedule.scheduleJob('0 4 * * *', async () => {
+    // 2. Year Boundary
+    const boundaryAction = async () => {
         const config = configService.get();
         try {
             const now = DateTime.now();
             const year = now.year;
-            // Check if within 7 days of end of year
             const endOfYear = DateTime.fromObject({ year, month: 12, day: 31 });
             const diff = endOfYear.diff(now, 'days').days;
             
             if (diff >= 0 && diff <= 7) {
-                // Check if next year exists
                 const nextYear = year + 1;
                 const nextJan1 = DateTime.fromObject({ year: nextYear, month: 1, day: 1 });
                 const cache = prayerTimeService.readCache();
@@ -134,73 +137,108 @@ const scheduleMaintenanceJobs = () => {
             }
         } catch (e) {
              console.error('[Maintenance] Year Boundary Check Failed:', e);
+             throw e;
         }
-    });
-    if (boundaryJob) {
-        boundaryJob.jobName = 'Maintenance: Year Boundary';
-        boundaryJob.category = 'maintenance';
-        jobs.push(boundaryJob);
-    }
+    };
 
-    // 3. System Health Check - Run Daily at 2:30 AM
-    const healthJob = schedule.scheduleJob('30 2 * * *', async () => {
+    // 3. System Health Check
+    const healthAction = async () => {
         try {
             console.log('[Maintenance] Running Daily Health Check...');
             await healthCheck.refresh('all', 'silent');
         } catch (e) {
             console.error('[Maintenance] Health Check Failed:', e);
+            throw e;
         }
-    });
+    };
 
-    if (healthJob) {
-        healthJob.jobName = 'Maintenance: Health Check';
-        healthJob.category = 'maintenance';
-        jobs.push(healthJob);
-    }
-
-    // 4. Audio Asset Maintenance - Run Daily at 03:30 AM
-    const assetMaintenanceJob = schedule.scheduleJob('30 3 * * *', async () => {
-        console.log('[Maintenance] Running Daily Audio Asset Maintenance...');
+    // 4. Audio Asset Maintenance
+    const assetAction = async () => {
+        console.log('[Maintenance] Running Audio Asset Maintenance...');
         const audioAssetService = require('@services/system/audioAssetService');
         try {
-            // false = do not force delete everything, just sync missing and clean old
             await audioAssetService.syncAudioAssets(false); 
         } catch (e) {
             console.error('[Maintenance] Audio Asset Maintenance Failed:', e.message);
+            throw e;
         }
-    });
-    if (assetMaintenanceJob) {
-        assetMaintenanceJob.jobName = 'Maintenance: Audio Assets';
-        assetMaintenanceJob.category = 'maintenance';
-        jobs.push(assetMaintenanceJob);
-    }
+    };
 
-    // 5. Prayer Source Health Check - Run Daily at 02:00 AM
-    const sourceHealthJob = schedule.scheduleJob('0 2 * * *', async () => {
+    // 5. Prayer Source Health Check
+    const sourceAction = async () => {
         try {
-            console.log('[Maintenance] Running Daily Prayer Source Health Check...');
+            console.log('[Maintenance] Running Source Health Check...');
             await healthCheck.refresh('primarySource', 'silent');
             await healthCheck.refresh('backupSource', 'silent');
         } catch (e) {
             console.error('[Maintenance] Source Health Check Failed:', e);
+            throw e;
         }
-    });
+    };
 
+    // 6. Midnight Refresh
+    const midnightAction = async () => {
+        console.log('[Scheduler] Midnight Refresh');
+        await configService.reload();
+        await initScheduler();
+    };
+
+    // Map actions for manual execution
+    maintenanceCallbacks[jobConstants.JOB_STALE_CHECK] = staleAction;
+    maintenanceCallbacks[jobConstants.JOB_YEAR_BOUNDARY] = boundaryAction;
+    maintenanceCallbacks[jobConstants.JOB_HEALTH_CHECK] = healthAction;
+    maintenanceCallbacks[jobConstants.JOB_AUDIO_ASSETS] = assetAction;
+    maintenanceCallbacks[jobConstants.JOB_SOURCE_HEALTH] = sourceAction;
+    maintenanceCallbacks[jobConstants.JOB_MIDNIGHT_REFRESH] = midnightAction;
+
+    // Helper to wrap actions for the scheduler (swallows re-throws)
+    const schedulerWrap = (action) => async () => {
+        try { 
+            await action(); 
+        } catch (e) { 
+            /* logged in action */ 
+        }
+    };
+
+    // Schedule Jobs
+    const staleJob = schedule.scheduleJob(jobConstants.JOB_STALE_CHECK, '0 3 * * 0', schedulerWrap(staleAction));
+    if (staleJob) {
+        staleJob.jobName = jobConstants.JOB_STALE_CHECK;
+        staleJob.category = 'maintenance';
+        jobs.push(staleJob);
+    } 
+
+    const boundaryJob = schedule.scheduleJob(jobConstants.JOB_YEAR_BOUNDARY, '0 4 * * *', schedulerWrap(boundaryAction));
+    if (boundaryJob) {
+        boundaryJob.jobName = jobConstants.JOB_YEAR_BOUNDARY;
+        boundaryJob.category = 'maintenance';
+        jobs.push(boundaryJob);
+    }
+
+    const healthJob = schedule.scheduleJob(jobConstants.JOB_HEALTH_CHECK, '30 2 * * *', schedulerWrap(healthAction));
+    if (healthJob) {
+        healthJob.jobName = jobConstants.JOB_HEALTH_CHECK;
+        healthJob.category = 'maintenance';
+        jobs.push(healthJob);
+    }
+
+    const assetMaintenanceJob = schedule.scheduleJob(jobConstants.JOB_AUDIO_ASSETS, '30 3 * * *', schedulerWrap(assetAction));
+    if (assetMaintenanceJob) {
+        assetMaintenanceJob.jobName = jobConstants.JOB_AUDIO_ASSETS;
+        assetMaintenanceJob.category = 'maintenance';
+        jobs.push(assetMaintenanceJob);
+    }
+
+    const sourceHealthJob = schedule.scheduleJob(jobConstants.JOB_SOURCE_HEALTH, '0 2 * * *', schedulerWrap(sourceAction));
     if (sourceHealthJob) {
-        sourceHealthJob.jobName = 'Maintenance: Source Health';
+        sourceHealthJob.jobName = jobConstants.JOB_SOURCE_HEALTH;
         sourceHealthJob.category = 'maintenance';
         jobs.push(sourceHealthJob);
     }
 
-    // 6. Midnight Refresh - Reload config and reschedule at midnight
-    const midnightJob = schedule.scheduleJob('0 0 * * *', async () => {
-        console.log('[Scheduler] Midnight Refresh');
-        await configService.reload();
-        initScheduler();
-    });
-
+    const midnightJob = schedule.scheduleJob(jobConstants.JOB_MIDNIGHT_REFRESH, '0 0 * * *', schedulerWrap(midnightAction));
     if (midnightJob) {
-        midnightJob.jobName = 'System: Midnight Refresh';
+        midnightJob.jobName = jobConstants.JOB_MIDNIGHT_REFRESH;
         midnightJob.category = 'maintenance';
         jobs.push(midnightJob);
     }
@@ -215,12 +253,7 @@ const scheduleMaintenanceJobs = () => {
 const initScheduler = async () => {
     const config = configService.get();
     try {
-        console.log('[Scheduler] Initialising...');
-        
-        // Cancel existing jobs (Hot Reload scenario)
         clearJobs();
-
-        // Schedule Maintenance (includes midnight refresh)
         scheduleMaintenanceJobs();
         
         // Prepare data for today
@@ -369,9 +402,32 @@ const hotReload = () => {
     return initScheduler();
 };
 
+/**
+ * Manually executes a maintenance job by name.
+ * 
+ * @param {string} jobName - The name of the job to run (from jobConstants).
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+const runJob = async (jobName) => {
+    const callback = maintenanceCallbacks[jobName];
+    if (!callback) {
+        return { success: false, message: `Job "${jobName}" not found.` };
+    }
+
+    try {
+        console.log(`[Scheduler] Manually triggering job: ${jobName}`);
+        await callback();
+        return { success: true, message: `Job "${jobName}" executed successfully.` };
+    } catch (error) {
+        console.error(`[Scheduler] Manual execution of "${jobName}" failed:`, error);
+        return { success: false, message: error.message || 'Job execution failed.' };
+    }
+};
+
 module.exports = {
     initScheduler,
     hotReload,
     getJobs,
+    runJob,
     stopAll: clearJobs
 };
