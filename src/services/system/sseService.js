@@ -1,6 +1,6 @@
 let clients = [];
 const logHistory = [];
-const MAX_HISTORY = 200;
+const MAX_HISTORY = 1000;
 
 /**
  * Initialises and adds a new client to the SSE (Server-Sent Events) stream.
