@@ -15,10 +15,12 @@ jobs:
           - project_path: "/home/ubuntu/azan.home.kg"
             app_port: 3005
             project_name: "azan-dashboard-1"
+            base_url: "https://azan.home.kg"
 
           - project_path: "/home/ubuntu/azan-dashboard.home.kg"
             app_port: 3010
             project_name: "azan-dashboard-2"
+            base_url: "https://azan-dashboard.home.kg"
 
     steps:
       - name: Deploy to ${{ matrix.project_path }}
@@ -45,15 +47,25 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # 4. Deploy using Inline Variables
-            # We export APP_PORT directly to the shell environment so Docker is guaranteed to see it.
-            # We also set COMPOSE_PROJECT_NAME to ensure networks don't collide.
-            export APP_PORT=${{ matrix.app_port }}
-            export COMPOSE_PROJECT_NAME=${{ matrix.project_name }}
+            # 4. Persist Environment Variables
+            # Update root .env for Docker Compose context
+            touch .env
+            sed -i '/^APP_PORT=/d' .env
+            echo "APP_PORT=${{ matrix.app_port }}" >> .env
+            
+            sed -i '/^COMPOSE_PROJECT_NAME=/d' .env
+            echo "COMPOSE_PROJECT_NAME=${{ matrix.project_name }}" >> .env
 
+            # Update App Config .env for the Application (Base URL)
+            mkdir -p config
+            touch config/.env
+            sed -i '/^BASE_URL=/d' config/.env
+            echo "BASE_URL=${{ matrix.base_url }}" >> config/.env
+
+            # 5. Deploy
             docker compose -f docker/docker-compose.yml -f docker/docker-compose.audio.yml up -d --build
 
-            # 5. Cleanup & Reload Nginx
+            # 6. Cleanup & Reload Nginx
             docker image prune -f
             sudo systemctl reload nginx
 
