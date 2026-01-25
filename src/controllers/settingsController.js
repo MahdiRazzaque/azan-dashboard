@@ -306,22 +306,19 @@ const settingsController = {
         }
 
         let deleted = false;
-        if (fs.existsSync(audioPath)) {
-            try {
+        try {
+            if (fs.existsSync(audioPath)) {
                 fs.unlinkSync(audioPath);
                 deleted = true;
-            } catch (e) {
-                console.error('[SettingsController] Failed to delete audio:', e.message);
             }
-        }
 
-        if (fs.existsSync(metaPath)) {
-            try {
+            if (fs.existsSync(metaPath)) {
                 fs.unlinkSync(metaPath);
                 deleted = true;
-            } catch (e) {
-                console.error('[SettingsController] Failed to delete meta:', e.message);
             }
+        } catch (e) {
+            console.error('[SettingsController] Failed to delete file:', e.message);
+            return res.status(500).json({ error: 'Internal Server Error: Failed to delete file' });
         }
 
         if (deleted) {

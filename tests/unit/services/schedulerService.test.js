@@ -139,7 +139,7 @@ describe('SchedulerService', () => {
     describe('Maintenance Jobs', () => {
         it('should run hourly health check', async () => {
             await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 * * * *');
+            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === '30 2 * * *');
             await call[1]();
             expect(healthCheck.refresh).toHaveBeenCalled();
         });
@@ -215,7 +215,7 @@ describe('SchedulerService', () => {
              await staleCall[1]();
              
              // Trigger Health Check
-             const healthCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '0 * * * *');
+             const healthCall = schedule.scheduleJob.mock.calls.find(c => c[0] === '30 2 * * *');
              await healthCall[1]();
              
              expect(console.error).toHaveBeenCalled();

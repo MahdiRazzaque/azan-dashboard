@@ -8,6 +8,7 @@ jest.mock('@config', () => ({
             backup: { type: 'mymasjid', enabled: true }
         },
         automation: {
+            baseUrl: 'https://test.com',
             voiceMonkey: {
                 token: 'test-token',
                 device: 'test-device'
@@ -128,9 +129,29 @@ describe('Health Check Service', () => {
     });
 
     describe('checkVoiceMonkey Edge Cases', () => {
+        it('should report unhealthy if baseUrl is missing', async () => {
+            configService.get.mockReturnValue({
+                automation: { voiceMonkey: { token: 't' } }
+            });
+
+            const result = await healthCheck.refresh('voiceMonkey');
+            expect(result.voiceMonkey.healthy).toBe(false);
+            expect(result.voiceMonkey.message).toBe('Offline: HTTPS Base URL required');
+        });
+
+        it('should report unhealthy if baseUrl is not HTTPS', async () => {
+            configService.get.mockReturnValue({
+                automation: { baseUrl: 'http://test.com', voiceMonkey: { token: 't' } }
+            });
+
+            const result = await healthCheck.refresh('voiceMonkey');
+            expect(result.voiceMonkey.healthy).toBe(false);
+            expect(result.voiceMonkey.message).toBe('Offline: HTTPS Base URL required');
+        });
+
         it('should skip if token is missing', async () => {
             configService.get.mockReturnValue({
-                automation: { voiceMonkey: { token: null } }
+                automation: { baseUrl: 'https://test.com', voiceMonkey: { token: null } }
             });
             
             const result = await healthCheck.refresh('voiceMonkey');
@@ -140,7 +161,7 @@ describe('Health Check Service', () => {
 
         it('should skip loud check if device is missing', async () => {
              configService.get.mockReturnValue({
-                 automation: { voiceMonkey: { token: 't', device: null } }
+                 automation: { baseUrl: 'https://test.com', voiceMonkey: { token: 't', device: null } }
              });
              
              const result = await healthCheck.refresh('voiceMonkey', 'loud');
@@ -149,13 +170,19 @@ describe('Health Check Service', () => {
         });
 
         it('should handle API success false', async () => {
+             configService.get.mockReturnValue({
+                 automation: { baseUrl: 'https://test.com', voiceMonkey: { token: 't' } }
+             });
              axios.get.mockResolvedValue({ data: { success: false, error: 'API Error' } });
              const result = await healthCheck.refresh('voiceMonkey');
              expect(result.voiceMonkey.healthy).toBe(false);
              expect(result.voiceMonkey.message).toBe('API Error');
         });
 
-        it('should handle axios error response', async () => {
+        it('should handle axios error response with data error', async () => {
+             configService.get.mockReturnValue({
+                 automation: { baseUrl: 'https://test.com', voiceMonkey: { token: 't' } }
+             });
              axios.get.mockRejectedValue({
                  response: { data: { error: 'Network Error' } }
              });
@@ -164,9 +191,19 @@ describe('Health Check Service', () => {
              expect(result.voiceMonkey.message).toBe('Network Error');
         });
 
+        it('should handle axios error without response data', async () => {
+             configService.get.mockReturnValue({
+                 automation: { baseUrl: 'https://test.com', voiceMonkey: { token: 't' } }
+             });
+             axios.get.mockRejectedValue(new Error('Generic Error'));
+             const result = await healthCheck.refresh('voiceMonkey');
+             expect(result.voiceMonkey.healthy).toBe(false);
+             expect(result.voiceMonkey.message).toBe('Generic Error');
+        });
+
         it('should pass loud check if all available', async () => {
              configService.get.mockReturnValue({
-                 automation: { voiceMonkey: { token: 't', device: 'd' } }
+                 automation: { baseUrl: 'https://test.com', voiceMonkey: { token: 't', device: 'd' } }
              });
              axios.get.mockResolvedValue({ data: { success: true } });
              const result = await healthCheck.refresh('voiceMonkey', 'loud');
@@ -241,11 +278,43 @@ describe('Health Check Service', () => {
             expect(axios.get).toHaveBeenCalled(); // For both TTS and VM
         });
 
+        it('should refresh lowercase voicemonkey target', async () => {
+             configService.get.mockReturnValue({
+                 automation: { baseUrl: 'https://test.com', voiceMonkey: { token: 't' } }
+             });
+             axios.get.mockResolvedValue({ status: 200, data: { success: true } });
+             const result = await healthCheck.refresh('voicemonkey');
+             expect(result.voiceMonkey.healthy).toBe(true);
+        });
+
         it('should update tts port from environment if present', async () => {
              process.env.PYTHON_SERVICE_URL = 'http://localhost:9999';
              const result = await healthCheck.refresh('local'); 
              expect(result.ports.tts).toBe('9999');
              delete process.env.PYTHON_SERVICE_URL;
+        });
+
+        it('should handle PYTHON_SERVICE_URL without port', async () => {
+             process.env.PYTHON_SERVICE_URL = 'http://localhost';
+             const result = await healthCheck.refresh('local');
+             // Should keep previous port if not specified in URL
+             expect(result.ports.tts).toBeDefined();
+             delete process.env.PYTHON_SERVICE_URL;
+        });
+
+        it('should use default PORT if process.env.PORT is missing', async () => {
+             const originalPort = process.env.PORT;
+             delete process.env.PORT;
+             const result = await healthCheck.refresh('local');
+             expect(result.ports.api).toBe(3000);
+             process.env.PORT = originalPort;
+        });
+
+        it('should use process.env.PORT if present', async () => {
+             process.env.PORT = '4000';
+             const result = await healthCheck.refresh('local');
+             expect(result.ports.api).toBe('4000');
+             delete process.env.PORT;
         });
 
         it('should handle invalid PYTHON_SERVICE_URL gracefully', async () => {

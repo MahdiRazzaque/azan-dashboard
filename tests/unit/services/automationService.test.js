@@ -9,11 +9,13 @@ const getPlaySoundMock = () => {
 jest.mock('play-sound', () => getPlaySoundMock());
 
 const axios = require('axios');
+const fs = require('fs');
 const service = require('@services/core/automationService');
 const configService = require('@config');
 const sseService = require('@services/system/sseService');
 
 jest.mock('axios');
+jest.mock('fs');
 jest.mock('@config');
 jest.mock('@services/system/sseService');
 jest.mock('@utils/requestQueue', () => ({
@@ -23,6 +25,7 @@ jest.mock('@utils/requestQueue', () => ({
 describe('AutomationService', () => {
     const mockConfig = {
         automation: {
+            baseUrl: 'https://test.com',
             audioPlayer: 'mpg123',
             voiceMonkey: { enabled: false },
             triggers: {
@@ -113,6 +116,8 @@ describe('AutomationService', () => {
         beforeEach(() => {
             jest.spyOn(console, 'error').mockImplementation(() => {});
             jest.spyOn(console, 'warn').mockImplementation(() => {});
+            jest.spyOn(console, 'log').mockImplementation(() => {});
+            fs.existsSync.mockReturnValue(false);
         });
 
         it('should handle VoiceMonkey trigger', async () => {
@@ -143,7 +148,7 @@ describe('AutomationService', () => {
             
             await service.triggerEvent('fajr', 'preAdhan');
             
-            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Request failed'), expect.any(String));
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Request failed'), 'API fail');
         });
 
         it('should handle VoiceMonkey missing tokens', async () => {
@@ -157,6 +162,65 @@ describe('AutomationService', () => {
             expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Missing credentials'));
             expect(axios.get).not.toHaveBeenCalled();
         });
+
+        it('should handle missing device in VoiceMonkey', async () => {
+            const vmConfig = JSON.parse(JSON.stringify(mockConfig));
+            vmConfig.automation.voiceMonkey = { enabled: true, token: 'token' }; 
+            vmConfig.automation.triggers.fajr.preAdhan.targets = ['voiceMonkey'];
+            configService.get.mockReturnValue(vmConfig);
+            
+            await service.triggerEvent('fajr', 'preAdhan');
+            
+            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Missing credentials'));
+            expect(axios.get).not.toHaveBeenCalled();
+        });
+
+        it('should handle missing targets array in config', async () => {
+            const configWithoutTargets = JSON.parse(JSON.stringify(mockConfig));
+            delete configWithoutTargets.automation.triggers.fajr.preAdhan.targets;
+            configService.get.mockReturnValue(configWithoutTargets);
+
+            await service.triggerEvent('fajr', 'preAdhan');
+            // Success means it didn't crash on .map
+        });
+
+        it('should skip VoiceMonkey if metadata says incompatible', async () => {
+            const source = { filePath: 'test.mp3', url: '/test.mp3' };
+            fs.existsSync.mockReturnValue(true);
+            fs.readFileSync.mockReturnValue(JSON.stringify({ vmCompatible: false, vmIssues: ['Incompatible audio format'] }));
+            
+            await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
+            
+            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Audio properties violate Alexa requirements'));
+            expect(axios.get).not.toHaveBeenCalled();
+       });
+
+       it('should handle VoiceMonkey metadata read errors gracefully', async () => {
+            const source = { filePath: 'test.mp3', url: '/test.mp3' };
+            fs.existsSync.mockReturnValue(true);
+            fs.readFileSync.mockImplementation(() => { throw new Error('FS error'); });
+            
+            // Should continue to baseUrl check
+            await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
+            expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('Audio properties violate Alexa requirements'));
+       });
+
+       it('should skip VoiceMonkey if baseUrl is missing or not HTTPS', async () => {
+            const insecureConfig = JSON.parse(JSON.stringify(mockConfig));
+            insecureConfig.automation.baseUrl = 'http://insecure.com';
+            configService.get.mockReturnValue(insecureConfig);
+            
+            const source = { filePath: 'test.mp3', url: '/test.mp3' };
+            await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
+            
+            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('HTTPS is required'));
+            expect(axios.get).not.toHaveBeenCalled();
+
+            insecureConfig.automation.baseUrl = '';
+            configService.get.mockReturnValue(insecureConfig);
+            await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
+            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Invalid or missing BASE_URL'));
+       });
 
         it('should use default audio player if not configured', () => {
              const configWithoutPlayer = JSON.parse(JSON.stringify(mockConfig));
@@ -201,11 +265,12 @@ describe('AutomationService', () => {
         it('should handle absolute URLs in VoiceMonkey', async () => {
             const vmConfig = {
                 automation: {
+                    baseUrl: 'https://test.com',
                     voiceMonkey: { token: 't', device: 'd' }
                 }
             };
             configService.get.mockReturnValue(vmConfig);
-            const source = { url: 'http://recorded-adhan.com/adhan.mp3' };
+            const source = { url: 'http://recorded-adhan.com/adhan.mp3', filePath: 'test.mp3' };
             
             await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
             
@@ -233,6 +298,16 @@ describe('AutomationService', () => {
             
             await service.triggerEvent('fajr', 'preAdhan');
             // Simply ensures no crash and covers the map branches
+        });
+
+        it('should skip broadcasting if source URL is missing', async () => {
+            const config = JSON.parse(JSON.stringify(mockConfig));
+            config.automation.triggers.fajr.preAdhan.type = 'unknown';
+            configService.get.mockReturnValue(config);
+
+            await service.triggerEvent('fajr', 'preAdhan');
+            expect(sseService.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'LOG' }));
+            expect(sseService.broadcast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'AUDIO_PLAY' }));
         });
     });
 
@@ -263,6 +338,30 @@ describe('AutomationService', () => {
              await expect(service.verifyCredentials('token', 'device'))
                  .rejects.toThrow('Invalid Voice Monkey credentials');
         });
+
+        it('should throw for authentication failure (403)', async () => {
+            axios.get.mockRejectedValue({
+                response: {
+                    status: 403,
+                    data: { error: 'Forbidden' }
+                }
+            });
+            
+            await expect(service.verifyCredentials('token', 'device'))
+                .rejects.toThrow('Invalid Voice Monkey credentials');
+       });
+
+       it('should throw for authentication failure based on error message', async () => {
+            axios.get.mockRejectedValue({
+                response: {
+                    status: 499, // Some other code
+                    data: { error: 'Invalid token provided' }
+                }
+            });
+            
+            await expect(service.verifyCredentials('token', 'device'))
+                .rejects.toThrow('Invalid Voice Monkey credentials');
+       });
 
         it('should throw for 400 status (often used for bad args/auth)', async () => {
              axios.get.mockRejectedValue({

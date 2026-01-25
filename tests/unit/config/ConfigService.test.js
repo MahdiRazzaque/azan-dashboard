@@ -1,6 +1,7 @@
 const fs = require('fs/promises');
 const fsHelper = require('../../helpers/fsHelper');
 const configService = require('@config');
+const dotenv = require('dotenv');
 
 jest.mock('dotenv'); // Prevent loading real .env files
 
@@ -213,5 +214,12 @@ describe('ConfigService', () => {
         expect(res).toEqual({ a: 1 });
         const res2 = configService._mergeDeep({ a: 1 }, null);
         expect(res2).toEqual({ a: 1 });
+    });
+
+    it('should reload environment variables using reloadEnv()', async () => {
+        await configService.reloadEnv();
+        expect(dotenv.config).toHaveBeenCalledWith(expect.objectContaining({
+            override: true
+        }));
     });
 });

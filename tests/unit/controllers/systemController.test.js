@@ -142,13 +142,17 @@ describe('SystemController', () => {
     });
 
     describe('getAudioFiles', () => {
-        it('should return list of audio files and create dirs if missing', () => {
-            fs.existsSync.mockReturnValue(false);
+        it('should return list of audio files and create dirs if missing', async () => {
+            fs.existsSync.mockReturnValueOnce(false) // audioCustomDir
+                         .mockReturnValueOnce(false) // audioCacheDir
+                         .mockReturnValueOnce(false) // metaCustomDir
+                         .mockReturnValueOnce(false) // metaCacheDir
+                         .mockReturnValue(true);    // return true for the scan and metadata checks
             fs.readdirSync.mockReturnValue(['test.mp3', 'other.txt']);
             
-            systemController.getAudioFiles(req, res);
+            await systemController.getAudioFiles(req, res);
             
-            expect(fs.mkdirSync).toHaveBeenCalledTimes(2);
+            expect(fs.mkdirSync).toHaveBeenCalledTimes(4);
             expect(res.json).toHaveBeenCalledWith(expect.arrayContaining([
                 expect.objectContaining({ name: 'test.mp3', type: 'custom' }),
                 expect.objectContaining({ name: 'test.mp3', type: 'cache' })
