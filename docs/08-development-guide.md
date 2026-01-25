@@ -44,6 +44,7 @@ Open `coverage/lcov-report/index.html` to view the detailed breakdown.
 *   **Audio Hardware on Docker Desktop:** As noted in deployment, mapping `/dev/snd` relies on Linux ALSA. Windows/Mac users cannot use the "Local" target effectively in Docker.
 *   **VoiceMonkey Latency:** Alexa announcements depend on VoiceMonkey's cloud API, which can introduce a 1-3 second delay.
 *   **Storage Quota:** The virtual quota system relies on recursive directory scanning, which may be slow if thousands of files are uploaded (though unlikely in this use case).
+*   **MyMasjid Year Boundary:** Unlike the Aladhan source (which supports querying specific years), MyMasjid data is fetched relative to the current system year. Consequently, on **December 31st after Isha**, the system cannot look ahead to January 1st until the server clock actually passes midnight. The "Next Prayer" countdown will temporarily disappear during this window and automatically reappear at 00:00.
 
 ## Future Improvements
 *   **Multi-User Support:** Currently, there is only one Admin account. Future updates could add "View Only" users.
