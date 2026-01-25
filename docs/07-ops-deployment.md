@@ -24,36 +24,56 @@ For the system to play audio on the host's speakers (e.g., a Raspberry Pi connec
 
 ## Reverse Proxy Configuration
 
-If you are deploying the dashboard behind a reverse proxy (Nginx, Apache, Traefik, etc.), you **must** ensure that response buffering is disabled for the SSE (Server-Sent Events) endpoint (`/api/logs`).
-
-Without this configuration, the proxy will attempt to buffer the small log messages to optimise bandwidth, causing the dashboard logs to hang on "Connecting..." or appear empty until the buffer fills up.
+If you are deploying the dashboard behind a reverse proxy (Nginx, Apache, Traefik, etc.), you **must** ensure two things:
+1.  **Upload Limits:** Increase the body size limit to allow MP3 uploads (default is usually 1MB).
+2.  **SSE Buffering:** Disable buffering for the `/api/logs` endpoint to allow real-time log streaming.
 
 ### Nginx Configuration
-Add this specific location block **before** your main root (`/`) location block in your site configuration.
+Add this configuration to your site block.
+
+> [!IMPORTANT]
+> You must set `client_max_body_size` to at least **20M** to allow MP3 file uploads. The application enforces a 10MB limit internally, but Nginx will reject files larger than 1MB by default with a `413 Request Entity Too Large` error.
 
 ```nginx
-# Handle Server-Sent Events (SSE) for logs
-location /api/logs {
-    # Match your upstream (e.g. http://localhost:3000 or http://azan-dashboard:3000)
-    proxy_pass http://localhost:3000; 
+server {
+    # ... your existing server_name and listen config ...
 
-    # CRITICAL: Disable buffering so data is sent immediately
-    proxy_buffering off;
-    proxy_cache off;
+    # REQUIRED: Allow larger uploads for MP3 files
+    client_max_body_size 20M;
+
+    # Handle Server-Sent Events (SSE) for logs
+    location /api/logs {
+        # Match your upstream (e.g. http://localhost:3000 or http://azan-dashboard:3000)
+        proxy_pass http://localhost:3000; 
+
+        # CRITICAL: Disable buffering so data is sent immediately
+        proxy_buffering off;
+        proxy_cache off;
+        
+        # Connection settings required for SSE
+        proxy_set_header Connection '';
+        proxy_http_version 1.1;
+        chunked_transfer_encoding off;
+        
+        # Prevent Nginx from timing out the idle connection (24 hours)
+        proxy_read_timeout 24h;
+        
+        # Standard headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
     
-    # Connection settings required for SSE
-    proxy_set_header Connection '';
-    proxy_http_version 1.1;
-    chunked_transfer_encoding off;
-    
-    # Prevent Nginx from timing out the idle connection (24 hours)
-    proxy_read_timeout 24h;
-    
-    # Standard headers
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
+    # Standard traffic
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
 }
 ```
 
