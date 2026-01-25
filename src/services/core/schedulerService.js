@@ -87,7 +87,11 @@ const scheduleEvent = (date, prayer, event) => {
  * @returns {void}
  */
 const scheduleMaintenanceJobs = () => {
-    // 1. Stale Check
+    /**
+     * Checks if the cached prayer time data is stale and refreshes it if necessary.
+     *
+     * @returns {Promise<void>}
+     */
     const staleAction = async () => {
         const config = configService.get();
         try {
@@ -115,7 +119,11 @@ const scheduleMaintenanceJobs = () => {
         }
     };
 
-    // 2. Year Boundary
+    /**
+     * Checks if the current date is approaching the end of the year and fetches data for the next year if required.
+     *
+     * @returns {Promise<void>}
+     */
     const boundaryAction = async () => {
         const config = configService.get();
         try {
@@ -141,7 +149,11 @@ const scheduleMaintenanceJobs = () => {
         }
     };
 
-    // 3. System Health Check
+    /**
+     * Executes a comprehensive system health check.
+     *
+     * @returns {Promise<void>}
+     */
     const healthAction = async () => {
         try {
             console.log('[Maintenance] Running Daily Health Check...');
@@ -152,7 +164,11 @@ const scheduleMaintenanceJobs = () => {
         }
     };
 
-    // 4. Audio Asset Maintenance
+    /**
+     * Synchronises and maintains audio assets.
+     *
+     * @returns {Promise<void>}
+     */
     const assetAction = async () => {
         console.log('[Maintenance] Running Audio Asset Maintenance...');
         const audioAssetService = require('@services/system/audioAssetService');
@@ -164,7 +180,11 @@ const scheduleMaintenanceJobs = () => {
         }
     };
 
-    // 5. Prayer Source Health Check
+    /**
+     * Checks the health of both primary and backup prayer time data sources.
+     *
+     * @returns {Promise<void>}
+     */
     const sourceAction = async () => {
         try {
             console.log('[Maintenance] Running Source Health Check...');
@@ -176,7 +196,11 @@ const scheduleMaintenanceJobs = () => {
         }
     };
 
-    // 6. Midnight Refresh
+    /**
+     * Reloads the configuration and re-initialises the scheduler at midnight.
+     *
+     * @returns {Promise<void>}
+     */
     const midnightAction = async () => {
         console.log('[Scheduler] Midnight Refresh');
         await configService.reload();
@@ -191,7 +215,13 @@ const scheduleMaintenanceJobs = () => {
     maintenanceCallbacks[jobConstants.JOB_SOURCE_HEALTH] = sourceAction;
     maintenanceCallbacks[jobConstants.JOB_MIDNIGHT_REFRESH] = midnightAction;
 
-    // Helper to wrap actions for the scheduler (swallows re-throws)
+    /**
+     * A higher-order function that wraps a maintenance action.
+     * Ensures any errors are caught and logged without disrupting the regular scheduler flow.
+     *
+     * @param {Function} action - The async maintenance function to wrap.
+     * @returns {Function} An async function that executes the action within a try-catch block.
+     */
     const schedulerWrap = (action) => async () => {
         try { 
             await action(); 
@@ -406,7 +436,7 @@ const hotReload = () => {
  * Manually executes a maintenance job by name.
  * 
  * @param {string} jobName - The name of the job to run (from jobConstants).
- * @returns {Promise<{success: boolean, message: string}>}
+ * @returns {Promise<{success: boolean, message: string}>} A promise that resolves to an object indicating the success or failure of the job execution.
  */
 const runJob = async (jobName) => {
     const callback = maintenanceCallbacks[jobName];

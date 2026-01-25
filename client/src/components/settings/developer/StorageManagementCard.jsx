@@ -6,6 +6,15 @@ import { twMerge } from 'tailwind-merge';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
 
+/**
+ * A React component that provides storage management capabilities.
+ * It visualises disk usage for audio assets and allows users to configure
+ * storage limits for the application's data.
+ *
+ * @param {Object} props - The component properties.
+ * @param {Object} props.config - The application configuration object.
+ * @returns {JSX.Element} The rendered storage management card.
+ */
 export default function StorageManagementCard({ config }) {
     const [storage, setStorage] = useState(null);
     const [loading, setLoading] = useState(true);

@@ -1,3 +1,11 @@
+/**
+ * A React component that displays live system logs in a scrollable, terminal-style view.
+ * Logs are colour-coded based on their severity level and ordered by timestamp.
+ *
+ * @param {Object} props - The component properties.
+ * @param {Array} props.logs - An array of log objects to display.
+ * @returns {JSX.Element} The rendered system logs tab.
+ */
 export default function SystemLogsTab({ logs }) {
     return (
         <div className="bg-app-bg border border-app-border rounded-xl overflow-hidden font-mono text-sm shadow-xl animate-in fade-in duration-300">

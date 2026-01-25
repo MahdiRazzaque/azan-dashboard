@@ -6,6 +6,12 @@ import { twMerge } from 'tailwind-merge';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
 
+/**
+ * A React component that allows users to configure the external base URL for the application.
+ * This URL is essential for services like VoiceMonkey and remote access, requiring a valid HTTPS address.
+ *
+ * @returns {JSX.Element} The rendered network configuration card.
+ */
 export default function NetworkConfigCard() {
     const { config, updateEnvSetting, refreshHealth } = useSettings();
     const [baseUrl, setBaseUrl] = useState(config?.automation?.baseUrl || '');

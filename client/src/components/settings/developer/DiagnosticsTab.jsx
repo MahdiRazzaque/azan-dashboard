@@ -7,6 +7,26 @@ import { twMerge } from 'tailwind-merge';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
 
+/**
+ * A React component that provides a comprehensive diagnostics dashboard.
+ * It displays system health status, allows manual refreshes of various services,
+ * provides system-level actions, and lists active maintenance jobs.
+ *
+ * @param {Object} props - The component properties.
+ * @param {Object} props.config - The application configuration object.
+ * @param {Object} props.systemHealth - The current health status of system services.
+ * @param {boolean} props.apiOnline - Whether the API server is currently online.
+ * @param {string|null} props.refreshing - The ID of the service currently being refreshed.
+ * @param {Function} props.handleManualRefresh - Callback to trigger a manual refresh for a service.
+ * @param {Object} props.feedback - Feedback messages for different services.
+ * @param {boolean} props.failedVoiceMonkey - Whether the VoiceMonkey service has failed.
+ * @param {string|null} props.loading - The ID of the action currently being performed.
+ * @param {Function} props.callSystemAction - Callback to execute a system-level action.
+ * @param {Function} props.handleRunJob - Callback to trigger a maintenance job manually.
+ * @param {Object} [props.jobStatuses={}] - Current execution status of various jobs.
+ * @param {Array} props.jobs - List of active maintenance jobs.
+ * @returns {JSX.Element} The rendered diagnostics tab.
+ */
 export default function DiagnosticsTab({ 
     config,
     systemHealth, 
@@ -208,6 +228,18 @@ export default function DiagnosticsTab({
     );
 }
 
+/**
+ * A helper component that displays the health status of a specific system component.
+ *
+ * @param {Object} props - The component properties.
+ * @param {string} props.label - The display name of the component.
+ * @param {boolean} props.online - Whether the component is currently online or healthy.
+ * @param {string} props.subtext - Additional descriptive text or status information.
+ * @param {Function} props.onRefresh - Callback to trigger a refresh for this component.
+ * @param {boolean} props.refreshing - Whether the component is currently being refreshed.
+ * @param {string} [props.feedback] - Optional feedback message to display.
+ * @returns {JSX.Element} The rendered health status item.
+ */
 function HealthItem({ label, online, subtext, onRefresh, refreshing, feedback }) {
     return (
         <div className="flex items-center justify-between p-3 bg-app-card rounded border border-app-border">
@@ -232,6 +264,13 @@ function HealthItem({ label, online, subtext, onRefresh, refreshing, feedback })
     );
 }
 
+/**
+ * A UI component that displays a small feedback message in a balloon-style tooltip.
+ *
+ * @param {Object} props - The component properties.
+ * @param {string} props.text - The feedback message to display.
+ * @returns {JSX.Element} The rendered feedback balloon.
+ */
 function FeedbackBalloon({ text }) {
     return (
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-app-card text-app-text text-xs rounded border border-app-border whitespace-nowrap z-10 shadow-lg animate-in fade-in zoom-in-95 duration-200">
@@ -241,6 +280,19 @@ function FeedbackBalloon({ text }) {
     );
 }
 
+/**
+ * A reusable button component for system actions.
+ *
+ * @param {Object} props - The component properties.
+ * @param {string} props.label - The main label text for the button.
+ * @param {string} props.subtext - Descriptive subtext explaining the action.
+ * @param {React.ElementType} props.icon - The Lucide icon component to display.
+ * @param {string} props.color - CSS class for the icon colour.
+ * @param {boolean} props.loading - Whether the action is currently in progress.
+ * @param {boolean} props.disabled - Whether the button should be disabled.
+ * @param {Function} props.onClick - Callback to execute when the button is clicked.
+ * @returns {JSX.Element} The rendered action button.
+ */
 function ActionButton({ label, subtext, icon: Icon, color, loading, disabled, onClick }) {
     return (
         <button

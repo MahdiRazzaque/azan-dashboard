@@ -481,10 +481,11 @@ const systemController = {
     },
 
     /**
-     * Manually triggers cleanup of temporary TTS preview files.
-     * 
+     * Manually triggers the cleanup of temporary TTS preview files.
+     *
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} Sends a JSON response indicating the cleanup status.
      */
     async cleanupTempTTS(req, res) {
         try {
@@ -495,11 +496,13 @@ const systemController = {
             res.status(500).json({ error: 'Failed to clean up temporary files' });
         }
     },
+
     /**
-     * Manually triggers a scheduled maintenance job.
-     * 
+     * Manually triggers a scheduled maintenance job by its name.
+     *
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<Response>} Sends a JSON response with the result of the job execution.
      */
     async runJob(req, res) {
         const { jobName } = req.body;

@@ -6,6 +6,18 @@ import { twMerge } from 'tailwind-merge';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
 
+/**
+ * A React component that displays the status of the automation timeline and Text-to-Speech (TTS) assets.
+ * It allows users to view prayer-related events and refresh diagnostic information.
+ *
+ * @param {Object} props - The component properties.
+ * @param {Object} props.config - The application configuration object.
+ * @param {Object} props.systemHealth - The current health status of system services.
+ * @param {Object} props.automationStatus - The status of automation events per prayer.
+ * @param {Object} props.ttsStatus - The status of TTS assets per prayer.
+ * @param {Function} props.fetchDiagnostics - A function to trigger a diagnostic data refresh.
+ * @returns {JSX.Element} The rendered automation and TTS status tab.
+ */
 export default function AutomationTTSTab({ 
     config, 
     systemHealth, 
@@ -15,11 +27,16 @@ export default function AutomationTTSTab({
 }) {
     const [refreshStatus, setRefreshStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
 
+    /**
+     * Handles the diagnostic refresh process.
+     * Sets the loading state, invokes the fetch function, and manages the outcome status.
+     */
     const handleRefresh = async () => {
         if (refreshStatus !== 'idle') return;
         setRefreshStatus('loading');
         const success = await fetchDiagnostics();
         setRefreshStatus(success ? 'success' : 'error');
+        // Reset the status back to idle after a short delay to allow the user to see the result
         setTimeout(() => setRefreshStatus('idle'), 3000);
     };
 
@@ -177,6 +194,12 @@ export default function AutomationTTSTab({
     );
 }
 
+/**
+ * A React component that renders a placeholder for an empty cell in the status table.
+ * Typically used for prayers where certain events do not apply, such as iqamah for sunrise.
+ *
+ * @returns {JSX.Element} The rendered empty cell placeholder.
+ */
 function EmptyCell() {
     return (
         <div className="px-2 py-1 rounded text-xs font-mono border text-center bg-app-card text-app-dim border-app-border h-[26px] flex items-center justify-center">
