@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 /**
  * Custom hook to manage the Screen Wake Lock API.
  * Prevents the screen from dimming or turning off.
+ * 
+ * @returns {object} Wake lock state and control functions.
  */
 export const useWakeLock = () => {
     const [isActive, setIsActive] = useState(false);

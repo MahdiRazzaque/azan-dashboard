@@ -42,6 +42,9 @@ const getMadhabId = (madhabName) => {
 
 /**
  * Resolves the latitude adjustment method ID from its display name.
+ * 
+ * @param {string} name - The name of the latitude adjustment method.
+ * @returns {number} The corresponding integer ID for the Aladhan API.
  */
 const getLatAdjId = (name) => {
     if (!name) return 0;
@@ -53,6 +56,9 @@ const getLatAdjId = (name) => {
 
 /**
  * Resolves the midnight mode ID from its display name.
+ * 
+ * @param {string} name - The name of the midnight mode.
+ * @returns {number} The corresponding integer ID for the Aladhan API.
  */
 const getMidnightId = (name) => {
     if (!name) return 0;
@@ -68,10 +74,11 @@ const { aladhanQueue, myMasjidQueue } = require('@utils/requestQueue');
 const activeFetches = new Map();
 
 /**
- * Deduplicates concurrent requests to the same URL
- * @param {string} key Unique key for the request
- * @param {Function} fetchFn Function that returns a promise
- * @returns {Promise}
+ * Deduplicates concurrent requests to the same URL.
+ * 
+ * @param {string} key - Unique key for the request.
+ * @param {Function} fetchFn - Function that returns a promise.
+ * @returns {Promise} The promise for the request, shared if already active.
  */
 function deduplicate(key, fetchFn) {
     if (activeFetches.has(key)) {
@@ -264,8 +271,10 @@ async function _doFetchMyMasjidBulk(config) {
 
       /**
        * Helper to extract prayer time from either nested array or flat structure.
-       * @param {string} key - Prayer key (e.g. 'fajr', 'shouruq')
-       * @param {Object} dayObj - The day data object
+       * 
+       * @param {string} key - Prayer key (e.g. 'fajr', 'shouruq').
+       * @param {Object} dayObj - The day data object.
+       * @returns {string|null} The raw prayer time string.
        */
       const getTime = (key, dayObj) => {
           const val = dayObj[key];
@@ -277,8 +286,10 @@ async function _doFetchMyMasjidBulk(config) {
 
       /**
        * Helper to extract iqamah time from either nested array or flat structure.
-       * @param {string} key - Prayer key (e.g. 'fajr', 'zuhr')
-       * @param {Object} dayObj - The day data object
+       * 
+       * @param {string} key - Prayer key (e.g. 'fajr', 'zuhr').
+       * @param {Object} dayObj - The day data object.
+       * @returns {string|null} The raw iqamah time string.
        */
       const getIqamah = (key, dayObj) => {
           // Check nested format: day.fajr[0].iqamahTime

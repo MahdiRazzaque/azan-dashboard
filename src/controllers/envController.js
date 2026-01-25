@@ -6,8 +6,9 @@ const configService = require('@config');
  * Updates an environment variable.
  * Only allows specific keys (e.g., BASE_URL).
  * 
- * @param {import('express').Request} req - The express request object.
- * @param {import('express').Response} res - The express response object.
+ * @param {import('express').Request} req - The Express request object.
+ * @param {import('express').Response} res - The Express response object.
+ * @returns {Promise<void>} Sends a JSON response indicating success or failure.
  */
 const updateEnv = async (req, res) => {
     try {

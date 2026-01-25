@@ -12,16 +12,12 @@ const CACHE_DIR = path.join(AUDIO_DIR, 'cache');
  */
 const storageService = {
     /**
-     * Recursively calculate directory size in bytes.
-     * @param {string} dirPath 
-     * @returns {number}
-     */
-    /**
-     * Recursively calculate directory size in bytes.
-     * Uses lstatSync to avoid following symlinks (prevents infinite recursion).
-     * @param {string} dirPath 
-     * @param {Set<string>} visitedPaths
-     * @returns {number}
+     * Recursively calculates the size of a directory in bytes.
+     * Uses lstatSync to avoid following symlinks, which prevents infinite recursion.
+     * 
+     * @param {string} dirPath - The absolute path to the directory.
+     * @param {Set<string>} [visitedPaths=new Set()] - A set of resolved paths already visited to prevent cycles.
+     * @returns {number} The total size of the directory in bytes.
      */
     getDirSize(dirPath, visitedPaths = new Set()) {
         let size = 0;
@@ -56,8 +52,9 @@ const storageService = {
     },
 
     /**
-     * Get current audio storage usage breakdown.
-     * @returns {Promise<{total: number, custom: number, cache: number}>}
+     * Retrieves the current audio storage usage breakdown.
+     * 
+     * @returns {Promise<{total: number, custom: number, cache: number}>} A promise resolving to usage statistics in bytes.
      */
     async getUsage() {
         const customSize = this.getDirSize(CUSTOM_DIR);
@@ -86,9 +83,10 @@ const storageService = {
     },
 
     /**
-     * Check if adding more bytes would exceed the configured quota.
-     * @param {number} bytesToAdd 
-     * @returns {Promise<{success: boolean, message: string}>}
+     * Checks if adding a specified number of bytes would exceed the configured storage quota.
+     * 
+     * @param {number} bytesToAdd - The number of bytes intended to be added to storage.
+     * @returns {Promise<{success: boolean, message: string}>} A promise resolving to the result of the quota check.
      */
     async checkQuota(bytesToAdd) {
         const config = configService.get();

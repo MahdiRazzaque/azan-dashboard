@@ -90,17 +90,12 @@ const systemController = {
     },
 
     /**
-     * Catalogues available custom and cached audio files from the server's storage.
-     * 
-     * @param {import('express').Request} req - The Express request object.
-     * @param {import('express').Response} res - The Express response object.
-     */
-    /**
      * Catalogues available custom and cached audio files from the server's storage,
      * including VoiceMonkey compatibility metadata.
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} Sends a JSON response with the file listings and metadata.
      */
     getAudioFiles: async (req, res) => {
         const files = await systemController._getAudioFilesWithMetadata();
@@ -109,6 +104,9 @@ const systemController = {
 
     /**
      * Internal helper to scan directories and attach metadata from sidecar files.
+     * 
+     * @returns {Promise<Array<object>>} A promise that resolves to an array of audio file objects with metadata.
+     * @private
      */
     _getAudioFilesWithMetadata: async () => {
         const audioCustomDir = path.join(__dirname, '../../public/audio/custom');
@@ -122,6 +120,14 @@ const systemController = {
         if (!fs.existsSync(metaCustomDir)) fs.mkdirSync(metaCustomDir, { recursive: true });
         if (!fs.existsSync(metaCacheDir)) fs.mkdirSync(metaCacheDir, { recursive: true });
 
+        /**
+         * Scans a directory for MP3 files and associates them with metadata.
+         * 
+         * @param {string} audioDir - The directory containing audio files.
+         * @param {string} metaDir - The directory containing metadata files.
+         * @param {string} type - The category of the audio files (e.g., 'custom', 'cache').
+         * @returns {Array<object>} An array of audio file objects with metadata.
+         */
         const getFiles = (audioDir, metaDir, type) => {
             if (!fs.existsSync(audioDir)) return [];
             return fs.readdirSync(audioDir)
@@ -437,6 +443,14 @@ const systemController = {
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} Sends a JSON response containing the available voices.
+     */
+    /**
+     * Retrieves the list of available TTS voices.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {void} Sends a JSON response with the available voices.
      */
     async getVoices(req, res) {
         const voices = voiceService.getVoices();
@@ -448,6 +462,7 @@ const systemController = {
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} Sends a JSON response with the generated audio metadata.
      */
     async previewTTS(req, res) {
         const { template, prayerKey, offsetMinutes, voice } = req.body;

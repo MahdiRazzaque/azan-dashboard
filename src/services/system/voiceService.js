@@ -14,7 +14,8 @@ let lastFetched = null;
 
 /**
  * Checks if the cache is still valid based on its age.
- * @returns {boolean}
+ * 
+ * @returns {boolean} True if the cache is within the allowed duration, otherwise false.
  */
 const _isCacheValid = () => {
     if (!lastFetched) return false;
@@ -24,7 +25,8 @@ const _isCacheValid = () => {
 
 /**
  * Loads voices from the persistent disk cache.
- * @returns {Array|null}
+ * 
+ * @returns {Array|null} The list of voices from cache, or null if loading fails or cache is invalid.
  */
 const _loadFromCache = () => {
     try {
@@ -122,7 +124,8 @@ const init = async () => {
 
 /**
  * Returns the currently cached list of voices.
- * @returns {Array}
+ * 
+ * @returns {Array} An array of voice objects currently held in memory.
  */
 const getVoices = () => {
     return voices;

@@ -4,7 +4,10 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 /**
- * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
+ * Conditionally joins CSS classes using tailwind-merge and clsx.
+ * 
+ * @param {Array<string|object|undefined|null>} inputs - Class names or conditional class objects.
+ * @returns {string} The merged Tailwind CSS class string.
  */
 function cn(...inputs) {
   return twMerge(clsx(inputs));
@@ -13,12 +16,13 @@ function cn(...inputs) {
 /**
  * A reusable searchable dropdown select component.
  * 
- * @param {object} props
- * @param {string} props.value - Currently selected value
- * @param {Array} props.options - Array of { value, label, sublabel }
- * @param {function} props.onChange - Selection change handler
- * @param {string} props.placeholder - Input placeholder
- * @param {string} props.className - Container class
+ * @param {object} props - The component properties.
+ * @param {string} props.value - Currently selected value.
+ * @param {Array<{value: string, label: string, sublabel?: string}>} props.options - Array of option objects.
+ * @param {function} props.onChange - Selection change handler.
+ * @param {string} [props.placeholder="Select..."] - Input placeholder text.
+ * @param {string} [props.className] - Optional additional container classes.
+ * @returns {JSX.Element} The rendered searchable dropdown component.
  */
 const SearchableSelect = ({ value, options = [], onChange, placeholder = "Select...", className }) => {
   const [isOpen, setIsOpen] = useState(false);

@@ -250,6 +250,7 @@ const settingsController = {
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} Sends a JSON response with status of upload and analysis.
      */
     uploadFile: async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -292,6 +293,7 @@ const settingsController = {
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
+     * @returns {void} Sends a JSON response confirming the deletion status.
      */
     deleteFile: (req, res) => {
         const { filename } = req.body;

@@ -11,6 +11,12 @@ import { twMerge } from 'tailwind-merge';
 import { useSettings } from '@/hooks/useSettings';
 import SearchableSelect from '@/components/common/SearchableSelect';
 
+/**
+ * Conditionally joins CSS classes using tailwind-merge and clsx.
+ * 
+ * @param {Array<string|object|undefined|null>} inputs - Class names or conditional class objects.
+ * @returns {string} The merged Tailwind CSS class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 // Locale code to full language name mapping
@@ -190,6 +196,8 @@ const getRegion = (locale) => {
 
 /**
  * Inline Voice Library component for embedding in settings views.
+ * 
+ * @returns {JSX.Element} The rendered VoiceLibrary component.
  */
 const VoiceLibrary = () => {
   const { config, draftConfig, updateSetting, voices, voicesLoading: loading, voicesError: error } = useSettings();

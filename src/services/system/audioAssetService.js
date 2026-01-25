@@ -69,6 +69,9 @@ const cleanupCache = async () => {
 
 /**
  * Cleans up temporary preview audio files.
+ * 
+ * @param {boolean} [force=false] - If true, deletes all files regardless of age.
+ * @returns {Promise<void>} Resolves when cleanup is complete.
  */
 const cleanupTempAudio = async (force = false) => {
     console.log(`[AudioService] Cleaning up temporary audio files (force: ${force})...`);
@@ -96,7 +99,12 @@ const cleanupTempAudio = async (force = false) => {
 };
 
 /**
- * Resolves a message template.
+ * Resolves placeholders within a message template string.
+ * 
+ * @param {string} template - The template string containing placeholders like {minutes}.
+ * @param {string} prayerKey - The identifier of the prayer (e.g., 'fajr').
+ * @param {number} [offsetMinutes] - The time offset in minutes to be converted to words.
+ * @returns {string} The resolved message string.
  */
 const resolveTemplate = (template, prayerKey, offsetMinutes) => {
     let result = template;
@@ -110,7 +118,13 @@ const resolveTemplate = (template, prayerKey, offsetMinutes) => {
 };
 
 /**
- * Generates an audio file using Text-to-Speech.
+ * Generates an audio file using the external Text-to-Speech service.
+ * 
+ * @param {string} filename - The target filename for the generated audio.
+ * @param {string} text - The text to be converted to speech.
+ * @param {string} serviceUrl - The base URL of the TTS service.
+ * @param {string} [triggerVoice=null] - Optional specific voice to use for this generation.
+ * @returns {Promise<void>} Resolves when the TTS generation is triggered.
  */
 const generateTTS = async (filename, text, serviceUrl, triggerVoice = null) => {
     try {
@@ -127,7 +141,10 @@ const generateTTS = async (filename, text, serviceUrl, triggerVoice = null) => {
 };
 
 /**
- * Synchronises audio assets with the current configuration.
+ * Synchronises audio assets with the current configuration, generating missing TTS files.
+ * 
+ * @param {boolean} [forceClean=false] - If true, clears the cache before synchronising.
+ * @returns {Promise<object>} An object containing any synchronization warnings.
  */
 const syncAudioAssets = async (forceClean = false) => {
     console.log('[AudioService] Synchronising audio assets...');
@@ -216,7 +233,13 @@ const syncAudioAssets = async (forceClean = false) => {
 };
 
 /**
- * Preview TTS.
+ * Generates a temporary TTS preview for the given template and voice settings.
+ * 
+ * @param {string} template - The message template to preview.
+ * @param {string} prayerKey - The prayer identifier.
+ * @param {number} offsetMinutes - The time offset in minutes.
+ * @param {string} voice - The voice identifier to use for the preview.
+ * @returns {Promise<object>} An object containing the URL of the generated preview audio.
  */
 const previewTTS = async (template, prayerKey, offsetMinutes, voice) => {
     const text = resolveTemplate(template, prayerKey.toLowerCase(), offsetMinutes);
@@ -246,6 +269,11 @@ const previewTTS = async (template, prayerKey, offsetMinutes, voice) => {
     }
 };
 
+/**
+ * Generates metadata sidecar files for any existing audio files that lack them.
+ * 
+ * @returns {Promise<void>} Resolves when all files have been processed.
+ */
 const generateMetadataForExistingFiles = async () => {
     ensureDirs();
     const directories = [
