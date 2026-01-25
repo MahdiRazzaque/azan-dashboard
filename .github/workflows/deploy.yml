@@ -39,7 +39,7 @@ jobs:
             # 1. Navigate
             cd ${{ matrix.project_path }}
 
-            # 2. FIX GIT LOCKS: Remove stale lock files if they exist
+            # 2. FIX GIT LOCKS
             if [ -f .git/index.lock ]; then rm -f .git/index.lock; fi
             if [ -f .git/refs/remotes/origin/main.lock ]; then rm -f .git/refs/remotes/origin/main.lock; fi
 
@@ -48,7 +48,6 @@ jobs:
             git reset --hard origin/main
 
             # 4. Persist Environment Variables
-            # Update root .env for Docker Compose context
             touch .env
             sed -i '/^APP_PORT=/d' .env
             echo "APP_PORT=${{ matrix.app_port }}" >> .env
@@ -56,14 +55,14 @@ jobs:
             sed -i '/^COMPOSE_PROJECT_NAME=/d' .env
             echo "COMPOSE_PROJECT_NAME=${{ matrix.project_name }}" >> .env
 
-            # Update App Config .env for the Application (Base URL)
+            # Update App Config
             mkdir -p config
             touch config/.env
             sed -i '/^BASE_URL=/d' config/.env
             echo "BASE_URL=${{ matrix.base_url }}" >> config/.env
 
-            # 5. Deploy
-            docker compose -f docker/docker-compose.yml -f docker/docker-compose.audio.yml up -d --build
+            # 5. Deploy (Updated Command)
+            docker compose --env-file .env -p ${{ matrix.project_name }} -f docker/docker-compose.yml -f docker/docker-compose.audio.yml up -d --build
 
             # 6. Cleanup & Reload Nginx
             docker image prune -f
