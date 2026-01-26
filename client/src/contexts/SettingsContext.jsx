@@ -17,6 +17,8 @@ export const SettingsProvider = ({ children }) => {
   const [voices, setVoices] = useState([]);
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [voicesError, setVoicesError] = useState(null);
+  const [providers, setProviders] = useState([]);
+  const [providersLoading, setProvidersLoading] = useState(false);
   
   // Ref to hold the latest config for stable callbacks
   const configRef = useRef(config);
@@ -94,6 +96,22 @@ export const SettingsProvider = ({ children }) => {
     }
   }, []);
 
+  const fetchProviders = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setProvidersLoading(true);
+    try {
+        const res = await fetch('/api/system/providers');
+        if (res.ok) {
+            const data = await res.json();
+            setProviders(data);
+        }
+    } catch (e) {
+        console.error('[SettingsContext] Failed to fetch providers:', e);
+    } finally {
+        setProvidersLoading(false);
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     if (!pausedPolling) {
       fetchSettings();
@@ -101,9 +119,10 @@ export const SettingsProvider = ({ children }) => {
       
       if (isAuthenticated) {
         fetchVoices();
+        fetchProviders();
       }
     }
-  }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth, fetchVoices]);
+  }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth, fetchVoices, fetchProviders]);
 
 
   const refreshHealth = useCallback(async (target = 'all', mode = 'silent') => {
@@ -383,7 +402,10 @@ export const SettingsProvider = ({ children }) => {
         voices,
         voicesLoading,
         voicesError,
-        fetchVoices
+        fetchVoices,
+        providers,
+        providersLoading,
+        fetchProviders
     }}>
       {children}
     </SettingsContext.Provider>

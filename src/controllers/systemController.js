@@ -522,6 +522,18 @@ const systemController = {
             console.error('[SystemController] runJob failed:', error);
             return res.status(500).json({ success: false, message: error.message || 'Failed to trigger job' });
         }
+    },
+
+    /**
+     * Returns the registry of available prayer data providers and their schemas.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    getProviders(req, res) {
+        const { ProviderFactory } = require('@providers');
+        const providers = ProviderFactory.getRegisteredProviders();
+        res.json(providers);
     }
 };
 

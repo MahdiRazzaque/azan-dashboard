@@ -23,6 +23,18 @@ class ProviderFactory {
                 throw new Error(`Unknown provider type: ${sourceConfig.type}`);
         }
     }
+
+    /**
+     * Retrieves the list of all registered prayer providers and their metadata.
+     * 
+     * @returns {Array<Object>} An array of provider metadata objects.
+     */
+    static getRegisteredProviders() {
+        return [
+            AladhanProvider.getMetadata(),
+            MyMasjidProvider.getMetadata()
+        ];
+    }
 }
 
 module.exports = ProviderFactory;

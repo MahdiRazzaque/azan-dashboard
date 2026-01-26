@@ -21,6 +21,74 @@ class AladhanProvider extends BaseProvider {
         return this.deduplicateRequest(key, () => aladhanQueue.schedule(() => this._doFetch(year)));
     }
 
+    /** @override */
+    static getMetadata() {
+        const { 
+            CALCULATION_METHODS, 
+            ASR_JURISTIC_METHODS, 
+            LATITUDE_ADJUSTMENT_METHODS, 
+            MIDNIGHT_MODES 
+        } = require('@utils/constants');
+
+        /**
+         * Converts a constant object to a sorted array of option objects.
+         * @param {Object} obj - The constant object.
+         * @returns {Array} Sorted options.
+         */
+        const toOptions = (obj) => Object.entries(obj)
+            .map(([id, label]) => ({ id: parseInt(id), label }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+
+        return {
+            id: 'aladhan',
+            label: 'Aladhan.com',
+            description: 'Global prayer times from Aladhan.com API',
+            requiresCoordinates: true,
+            parameters: [
+                {
+                    key: 'method',
+                    type: 'select',
+                    label: 'Calculation Method',
+                    description: 'The method used to calculate prayer times.',
+                    constraints: {
+                        required: true,
+                        options: toOptions(CALCULATION_METHODS)
+                    }
+                },
+                {
+                    key: 'madhab',
+                    type: 'select',
+                    label: 'Madhab (Asr)',
+                    description: 'Juristic method for Asr prayer time.',
+                    constraints: {
+                        required: true,
+                        options: toOptions(ASR_JURISTIC_METHODS)
+                    }
+                },
+                {
+                    key: 'latitudeAdjustmentMethod',
+                    type: 'select',
+                    label: 'Latitude Adjustment',
+                    description: 'Method for adjusting times at high latitudes.',
+                    constraints: {
+                        required: true,
+                        options: toOptions(LATITUDE_ADJUSTMENT_METHODS)
+                    }
+                },
+                {
+                    key: 'midnightMode',
+                    type: 'select',
+                    label: 'Midnight Mode',
+                    description: 'The method used to calculate midnight.',
+                    constraints: {
+                        required: true,
+                        options: toOptions(MIDNIGHT_MODES)
+                    }
+                }
+            ]
+        };
+    }
+
     /**
      * Fetches annual prayer times from the Aladhan API and validates the response.
      * @param {number|string} year The calendar year for which to retrieve prayer calculations.
@@ -29,7 +97,12 @@ class AladhanProvider extends BaseProvider {
      */
     async _doFetch(year) {
         const { coordinates, timezone } = this.globalConfig.location;
-        const { method, madhab, latitudeAdjustmentMethod, midnightMode } = this.globalConfig.calculation;
+        
+        // Prefer provider-specific settings if they exist, fallback to global calculation settings
+        const method = this.sourceConfig.method ?? this.globalConfig.calculation.method;
+        const madhab = this.sourceConfig.madhab ?? this.globalConfig.calculation.madhab;
+        const latitudeAdjustmentMethod = this.sourceConfig.latitudeAdjustmentMethod ?? this.globalConfig.calculation.latitudeAdjustmentMethod;
+        const midnightMode = this.sourceConfig.midnightMode ?? this.globalConfig.calculation.midnightMode;
 
         const methodId = typeof method === 'number' ? method : this._getCalculationMethodId(method);
         const school = typeof madhab === 'number' ? madhab : this._getMadhabId(madhab);

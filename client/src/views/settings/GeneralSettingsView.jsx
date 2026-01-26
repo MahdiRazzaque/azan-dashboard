@@ -5,6 +5,7 @@ import { Globe, MapPin, CheckCircle, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import SourceConfigurator from '@/components/settings/SourceConfigurator';
+import { useProviders } from '@/hooks/useProviders';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
@@ -30,6 +31,8 @@ export default function GeneralSettingsView() {
   
   const { constants, loading: loadingConstants } = useConstants();
 
+  const { providers } = useProviders();
+
   if (loading || loadingConstants || !draftConfig) return <div className="p-8 text-center text-app-dim">Loading settings...</div>;
 
   const formData = draftConfig;
@@ -40,15 +43,19 @@ export default function GeneralSettingsView() {
 
   const primarySource = formData.sources?.primary || { type: 'aladhan' };
   const backupSource = formData.sources?.backup || null;
-  const backupEnabled = backupSource && backupSource.enabled !== false;
+  const backupEnabled = !!backupSource;
 
   const handlePrimaryChange = (newSource) => {
       handleChange('sources.primary', newSource);
       
-      // Mutual Exclusion: If backup is same as new primary, switch backup
+      // [REQ-005] Source Mutual Exclusion: If backup is same as new primary, reset backup
       if (backupEnabled && backupSource.type === newSource.type) {
-          const alternativeType = newSource.type === 'aladhan' ? 'mymasjid' : 'aladhan';
-          handleChange('sources.backup', { ...backupSource, type: alternativeType });
+          const alternativeProvider = providers.find(p => p.id !== newSource.type);
+          if (alternativeProvider) {
+              handleChange('sources.backup', { ...backupSource, type: alternativeProvider.id });
+          } else {
+              handleChange('sources.backup', null);
+          }
       }
   };
 
@@ -58,8 +65,10 @@ export default function GeneralSettingsView() {
 
   const toggleBackup = (enabled) => {
       if (enabled) {
-          const alternativeType = primarySource.type === 'aladhan' ? 'mymasjid' : 'aladhan';
-          handleChange('sources.backup', { type: alternativeType, enabled: true });
+          const alternativeProvider = providers.find(p => p.id !== primarySource.type);
+          if (alternativeProvider) {
+              handleChange('sources.backup', { type: alternativeProvider.id, enabled: true });
+          }
       } else {
           handleChange('sources.backup', null);
       }
@@ -131,6 +140,8 @@ export default function GeneralSettingsView() {
                         showCoordinates={false} // Coordinates are shared from primary card
                         calculationData={formData.calculation}
                         onCalculationChange={(field, val) => handleChange(`calculation.${field}`, val)}
+                        isBackup={true}
+                        primarySourceType={primarySource.type}
                     />
                 )}
             </div>
