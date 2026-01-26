@@ -14,6 +14,29 @@ class MyMasjidProvider extends BaseProvider {
         return this.deduplicateRequest(key, () => myMasjidQueue.schedule(() => this._doFetch(year)));
     }
 
+    /** @override */
+    static getMetadata() {
+        return {
+            id: 'mymasjid',
+            label: 'MyMasjid',
+            description: 'Prayer times from MyMasjid.ca / MasjidBox',
+            requiresCoordinates: false,
+            parameters: [
+                {
+                    key: 'masjidId',
+                    type: 'text',
+                    label: 'Masjid ID (GUID)',
+                    placeholder: 'e.g. 94f1c71b-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+                    sensitive: false,
+                    constraints: {
+                        required: true,
+                        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+                    }
+                }
+            ]
+        };
+    }
+
     /**
      * Fetches prayer times from the MyMasjid API and validates the response.
      * @param {number|string} year The calendar year for which to retrieve prayer calculations.

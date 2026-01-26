@@ -8,6 +8,7 @@
     "test:coverage": "jest --config .config/jest.config.js --coverage --runInBand",
     "start": "node src/server.js",
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "tts:start": "cd src/microservices/tts && venv\\Scripts\\python server.py",
     "server:dev": "nodemon --config .config/nodemon.json src/server.js",
     "client:dev": "cd client && npm run dev",
     "client:install": "cd client && npm install",

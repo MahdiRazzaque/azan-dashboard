@@ -23,5 +23,6 @@ router.post('/validate-url', operationsLimiter, authenticateToken, asyncHandler(
 router.post('/source/test', operationsLimiter, authenticateToken, asyncHandler(systemController.testSource));
 router.post('/test-voicemonkey', authenticateToken, asyncHandler(systemController.testVoiceMonkey));
 router.post('/cleanup-temp-tts', operationsLimiter, authenticateToken, asyncHandler(systemController.cleanupTempTTS));
+router.get('/providers', authenticateToken, asyncHandler(systemController.getProviders));
 
 module.exports = router;

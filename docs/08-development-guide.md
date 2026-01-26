@@ -40,6 +40,38 @@ npm run test:coverage
 ```
 Open `coverage/lcov-report/index.html` to view the detailed breakdown.
 
+## Extending Prayer Providers
+
+The dashboard supports a discovery-driven provider architecture. To add a new prayer time source:
+
+1.  **Create a Provider Class:** In `src/providers/`, create a new class extending `BaseProvider`.
+2.  **Implement `getAnnualTimes(year)`:** Calculate or fetch prayer times.
+3.  **Implement `static getMetadata()`:** Return a JSON schema describing the provider's capabilities and parameters.
+    ```javascript
+    static getMetadata() {
+        return {
+            id: 'my-new-provider',
+            label: 'My New Provider',
+            description: 'Short description for UI',
+            requiresCoordinates: true, // Show calculation settings
+            parameters: [
+                {
+                    key: 'apiKey',
+                    type: 'password', // text, number, select, password
+                    label: 'API Key',
+                    sensitive: true, // Will be stripped from local.json
+                    constraints: { required: true }
+                }
+            ]
+        };
+    }
+    ```
+4.  **Register in `ProviderFactory.js`:** 
+    - Add to the `create()` method's switch statement.
+    - Add to the `getRegisteredProviders()` return array.
+
+The frontend will automatically discover the new provider and render the appropriate configuration fields via the `SourceConfigurator` and `DynamicField` components.
+
 ## Known Issues & Limitations
 *   **Audio Hardware on Docker Desktop:** As noted in deployment, mapping `/dev/snd` relies on Linux ALSA. Windows/Mac users cannot use the "Local" target effectively in Docker.
 *   **VoiceMonkey Latency:** Alexa announcements depend on VoiceMonkey's cloud API, which can introduce a 1-3 second delay.

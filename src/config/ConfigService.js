@@ -226,6 +226,24 @@ class ConfigService {
         if (process.env.VOICEMONKEY_DEVICE) {
             config.automation.voiceMonkey.device = process.env.VOICEMONKEY_DEVICE;
         }
+
+        // [REQ-006] Apply dynamic provider secrets from environment variables
+        const { ProviderFactory } = require('@providers');
+        const providers = ProviderFactory.getRegisteredProviders();
+
+        for (const provider of providers) {
+            provider.parameters.filter(p => p.sensitive).forEach(param => {
+                const envKey = param.key.toUpperCase();
+                if (process.env[envKey]) {
+                    ['primary', 'backup'].forEach(role => {
+                        const source = config.sources?.[role];
+                        if (source?.type === provider.id) {
+                            source[param.key] = process.env[envKey];
+                        }
+                    });
+                }
+            });
+        }
     }
 
     /**
@@ -244,6 +262,27 @@ class ConfigService {
             if (config.automation.voiceMonkey) {
                  delete config.automation.voiceMonkey.token;
                  delete config.automation.voiceMonkey.device;
+            }
+        }
+
+        // [REQ-006] Dynamic provider secrets from metadata
+        const { ProviderFactory } = require('@providers');
+        const providers = ProviderFactory.getRegisteredProviders();
+        
+        for (const provider of providers) {
+            const sensitiveKeys = provider.parameters
+                .filter(p => p.sensitive)
+                .map(p => p.key);
+            
+            for (const role of ['primary', 'backup']) {
+                const source = config.sources?.[role];
+                if (source?.type === provider.id) {
+                    for (const key of sensitiveKeys) {
+                        if (source[key] !== undefined) {
+                            delete source[key];
+                        }
+                    }
+                }
             }
         }
     }

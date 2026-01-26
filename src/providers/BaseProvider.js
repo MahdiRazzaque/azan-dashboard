@@ -28,6 +28,17 @@ class BaseProvider {
     }
 
     /**
+     * Returns the metadata schema for the provider.
+     * Must be implemented by subclasses.
+     * 
+     * @returns {Object} The provider metadata.
+     * @throws {Error} If not implemented by subclass.
+     */
+    static getMetadata() {
+        throw new Error('Method getMetadata() must be implemented');
+    }
+
+    /**
      * Deduplicates concurrent requests to the same resource.
      * 
      * @param {string} key - Unique key for the request.

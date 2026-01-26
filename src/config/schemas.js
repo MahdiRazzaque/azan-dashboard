@@ -112,13 +112,11 @@ const configSchema = z.object({
   }),
   sources: z.object({
     primary: z.object({ 
-      type: z.string(),
-      masjidId: z.string().optional() 
+      type: z.string()
     }).passthrough(),
     backup: z.object({ 
       type: z.string(), 
-      enabled: z.boolean().optional(),
-      masjidId: z.string().optional() 
+      enabled: z.boolean().optional()
     }).passthrough().nullable().optional(),
   }),
   data: dataSchema,
