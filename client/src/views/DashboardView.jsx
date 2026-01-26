@@ -4,13 +4,13 @@ import TopControls from '@/components/layout/TopControls';
 import PrayerCard from '@/components/dashboard/PrayerCard';
 import FocusCard from '@/components/dashboard/FocusCard';
 
-const DashboardView = ({ prayers, nextPrayer, isMuted, toggleMute, blocked, onCountdownComplete }) => {
+const DashboardView = ({ prayers, nextPrayer, lastUpdated, isMuted, toggleMute, blocked, onCountdownComplete }) => {
     return (
         <div className="relative h-screen w-screen overflow-y-auto lg:overflow-hidden bg-app-bg text-app-text font-sans antialiased selection:bg-app-accent selection:text-app-bg" style={{ WebkitOverflowScrolling: 'touch' }}>
             <TopControls isMuted={isMuted} toggleMute={toggleMute} blocked={blocked} />
             <DashboardLayout>
                 <PrayerCard prayers={prayers} nextPrayer={nextPrayer} />
-                <FocusCard nextPrayer={nextPrayer} prayers={prayers} onCountdownComplete={onCountdownComplete} />
+                <FocusCard nextPrayer={nextPrayer} prayers={prayers} lastUpdated={lastUpdated} onCountdownComplete={onCountdownComplete} />
             </DashboardLayout>
         </div>
     );

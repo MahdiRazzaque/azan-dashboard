@@ -3,11 +3,12 @@ import { DateTime } from 'luxon';
 import { useClientPreferences } from '@/hooks/useClientPreferences';
 import { useMemo } from 'react';
 
-const FocusCard = ({ nextPrayer, prayers, onCountdownComplete }) => {
+const FocusCard = ({ nextPrayer, prayers, lastUpdated, onCountdownComplete }) => {
     const [now, setNow] = useState(DateTime.now());
     const { preferences } = useClientPreferences();
     const { clockFormat, showSeconds, countdownMode, skipSunriseCountdown } = preferences.appearance;
     const lastTriggeredRef = useRef(null);
+    const isFetchingRef = useRef(false);
 
     // Calculate effective next prayer (skip sunrise if preference is set)
     const effectiveNextPrayer = useMemo(() => {
@@ -35,8 +36,10 @@ const FocusCard = ({ nextPrayer, prayers, onCountdownComplete }) => {
         const secondsLeft = Math.floor((target.toMillis() - now.toMillis()) / 1000);
 
         // Only trigger if we haven't already triggered for this specific prayer time
-        if (secondsLeft <= 0 && lastTriggeredRef.current !== effectiveNextPrayer.time) {
+        // and we're not currently in a fetching state
+        if (secondsLeft <= 0 && lastTriggeredRef.current !== effectiveNextPrayer.time && !isFetchingRef.current) {
             lastTriggeredRef.current = effectiveNextPrayer.time;
+            isFetchingRef.current = true;
             
             console.log(`[FocusCard] Countdown finished for ${effectiveNextPrayer.name}. Triggering refetch in 5s...`);
             
@@ -47,6 +50,30 @@ const FocusCard = ({ nextPrayer, prayers, onCountdownComplete }) => {
             return () => clearTimeout(timer);
         }
     }, [effectiveNextPrayer, now, onCountdownComplete]);
+
+    // Retry loop: monitor lastUpdated to detect if server returned stale data
+    useEffect(() => {
+        if (!isFetchingRef.current || !effectiveNextPrayer || !onCountdownComplete) return;
+
+        const target = DateTime.fromISO(effectiveNextPrayer.time);
+        const currentNow = DateTime.now();
+        const secondsLeft = Math.floor((target.toMillis() - currentNow.toMillis()) / 1000);
+
+        if (secondsLeft > 0) {
+            // Success: server returned new prayer, unlock UI
+            console.log(`[FocusCard] Transition successful. Next prayer: ${effectiveNextPrayer.name} in ${secondsLeft}s`);
+            isFetchingRef.current = false;
+        } else {
+            // Server still returning old prayer, retry after 5s
+            console.log(`[FocusCard] Server still returning old prayer (${effectiveNextPrayer.name}). Retrying in 5s...`);
+            
+            const timer = setTimeout(() => {
+                onCountdownComplete();
+            }, 5000);
+            
+            return () => clearTimeout(timer);
+        }
+    }, [lastUpdated, effectiveNextPrayer, onCountdownComplete]);
 
     const getCountdown = () => {
         if (!effectiveNextPrayer) return null;

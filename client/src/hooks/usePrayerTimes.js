@@ -12,6 +12,7 @@ export const usePrayerTimes = () => {
     const [meta, setMeta] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [lastUpdated, setLastUpdated] = useState(Date.now());
 
     const fetchPrayers = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
@@ -24,6 +25,7 @@ export const usePrayerTimes = () => {
             setNextPrayer(data.nextPrayer);
             setMeta(data.meta || {});
             setError(null);
+            setLastUpdated(Date.now());
         } catch (err) {
             console.error("Prayer Times Fetch Error:", err);
             setError(err.message);
@@ -34,9 +36,9 @@ export const usePrayerTimes = () => {
 
     useEffect(() => {
         fetchPrayers(true);
-        const interval = setInterval(() => fetchPrayers(false), 15 * 60 * 1000); // 15 mins
+        const interval = setInterval(() => fetchPrayers(false), 5 * 60 * 1000); // 5 mins
         return () => clearInterval(interval);
     }, [fetchPrayers]);
 
-    return { prayers, nextPrayer, meta, loading, error, refetch: () => fetchPrayers(false) };
+    return { prayers, nextPrayer, meta, loading, error, lastUpdated, refetch: () => fetchPrayers(false) };
 };

@@ -29,7 +29,7 @@ function App() {
   const { playUrl, isMuted, toggleMute, blocked } = useAudio({
     autoUnmute: preferences.appearance.autoUnmute
   });
-  const { prayers, nextPrayer, refetch } = usePrayerTimes();
+  const { prayers, nextPrayer, lastUpdated, refetch } = usePrayerTimes();
 
   const handleAudioPlay = useCallback((prayer, event, url) => {
     if (isAudioExcluded(prayer, event)) {
@@ -68,6 +68,7 @@ function App() {
                 <DashboardView 
                     prayers={prayers} 
                     nextPrayer={nextPrayer} 
+                    lastUpdated={lastUpdated}
                     isMuted={isMuted} 
                     toggleMute={toggleMute} 
                     blocked={blocked} 
