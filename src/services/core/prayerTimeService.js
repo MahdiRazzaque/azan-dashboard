@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { fetchAladhanAnnual, fetchMyMasjidBulk } = require('@adapters/prayerApiAdapter');
+const { ProviderFactory, ProviderConnectionError, ProviderValidationError } = require('@providers');
 const { DateTime } = require('luxon');
 const { calculateIqamah, calculateNextPrayer } = require('@utils/calculations');
 
@@ -126,22 +126,16 @@ async function getPrayerTimes(config, date = DateTime.now()) {
   let sourceUsed = null;
 
   /**
-   * Internal helper to attempt fetching prayer times from a specific source.
-   * 
-   * @param {Object} sourceConfig - The configuration for the data source.
-   * @returns {Promise<Object|null>} A map of prayer times if successful, otherwise null.
-   * @throws {Error} If the source type is unknown.
+   * Internal helper to attempt a fetch from a specific source.
+   * @param {Object} sourceConfig The configuration for the source.
+   * @returns {Promise<Object|null>} A promise resolving to the fetched data map or null.
    */
   const tryFetch = async (sourceConfig) => {
     if (!sourceConfig || !sourceConfig.type) return null;
     console.log(`[PrayerService] Attempting fetch from source: ${sourceConfig.type}`);
     
-    if (sourceConfig.type === 'aladhan') {
-      return await fetchAladhanAnnual(config, year);
-    } else if (sourceConfig.type === 'mymasjid') {
-      return await fetchMyMasjidBulk(config);
-    }
-    throw new Error(`Unknown source type: ${sourceConfig.type}`);
+    const provider = ProviderFactory.create(sourceConfig, config);
+    return await provider.getAnnualTimes(year);
   };
 
   try {
@@ -156,25 +150,28 @@ async function getPrayerTimes(config, date = DateTime.now()) {
   } catch (error) {
     console.error(`Primary source (${config.sources.primary.type}) failed: ${error.message}`);
     
-    // Try Backup
+    if (error instanceof ProviderValidationError) {
+      throw error;
+    }
+
     if (config.sources.backup) {
+      console.log(`[PrayerService] Attempting failover to backup source.`);
       try {
         const backup = config.sources.backup;
         newDataMap = await tryFetch(backup);
-        sourceUsed = backup.type;
+        if (newDataMap && Object.keys(newDataMap).length > 0) {
+            sourceUsed = backup.type;
+        }
       } catch (backupError) {
         console.error(`Backup source (${config.sources.backup.type}) failed: ${backupError.message}`);
       }
     }
+    
+    if (!newDataMap || Object.keys(newDataMap).length === 0) {
+        throw error;
+    }
   }
 
-  if (!newDataMap || Object.keys(newDataMap).length === 0) {
-    throw new Error("Unable to retrieve prayer times from any source.");
-  }
-
-  // 3. Write Cache
-  // Merge new data into existing cache data to preserve other years/months if needed
-  
   const updatedCache = {
     meta: {
       lastFetched: DateTime.now().toISO(),
@@ -188,7 +185,6 @@ async function getPrayerTimes(config, date = DateTime.now()) {
 
   writeCache(updatedCache);
 
-  // 4. Return specific date
   const resultForDate = updatedCache.data[dateKey];
   
   if (!resultForDate) {
@@ -208,8 +204,7 @@ async function getPrayerTimes(config, date = DateTime.now()) {
 
 /**
  * Reads the prayer times cache from the file system.
- * 
- * @returns {Object} The parsed cache object, or an empty object if the file is missing or corrupt.
+ * @returns {Object} The cached data object or an empty object if not found or corrupted.
  */
 function readCache() {
   try {
@@ -230,9 +225,7 @@ function readCache() {
 
 /**
  * Writes the prayer times cache to the file system.
- * 
- * @param {Object} data - The cache object to save.
- * @returns {void}
+ * @param {Object} data The cache object to be written.
  */
 function writeCache(data) {
   try {
@@ -243,10 +236,9 @@ function writeCache(data) {
 }
 
 /**
- * Applies locally configured iqamah overrides to the fetched prayer times.
- * 
- * @param {Object} prayers - The standard prayer times object.
- * @param {Object} config - The application configuration containing overrides.
+ * Applies locally configured iqamah overrides.
+ * @param {Object} prayers The original prayer times object.
+ * @param {Object} config The global application configuration.
  * @returns {Object} The prayer times object with overrides applied.
  */
 function applyOverrides(prayers, config) {
@@ -272,16 +264,15 @@ function applyOverrides(prayers, config) {
 
 /**
  * Forces a refresh of the prayer times by deleting the cache and re-fetching.
- * 
- * @param {Object} config - The application configuration object.
- * @returns {Promise<Object>} The fresh prayer times data.
+ * @param {Object} config The global application configuration.
+ * @returns {Promise<Object>} A promise resolving to the refreshed prayer times for today.
  */
 async function forceRefresh(config) {
     if (fs.existsSync(CACHE_FILE)) {
         try {
             fs.unlinkSync(CACHE_FILE);
         } catch (e) {
-             // ignore if fails?
+             // ignore
         }
     }
     return getPrayerTimes(config, DateTime.now());

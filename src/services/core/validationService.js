@@ -1,5 +1,5 @@
 const { DateTime } = require('luxon');
-const fetchers = require('@adapters/prayerApiAdapter');
+const { ProviderFactory } = require('@providers');
 
 /**
  * Validates configuration sources by testing API connectivity.
@@ -13,46 +13,36 @@ async function validateConfigSource(newConfig) {
         return;
     }
 
-    const sourceType = newConfig.sources.primary.type;
     const now = DateTime.now();
     
-    // Construct a temporary config for fetchers to use
-    // Deep clone to avoid side effects
-    const tempConfig = JSON.parse(JSON.stringify(newConfig));
-    
     // --- PRIMARY SOURCE VALIDATION ---
-    if (sourceType === 'mymasjid') {
-        const masjidId = newConfig.sources.primary.masjidId;
-        if (!masjidId) {
-            throw new Error("Masjid ID is required for MyMasjid source");
-        }
-        
-        console.log(`[Validation] Testing Primary MyMasjid with ID: ${masjidId}`);
-        await fetchers.fetchMyMasjidBulk(tempConfig); 
-    } else if (sourceType === 'aladhan') {
+    const primarySource = newConfig.sources.primary;
+    if (primarySource.type === 'aladhan') {
         const coords = newConfig.location?.coordinates;
         if (!coords || coords.lat === undefined || coords.long === undefined) {
              throw new Error("Coordinates are required for Aladhan source");
         }
-        console.log(`[Validation] Testing Primary Aladhan with Coordinates: ${JSON.stringify(coords)}`);
-        await fetchers.fetchAladhanAnnual(tempConfig, now.year);
+    } else if (primarySource.type === 'mymasjid') {
+        if (!primarySource.masjidId) {
+            throw new Error("Masjid ID is required for MyMasjid source");
+        }
     }
+
+    console.log(`[Validation] Testing Primary source: ${primarySource.type}`);
+    const primaryProvider = ProviderFactory.create(primarySource, newConfig);
+    await primaryProvider.getAnnualTimes(now.year);
 
     // --- BACKUP SOURCE VALIDATION ---
     if (newConfig.sources.backup && newConfig.sources.backup.enabled !== false) {
         const backupSource = newConfig.sources.backup;
-        const backupType = backupSource.type;
-
-        if (backupType === 'mymasjid') {
-            if (!backupSource.masjidId) {
-                throw new Error("Masjid ID is required for Backup MyMasjid source");
-            }
-            console.log(`[Validation] Testing Backup MyMasjid with ID: ${backupSource.masjidId}`);
-            await fetchers.fetchMyMasjidBulk(tempConfig);
-        } else if (backupType === 'aladhan') {
-            console.log(`[Validation] Testing Backup Aladhan with Coordinates: ${JSON.stringify(newConfig.location.coordinates)}`);
-            await fetchers.fetchAladhanAnnual(tempConfig, now.year);
+        
+        if (backupSource.type === 'mymasjid' && !backupSource.masjidId) {
+            throw new Error("Masjid ID is required for Backup MyMasjid source");
         }
+
+        console.log(`[Validation] Testing Backup source: ${backupSource.type}`);
+        const backupProvider = ProviderFactory.create(backupSource, newConfig);
+        await backupProvider.getAnnualTimes(now.year);
     }
 }
 

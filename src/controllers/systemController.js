@@ -10,7 +10,7 @@ const audioAssetService = require('@services/system/audioAssetService');
 const diagnosticsService = require('@services/system/diagnosticsService');
 const configService = require('@config');
 const voiceService = require('@services/system/voiceService');
-const fetchers = require('@adapters/prayerApiAdapter');
+const { ProviderFactory } = require('@providers');
 const { 
     CALCULATION_METHODS, 
     ASR_JURISTIC_METHODS, 
@@ -359,15 +359,9 @@ const systemController = {
         const healthKey = target === 'primary' ? 'primarySource' : 'backupSource';
 
         try {
-            let result;
-            if (type === 'aladhan') {
-                const year = DateTime.now().setZone(config.location.timezone).year;
-                result = await fetchers.fetchAladhanAnnual(config, year);
-            } else if (type === 'mymasjid') {
-                result = await fetchers.fetchMyMasjidBulk(config);
-            } else {
-                return res.status(400).json({ success: false, error: `Unsupported source type: ${type}` });
-            }
+            const provider = ProviderFactory.create(targetSource, config);
+            const year = DateTime.now().setZone(config.location.timezone).year;
+            const result = await provider.getAnnualTimes(year);
 
             const daysCount = Object.keys(result).length;
 
@@ -379,6 +373,10 @@ const systemController = {
                 message: `Source responded with ${daysCount} days of data.`
             });
         } catch (error) {
+            if (error.message.includes('Unknown provider type')) {
+                return res.status(400).json({ success: false, error: error.message });
+            }
+
             // Update health status to reflected failure even if data retrieval fails
             try {
                 await healthCheck.refresh(healthKey);

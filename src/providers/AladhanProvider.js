@@ -1,0 +1,175 @@
+const { DateTime } = require('luxon');
+const BaseProvider = require('./BaseProvider');
+const { ProviderConnectionError, ProviderValidationError } = require('./errors');
+const { aladhanQueue } = require('@utils/requestQueue');
+const { AladhanAnnualResponseSchema } = require('@config/apiSchemas');
+const {
+    CALCULATION_METHODS,
+    ASR_JURISTIC_METHODS,
+    LATITUDE_ADJUSTMENT_METHODS,
+    MIDNIGHT_MODES,
+    API_BASE_URL
+} = require('@utils/constants');
+
+/**
+ * Provider for the Aladhan.com Prayer Times API.
+ */
+class AladhanProvider extends BaseProvider {
+    /** @override */
+    async getAnnualTimes(year) {
+        const key = `aladhan-${this.globalConfig.location.coordinates.lat}-${this.globalConfig.location.coordinates.long}-${year}`;
+        return this.deduplicateRequest(key, () => aladhanQueue.schedule(() => this._doFetch(year)));
+    }
+
+    /**
+     * Fetches annual prayer times from the Aladhan API and validates the response.
+     * @param {number|string} year The calendar year for which to retrieve prayer calculations.
+     * @returns {Promise<Object>} A promise resolving to a normalised map of prayer times.
+     * @private
+     */
+    async _doFetch(year) {
+        const { coordinates, timezone } = this.globalConfig.location;
+        const { method, madhab, latitudeAdjustmentMethod, midnightMode } = this.globalConfig.calculation;
+
+        const methodId = typeof method === 'number' ? method : this._getCalculationMethodId(method);
+        const school = typeof madhab === 'number' ? madhab : this._getMadhabId(madhab);
+        const latAdj = typeof latitudeAdjustmentMethod === 'number' ? latitudeAdjustmentMethod : this._getLatAdjId(latitudeAdjustmentMethod);
+        const midnight = typeof midnightMode === 'number' ? midnightMode : this._getMidnightId(midnightMode);
+
+        const url = `${API_BASE_URL}/calendar/${year}?latitude=${coordinates.lat}&longitude=${coordinates.long}&method=${methodId}&school=${school}&latitudeAdjustmentMethod=${latAdj}&midnightMode=${midnight}`;
+
+        console.log(`[Aladhan] Fetching from URL: ${url}`);
+
+        let response;
+        try {
+            response = await fetch(url);
+        } catch (error) {
+            throw new ProviderConnectionError(`Failed to connect to Aladhan API: ${error.message}`, 500, 'Aladhan');
+        }
+
+        console.log(`[Aladhan] Status: ${response.status} ${response.statusText}`);
+
+        if (!response.ok) {
+            const message = `Aladhan API Error: ${response.statusText}`;
+            if (response.status >= 500) {
+                throw new ProviderConnectionError(message, response.status, 'Aladhan');
+            } else {
+                throw new ProviderValidationError(message, { statusCode: response.status });
+            }
+        }
+
+        const json = await response.json();
+        let validData;
+        try {
+            validData = AladhanAnnualResponseSchema.parse(json);
+            console.log('[Aladhan] Validation passed.');
+        } catch (error) {
+            console.error('[Aladhan] Validation FAILED:', error.issues || error.message);
+            throw new ProviderValidationError('Aladhan Schema Validation Failed', { issues: error.issues });
+        }
+
+        return this._normalizeResponse(validData, timezone);
+    }
+
+    /**
+     * Normalises the Aladhan API response into a standard format used by the application.
+     * @param {Object} validData The validated data object from the Aladhan API response.
+     * @param {string} timezone The timezone string used to initialise local times.
+     * @returns {Object} A nested object mapped by ISO date strings containing prayer times.
+     * @private
+     */
+    _normalizeResponse(validData, timezone) {
+        const resultMap = {};
+
+        Object.values(validData.data).forEach(monthDays => {
+            monthDays.forEach(dayInfo => {
+                const dateStr = dayInfo.date.gregorian.date;
+                const [d, m, y] = dateStr.split('-');
+                const dateObj = DateTime.fromObject({ day: d, month: m, year: y }, { zone: timezone });
+                const isoDateKey = dateObj.toISODate();
+
+                /**
+                 * Cleans and formats raw time strings from the API into ISO 8601 timestamps.
+                 * @param {string} timeStr The raw time string (e.g., '05:00 (GST)').
+                 * @returns {string|null} The formatted ISO string or null if input is empty.
+                 */
+                const cleanTime = (timeStr) => {
+                    if (!timeStr) return null;
+                    const t = timeStr.split(' ')[0];
+                    const [hours, minutes] = t.split(':').map(Number);
+                    return dateObj.set({ hour: hours, minute: minutes, second: 0 }).toISO();
+                };
+
+                resultMap[isoDateKey] = {
+                    fajr: cleanTime(dayInfo.timings.Fajr),
+                    sunrise: cleanTime(dayInfo.timings.Sunrise),
+                    dhuhr: cleanTime(dayInfo.timings.Dhuhr),
+                    asr: cleanTime(dayInfo.timings.Asr),
+                    maghrib: cleanTime(dayInfo.timings.Maghrib),
+                    isha: cleanTime(dayInfo.timings.Isha),
+                    iqamah: {}
+                };
+            });
+        });
+
+        return resultMap;
+    }
+
+    // --- Helper Methods ---
+
+    /**
+     * Retrieves the numeric calculation method ID based on the provided method name.
+     * @param {string} methodName The name of the calculation method.
+     * @returns {number} The corresponding calculation method ID, defaulting to 2 (ISNA).
+     * @private
+     */
+    _getCalculationMethodId(methodName) {
+        for (const [id, name] of Object.entries(CALCULATION_METHODS)) {
+            if (name === methodName || name.includes(methodName)) return parseInt(id);
+        }
+        return 2; // Default ISNA
+    }
+
+    /**
+     * Retrieves the numeric madhab (school of thought) ID for Asr juristic methods.
+     * @param {string} madhabName The name of the madhab.
+     * @returns {number} The corresponding madhab ID, defaulting to 0 (Shafi).
+     * @private
+     */
+    _getMadhabId(madhabName) {
+        for (const [id, name] of Object.entries(ASR_JURISTIC_METHODS)) {
+            if (name.includes(madhabName)) return parseInt(id);
+        }
+        return 0; // Default Shafi
+    }
+
+    /**
+     * Retrieves the numeric latitude adjustment method ID.
+     * @param {string} name The name of the latitude adjustment method.
+     * @returns {number} The corresponding ID, defaulting to 0.
+     * @private
+     */
+    _getLatAdjId(name) {
+        if (!name) return 0;
+        for (const [id, val] of Object.entries(LATITUDE_ADJUSTMENT_METHODS)) {
+            if (val.includes(name)) return parseInt(id);
+        }
+        return 0;
+    }
+
+    /**
+     * Retrieves the numeric midnight mode ID.
+     * @param {string} name The name of the midnight mode.
+     * @returns {number} The corresponding ID, defaulting to 0.
+     * @private
+     */
+    _getMidnightId(name) {
+        if (!name) return 0;
+        for (const [id, val] of Object.entries(MIDNIGHT_MODES)) {
+            if (val.includes(name)) return parseInt(id);
+        }
+        return 0;
+    }
+}
+
+module.exports = AladhanProvider;

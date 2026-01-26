@@ -19,6 +19,8 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^@adapters/(.*)$': '<rootDir>/src/adapters/$1',
+    '^@providers$': '<rootDir>/src/providers',
+    '^@providers/(.*)$': '<rootDir>/src/providers/$1',
     '^@services/(.*)$': '<rootDir>/src/services/$1',
     '^@config$': '<rootDir>/src/config',
     '^@config/(.*)$': '<rootDir>/src/config/$1',

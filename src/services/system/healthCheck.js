@@ -2,7 +2,7 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const axios = require('axios');
 const configService = require('@config');
-const fetchers = require('@adapters/prayerApiAdapter');
+const { ProviderFactory } = require('@providers');
 
 let healthCache = {
     local: { healthy: false, message: 'Initialising...' },
@@ -159,13 +159,10 @@ async function checkSource(target) {
     if (target === 'backup' && source.enabled === false) return { healthy: false, message: 'Disabled' };
 
     try {
-        if (source.type === 'aladhan') {
-            const { DateTime } = require('luxon');
-            const year = DateTime.now().setZone(config.location.timezone).year;
-            await fetchers.fetchAladhanAnnual(config, year);
-        } else if (source.type === 'mymasjid') {
-            await fetchers.fetchMyMasjidBulk(config);
-        }
+        const provider = ProviderFactory.create(source, config);
+        const { DateTime } = require('luxon');
+        const year = DateTime.now().setZone(config.location.timezone).year;
+        await provider.getAnnualTimes(year);
         console.log(`[Health] ${target} Source: OK`);
         return { healthy: true, message: 'Online' };
     } catch (e) {
