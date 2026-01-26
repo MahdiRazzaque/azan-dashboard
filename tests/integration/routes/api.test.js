@@ -47,10 +47,16 @@ const sseService = require('@services/system/sseService');
 jest.mock('@services/system/audioAssetService', () => mockMockFactory.createMockAudioAssetService());
 const audioAssetService = require('@services/system/audioAssetService');
 
-jest.mock('@adapters/prayerApiAdapter', () => ({
-    fetchMyMasjidBulk: jest.fn(),
-    fetchAladhanAnnual: jest.fn()
+jest.mock('@providers', () => ({
+    ProviderFactory: {
+        create: jest.fn(() => ({
+            getAnnualTimes: jest.fn().mockResolvedValue({ '2024-01-01': {} })
+        }))
+    },
+    ProviderConnectionError: jest.requireActual('@providers').ProviderConnectionError,
+    ProviderValidationError: jest.requireActual('@providers').ProviderValidationError
 }));
+const { ProviderFactory } = require('@providers');
 
 jest.mock('@services/system/healthCheck', () => mockMockFactory.createMockHealthCheck());
 const healthCheck = require('@services/system/healthCheck');
@@ -295,8 +301,7 @@ describe('API Routes Integration', () => {
                 .expect(200);
             
             // Check validation call
-            const fetchers = require('@adapters/prayerApiAdapter');
-            expect(fetchers.fetchAladhanAnnual).toHaveBeenCalled();
+            expect(ProviderFactory.create).toHaveBeenCalled();
             
             // Check update call
             expect(mockConfigService.update).toHaveBeenCalledWith(expect.objectContaining({
@@ -309,14 +314,15 @@ describe('API Routes Integration', () => {
         });
 
         it('POST /api/settings/update - should fail on validation error', async () => {
-            const fetchers = require('@adapters/prayerApiAdapter');
-            fetchers.fetchAladhanAnnual.mockRejectedValueOnce(new Error('Validation Failed: API Down'));
+            ProviderFactory.create.mockReturnValueOnce({
+                getAnnualTimes: jest.fn().mockRejectedValue(new Error('Validation Failed: API Down'))
+            });
 
             const res = await request(app)
                 .post('/api/settings/update')
                 .set('Cookie', [`auth_token=${adminToken}`])
                 .send(mockConfig)
-                .expect(400); // Expect 400 because we catch "Validation Failed" strings in handler
+                .expect(400); 
             
             expect(res.body.error).toMatch(/Validation Failed/);
         });
@@ -730,8 +736,7 @@ describe('API Routes Integration', () => {
                 .send(newConfig)
                 .expect(200);
              
-             const fetchers = require('@adapters/prayerApiAdapter');
-             expect(fetchers.fetchMyMasjidBulk).toHaveBeenCalled();
+             expect(ProviderFactory.create).toHaveBeenCalled();
         });
 
         it('POST /api/settings/update - should fail if MyMasjid ID missing', async () => {

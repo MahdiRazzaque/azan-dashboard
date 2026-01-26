@@ -106,6 +106,15 @@ const createMockAuthUtils = () => ({
     verifyPassword: jest.fn(() => true) 
 });
 
+const createMockProvider = (results = {}) => ({
+    getAnnualTimes: jest.fn().mockResolvedValue(results),
+    deduplicateRequest: jest.fn((k, f) => f())
+});
+
+const createMockProviderFactory = (mockProvider = createMockProvider()) => ({
+    create: jest.fn(() => mockProvider)
+});
+
 module.exports = {
     createMockConfig,
     createMockConfigService,
@@ -117,5 +126,7 @@ module.exports = {
     createMockHealthCheck,
     createMockDiagnosticsService,
     createMockEnvManager,
-    createMockAuthUtils
+    createMockAuthUtils,
+    createMockProvider,
+    createMockProviderFactory
 };

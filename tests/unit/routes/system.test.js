@@ -2,7 +2,7 @@ const request = require('supertest');
 const express = require('express');
 const systemRouter = require('@routes/system');
 const configService = require('@config');
-const fetchers = require('@adapters/prayerApiAdapter');
+const { ProviderFactory } = require('@providers');
 const healthCheck = require('@services/system/healthCheck');
 const errorHandler = require('@middleware/errorHandler');
 
@@ -14,9 +14,15 @@ jest.mock('@config', () => ({
     get: jest.fn(),
     reload: jest.fn().mockResolvedValue()
 }));
-jest.mock('@adapters/prayerApiAdapter', () => ({
-    fetchAladhanAnnual: jest.fn(),
-    fetchMyMasjidBulk: jest.fn()
+jest.mock('@providers', () => ({
+    ProviderFactory: {
+        create: jest.fn((source) => {
+            if (source.type === 'aladhan' || source.type === 'mymasjid') {
+                return { getAnnualTimes: jest.fn().mockResolvedValue({ '2023-01-01': {} }) };
+            }
+            throw new Error(`Unknown provider type: ${source.type}`);
+        })
+    }
 }));
 jest.mock('@services/system/healthCheck', () => ({
     refresh: jest.fn().mockResolvedValue()
@@ -91,7 +97,6 @@ describe('System Routes', () => {
                 sources: { primary: { type: 'aladhan' } },
                 location: { timezone: 'Europe/London', coordinates: { lat: 0, long: 0 } }
             });
-            fetchers.fetchAladhanAnnual.mockResolvedValue({ '2023-01-01': {} });
 
             const res = await request(app)
                 .post('/system/source/test')
@@ -99,15 +104,15 @@ describe('System Routes', () => {
 
             expect(res.status).toBe(200);
             expect(res.body.success).toBe(true);
-            expect(fetchers.fetchAladhanAnnual).toHaveBeenCalled();
+            expect(ProviderFactory.create).toHaveBeenCalled();
             expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource');
         });
 
         it('should test mymasjid successfully', async () => {
             configService.get.mockReturnValue({
-                sources: { primary: { type: 'mymasjid' } }
+                sources: { primary: { type: 'mymasjid' } },
+                location: { timezone: 'Europe/London' }
             });
-            fetchers.fetchMyMasjidBulk.mockResolvedValue({ '2023-01-01': {} });
 
             const res = await request(app)
                 .post('/system/source/test')
@@ -115,7 +120,7 @@ describe('System Routes', () => {
 
             expect(res.status).toBe(200);
             expect(res.body.success).toBe(true);
-            expect(fetchers.fetchMyMasjidBulk).toHaveBeenCalled();
+            expect(ProviderFactory.create).toHaveBeenCalled();
         });
 
         it('should return 400 for unsupported source type', async () => {
@@ -128,7 +133,7 @@ describe('System Routes', () => {
                 .send({ target: 'primary' });
 
             expect(res.status).toBe(400);
-            expect(res.body.error).toContain('Unsupported source type');
+            expect(res.body.error).toContain('Unknown provider type');
         });
 
         it('should handle fetch errors and refresh health anyway', async () => {
@@ -136,7 +141,10 @@ describe('System Routes', () => {
                 sources: { primary: { type: 'aladhan' } },
                 location: { timezone: 'Europe/London' }
             });
-            fetchers.fetchAladhanAnnual.mockRejectedValue(new Error('API Failure'));
+            
+            ProviderFactory.create.mockReturnValueOnce({
+                getAnnualTimes: jest.fn().mockRejectedValue(new Error('API Failure'))
+            });
 
             const res = await request(app)
                 .post('/system/source/test')
@@ -153,7 +161,10 @@ describe('System Routes', () => {
                 sources: { primary: { type: 'aladhan' } },
                 location: { timezone: 'Europe/London' }
             });
-            fetchers.fetchAladhanAnnual.mockRejectedValue(new Error('API Failure'));
+            
+            ProviderFactory.create.mockReturnValueOnce({
+                getAnnualTimes: jest.fn().mockRejectedValue(new Error('API Failure'))
+            });
             healthCheck.refresh.mockRejectedValue(new Error('Health Failure'));
 
             const res = await request(app)

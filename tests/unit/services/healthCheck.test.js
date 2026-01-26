@@ -1,5 +1,3 @@
-const configService = require('@config');
-
 jest.mock('@config', () => ({
     get: jest.fn(() => ({
         location: { timezone: 'Europe/London' },
@@ -17,10 +15,13 @@ jest.mock('@config', () => ({
     }))
 }));
 
-jest.mock('@adapters/prayerApiAdapter', () => ({
-    fetchAladhanAnnual: jest.fn(),
-    fetchMyMasjidBulk: jest.fn()
+const configService = require('@config');
+jest.mock('@providers', () => ({
+    ProviderFactory: {
+        create: jest.fn()
+    }
 }));
+const { ProviderFactory } = require('@providers');
 
 const fs = require('fs');
 
@@ -32,7 +33,6 @@ jest.mock('fs', () => ({
 const healthCheck = require('@services/system/healthCheck');
 const { exec } = require('child_process');
 const axios = require('axios');
-const fetchers = require('@adapters/prayerApiAdapter');
 
 jest.mock('child_process');
 jest.mock('axios');
@@ -131,6 +131,7 @@ describe('Health Check Service', () => {
     describe('checkVoiceMonkey Edge Cases', () => {
         it('should report unhealthy if baseUrl is missing', async () => {
             configService.get.mockReturnValue({
+                location: { timezone: 'Europe/London' },
                 automation: { voiceMonkey: { token: 't' } }
             });
 
@@ -141,6 +142,7 @@ describe('Health Check Service', () => {
 
         it('should report unhealthy if baseUrl is not HTTPS', async () => {
             configService.get.mockReturnValue({
+                location: { timezone: 'Europe/London' },
                 automation: { baseUrl: 'http://test.com', voiceMonkey: { token: 't' } }
             });
 
@@ -151,6 +153,7 @@ describe('Health Check Service', () => {
 
         it('should skip if token is missing', async () => {
             configService.get.mockReturnValue({
+                location: { timezone: 'Europe/London' },
                 automation: { baseUrl: 'https://test.com', voiceMonkey: { token: null } }
             });
             
@@ -161,6 +164,7 @@ describe('Health Check Service', () => {
 
         it('should skip loud check if device is missing', async () => {
              configService.get.mockReturnValue({
+                 location: { timezone: 'Europe/London' },
                  automation: { baseUrl: 'https://test.com', voiceMonkey: { token: 't', device: null } }
              });
              
@@ -203,6 +207,7 @@ describe('Health Check Service', () => {
 
         it('should pass loud check if all available', async () => {
              configService.get.mockReturnValue({
+                 location: { timezone: 'Europe/London' },
                  automation: { baseUrl: 'https://test.com', voiceMonkey: { token: 't', device: 'd' } }
              });
              axios.get.mockResolvedValue({ data: { success: true } });
@@ -217,13 +222,17 @@ describe('Health Check Service', () => {
 
     describe('checkSource Edge Cases', () => {
         it('should report not configured if source is missing', async () => {
-             configService.get.mockReturnValue({ sources: {} });
+             configService.get.mockReturnValue({ 
+                 location: { timezone: 'Europe/London' },
+                 sources: {} 
+             });
              const result = await healthCheck.refresh('primarySource');
              expect(result.primarySource.message).toBe('Not Configured');
         });
 
         it('should report disabled for backup if enabled is false', async () => {
              configService.get.mockReturnValue({ 
+                 location: { timezone: 'Europe/London' },
                  sources: { backup: { enabled: false } } 
              });
              const result = await healthCheck.refresh('backupSource');
@@ -232,9 +241,11 @@ describe('Health Check Service', () => {
 
         it('should test MyMasjid successfully', async () => {
              configService.get.mockReturnValue({ 
+                 location: { timezone: 'Europe/London' },
                  sources: { primary: { type: 'mymasjid' } } 
              });
-             fetchers.fetchMyMasjidBulk.mockResolvedValue({});
+             const mockProvider = { getAnnualTimes: jest.fn().mockResolvedValue({}) };
+             ProviderFactory.create.mockReturnValue(mockProvider);
              const result = await healthCheck.refresh('primarySource');
              expect(result.primarySource.healthy).toBe(true);
         });
@@ -244,7 +255,8 @@ describe('Health Check Service', () => {
                  sources: { primary: { type: 'aladhan' } },
                  location: { timezone: 'UTC' } 
              });
-             fetchers.fetchAladhanAnnual.mockRejectedValue(new Error('Fetch Fail'));
+             const mockProvider = { getAnnualTimes: jest.fn().mockRejectedValue(new Error('Fetch Fail')) };
+             ProviderFactory.create.mockReturnValue(mockProvider);
              const result = await healthCheck.refresh('primarySource');
              expect(result.primarySource.healthy).toBe(false);
              expect(result.primarySource.message).toBe('Fetch Fail');
@@ -252,9 +264,11 @@ describe('Health Check Service', () => {
 
         it('should handle MyMasjid source errors', async () => {
              configService.get.mockReturnValue({ 
+                 location: { timezone: 'Europe/London' },
                  sources: { primary: { type: 'mymasjid' } } 
              });
-             fetchers.fetchMyMasjidBulk.mockRejectedValue(new Error('MyMasjid Fail'));
+             const mockProvider = { getAnnualTimes: jest.fn().mockRejectedValue(new Error('MyMasjid Fail')) };
+             ProviderFactory.create.mockReturnValue(mockProvider);
              const result = await healthCheck.checkSource('primary');
              expect(result.healthy).toBe(false);
              expect(result.message).toBe('MyMasjid Fail');

@@ -8,7 +8,7 @@ const diagnosticsService = require('@services/system/diagnosticsService');
 const voiceService = require('@services/system/voiceService');
 const storageService = require('@services/system/storageService');
 const configService = require('@config');
-const fetchers = require('@adapters/prayerApiAdapter');
+const { ProviderFactory } = require('@providers');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -22,7 +22,7 @@ jest.mock('@services/system/diagnosticsService');
 jest.mock('@services/system/voiceService');
 jest.mock('@services/system/storageService');
 jest.mock('@config');
-jest.mock('@adapters/prayerApiAdapter');
+jest.mock('@providers');
 jest.mock('axios');
 jest.mock('fs');
 
@@ -37,6 +37,14 @@ describe('SystemController', () => {
             set: jest.fn().mockReturnThis()
         };
         jest.clearAllMocks();
+
+        // Default ProviderFactory mock
+        ProviderFactory.create.mockImplementation((source) => {
+            if (source.type === 'aladhan' || source.type === 'mymasjid') {
+                return { getAnnualTimes: jest.fn().mockResolvedValue({}) };
+            }
+            throw new Error(`Unknown provider type: ${source.type}`);
+        });
     });
 
     describe('getHealth', () => {
@@ -334,11 +342,14 @@ describe('SystemController', () => {
                 sources: { primary: { type: 'aladhan' } },
                 location: { timezone: 'UTC' }
             });
-            fetchers.fetchAladhanAnnual.mockResolvedValue({ '2026-01-01': {} });
+            
+            const mockProvider = { getAnnualTimes: jest.fn().mockResolvedValue({ '2026-01-01': {} }) };
+            ProviderFactory.create.mockReturnValue(mockProvider);
             
             await systemController.testSource(req, res);
             
-            expect(fetchers.fetchAladhanAnnual).toHaveBeenCalled();
+            expect(ProviderFactory.create).toHaveBeenCalled();
+            expect(mockProvider.getAnnualTimes).toHaveBeenCalled();
             expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource');
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
         });
@@ -346,13 +357,17 @@ describe('SystemController', () => {
         it('should test mymasjid successfully', async () => {
             req.body = { target: 'primary' };
             configService.get.mockReturnValue({ 
-                sources: { primary: { type: 'mymasjid' } }
+                sources: { primary: { type: 'mymasjid' } },
+                location: { timezone: 'UTC' }
             });
-            fetchers.fetchMyMasjidBulk.mockResolvedValue({ '2026-01-01': {} });
+            
+            const mockProvider = { getAnnualTimes: jest.fn().mockResolvedValue({ '2026-01-01': {} }) };
+            ProviderFactory.create.mockReturnValue(mockProvider);
             
             await systemController.testSource(req, res);
             
-            expect(fetchers.fetchMyMasjidBulk).toHaveBeenCalled();
+            expect(ProviderFactory.create).toHaveBeenCalled();
+            expect(mockProvider.getAnnualTimes).toHaveBeenCalled();
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
         });
 
@@ -371,7 +386,8 @@ describe('SystemController', () => {
                 sources: { primary: { type: 'aladhan' } },
                 location: { timezone: 'UTC' }
             });
-            fetchers.fetchAladhanAnnual.mockRejectedValue(new Error('Fetch failed'));
+            const mockProvider = { getAnnualTimes: jest.fn().mockRejectedValue(new Error('Fetch failed')) };
+            ProviderFactory.create.mockReturnValue(mockProvider);
             
             await expect(systemController.testSource(req, res)).rejects.toThrow('Fetch failed');
             expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource');
@@ -380,10 +396,14 @@ describe('SystemController', () => {
         it('should handle health refresh failure catch block', async () => {
             req.body = { target: 'primary' };
             configService.get.mockReturnValue({ sources: { primary: { type: 'aladhan' } }, location: { timezone: 'UTC' } });
-            fetchers.fetchAladhanAnnual.mockRejectedValue(new Error('Fetch failed'));
+            
+            const mockProvider = { getAnnualTimes: jest.fn().mockRejectedValue(new Error('Fetch failed')) };
+            ProviderFactory.create.mockReturnValue(mockProvider);
+            
             healthCheck.refresh.mockRejectedValue(new Error('Health refresh failed'));
             
             await expect(systemController.testSource(req, res)).rejects.toThrow('Fetch failed');
+            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource');
         });
     });
 
