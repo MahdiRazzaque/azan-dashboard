@@ -18,7 +18,6 @@ router.post('/preview-tts', operationsLimiter, authenticateToken, asyncHandler(s
 router.post('/regenerate-tts', operationsLimiter, authenticateToken, asyncHandler(systemController.regenerateTTS));
 router.post('/run-job', operationsLimiter, authenticateToken, asyncHandler(systemController.runJob));
 router.post('/restart-scheduler', operationsLimiter, authenticateToken, asyncHandler(systemController.restartScheduler));
-router.post('/test-audio', operationsLimiter, authenticateToken, asyncHandler(systemController.testAudio));
 router.post('/validate-url', operationsLimiter, authenticateToken, asyncHandler(systemController.validateUrl));
 router.post('/source/test', operationsLimiter, authenticateToken, asyncHandler(systemController.testSource));
 router.post('/cleanup-temp-tts', operationsLimiter, authenticateToken, asyncHandler(systemController.cleanupTempTTS));

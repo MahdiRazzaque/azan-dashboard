@@ -256,62 +256,6 @@ const systemController = {
     },
 
     /**
-     * Executes a playback test for a specific audio file on a target output device.
-     * 
-     * @param {import('express').Request} req - The Express request object.
-     * @param {import('express').Response} res - The Express response object.
-     * @returns {Promise<void>} A promise that resolves when the playback is triggered.
-     */
-    testAudio: async (req, res) => {
-        const { filename, type, target = 'local' } = req.body; 
-        if (!filename || !type) return res.status(400).json({ error: 'Missing filename or type' });
-        
-        if (!['custom', 'cache'].includes(type)) return res.status(400).json({ error: 'Invalid type' });
-
-        // Mitigate directory traversal by allowing only simple filenames
-        if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-             return res.status(400).json({ error: 'Invalid filename' });
-        }
-
-        try {
-            const strategy = OutputFactory.getStrategy(target);
-            const filePath = path.join(__dirname, `../../public/audio/${type}/${filename}`);
-            const url = `/public/audio/${type}/${filename}`;
-            
-            // Confirm the existence of the file before attempt playback
-            if (!fs.existsSync(filePath)) {
-                console.error(`[TestAudio] File not found at ${filePath}`);
-                return res.status(404).json({ error: 'File not found on disk' });
-            }
-
-            const prayer = 'test';
-            const event = filename;
-            const source = { filePath, url };
-
-            console.log(`[TestAudio] Target: ${target}, File: ${filename}`);
-            
-            const config = configService.get();
-            
-            const payload = {
-                prayer, event, source,
-                baseUrl: config.automation?.baseUrl,
-                // Inherit body params for credential testing scenarios
-                params: req.body 
-            };
-
-            await strategy.execute(payload, { isTest: true });
-            res.json({ success: true, message: `Testing audio on ${target}...` });
-
-        } catch (error) {
-            if (error.message.includes('not found')) {
-                return res.status(400).json({ error: 'Invalid target' });
-            }
-            console.error(`[TestAudio] Error:`, error);
-            return res.status(500).json({ error: error.message || 'Playback failed' });
-        }
-    },
-
-    /**
      * Validates that an external URL is reachable via HTTP HEAD or GET.
      * 
      * @param {import('express').Request} req - The Express request object.

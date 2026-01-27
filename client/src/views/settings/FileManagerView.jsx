@@ -159,15 +159,37 @@ export default function FileManagerView() {
         }
     };
 
-    const handleServerPlay = async (file, target = 'local') => {
+    const handleServerPlay = async (file, targetId = 'local') => {
         setServerPlaying(file.name);
         try {
-            const res = await fetch('/api/system/test-audio', {
+            // Polymorphic strategy test endpoint
+            const endpoint = `/api/system/outputs/${targetId}/test`;
+            
+            // Construct payload consistent with automationService expectations
+            const payload = {
+                prayer: 'test',
+                event: file.name,
+                source: {
+                    filePath: null,
+                    path: file.path,
+                    url: file.url
+                },
+                baseUrl: config.automation?.baseUrl,
+                // Include filename/type for strategy compatibility (e.g. LocalOutput resolution)
+                filename: file.name,
+                type: file.type
+            };
+
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename: file.name, type: file.type, target })
+                body: JSON.stringify(payload)
             });
-            if (!res.ok) throw new Error('Test request failed');
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Test request failed');
+            }
             
             setTestModalFile(null); // Close modal on success
             

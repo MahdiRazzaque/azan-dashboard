@@ -2,6 +2,7 @@ const BaseOutput = require('./BaseOutput');
 const player = require('play-sound')({});
 const { exec } = require('child_process');
 const fs = require('fs');
+const path = require('path');
 const OutputFactory = require('./OutputFactory');
 
 class LocalOutput extends BaseOutput {
@@ -26,14 +27,30 @@ class LocalOutput extends BaseOutput {
     }
 
     async execute(payload, metadata) {
-        if (!payload.source || !payload.source.filePath) {
+        if (!payload.source) {
+            return;
+        }
+
+        let filePath = payload.source.filePath;
+
+        // Path Resolution for tests or File Manager previews
+        if (!filePath) {
+            if (payload.source.path) {
+                filePath = path.join(__dirname, '../../public/audio', payload.source.path);
+            } else if (payload.type && payload.filename) {
+                filePath = path.join(__dirname, `../../public/audio/${payload.type}/${payload.filename}`);
+            }
+        }
+
+        if (!filePath) {
+            console.warn('[LocalOutput] Playback skipped: No filePath provided and could not resolve from metadata');
             return;
         }
 
         const audioPlayer = (payload.params && payload.params.audioPlayer) || 'mpg123';
 
         return new Promise((resolve, reject) => {
-            player.play(payload.source.filePath, { player: audioPlayer }, (err) => {
+            player.play(filePath, { player: audioPlayer }, (err) => {
                 if (err) {
                     reject(err);
                 } else {
