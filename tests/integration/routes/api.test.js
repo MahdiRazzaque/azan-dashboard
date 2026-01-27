@@ -102,20 +102,20 @@ jest.mock('@providers', () => ({
 }));
 const { ProviderFactory } = require('@providers');
 
+let integrationHealth = {
+    local: { healthy: true },
+    tts: { healthy: true },
+    voicemonkey: { healthy: true }
+};
+
 jest.mock('@services/system/healthCheck', () => ({
     ...mockMockFactory.createMockHealthCheck(),
-    refresh: jest.fn().mockImplementation(() => {
-        return Promise.resolve({
-            local: { healthy: true },
-            tts: { healthy: true },
-            voicemonkey: { healthy: true }
-        });
+    refresh: jest.fn().mockImplementation((target) => {
+        if (target === 'tts') integrationHealth.tts = { healthy: true };
+        return Promise.resolve(integrationHealth);
     }),
-    getHealth: jest.fn().mockReturnValue({
-        local: { healthy: true },
-        tts: { healthy: true },
-        voicemonkey: { healthy: true }
-    })
+    getHealth: jest.fn().mockImplementation(() => integrationHealth),
+    checkSource: jest.fn().mockResolvedValue({ healthy: true })
 }));
 const healthCheck = require('@services/system/healthCheck');
 
@@ -681,7 +681,7 @@ describe('API Routes Integration', () => {
                 .send(newConfig)
                 .expect(400);
 
-             expect(res.body.error).toBe('Storage Quota Exceeded'); // Or whatever specific error the controller returns
+             expect(res.body.error).toBe('Sync Failed');
         });
 
         it('POST /settings/refresh-cache - should fail if audio sync fails', async () => {
@@ -749,11 +749,13 @@ describe('API Routes Integration', () => {
         });
 
          it('POST /api/settings/update - should generate warnings if services unhealthy', async () => {
-             healthCheck.refresh.mockResolvedValueOnce({
+             const unhealthyStatus = {
                  tts: { healthy: false },
                  local: { healthy: false, message: 'unreachable' },
                  voicemonkey: { healthy: false, message: 'Auth Fail' }
-             });
+             };
+             healthCheck.refresh.mockResolvedValue(unhealthyStatus);
+             healthCheck.getHealth.mockReturnValue(unhealthyStatus);
 
              const newConfig = { 
                  ...mockConfig, 

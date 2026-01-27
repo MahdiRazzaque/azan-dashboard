@@ -48,7 +48,7 @@ describe('settingsController Unit Tests', () => {
         jest.clearAllMocks();
         validateConfig.mockReturnValue({ value: {} });
         validateConfigSource.mockResolvedValue();
-        audioAssetService.syncAudioAssets.mockResolvedValue();
+        audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
         audioValidator.analyseAudioFile.mockResolvedValue({ duration: 10 });
         audioValidator.validateVoiceMonkeyCompatibility.mockReturnValue({ vmCompatible: true });
         systemControllerHelper._getAudioFilesWithMetadata.mockResolvedValue([]);
@@ -386,7 +386,7 @@ describe('settingsController Unit Tests', () => {
             fs.existsSync.mockReturnValue(true);
             configService.get.mockReturnValue({ some: 'default' });
             forceRefresh.mockResolvedValue({ meta: { reset: true } });
-            audioAssetService.syncAudioAssets.mockResolvedValue();
+            audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
             
             await settingsController.resetSettings(req, res);
             expect(fs.unlinkSync).toHaveBeenCalled();
