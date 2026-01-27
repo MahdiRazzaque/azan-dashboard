@@ -112,7 +112,7 @@ const settingsController = {
                 await configService.update(previousConfig);
                 
                 return res.status(400).json({
-                    error: 'Storage Quota Exceeded',
+                    error: 'Sync Failed',
                     message: `Settings not saved: ${err.message}. Configuration has been rolled back.`
                 });
             }
@@ -225,7 +225,7 @@ const settingsController = {
         } catch (e) { 
             console.error('[SettingsController] Reset sync failed:', e.message);
             return res.status(400).json({ 
-                error: 'Reset Failed', 
+                error: 'Sync Failed', 
                 message: `Settings reset, but audio synchronisation failed: ${e.message}` 
             });
         }

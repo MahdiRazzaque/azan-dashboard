@@ -287,7 +287,7 @@ describe('settingsController Unit Tests', () => {
              expect(audioAssetService.syncAudioAssets).toHaveBeenCalled();
              expect(configService.update).toHaveBeenCalledWith({ old: 'config' }); // Rollback
              expect(res.status).toHaveBeenCalledWith(400);
-             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Storage Quota Exceeded' }));
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Sync Failed' }));
         });
 
         it('should generate warnings if services are unhealthy', async () => {
@@ -374,7 +374,7 @@ describe('settingsController Unit Tests', () => {
             await settingsController.resetSettings(req, res);
             
             expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Reset Failed' }));
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Sync Failed' }));
         });
     });
 
