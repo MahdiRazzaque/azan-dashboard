@@ -86,11 +86,8 @@ const triggerEvent = async (prayer, event) => {
     // Configured targets
     const configuredTargets = settings.targets || [];
     
-    // Always include browser (implicit dispatch) unless explicitly skipped (test mode)
-    const targets = new Set([...configuredTargets]);
-    if (!settings.skipBrowser) {
-        targets.add('browser');
-    }
+    // Always include browser (implicit dispatch)
+    const targets = new Set([...configuredTargets, 'browser']);
     
     const payload = {
         prayer,
