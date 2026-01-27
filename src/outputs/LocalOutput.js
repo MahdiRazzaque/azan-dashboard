@@ -27,6 +27,9 @@ class LocalOutput extends BaseOutput {
     }
 
     async execute(payload, metadata) {
+        const isTest = metadata?.isTest;
+        const prefix = isTest ? '[Test Output: Local]' : '[Output: Local]';
+        
         if (!payload.source) {
             return;
         }
@@ -43,17 +46,21 @@ class LocalOutput extends BaseOutput {
         }
 
         if (!filePath) {
-            console.warn('[LocalOutput] Playback skipped: No filePath provided and could not resolve from metadata');
+            console.warn(`${prefix} Playback skipped: No filePath provided and could not resolve from metadata`);
             return;
         }
+
+        console.log(`${prefix} Starting playback: ${path.basename(filePath)}`);
 
         const audioPlayer = (payload.params && payload.params.audioPlayer) || 'mpg123';
 
         return new Promise((resolve, reject) => {
             player.play(filePath, { player: audioPlayer }, (err) => {
                 if (err) {
+                    console.error(`${prefix} Playback failed: ${err.message}`);
                     reject(err);
                 } else {
+                    console.log(`${prefix} Playback complete`);
                     resolve();
                 }
             });
@@ -61,6 +68,7 @@ class LocalOutput extends BaseOutput {
     }
 
     async healthCheck(requestedParams) {
+        console.log('[Output: Local] Starting health check');
         const ConfigService = require('../config');
         const config = ConfigService.get();
         
@@ -92,19 +100,25 @@ class LocalOutput extends BaseOutput {
                     } catch (e) { }
 
                     if (isDocker) {
+                        console.log('[Output: Local] Health: Offline (Docker: No Audio HW)');
                         return { healthy: false, message: 'Docker: No Audio HW' };
                     }
+                    console.log('[Output: Local] Health: Offline (No Audio Device)');
                     return { healthy: false, message: 'No Audio Device' };
                 }
             }
 
+            console.log('[Output: Local] Health: Ready');
             return { healthy: true, message: 'Ready' };
         } catch (e) {
+            console.log(`[Output: Local] Health: Offline (${audioPlayer} Not Found)`);
             return { healthy: false, message: `${audioPlayer} Not Found` };
         }
     }
 
     async verifyCredentials(credentials) {
+        console.log('[Output: Local] Verifying credentials');
+        console.log('[Output: Local] Verification: OK');
         return { success: true };
     }
 }

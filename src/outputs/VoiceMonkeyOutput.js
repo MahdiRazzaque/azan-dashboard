@@ -24,6 +24,9 @@ class VoiceMonkeyOutput extends BaseOutput {
     }
 
     async execute(payload, metadata) {
+        const isTest = metadata?.isTest;
+        const prefix = isTest ? '[Test Output: VoiceMonkey]' : '[Output: VoiceMonkey]';
+
         if (!payload.source || !payload.source.url) return;
         
         // Metadata validation
@@ -31,6 +34,7 @@ class VoiceMonkeyOutput extends BaseOutput {
             try {
                 const meta = JSON.parse(fs.readFileSync(payload.source.filePath + '.json', 'utf8'));
                 if (meta.vmCompatible === false) {
+                    console.warn(`${prefix} Skipped: Audio incompatible with Alexa`);
                     return; // Skip
                 }
             } catch(e) {}
@@ -45,12 +49,20 @@ class VoiceMonkeyOutput extends BaseOutput {
         
         const baseUrl = payload.baseUrl || config.automation?.baseUrl;
 
-        if (!baseUrl || !baseUrl.startsWith('https://')) return;
-        if (!token || !device) return;
+        if (!baseUrl || !baseUrl.startsWith('https://')) {
+            console.warn(`${prefix} Skipped: HTTPS Base URL required`);
+            return;
+        }
+        if (!token || !device) {
+            console.warn(`${prefix} Skipped: Token or Device ID missing`);
+            return;
+        }
 
         const publicUrl = payload.source.url.startsWith('http') 
             ? payload.source.url 
             : `${baseUrl}${payload.source.url}`;
+
+        console.log(`${prefix} Triggering announcement for device: ${device}`);
 
         try {
             await voiceMonkeyQueue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
@@ -60,20 +72,25 @@ class VoiceMonkeyOutput extends BaseOutput {
                     audio: publicUrl
                 }
             }));
+            console.log(`${prefix} Announcement triggered successfully`);
         } catch (error) {
+            console.error(`${prefix} Trigger failed: ${error.message}`);
             throw error;
         }
     }
 
     async healthCheck(requestedParams) {
+        console.log('[Output: VoiceMonkey] Starting health check');
         const config = ConfigService.get();
         const token = config.automation?.outputs?.voicemonkey?.params?.token;
         const baseUrl = config.automation?.baseUrl;
 
         if (!baseUrl || !baseUrl.startsWith('https://')) {
+            console.log('[Output: VoiceMonkey] Health: Offline (HTTPS Base URL required)');
             return { healthy: false, message: 'Offline: HTTPS Base URL required' };
         }
         if (!token) {
+            console.log('[Output: VoiceMonkey] Health: Offline (Token Missing)');
             return { healthy: false, message: 'Token Missing' };
         }
 
@@ -91,17 +108,21 @@ class VoiceMonkeyOutput extends BaseOutput {
             }));
 
             if (response.data && response.data.success === true) {
+                console.log('[Output: VoiceMonkey] Health: Online');
                 return { healthy: true, message: 'Online' };
             } else {
                  throw new Error(response.data?.error || 'API Failure');
             }
         } catch (e) {
+            console.log(`[Output: VoiceMonkey] Health: Offline (${e.message || 'Error'})`);
             return { healthy: false, message: e.message || 'Error' };
         }
     }
 
     async verifyCredentials(credentials) {
+        console.log('[Output: VoiceMonkey] Verifying credentials');
         if (!credentials.token || !credentials.device) {
+            console.log('[Output: VoiceMonkey] Verification failed: Missing token or device');
             throw new Error('Missing token or device');
         }
                 
@@ -115,11 +136,13 @@ class VoiceMonkeyOutput extends BaseOutput {
                 timeout: 5000
             }));
              if (response.data && response.data.success === true) {
+                console.log('[Output: VoiceMonkey] Verification: OK');
                 return { success: true };
             } else {
                  throw new Error(response.data?.error || 'Verification Failed');
             }
         } catch (error) {
+            console.log(`[Output: VoiceMonkey] Verification failed: ${error.message}`);
             throw new Error(error.message || 'Verification Failed');
         }
     }
