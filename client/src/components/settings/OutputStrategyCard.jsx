@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Loader2, Play, Power, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Play, Power, AlertTriangle, Volume2 } from 'lucide-react';
 import PasswordInput from '@/components/common/PasswordInput';
+import AudioConsentModal from './AudioConsentModal';
 import axios from 'axios';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs) { return twMerge(clsx(inputs)); }
+
+// Session-level consent storage
+let sessionConsentGiven = false;
 
 const Toggle = ({ checked, onChange }) => (
     <button 
@@ -28,9 +32,11 @@ const Toggle = ({ checked, onChange }) => (
 );
 
 export default function OutputStrategyCard({ strategy, config, onChange, systemHealth }) {
-    const [testing, setTesting] = useState(false);
+    const [testingHealth, setTestingHealth] = useState(false);
+    const [testingAudio, setTestingAudio] = useState(false);
     const [status, setStatus] = useState('idle'); // idle, testing, online, offline
     const [errorMsg, setErrorMsg] = useState(null);
+    const [showConsentModal, setShowConsentModal] = useState(false);
 
     const { id, label, params, hidden } = strategy;
 
@@ -58,9 +64,8 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
         setStatus('idle'); // Reset status on change
     };
 
-    const handleTest = async () => {
-        setTesting(true);
-        setStatus('testing');
+    const handleCheckHealth = async () => {
+        setTestingHealth(true);
         setErrorMsg(null);
         
         try {
@@ -83,7 +88,35 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
             setStatus('offline');
             setErrorMsg(e.response?.data?.error || e.message);
         } finally {
-            setTesting(false);
+            setTestingHealth(false);
+        }
+    };
+
+    const handleTestAudioClick = () => {
+        if (sessionConsentGiven) {
+            triggerAudioTest();
+        } else {
+            setShowConsentModal(true);
+        }
+    };
+
+    const handleConsentConfirm = (dontAskAgain) => {
+        if (dontAskAgain) {
+            sessionConsentGiven = true;
+        }
+        triggerAudioTest();
+    };
+
+    const triggerAudioTest = async () => {
+        setTestingAudio(true);
+        try {
+            await axios.post(`/api/system/outputs/${id}/test`, values);
+        } catch (e) {
+            console.error('Audio test failed:', e);
+            // We don't necessarily want to change the health status just because a test failed
+            // but we might want to show an alert or something.
+        } finally {
+            setTestingAudio(false);
         }
     };
 
@@ -148,24 +181,24 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
                 <div className="pt-4 flex flex-wrap gap-3 items-center border-t border-app-border">
                     <div className="relative group">
                         <button 
-                            onClick={handleTest} 
-                            disabled={testing} // Let users re-try even if offline, unless actively testing
+                            onClick={handleCheckHealth} 
+                            disabled={testingHealth || testingAudio}
                             className={cn(
                                 "flex items-center gap-2 px-4 py-2 rounded transition-colors text-sm font-medium disabled:opacity-50 min-w-[140px] justify-center",
-                                status === 'testing' ? "bg-amber-600/20 text-amber-400 border border-amber-600/50" :
+                                testingHealth ? "bg-amber-600/20 text-amber-400 border border-amber-600/50" :
                                 status === 'online' ? "bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-600/50" :
                                 status === 'offline' ? "bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/50" :
                                 "bg-blue-600/20 text-blue-400 hover:bg-blue-600/30"
                             )}
                         >
-                            {status === 'testing' ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" /> Testing</>
+                            {testingHealth ? (
+                                <><Loader2 className="w-4 h-4 animate-spin" /> Checking...</>
                             ) : status === 'online' ? (
                                 <><CheckCircle className="w-4 h-4" /> Online</>
                             ) : status === 'offline' ? (
                                 <><XCircle className="w-4 h-4" /> Offline</>
                             ) : (
-                                <><Play className="w-4 h-4" /> Check Health</>
+                                <><Power className="w-4 h-4" /> Check Health</>
                             )}
                         </button>
                         
@@ -180,8 +213,27 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
                             </div>
                         )}
                     </div>
+
+                    <button 
+                        onClick={handleTestAudioClick}
+                        disabled={testingHealth || testingAudio}
+                        className="flex items-center gap-2 px-4 py-2 rounded bg-app-card-hover text-app-text hover:bg-emerald-600/20 hover:text-emerald-400 border border-app-border hover:border-emerald-600/50 transition-all text-sm font-medium disabled:opacity-50 min-w-[140px] justify-center"
+                    >
+                        {testingAudio ? (
+                            <><Loader2 className="w-4 h-4 animate-spin" /> Triggering...</>
+                        ) : (
+                            <><Volume2 className="w-4 h-4" /> Test Audio</>
+                        )}
+                    </button>
                 </div>
             </div>
+
+            <AudioConsentModal 
+                isOpen={showConsentModal}
+                onClose={() => setShowConsentModal(false)}
+                onConfirm={handleConsentConfirm}
+                strategyLabel={label}
+            />
         </div>
     );
 }

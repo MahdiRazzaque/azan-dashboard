@@ -154,6 +154,44 @@ describe('AudioAssetService', () => {
         });
     });
 
+    describe('ensureTestAudio', () => {
+        it('should return early if test.mp3 already exists', async () => {
+            fs.existsSync.mockReturnValue(true);
+            await service.ensureTestAudio();
+            expect(axios.post).not.toHaveBeenCalled();
+        });
+
+        it('should generate and move test.mp3 if it does not exist', async () => {
+            fs.existsSync.mockImplementation((p) => {
+                if (p.includes('custom' + path.sep + 'test.mp3')) return false;
+                if (p.includes('cache' + path.sep + 'test.mp3')) return true;
+                return true;
+            });
+            axios.post.mockResolvedValue({ data: { success: true } });
+            fs.renameSync.mockImplementation(() => {});
+
+            await service.ensureTestAudio();
+
+            expect(axios.post).toHaveBeenCalledWith(
+                expect.stringContaining('generate-tts'),
+                expect.objectContaining({ text: 'Test', filename: 'test.mp3' })
+            );
+            expect(fs.renameSync).toHaveBeenCalled();
+            expect(fs.writeFileSync).toHaveBeenCalledWith(
+                expect.stringContaining('test.mp3.json'),
+                expect.stringContaining('"text":"Test"')
+            );
+        });
+
+        it('should handle errors during test audio generation', async () => {
+            fs.existsSync.mockReturnValue(false);
+            axios.post.mockRejectedValue(new Error('TTS Failed'));
+            
+            await service.ensureTestAudio();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Failed to generate test audio'), 'TTS Failed');
+        });
+    });
+
     describe('resolveTemplate', () => {
         it('should resolve placeholders correctly', () => {
             const res = service.resolveTemplate('{prayerEnglish} at {minutes}', 'fajr', 10);

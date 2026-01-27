@@ -486,7 +486,18 @@ const systemController = {
         const { strategyId } = req.params;
         try {
             const strategy = OutputFactory.getStrategy(strategyId);
-            await strategy.execute(req.body, { isTest: true });
+            
+            // Construct payload with test.mp3
+            const testAudioPath = path.join(__dirname, '../../public/audio/custom/test.mp3');
+            const payload = {
+                params: req.body,
+                source: {
+                    url: '/public/audio/custom/test.mp3',
+                    filePath: testAudioPath
+                }
+            };
+
+            await strategy.execute(payload, { isTest: true });
             res.json({ success: true });
         } catch (error) {
             res.status(400).json({ error: error.message });

@@ -82,7 +82,16 @@ describe('SystemController', () => {
              
              await systemController.testOutput(req, res);
              
-             expect(mockStrategy.execute).toHaveBeenCalledWith({ foo: 'bar' }, { isTest: true });
+             expect(mockStrategy.execute).toHaveBeenCalledWith(
+                 expect.objectContaining({
+                     params: { foo: 'bar' },
+                     source: expect.objectContaining({
+                         url: expect.stringContaining('test.mp3'),
+                         filePath: expect.stringContaining('test.mp3')
+                     })
+                 }),
+                 { isTest: true }
+             );
              expect(res.json).toHaveBeenCalledWith({ success: true });
         });
     });

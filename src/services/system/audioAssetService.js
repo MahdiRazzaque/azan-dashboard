@@ -138,6 +138,7 @@ const generateTTS = async (filename, text, serviceUrl, triggerVoice = null) => {
         console.log(`[AudioService] Generated: ${filename} using voice: ${voice}`);
     } catch (error) {
         console.error(`[AudioService] TTS Generation failed for ${filename}:`, error.message);
+        throw error;
     }
 };
 
@@ -212,23 +213,27 @@ const syncAudioAssets = async (forceClean = false) => {
                     throw new Error(`Storage Limit Exceeded: ${quotaCheck.message}`);
                 }
 
-                await generateTTS(filename, text, pythonServiceUrl, settings.voice);
-                
-                const metadata = await audioValidator.analyseAudioFile(audioPath);
-                
-                // Polymorphically augment metadata from all strategies
-                const augmentedData = {};
-                OutputFactory.getAllStrategyInstances().forEach(instance => {
-                    Object.assign(augmentedData, instance.augmentAudioMetadata(metadata));
-                });
-                
-                fs.writeFileSync(metaPath, JSON.stringify({ 
-                    text, 
-                    voice: settings.voice || config.automation?.defaultVoice || 'ar-SA-HamedNeural',
-                    generatedAt: new Date().toISOString(),
-                    ...metadata,
-                    ...augmentedData
-                }));
+                try {
+                    await generateTTS(filename, text, pythonServiceUrl, settings.voice);
+                    
+                    const metadata = await audioValidator.analyseAudioFile(audioPath);
+                    
+                    // Polymorphically augment metadata from all strategies
+                    const augmentedData = {};
+                    OutputFactory.getAllStrategyInstances().forEach(instance => {
+                        Object.assign(augmentedData, instance.augmentAudioMetadata(metadata));
+                    });
+                    
+                    fs.writeFileSync(metaPath, JSON.stringify({ 
+                        text, 
+                        voice: settings.voice || config.automation?.defaultVoice || 'ar-SA-HamedNeural',
+                        generatedAt: new Date().toISOString(),
+                        ...metadata,
+                        ...augmentedData
+                    }));
+                } catch (e) {
+                    console.error(`[AudioService] Skipping ${filename} due to generation failure:`, e.message);
+                }
             }
         }
     }
@@ -236,6 +241,61 @@ const syncAudioAssets = async (forceClean = false) => {
     await cleanupCache();
     await cleanupTempAudio();
     console.log('[AudioService] Asset preparation complete.');
+};
+
+/**
+ * Ensures that a "test.mp3" file exists in the custom audio directory.
+ * If it doesn't exist, it generates one using the TTS service and moves it to custom.
+ * 
+ * @returns {Promise<void>} Resolves when the test audio is ensured.
+ */
+const ensureTestAudio = async () => {
+    ensureDirs();
+    const testAudioPath = path.join(AUDIO_CUSTOM_DIR, 'test.mp3');
+    const testMetaPath = path.join(META_CUSTOM_DIR, 'test.mp3.json');
+
+    if (fs.existsSync(testAudioPath) && fs.existsSync(testMetaPath)) {
+        return;
+    }
+
+    console.log('[AudioService] Generating "test.mp3" for output testing...');
+    const config = configService.get();
+    const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
+    const voice = config.automation?.defaultVoice || 'ar-SA-HamedNeural';
+    const text = 'Test';
+    const filename = 'test.mp3';
+
+    try {
+        // Generate into cache first (default behavior of TTS service)
+        await generateTTS(filename, text, pythonServiceUrl, voice);
+        
+        const cacheAudioPath = path.join(AUDIO_CACHE_DIR, filename);
+        const cacheMetaPath = path.join(META_CACHE_DIR, filename + '.json');
+
+        // Move to custom
+        if (fs.existsSync(cacheAudioPath)) {
+            fs.renameSync(cacheAudioPath, testAudioPath);
+            
+            // Generate metadata for the custom file
+            const metadata = await audioValidator.analyseAudioFile(testAudioPath);
+            const augmentedData = {};
+            OutputFactory.getAllStrategyInstances().forEach(instance => {
+                Object.assign(augmentedData, instance.augmentAudioMetadata(metadata));
+            });
+
+            fs.writeFileSync(testMetaPath, JSON.stringify({
+                text,
+                voice,
+                generatedAt: new Date().toISOString(),
+                ...metadata,
+                ...augmentedData
+            }));
+            
+            console.log('[AudioService] "test.mp3" generated and moved to custom.');
+        }
+    } catch (error) {
+        console.error('[AudioService] Failed to generate test audio:', error.message);
+    }
 };
 
 /**
@@ -337,6 +397,7 @@ const generateMetadataForExistingFiles = async () => {
 
 module.exports = {
     syncAudioAssets,
+    ensureTestAudio,
     cleanupCache,
     cleanupTempAudio,
     resolveTemplate,
