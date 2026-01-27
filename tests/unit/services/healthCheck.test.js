@@ -70,4 +70,33 @@ describe('HealthCheck Service', () => {
          const result = await healthCheck.checkSource('primary');
          expect(result.healthy).toBe(true);
     });
+
+    it('should filter params passed to strategies based on requiredForHealth', async () => {
+        OutputFactory.getAllStrategies.mockReturnValue([
+            { 
+                id: 'local', 
+                hidden: false, 
+                params: [{ key: 'audioPlayer', requiredForHealth: true }] 
+            },
+            { 
+                id: 'voicemonkey', 
+                hidden: false, 
+                params: [{ key: 'token', requiredForHealth: true }] 
+            }
+        ]);
+
+        const leakedParams = {
+            token: 'vm_token',
+            audioPlayer: 'mpg123',
+            extra: 'ignore_me'
+        };
+
+        await healthCheck.refresh('all', leakedParams);
+
+        // local should only get audioPlayer, not token or extra
+        expect(mockLocalStrategy.healthCheck).toHaveBeenCalledWith({ audioPlayer: 'mpg123' });
+        
+        // voicemonkey should only get token, not audioPlayer or extra
+        expect(mockVMStrategy.healthCheck).toHaveBeenCalledWith({ token: 'vm_token' });
+    });
 });

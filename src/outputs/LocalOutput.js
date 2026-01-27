@@ -20,6 +20,7 @@ class LocalOutput extends BaseOutput {
                     label: 'Audio Player', 
                     default: 'mpg123', 
                     sensitive: false,
+                    requiredForHealth: true,
                     subtext: "Only change this if you know what you're doing"
                 }
             ]

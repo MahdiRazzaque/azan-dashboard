@@ -79,8 +79,25 @@ async function refresh(target = 'all', params = null) {
         
         if (shouldCheckAll || target.toLowerCase() === meta.id.toLowerCase()) {
              const strategy = OutputFactory.getStrategy(meta.id);
+             
+             // REQ-006: Filter params based on each strategy's metadata requirements
+             let strategyParams = null;
+             if (params && meta.params) {
+                 strategyParams = {};
+                 meta.params.forEach(p => {
+                     // Only pass parameters explicitly marked as required for health checks
+                     if (p.requiredForHealth && params[p.key] !== undefined) {
+                         strategyParams[p.key] = params[p.key];
+                     }
+                 });
+                 // Pass null if no relevant parameters were found to allow internal config fallback
+                 if (Object.keys(strategyParams).length === 0) {
+                     strategyParams = null;
+                 }
+             }
+
              promises.push(
-                 strategy.healthCheck(params)
+                 strategy.healthCheck(strategyParams)
                     .then(res => updates[meta.id] = res)
                     .catch(e => updates[meta.id] = { healthy: false, message: e.message })
              );

@@ -87,7 +87,9 @@ class VoiceMonkeyOutput extends BaseOutput {
     async healthCheck(requestedParams) {
         console.log('[Output: VoiceMonkey] Starting health check');
         const config = ConfigService.get();
-        const token = config.automation?.outputs?.voicemonkey?.params?.token;
+        // Use provided token (e.g. during credential verification) or fallback to saved config
+        const token = (requestedParams && requestedParams.token) || 
+                      config.automation?.outputs?.voicemonkey?.params?.token;
         const baseUrl = config.automation?.baseUrl;
 
         if (!baseUrl || !baseUrl.startsWith('https://')) {
