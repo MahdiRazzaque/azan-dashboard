@@ -84,6 +84,26 @@ describe('LocalOutput', () => {
             const payload = { source: { filePath: 'f.mp3' }, params: {} };
             await expect(output.execute(payload)).rejects.toThrow('Play error');
         });
+
+        it('should kill process if aborted', async () => {
+            const mockKill = jest.fn();
+            mockPlay.mockReturnValue({ kill: mockKill });
+            
+            // We want the callback to NOT be called immediately
+            mockPlay.mockImplementation((file, opts, cb) => {
+                return { kill: mockKill };
+            });
+
+            const controller = new AbortController();
+            const payload = { source: { filePath: 'f.mp3' }, params: {} };
+            
+            const executePromise = output.execute(payload, {}, controller.signal);
+            
+            controller.abort();
+            
+            await expect(executePromise).rejects.toThrow('Playback aborted');
+            expect(mockKill).toHaveBeenCalled();
+        });
     });
 
     describe('healthCheck', () => {

@@ -56,15 +56,31 @@ class LocalOutput extends BaseOutput {
         const audioPlayer = (payload.params && payload.params.audioPlayer) || 'mpg123';
 
         return new Promise((resolve, reject) => {
-            player.play(filePath, { player: audioPlayer }, (err) => {
+            const audioProcess = player.play(filePath, { player: audioPlayer }, (err) => {
                 if (err) {
-                    console.error(`${prefix} Playback failed: ${err.message}`);
+                    if (err.killed) {
+                        console.warn(`${prefix} Playback killed due to timeout or manual abort`);
+                    } else {
+                        console.error(`${prefix} Playback failed: ${err.message}`);
+                    }
                     reject(err);
                 } else {
                     console.log(`${prefix} Playback complete`);
                     resolve();
                 }
             });
+
+            if (signal) {
+                if (signal.aborted) {
+                    audioProcess.kill();
+                    reject(new Error('Playback aborted'));
+                } else {
+                    signal.addEventListener('abort', () => {
+                        audioProcess.kill();
+                        reject(new Error('Playback aborted'));
+                    }, { once: true });
+                }
+            }
         });
     }
 
