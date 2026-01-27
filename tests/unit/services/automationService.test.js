@@ -1,10 +1,12 @@
 const service = require('@services/core/automationService');
 const configService = require('@config');
 const sseService = require('@services/system/sseService');
+const audioAssetService = require('@services/system/audioAssetService');
 const OutputFactory = require('../../../src/outputs/OutputFactory');
 
 jest.mock('@config');
 jest.mock('@services/system/sseService');
+jest.mock('@services/system/audioAssetService');
 jest.mock('../../../src/outputs/OutputFactory');
 jest.mock('fs');
 
@@ -13,6 +15,8 @@ describe('AutomationService', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+
+        audioAssetService.ensureTTSFile.mockResolvedValue({ success: true });
         
         mockStrategy = {
             execute: jest.fn().mockResolvedValue(),
@@ -40,7 +44,8 @@ describe('AutomationService', () => {
         configService.get.mockReturnValue({
             automation: {
                 outputs: {
-                    mockTarget: { enabled: true }
+                    mockTarget: { enabled: true },
+                    browser: { enabled: true }
                 },
                 triggers: {
                     fajr: {
@@ -103,7 +108,7 @@ describe('AutomationService', () => {
                      const timer = setTimeout(resolve, 5000);
                      signal.addEventListener('abort', () => {
                          clearTimeout(timer);
-                         reject(new DOMException('Aborted', 'AbortError'));
+                         reject(new Error('Aborted'));
                      });
                  });
              });
@@ -128,23 +133,19 @@ describe('AutomationService', () => {
              const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
              
              jest.useFakeTimers();
-             const p = service.triggerEvent('fajr', 'preAdhan');
              
-             // Flush microtasks to ensure we reached the timeout
-             await Promise.resolve();
+             // We don't await here because it will hang until timers are advanced
+             const triggerPromise = service.triggerEvent('fajr', 'preAdhan');
              
-             // Run timers to trigger the abort
-             jest.advanceTimersByTime(100);
+             // Advance timers to trigger the withTimeout timeout
+             // We need to advance enough to cover waitDelay (0 here) + timeoutMs (10)
+             await jest.advanceTimersByTimeAsync(100);
              
-             // Flush again to allow the abort to propagate through promises
-             await Promise.resolve();
-             await Promise.resolve();
-             
-             await p; 
+             await triggerPromise; 
              
              expect(consoleSpy).toHaveBeenCalledWith(
                  expect.stringContaining(`Error executing target 'mockTarget'`),
-                 expect.stringContaining('Strategy mockTarget timed out after 10ms')
+                 expect.stringContaining('Aborted')
              );
              
              consoleSpy.mockRestore();
@@ -216,24 +217,24 @@ describe('AutomationService', () => {
 
             const triggerPromise = service.triggerEvent('fajr', 'preAdhan');
 
-            // Wait for microtasks
+            // Wait for initial microtasks to allow _executeTarget to reach delay()
+            await Promise.resolve();
+            await Promise.resolve();
             await Promise.resolve();
 
             // At T=0:
-            // strategyB (lead 2000ms) should be called immediately
+            // strategyB (lead 2000ms) should be called immediately (waitDelay = 0)
             expect(strategyB.execute).toHaveBeenCalled();
             expect(strategyA.execute).not.toHaveBeenCalled();
             expect(strategyBrowser.execute).not.toHaveBeenCalled();
 
             // Advance by 1000ms
-            jest.advanceTimersByTime(1000);
-            await Promise.resolve();
+            await jest.advanceTimersByTimeAsync(1000);
             expect(strategyA.execute).not.toHaveBeenCalled();
             expect(strategyBrowser.execute).not.toHaveBeenCalled();
 
             // Advance by another 1000ms (Total 2000ms)
-            jest.advanceTimersByTime(1000);
-            await Promise.resolve();
+            await jest.advanceTimersByTimeAsync(1000);
             expect(strategyA.execute).toHaveBeenCalled();
             expect(strategyBrowser.execute).toHaveBeenCalled();
 

@@ -52,6 +52,23 @@ describe('settingsController Unit Tests', () => {
         audioValidator.analyseAudioFile.mockResolvedValue({ duration: 10 });
         audioValidator.validateVoiceMonkeyCompatibility.mockReturnValue({ vmCompatible: true });
         systemControllerHelper._getAudioFilesWithMetadata.mockResolvedValue([]);
+
+        // Default health state for mocks
+        let currentHealth = {
+            tts: { healthy: true },
+            local: { healthy: true },
+            voicemonkey: { healthy: true },
+            primarySource: { healthy: true },
+            backupSource: { healthy: true }
+        };
+
+        healthCheck.getHealth.mockImplementation(() => currentHealth);
+        healthCheck.refresh.mockImplementation(async (target, params) => {
+            if (target === 'all') {
+                return currentHealth;
+            }
+            return currentHealth; // Simplified for basic tests
+        });
         
         mockLocalStrategy = {
             id: 'local',
@@ -166,11 +183,13 @@ describe('settingsController Unit Tests', () => {
                 }
             };
             req.body = newConfig;
-            healthCheck.refresh.mockResolvedValue({ 
+            const unhealthyHealth = { 
                 voicemonkey: { healthy: false, message: 'Offline' },
                 tts: { healthy: true },
                 local: { healthy: true }
-            });
+            };
+            healthCheck.refresh.mockResolvedValue(unhealthyHealth);
+            healthCheck.getHealth.mockReturnValue(unhealthyHealth);
             
             configService.get.mockReturnValue({
                 automation: {
@@ -198,10 +217,12 @@ describe('settingsController Unit Tests', () => {
                  }
              };
              req.body = newConfig;
-             healthCheck.refresh.mockResolvedValue({ 
+             const healthyStatus = { 
                  voicemonkey: { healthy: true },
                  tts: { healthy: true }
-             });
+             };
+             healthCheck.refresh.mockResolvedValue(healthyStatus);
+             healthCheck.getHealth.mockReturnValue(healthyStatus);
              
              mockVMStrategy.validateTrigger.mockReturnValue(['Fajr Adhan: Audio incompatible with Alexa (Bitrate too high)']);
 
@@ -231,10 +252,12 @@ describe('settingsController Unit Tests', () => {
                 }
             };
             req.body = newConfig;
-            healthCheck.refresh.mockResolvedValue({ 
+            const healthyStatus = { 
                 voicemonkey: { healthy: true }, 
                 tts: { healthy: true } 
-            });
+            };
+            healthCheck.refresh.mockResolvedValue(healthyStatus);
+            healthCheck.getHealth.mockReturnValue(healthyStatus);
             
             mockVMStrategy.validateTrigger.mockReturnValue(['Fajr Adhan: Audio incompatible with Alexa (Sample rate mismatch)']);
 
@@ -310,10 +333,12 @@ describe('settingsController Unit Tests', () => {
                 }
             });
             forceRefresh.mockResolvedValue({ meta: {} });
-            healthCheck.refresh.mockResolvedValue({ 
+            const unhealthyStatus = { 
                 tts: { healthy: false }, 
                 local: { healthy: false }
-            });
+            };
+            healthCheck.refresh.mockResolvedValue(unhealthyStatus);
+            healthCheck.getHealth.mockReturnValue(unhealthyStatus);
             
             await settingsController.updateSettings(req, res);
             
@@ -333,10 +358,12 @@ describe('settingsController Unit Tests', () => {
                 } 
             };
             validateConfigSource.mockResolvedValue();
-            healthCheck.refresh.mockResolvedValue({ 
+            const unhealthyStatus = { 
                 voicemonkey: { healthy: false, message: 'VM Down' },
                 tts: { healthy: true }
-            });
+            };
+            healthCheck.refresh.mockResolvedValue(unhealthyStatus);
+            healthCheck.getHealth.mockReturnValue(unhealthyStatus);
             configService.get.mockReturnValue({
                 automation: {
                     outputs: {

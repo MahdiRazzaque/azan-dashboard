@@ -1,7 +1,9 @@
 const path = require('path');
+const fs = require('fs');
 const configService = require('@config'); // Singleton
 const sseService = require('@services/system/sseService');
-const OutputFactory = require('../../outputs');
+const audioAssetService = require('@services/system/audioAssetService');
+const OutputFactory = require('@outputs');
 
 const AUDIO_DIR = path.join(__dirname, '../../../public/audio');
 
@@ -81,37 +83,67 @@ const delay = (ms, signal) => {
 };
 
 /**
- * Main entry point for triggering an automated prayer event.
- * Orchestrates output strategies.
+ * Validates and prepares the audio asset for an automation event.
+ * Attempts to regenerate TTS files if missing or invalid.
  * 
+ * @param {Object} settings - The trigger settings.
  * @param {string} prayer - The name of the prayer.
  * @param {string} event - The type of event.
- * @returns {Promise<void>}
+ * @param {Object} config - The system configuration.
+ * @returns {Promise<{success: boolean, source?: Object}>} The validation result and source details.
+ * @private
  */
-const triggerEvent = async (prayer, event) => {
-    const config = configService.get();
-    const settings = config.automation?.triggers?.[prayer]?.[event];
-    
-    if (!settings || !settings.enabled) {
-        return;
-    }
-
-    console.log(`[Automation] Triggering ${prayer} ${event}...`);
-    
-    sseService.broadcast({
-        type: 'LOG',
-        payload: { message: `Triggering ${prayer} ${event}`, timestamp: new Date().toISOString() }
-    });
-
+const _validateAndPrepareAudio = async (settings, prayer, event, config) => {
     const source = getAudioSource(settings, prayer, event);
-    
-    // Configured targets
+
+    if (settings.type === 'tts') {
+        try {
+            const ttsResult = await audioAssetService.ensureTTSFile(prayer, event, settings, config);
+            if (!ttsResult.success) {
+                console.error(`[Automation] Aborting ${prayer} ${event}: TTS generation failed (${ttsResult.message})`);
+                sseService.broadcast({
+                    type: 'LOG',
+                    payload: { 
+                        message: `Skipped ${prayer} ${event}: TTS Service Offline`, 
+                        timestamp: new Date().toISOString(),
+                        type: 'error'
+                    }
+                });
+                return { success: false };
+            }
+        } catch (e) {
+            console.error(`[Automation] Critical error during TTS preparation:`, e.message);
+            return { success: false };
+        }
+    } else if (settings.type === 'file') {
+        if (!source.filePath || !fs.existsSync(source.filePath)) {
+            console.error(`[Automation] Aborting ${prayer} ${event}: Custom file missing (${source.filePath})`);
+            sseService.broadcast({
+                type: 'LOG',
+                payload: { 
+                    message: `Skipped ${prayer} ${event}: Custom file missing`, 
+                    timestamp: new Date().toISOString(),
+                    type: 'error'
+                }
+            });
+            return { success: false };
+        }
+    }
+    return { success: true, source };
+};
+
+/**
+ * Identifies active targets and calculates the master lead time for an automation event.
+ * 
+ * @param {Object} config - The system configuration.
+ * @param {Object} settings - The trigger settings.
+ * @returns {{activeTargets: Array<Object>, masterLeadTime: number}} The active targets and timing details.
+ * @private
+ */
+const _getActiveTargets = (config, settings) => {
     const configuredTargets = settings.targets || [];
-    
-    // Always include browser (implicit dispatch)
     const targets = new Set([...configuredTargets, 'browser']);
     
-    // Calculate Master Lead Time
     let masterLeadTime = 0;
     const activeTargets = [];
 
@@ -129,6 +161,81 @@ const triggerEvent = async (prayer, event) => {
         }
     });
 
+    return { activeTargets, masterLeadTime };
+};
+
+/**
+ * Executes an automation event for a single target strategy.
+ * 
+ * @param {Object} target - The target details (id and lead time).
+ * @param {number} masterLeadTime - The overall master lead time.
+ * @param {Object} payload - The automation payload.
+ * @param {Object} executionMetadata - Additional metadata for execution.
+ * @returns {Promise<void>}
+ * @private
+ */
+const _executeTarget = async (target, masterLeadTime, payload, executionMetadata) => {
+    const { targetId, leadTime } = target;
+    try {
+        const strategy = OutputFactory.getStrategy(targetId);
+        const metadata = strategy.constructor.getMetadata();
+        
+        // Perform health check (except for browser)
+        if (targetId !== 'browser') {
+            const health = await strategy.healthCheck();
+            if (!health.healthy) {
+                console.warn(`[Automation] Skipping target '${targetId}': Service is unhealthy (${health.message || 'Unknown error'})`);
+                return;
+            }
+        }
+
+        const waitDelay = masterLeadTime - leadTime;
+        const timeoutMs = metadata.timeoutMs || 5000;
+        
+        await withTimeout(
+            async (signal) => {
+                if (waitDelay > 0) {
+                    await delay(waitDelay, signal);
+                }
+                return strategy.execute(payload, executionMetadata, signal);
+            },
+            timeoutMs + waitDelay,
+            `Strategy ${targetId} timed out after ${timeoutMs}ms`
+        );
+    } catch (error) {
+        console.error(`[Automation] Error executing target '${targetId}' for ${payload.prayer} ${payload.event}:`, error.message);
+    }
+};
+
+/**
+ * Main entry point for triggering an automated prayer event.
+ * Orchestrates audio preparation and output target execution.
+ * 
+ * @param {string} prayer - The name of the prayer.
+ * @param {string} event - The type of event.
+ * @returns {Promise<void>}
+ */
+const triggerEvent = async (prayer, event) => {
+    const config = configService.get();
+    const settings = config.automation?.triggers?.[prayer]?.[event];
+    
+    if (!settings || !settings.enabled) {
+        return;
+    }
+
+    // 1. Audio Asset Validation & Preparation
+    const { success, source } = await _validateAndPrepareAudio(settings, prayer, event, config);
+    if (!success) return;
+    
+    console.log(`[Automation] Triggering ${prayer} ${event}...`);
+    sseService.broadcast({
+        type: 'LOG',
+        payload: { message: `Triggering ${prayer} ${event}`, timestamp: new Date().toISOString() }
+    });
+
+    // 2. Target Selection and Execution Orchestration
+    const { activeTargets, masterLeadTime } = _getActiveTargets(config, settings);
+    
     const payload = {
         prayer,
         event,
@@ -138,45 +245,13 @@ const triggerEvent = async (prayer, event) => {
     
     const executionMetadata = { isTest: false };
 
-    // Execute targets with stagger delays
-    const promises = activeTargets.map(async ({ targetId, leadTime }) => {
-        try {
-            const strategy = OutputFactory.getStrategy(targetId);
-            const metadata = strategy.constructor.getMetadata();
-            
-            // Perform health check (except for browser)
-            if (targetId !== 'browser') {
-                const health = await strategy.healthCheck();
-                if (!health.healthy) {
-                    console.warn(`[Automation] Skipping target '${targetId}': Service is unhealthy (${health.message || 'Unknown error'})`);
-                    return;
-                }
-            }
-
-            const waitDelay = masterLeadTime - leadTime;
-            const timeoutMs = metadata.timeoutMs || 5000;
-            
-            await withTimeout(
-                async (signal) => {
-                    if (waitDelay > 0) {
-                        await delay(waitDelay, signal);
-                    }
-                    return strategy.execute(payload, executionMetadata, signal);
-                },
-                timeoutMs + waitDelay,
-                `Strategy ${targetId} timed out after ${timeoutMs}ms`
-            );
-        } catch (error) {
-            console.error(`[Automation] Error executing target '${targetId}' for ${prayer} ${event}:`, error.message);
-        }
-    });
+    // Execute targets in parallel (each handles its own stagger delay)
+    const promises = activeTargets.map(target => 
+        _executeTarget(target, masterLeadTime, payload, executionMetadata)
+    );
 
     await Promise.allSettled(promises);
 };
-
-// Deprecated: Credentials verification is now handled by OutputFactory/Strategies and SystemController.
-// Keeping export if needed but implementing as error or redirect?
-// Ideally remove it.
 
 module.exports = {
     getAudioSource,
