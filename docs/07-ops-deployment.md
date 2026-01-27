@@ -18,7 +18,7 @@ To ensure data persistence, the following paths inside the container MUST be map
 **Note:** The `.env` file is located inside the `config` directory in the container (`/app/config/.env`) to allow for a single volume mapping for all configuration data.
 
 ### Hardware Access (Local Audio)
-For the system to play audio on the host's speakers (e.g., a Raspberry Pi connected to a Mosque PA system), the container needs access to the sound device.
+For the system to play audio on the host's speakers (e.g., a Raspberry Pi connected to a Mosque local audio system), the container needs access to the sound device.
 *   **Flag:** `--device /dev/snd`
 *   **Constraint:** This works natively on Linux hosts. On Windows/Mac (Docker Desktop), hardware pass-through is limited, so "Local" audio targets will likely fail (but Browser/Alexa targets will work).
 

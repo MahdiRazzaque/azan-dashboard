@@ -56,7 +56,7 @@ export default function AudioTestModal({
         const isHealthy = health?.healthy ?? false;
 
         let description = strategy.id === 'local' 
-            ? 'Plays on the mosque PA system' 
+            ? 'Plays on the mosque local audio system' 
             : 'Triggers Alexa/Smart Home devices';
         
         if (!isEnabled) description = 'This output is disabled in settings';
@@ -110,7 +110,7 @@ export default function AudioTestModal({
                         <div className="space-y-2">
                              <p className="text-amber-200 text-sm font-semibold">Safety Warning</p>
                              <p className="text-amber-200/70 text-xs leading-relaxed">
-                                Playback cannot be stopped once started. Ensure volume levels are safe before triggering audio on PA systems or external devices.
+                                Playback cannot be stopped once started. Ensure volume levels are safe before triggering audio on local audio systems or external devices.
                              </p>
                              <label className="flex items-center gap-2 cursor-pointer pt-1 group">
                                 <div className="relative">
