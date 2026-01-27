@@ -27,6 +27,40 @@ const clearJobs = () => {
 };
 
 /**
+ * Calculates the maximum lead time among all enabled targets for a specific prayer event.
+ * 
+ * @param {Object} config - The system configuration.
+ * @param {string} prayer - The name of the prayer.
+ * @param {string} event - The type of event (e.g., adhan, preAdhan).
+ * @returns {number} The maximum lead time in milliseconds.
+ */
+const getMaxLeadTime = (config, prayer, event) => {
+    const triggerSettings = config.automation?.triggers?.[prayer]?.[event];
+    if (!triggerSettings || !triggerSettings.enabled) {
+        return 0;
+    }
+
+    const configuredTargets = triggerSettings.targets || [];
+    const targets = new Set([...configuredTargets, 'browser']);
+
+    let maxLead = 0;
+    targets.forEach(targetId => {
+        const outputConfig = config.automation?.outputs?.[targetId];
+        // 'browser' is implicitly enabled if not explicitly disabled
+        const isEnabled = targetId === 'browser' ? (outputConfig?.enabled !== false) : outputConfig?.enabled;
+        
+        if (isEnabled) {
+            const leadTime = outputConfig?.leadTimeMs || 0;
+            if (leadTime > maxLead) {
+                maxLead = leadTime;
+            }
+        }
+    });
+
+    return maxLead;
+};
+
+/**
  * Schedules a single automation event for a specific prayer and time.
  * Validates global automation switches and ensures events are only scheduled for the future.
  * 
@@ -57,12 +91,17 @@ const scheduleEvent = (date, prayer, event) => {
         }
     }
 
-    // Safety buffer: If time is in the past, don't schedule
-    if (date < DateTime.now()) {
+    // Adjust for Maximum Lead Time (Staggered Launch)
+    const maxLeadTime = getMaxLeadTime(config, prayer, event);
+    const adjustedDate = date.minus({ milliseconds: maxLeadTime });
+
+    // Safety buffer: If adjusted time is in the past, don't schedule
+    if (adjustedDate < DateTime.now()) {
+        console.warn(`[Scheduler] Adjusted time for ${prayer} ${event} is in the past (${adjustedDate.toFormat('HH:mm:ss')}), skipping.`);
         return;
     }
 
-    const job = schedule.scheduleJob(date.toJSDate(), () => {
+    const job = schedule.scheduleJob(adjustedDate.toJSDate(), () => {
         automationService.triggerEvent(prayer, event);
     });
 
@@ -70,7 +109,7 @@ const scheduleEvent = (date, prayer, event) => {
         job.jobName = `${prayer} - ${event}`;
         job.category = 'automation';
         jobs.push(job);
-        console.log(`[Scheduler] Scheduled ${prayer} ${event} at ${date.toFormat('HH:mm:ss')}`);
+        console.log(`[Scheduler] Scheduled ${prayer} ${event} at ${adjustedDate.toFormat('HH:mm:ss')} (Original: ${date.toFormat('HH:mm:ss')}, Lead: ${maxLeadTime}ms)`);
     }
 };
 

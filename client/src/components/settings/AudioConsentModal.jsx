@@ -50,7 +50,7 @@ export default function AudioConsentModal({ isOpen, onClose, onConfirm, strategy
                         </div>
                         <div>
                             <p className="text-app-text font-medium">Trigger Test Sound</p>
-                            <p className="text-sm text-app-dim">The output device <strong>{strategyLabel}</strong> will announce "Test".</p>
+                            <p className="text-sm text-app-dim">The output device <strong>{strategyLabel}</strong> will announce &quot;Test&quot;.</p>
                         </div>
                     </div>
 
@@ -75,7 +75,7 @@ export default function AudioConsentModal({ isOpen, onClose, onConfirm, strategy
                             </div>
                         </div>
                         <span className="text-app-text text-sm select-none">
-                            Don't ask me again for this session
+                            Don&apos;t ask me again for this session
                         </span>
                     </label>
                 </div>

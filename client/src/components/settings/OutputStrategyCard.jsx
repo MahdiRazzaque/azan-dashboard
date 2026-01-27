@@ -6,6 +6,12 @@ import axios from 'axios';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * Utility function to merge tailwind classes.
+ * 
+ * @param {...any} inputs - Class names or objects.
+ * @returns {string} Merged class names.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 // Session-level consent storage
@@ -31,6 +37,16 @@ const Toggle = ({ checked, onChange }) => (
     </button>
 );
 
+/**
+ * A card component that displays and manages the settings for an output strategy.
+ * 
+ * @param {Object} props - The component props.
+ * @param {Object} props.strategy - The strategy metadata.
+ * @param {Object} props.config - The current configuration for this strategy.
+ * @param {Function} props.onChange - Callback fired when a configuration value changes.
+ * @param {Object} props.systemHealth - The current health status of all output targets.
+ * @returns {JSX.Element} The rendered component.
+ */
 export default function OutputStrategyCard({ strategy, config, onChange, systemHealth }) {
     const [testingHealth, setTestingHealth] = useState(false);
     const [testingAudio, setTestingAudio] = useState(false);
@@ -137,19 +153,39 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
             
             <div className="space-y-5">
                 {/* Lead Time Config */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div>
-                        <label className="block text-sm font-medium text-app-text mb-1">Lead Time (ms)</label>
-                        <div className="text-xs text-app-dim mb-2">Advance triggering offset.</div>
-                        <input 
-                            type="number"
-                            min={strategy.leadTimeConstraints?.min || 0}
-                            max={strategy.leadTimeConstraints?.max || 300000}
-                            value={leadTimeMs}
-                            onChange={e => onChange('leadTimeMs', parseInt(e.target.value) || 0)}
-                            className="w-full bg-app-bg border border-app-border rounded p-2 text-app-text focus:ring-emerald-500 focus:border-emerald-500"
-                        />
-                     </div>
+                <div className="pt-2">
+                    <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-medium text-app-text">Lead Time Adjustment</label>
+                        <span className={cn(
+                            "text-sm font-bold px-2 py-0.5 rounded",
+                            leadTimeMs > 0 ? "text-emerald-400 bg-emerald-400/10" : 
+                            leadTimeMs < 0 ? "text-amber-400 bg-amber-400/10" : 
+                            "text-app-dim bg-app-card-hover"
+                        )}>
+                            {leadTimeMs > 0 ? `+${(leadTimeMs / 1000).toFixed(1)}s` : 
+                             leadTimeMs < 0 ? `${(leadTimeMs / 1000).toFixed(1)}s` : 
+                             "Synchronised"}
+                        </span>
+                    </div>
+                    <div className="text-xs text-app-dim mb-3">
+                        {leadTimeMs > 0 ? `Starts ${leadTimeMs}ms before target time.` : 
+                         leadTimeMs < 0 ? `Starts ${Math.abs(leadTimeMs)}ms after target time.` : 
+                         "Starts exactly at target time."}
+                    </div>
+                    <input 
+                        type="range"
+                        min="-5000"
+                        max="5000"
+                        step="100"
+                        value={leadTimeMs}
+                        onChange={e => onChange('leadTimeMs', parseInt(e.target.value) || 0)}
+                        className="w-full h-2 bg-app-bg rounded-lg appearance-none cursor-pointer accent-emerald-500 mb-2 border border-app-border"
+                    />
+                    <div className="flex justify-between text-[10px] text-app-dim px-1">
+                        <span>Lag (-5s)</span>
+                        <span>0s</span>
+                        <span>Lead (+5s)</span>
+                    </div>
                 </div>
 
                 {/* Strategy Params - Non-Sensitive Only */}

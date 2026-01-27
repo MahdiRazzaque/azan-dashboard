@@ -25,6 +25,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
  * @param {boolean} [props.isDirty] - Whether the trigger state has unsaved changes.
  * @param {string} props.eventType - The type of event this trigger belongs to (e.g., 'adhan').
  * @param {React.ReactNode} [props.extraContent] - Optional additional content to render in the card.
+ * @param {Array} [props.strategies] - A list of available output strategies.
  * @returns {JSX.Element} The rendered trigger card component.
  */
 export default function TriggerCard({ label, trigger, onChange, files, error, isDirty, eventType, extraContent, strategies = [] }) {

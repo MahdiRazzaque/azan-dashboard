@@ -570,6 +570,28 @@ describe('SchedulerService', () => {
             const job = schedule.scheduleJob.mock.calls.find(c => c[0] instanceof Date && c[0].toISOString() === '2099-01-01T06:00:00.000Z');
             expect(job).toBeDefined();
         });
+
+        it('should adjust scheduled time based on maximum lead time (staggered launch)', async () => {
+            const configWithLead = JSON.parse(JSON.stringify(mockConfig));
+            configWithLead.automation.outputs = {
+                mockTarget: { enabled: true, leadTimeMs: 2000 },
+                browser: { enabled: true, leadTimeMs: 0 }
+            };
+            configWithLead.automation.triggers.fajr.adhan.targets = ['mockTarget'];
+            configService.get.mockReturnValue(configWithLead);
+    
+            await service.initScheduler();
+            
+            // Fajr is at 05:00:00. Max lead time is 2000ms.
+            // Scheduled time should be 04:59:58.
+            const expectedTime = new Date('2099-01-01T04:59:58Z');
+            const jobCall = schedule.scheduleJob.mock.calls.find(c => 
+                c[0] instanceof Date && c[0].toISOString() === expectedTime.toISOString()
+            );
+            
+            expect(jobCall).toBeDefined();
+            expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Lead: 2000ms'));
+        });
     });
 
     describe('runJob', () => {

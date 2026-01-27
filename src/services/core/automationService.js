@@ -40,6 +40,7 @@ const getAudioSource = (settings, prayer, event) => {
  * @param {Function} task - Function that returns a promise and accepts a signal.
  * @param {number} ms - Timeout in milliseconds.
  * @param {string} errorMsg - Error message if timeout occurs.
+ * @returns {Promise<any>} The result of the task.
  */
 const withTimeout = async (task, ms, errorMsg) => {
     const controller = new AbortController();
@@ -56,6 +57,27 @@ const withTimeout = async (task, ms, errorMsg) => {
         }
         throw error;
     }
+};
+
+/**
+ * Helper to delay execution.
+ * @param {number} ms - Delay in milliseconds.
+ * @param {AbortSignal} [signal] - Optional AbortSignal to cancel the delay.
+ * @returns {Promise<void>}
+ */
+const delay = (ms, signal) => {
+    return new Promise((resolve, reject) => {
+        if (signal?.aborted) {
+            return reject(new Error('Aborted'));
+        }
+
+        const timer = setTimeout(resolve, ms);
+
+        signal?.addEventListener('abort', () => {
+            clearTimeout(timer);
+            reject(new Error('Aborted'));
+        }, { once: true });
+    });
 };
 
 /**
@@ -89,6 +111,24 @@ const triggerEvent = async (prayer, event) => {
     // Always include browser (implicit dispatch)
     const targets = new Set([...configuredTargets, 'browser']);
     
+    // Calculate Master Lead Time
+    let masterLeadTime = 0;
+    const activeTargets = [];
+
+    targets.forEach(targetId => {
+        const outputConfig = config.automation?.outputs?.[targetId];
+        // 'browser' is implicitly enabled if not explicitly disabled
+        const isEnabled = targetId === 'browser' ? (outputConfig?.enabled !== false) : outputConfig?.enabled;
+        
+        if (isEnabled) {
+            const leadTime = outputConfig?.leadTimeMs || 0;
+            if (leadTime > masterLeadTime) {
+                masterLeadTime = leadTime;
+            }
+            activeTargets.push({ targetId, leadTime });
+        }
+    });
+
     const payload = {
         prayer,
         event,
@@ -98,21 +138,14 @@ const triggerEvent = async (prayer, event) => {
     
     const executionMetadata = { isTest: false };
 
-    // Filter targets by enabled status and health
-    // 'browser' is always considered healthy and implicitly enabled
-    const promises = Array.from(targets).map(async (targetId) => {
+    // Execute targets with stagger delays
+    const promises = activeTargets.map(async ({ targetId, leadTime }) => {
         try {
             const strategy = OutputFactory.getStrategy(targetId);
             const metadata = strategy.constructor.getMetadata();
             
-            // Check if strategy is enabled in config (except for browser)
+            // Perform health check (except for browser)
             if (targetId !== 'browser') {
-                const outputConfig = config.automation?.outputs?.[targetId];
-                if (!outputConfig || !outputConfig.enabled) {
-                    return; // Skip disabled strategy
-                }
-                
-                // Perform health check
                 const health = await strategy.healthCheck();
                 if (!health.healthy) {
                     console.warn(`[Automation] Skipping target '${targetId}': Service is unhealthy (${health.message || 'Unknown error'})`);
@@ -120,11 +153,17 @@ const triggerEvent = async (prayer, event) => {
                 }
             }
 
+            const waitDelay = masterLeadTime - leadTime;
             const timeoutMs = metadata.timeoutMs || 5000;
             
             await withTimeout(
-                (signal) => strategy.execute(payload, executionMetadata, signal),
-                timeoutMs,
+                async (signal) => {
+                    if (waitDelay > 0) {
+                        await delay(waitDelay, signal);
+                    }
+                    return strategy.execute(payload, executionMetadata, signal);
+                },
+                timeoutMs + waitDelay,
                 `Strategy ${targetId} timed out after ${timeoutMs}ms`
             );
         } catch (error) {

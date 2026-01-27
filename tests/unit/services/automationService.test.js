@@ -163,5 +163,82 @@ describe('AutomationService', () => {
             await service.triggerEvent('fajr', 'preAdhan');
             expect(OutputFactory.getStrategy).not.toHaveBeenCalled();
         });
+
+        it('should implement staggered launch using wait delays', async () => {
+            jest.useFakeTimers();
+            
+            // Strategy A (mockTarget): lead 0ms
+            // Strategy B (secondTarget): lead 2000ms
+            // Master Lead Time: 2000ms
+            // Wait Delay for A: 2000 - 0 = 2000ms
+            // Wait Delay for B: 2000 - 2000 = 0ms
+            
+            const strategyA = {
+                execute: jest.fn().mockResolvedValue(),
+                constructor: { getMetadata: () => ({ timeoutMs: 5000 }) },
+                healthCheck: jest.fn().mockResolvedValue({ healthy: true })
+            };
+            const strategyB = {
+                execute: jest.fn().mockResolvedValue(),
+                constructor: { getMetadata: () => ({ timeoutMs: 5000 }) },
+                healthCheck: jest.fn().mockResolvedValue({ healthy: true })
+            };
+            const strategyBrowser = {
+                execute: jest.fn().mockResolvedValue(),
+                constructor: { getMetadata: () => ({ timeoutMs: 5000 }) },
+                healthCheck: jest.fn().mockResolvedValue({ healthy: true })
+            };
+
+            OutputFactory.getStrategy.mockImplementation((id) => {
+                if (id === 'mockTarget') return strategyA;
+                if (id === 'secondTarget') return strategyB;
+                if (id === 'browser') return strategyBrowser;
+            });
+
+            configService.get.mockReturnValue({
+                automation: {
+                    outputs: {
+                        mockTarget: { enabled: true, leadTimeMs: 0 },
+                        secondTarget: { enabled: true, leadTimeMs: 2000 },
+                        browser: { enabled: true, leadTimeMs: 0 }
+                    },
+                    triggers: {
+                        fajr: {
+                            preAdhan: {
+                                enabled: true,
+                                type: 'tts',
+                                targets: ['mockTarget', 'secondTarget']
+                            }
+                        }
+                    }
+                }
+            });
+
+            const triggerPromise = service.triggerEvent('fajr', 'preAdhan');
+
+            // Wait for microtasks
+            await Promise.resolve();
+
+            // At T=0:
+            // strategyB (lead 2000ms) should be called immediately
+            expect(strategyB.execute).toHaveBeenCalled();
+            expect(strategyA.execute).not.toHaveBeenCalled();
+            expect(strategyBrowser.execute).not.toHaveBeenCalled();
+
+            // Advance by 1000ms
+            jest.advanceTimersByTime(1000);
+            await Promise.resolve();
+            expect(strategyA.execute).not.toHaveBeenCalled();
+            expect(strategyBrowser.execute).not.toHaveBeenCalled();
+
+            // Advance by another 1000ms (Total 2000ms)
+            jest.advanceTimersByTime(1000);
+            await Promise.resolve();
+            expect(strategyA.execute).toHaveBeenCalled();
+            expect(strategyBrowser.execute).toHaveBeenCalled();
+
+            await triggerPromise;
+            jest.useRealTimers();
+        });
     });
 });
