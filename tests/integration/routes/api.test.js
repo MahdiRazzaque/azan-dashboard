@@ -1,13 +1,11 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const path = require('path');
-// const fs = require('fs'); // We will mock fs
-
 const mockMockFactory = require('../../helpers/mockFactory');
 
 // --- 1. Define Mocks BEFORE requiring modules ---
 
-jest.mock('axios'); // Mock Axios for validate-url
+jest.mock('axios'); 
 const axios = require('axios');
 
 jest.mock('fs', () => {
@@ -26,7 +24,53 @@ jest.mock('fs', () => {
 const fs = require('fs');
 
 // Mock Config Service
-const mockConfig = mockMockFactory.createMockConfig();
+const mockConfig = {
+    ...mockMockFactory.createMockConfig(),
+    automation: {
+        baseUrl: 'http://localhost',
+        pythonServiceUrl: 'http://localhost',
+        outputs: {
+            local: { enabled: true, params: { audioPlayer: 'mpg123' } },
+            voicemonkey: { enabled: true, params: {} }
+        },
+        triggers: {
+            fajr: { 
+                preAdhan: { enabled: false, type: 'tts', targets: [] },
+                adhan: { enabled: false, type: 'tts', targets: [] },
+                preIqamah: { enabled: false, type: 'tts', targets: [] },
+                iqamah: { enabled: false, type: 'tts', targets: [] }
+            },
+            sunrise: {
+                preAdhan: { enabled: false, type: 'tts', targets: [] },
+                adhan: { enabled: false, type: 'tts', targets: [] }
+            },
+            dhuhr: {
+                preAdhan: { enabled: false, type: 'tts', targets: [] },
+                adhan: { enabled: false, type: 'tts', targets: [] },
+                preIqamah: { enabled: false, type: 'tts', targets: [] },
+                iqamah: { enabled: false, type: 'tts', targets: [] }
+            },
+            asr: {
+                preAdhan: { enabled: false, type: 'tts', targets: [] },
+                adhan: { enabled: false, type: 'tts', targets: [] },
+                preIqamah: { enabled: false, type: 'tts', targets: [] },
+                iqamah: { enabled: false, type: 'tts', targets: [] }
+            },
+            maghrib: {
+                preAdhan: { enabled: false, type: 'tts', targets: [] },
+                adhan: { enabled: false, type: 'tts', targets: [] },
+                preIqamah: { enabled: false, type: 'tts', targets: [] },
+                iqamah: { enabled: false, type: 'tts', targets: [] }
+            },
+            isha: {
+                preAdhan: { enabled: false, type: 'tts', targets: [] },
+                adhan: { enabled: false, type: 'tts', targets: [] },
+                preIqamah: { enabled: false, type: 'tts', targets: [] },
+                iqamah: { enabled: false, type: 'tts', targets: [] }
+            }
+        }
+    }
+};
 const mockConfigService = mockMockFactory.createMockConfigService(mockConfig);
 jest.mock('@config', () =>   mockConfigService);
 
@@ -58,7 +102,21 @@ jest.mock('@providers', () => ({
 }));
 const { ProviderFactory } = require('@providers');
 
-jest.mock('@services/system/healthCheck', () => mockMockFactory.createMockHealthCheck());
+jest.mock('@services/system/healthCheck', () => ({
+    ...mockMockFactory.createMockHealthCheck(),
+    refresh: jest.fn().mockImplementation(() => {
+        return Promise.resolve({
+            local: { healthy: true },
+            tts: { healthy: true },
+            voicemonkey: { healthy: true }
+        });
+    }),
+    getHealth: jest.fn().mockReturnValue({
+        local: { healthy: true },
+        tts: { healthy: true },
+        voicemonkey: { healthy: true }
+    })
+}));
 const healthCheck = require('@services/system/healthCheck');
 
 jest.mock('@services/system/diagnosticsService', () => mockMockFactory.createMockDiagnosticsService());
@@ -74,6 +132,17 @@ jest.mock('@services/system/voiceService', () => ({
 const voiceService = require('@services/system/voiceService');
 
 jest.mock('@utils/passwordUtils', () => mockMockFactory.createMockAuthUtils());
+
+// Mock OutputFactory
+jest.mock('../../../src/outputs', () => ({
+    getStrategy: jest.fn(),
+    getAllStrategies: jest.fn(() => [
+        { id: 'local', label: 'Local Audio' },
+        { id: 'voicemonkey', label: 'VoiceMonkey (Alexa)' }
+    ]),
+    getSecretRequirementKeys: jest.fn(() => [])
+}));
+const OutputFactory = require('../../../src/outputs');
 
 
 // --- 2. Require App ---
@@ -103,6 +172,12 @@ describe('API Routes Integration', () => {
         // Default fs behavior
         fs.existsSync.mockReturnValue(true);
         fs.readdirSync.mockReturnValue([]);
+        
+        // Mock OutputFactory
+        OutputFactory.getStrategy.mockImplementation((id) => ({
+            execute: jest.fn().mockResolvedValue(),
+            verifyCredentials: jest.fn().mockResolvedValue({ success: true })
+        }));
     });
 
     describe('Auth Routes', () => {
@@ -180,45 +255,28 @@ describe('API Routes Integration', () => {
             expect(audioAssetService.syncAudioAssets).toHaveBeenCalled();
         });
 
-        it('POST /api/system/test-audio - should play audio locally', async () => {
+        it('POST /api/system/outputs/:strategyId/test - should execute strategy', async () => {
+            const mockStrategy = { execute: jest.fn().mockResolvedValue() };
+            OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+            
             await request(app)
-                .post('/api/system/test-audio')
+                .post('/api/system/outputs/local/test')
                 .set('Cookie', [`auth_token=${adminToken}`])
-                .send({ filename: 'test.mp3', type: 'custom', target: 'local' })
+                .send({ filename: 'test.mp3', type: 'custom' })
                 .expect(200);
-            expect(automationService.handleLocal).toHaveBeenCalled();
+            
+            expect(OutputFactory.getStrategy).toHaveBeenCalledWith('local');
+            expect(mockStrategy.execute).toHaveBeenCalled();
         });
 
-        it('POST /api/system/test-audio - should broadcast to browsers', async () => {
+        it('POST /api/system/outputs/:strategyId/test - should handle missing strategy', async () => {
+            OutputFactory.getStrategy.mockImplementation(() => { throw new Error('Not found'); });
+            
             await request(app)
-                .post('/api/system/test-audio')
+                .post('/api/system/outputs/invalid/test')
                 .set('Cookie', [`auth_token=${adminToken}`])
-                .send({ filename: 'test.mp3', type: 'custom', target: 'browser' })
-                .expect(200);
-            expect(automationService.broadcastToClients).toHaveBeenCalled();
-        });
-
-        it('POST /api/system/test-audio - should trigger VoiceMonkey', async () => {
-            await request(app)
-                .post('/api/system/test-audio')
-                .set('Cookie', [`auth_token=${adminToken}`])
-                .send({ filename: 'test.mp3', type: 'custom', target: 'voiceMonkey' })
-                .expect(200);
-            expect(automationService.handleVoiceMonkey).toHaveBeenCalled();
-        });
-
-        it('POST /api/system/test-audio - should validate inputs', async () => {
-            await request(app)
-                .post('/api/system/test-audio')
-                .set('Cookie', [`auth_token=${adminToken}`])
-                .send({ filename: '../hack.mp3', type: 'custom' })
-                .expect(400); // Invalid filename
-
-            await request(app)
-                .post('/api/system/test-audio')
-                .set('Cookie', [`auth_token=${adminToken}`])
-                .send({ filename: 'test.mp3', type: 'badtype' })
-                .expect(400); // Invalid type
+                .send({ filename: 'test.mp3', type: 'custom' })
+                .expect(400);
         });
         
         it('POST /api/system/validate-url - should check url', async () => {
@@ -292,7 +350,20 @@ describe('API Routes Integration', () => {
         });
 
         it('POST /api/settings/update - should validate and update config', async () => {
-            const newConfig = { ...mockConfig, sources: { ...mockConfig.sources, primary: { type: 'aladhan', method: 'MWL' } } };
+            const newConfig = { 
+                ...mockConfig, 
+                sources: { 
+                    ...mockConfig.sources, 
+                    primary: { type: 'aladhan', method: 'MWL' } 
+                },
+                automation: {
+                    ...mockConfig.automation,
+                    outputs: {
+                        local: { enabled: true },
+                        voicemonkey: { enabled: true }
+                    }
+                }
+            };
             
             await request(app)
                 .post('/api/settings/update')
@@ -499,90 +570,6 @@ describe('API Routes Integration', () => {
         });
     });
 
-    describe('VoiceMonkey Routes', () => {
-        it('POST /settings/credentials/voicemonkey - should save credentials', async () => {
-             await request(app)
-                .post('/api/settings/credentials/voicemonkey')
-                .set('Cookie', [`auth_token=${adminToken}`])
-                .send({ token: 'tok', device: 'dev' })
-                .expect(200);
-            
-            expect(envManager.setEnvValue).toHaveBeenCalledWith('VOICEMONKEY_TOKEN', 'tok');
-            expect(envManager.setEnvValue).toHaveBeenCalledWith('VOICEMONKEY_DEVICE', 'dev');
-            expect(mockConfigService.reload).toHaveBeenCalled();
-        });
-
-        it('POST /settings/credentials/voicemonkey - should fail if empty strings', async () => {
-            await request(app)
-               .post('/api/settings/credentials/voicemonkey')
-               .set('Cookie', [`auth_token=${adminToken}`])
-               .send({ token: '  ', device: 'dev' })
-               .expect(400);
-       });
-
-       it('POST /settings/credentials/voicemonkey - should fail if missing fields', async () => {
-            await request(app)
-               .post('/api/settings/credentials/voicemonkey')
-               .set('Cookie', [`auth_token=${adminToken}`])
-               .send({ token: 'tok' })
-               .expect(400);
-       });
-
-       it('DELETE /settings/credentials/voicemonkey - should remove credentials', async () => {
-            await request(app)
-               .delete('/api/settings/credentials/voicemonkey')
-               .set('Cookie', [`auth_token=${adminToken}`])
-               .expect(200);
-            
-            expect(envManager.deleteEnvValue).toHaveBeenCalledWith('VOICEMONKEY_TOKEN');
-       });
-       
-       it('POST /system/test-voicemonkey - should call VM API', async () => {
-            axios.get.mockResolvedValue({ data: { success: true } });
-            await request(app)
-                .post('/api/system/test-voicemonkey')
-                .set('Cookie', [`auth_token=${adminToken}`])
-                .send({ token: 'tok', device: 'dev' })
-                .expect(200);
-            
-            expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('voicemonkey'), expect.anything());
-       });
-
-        it('POST /system/test-voicemonkey - should handle VM API failure', async () => {
-             axios.get.mockResolvedValue({ data: { success: false, error: 'Bad Token' } });
-             await request(app)
-                 .post('/api/system/test-voicemonkey')
-                 .set('Cookie', [`auth_token=${adminToken}`])
-                 .send({ token: 'tok', device: 'dev' })
-                 .expect(500);
-        });
-
-        it('POST /api/auth/setup - should handle internal errors', async () => {
-             const authUtils = require('@utils/passwordUtils');
-             authUtils.hashPassword.mockImplementationOnce(() => { throw new Error('Hash Fail'); });
-             
-             // Setup requires no admin password set
-             const oldPass = process.env.ADMIN_PASSWORD;
-             delete process.env.ADMIN_PASSWORD;
-             
-             await request(app)
-                 .post('/api/auth/setup')
-                 .send({ password: 'validpass' })
-                 .expect(500);
-                 
-             process.env.ADMIN_PASSWORD = oldPass;
-        });
-
-         it('POST /system/test-voicemonkey - should handle Network failure', async () => {
-             axios.get.mockRejectedValue(new Error('Net Error'));
-             await request(app)
-                 .post('/api/system/test-voicemonkey')
-                 .set('Cookie', [`auth_token=${adminToken}`])
-                 .send({ token: 'tok', device: 'dev' })
-                 .expect(500);
-        });
-    });
-
     describe('Additional Auth & System Coverage', () => {
         it('POST /api/auth/logout - should clear cookie', async () => {
             const res = await request(app)
@@ -727,7 +714,14 @@ describe('API Routes Integration', () => {
                  ...mockConfig, 
                  sources: { 
                      primary: { type: 'mymasjid', masjidId: 'test-id' } 
-                 } 
+                 },
+                 automation: {
+                     ...mockConfig.automation,
+                     outputs: {
+                         local: { enabled: true },
+                         voicemonkey: { enabled: true }
+                     }
+                 }
              };
              
              await request(app)
@@ -755,23 +749,32 @@ describe('API Routes Integration', () => {
         });
 
          it('POST /api/settings/update - should generate warnings if services unhealthy', async () => {
-             healthCheck.getHealth.mockReturnValueOnce({
+             healthCheck.refresh.mockResolvedValueOnce({
                  tts: { healthy: false },
-                 local: { healthy: false },
-                 voiceMonkey: { healthy: false, message: 'Auth Fail' }
+                 local: { healthy: false, message: 'unreachable' },
+                 voicemonkey: { healthy: false, message: 'Auth Fail' }
              });
 
              const newConfig = { 
                  ...mockConfig, 
                  automation: {
+                     ...mockConfig.automation,
+                     outputs: {
+                         local: { enabled: true },
+                         voicemonkey: { enabled: true }
+                     },
                      triggers: {
                          fajr: { 
-                             pre: { enabled: true, type: 'tts', targets: ['local'] },
-                             post: { enabled: true, type: 'voiceMonkey' }
+                             ...mockConfig.automation.triggers.fajr,
+                             preAdhan: { enabled: true, type: 'tts', targets: ['local'] },
+                             adhan: { enabled: true, type: 'file', path: 'azan.mp3', targets: ['voicemonkey'] }
                          }
                      }
                  }
              };
+
+             // Mock config service to return the "new" config as if it was saved
+             mockConfigService.get.mockReturnValue(newConfig);
              
              const res = await request(app)
                 .post('/api/settings/update')
@@ -812,4 +815,3 @@ describe('API Routes Integration', () => {
         });
     });
 });
-

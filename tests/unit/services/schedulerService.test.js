@@ -192,7 +192,7 @@ describe('SchedulerService', () => {
             const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_SOURCE_HEALTH);
             expect(call[1]).toBe('0 2 * * *');
             await call[2]();
-            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource', 'silent');
+            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource');
         });
 
         it('should handle source health check failure', async () => {

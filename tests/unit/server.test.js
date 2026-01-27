@@ -67,7 +67,7 @@ describe('Server Startup', () => {
 
         // Verify
         expect(configService.init).toHaveBeenCalled();
-        expect(healthCheck.refresh).toHaveBeenCalledWith('all', 'silent');
+        expect(healthCheck.refresh).toHaveBeenCalledWith('all');
         expect(forceRefresh).toHaveBeenCalled();
         expect(initScheduler).toHaveBeenCalled();
         expect(audioAssetService.syncAudioAssets).toHaveBeenCalled();

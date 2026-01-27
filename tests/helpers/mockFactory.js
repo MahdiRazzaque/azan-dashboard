@@ -20,9 +20,11 @@ const createMockConfig = (overrides = {}) => ({
     },
     automation: {
         baseUrl: 'http://localhost',
-        audioPlayer: 'mpg123',
         pythonServiceUrl: 'http://localhost',
-        voiceMonkey: { enabled: false },
+        outputs: {
+            local: { enabled: true, leadTimeMs: 0 },
+            voicemonkey: { enabled: false, leadTimeMs: 0, params: {} }
+        },
         triggers: {
             fajr: { 
                 preAdhan: { enabled: false, type: 'tts', targets: [] },
@@ -82,7 +84,7 @@ const createMockHealthCheck = () => ({
     getHealth: jest.fn(() => ({ 
         tts: { healthy: true }, 
         local: { healthy: true }, 
-        voiceMonkey: { healthy: true } 
+        voicemonkey: { healthy: true } 
     })),
     refresh: jest.fn().mockResolvedValue(),
     checkSource: jest.fn(() => Promise.resolve({ healthy: true }))

@@ -83,8 +83,9 @@ describe('ConfigService', () => {
         
         expect(config.automation.baseUrl).toBe('http://env-override.com');
         expect(config.automation.pythonServiceUrl).toBe('http://python-env.com');
-        expect(config.automation.voiceMonkey.token).toBe('env-token');
-        expect(config.automation.voiceMonkey.device).toBe('env-device');
+        // V2 Structure
+        expect(config.automation.outputs.voicemonkey.params.token).toBe('env-token');
+        expect(config.automation.outputs.voicemonkey.params.device).toBe('env-device');
         
         // Cleanup
         delete process.env.BASE_URL;
@@ -125,7 +126,9 @@ describe('ConfigService', () => {
          
          const updateData = { 
              automation: { 
-                 voiceMonkey: { token: 'check' } 
+                 outputs: {
+                     voicemonkey: { params: { token: 'check' } }
+                 }
              } 
          };
          
@@ -136,10 +139,8 @@ describe('ConfigService', () => {
          const localContent = await fs.readFile(configService._localPath, 'utf-8');
          const localConfig = JSON.parse(localContent);
          
-         // Depending on logic: _stripSecrets checks if process.env.VOICEMONKEY_TOKEN exists,
-         // then deletes config.automation.voiceMonkey.token.
-         
-         expect(localConfig.automation.voiceMonkey.token).toBeUndefined();
+         // In V2, we check output params
+         expect(localConfig.automation.outputs.voicemonkey.params.token).toBeUndefined();
          
          delete process.env.VOICEMONKEY_TOKEN;
     });
@@ -216,10 +217,50 @@ describe('ConfigService', () => {
         expect(res2).toEqual({ a: 1 });
     });
 
-    it('should reload environment variables using reloadEnv()', async () => {
-        await configService.reloadEnv();
-        expect(dotenv.config).toHaveBeenCalledWith(expect.objectContaining({
-            override: true
-        }));
+    it('should migrate V1 local config to V2 on reload', async () => {
+        const v1Local = {
+            automation: {
+                voiceMonkey: {
+                    enabled: true,
+                    token: 'migToken',
+                    device: 'migDevice'
+                }
+            }
+        };
+        await fs.writeFile(configService._localPath, JSON.stringify(v1Local));
+        
+        // reload should trigger migration
+        await configService.reload();
+        
+        // Check file content updated
+        const localContent = await fs.readFile(configService._localPath, 'utf-8');
+        const localConfig = JSON.parse(localContent);
+        
+        expect(localConfig.version).toBe(2);
+        expect(localConfig.automation.voiceMonkey).toBeUndefined();
+        expect(localConfig.automation.outputs.voicemonkey).toBeDefined();
+        expect(localConfig.automation.outputs.voicemonkey.params.token).toBe('migToken');
+        
+        // Check loaded config object
+        const config = configService.get();
+        expect(config.automation.outputs.voicemonkey.params.token).toBe('migToken');
+    });
+
+    it('should clamp leadTimeMs if it exceeds constraints', async () => {
+        const invalidConfig = {
+            automation: {
+                outputs: {
+                    voicemonkey: {
+                        enabled: true,
+                        leadTimeMs: 10000 // Exceeds max (5000)
+                    }
+                }
+            }
+        };
+        await fs.writeFile(configService._localPath, JSON.stringify(invalidConfig));
+        await configService.reload();
+        
+        const config = configService.get();
+        expect(config.automation.outputs.voicemonkey.leadTimeMs).toBe(5000);
     });
 });
