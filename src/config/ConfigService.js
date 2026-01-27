@@ -91,7 +91,7 @@ class ConfigService {
                 const migratedLocal = migrationService.migrateConfig(localConfig);
                 if ((migratedLocal.version || 0) > (localConfig.version || 0)) {
                     console.log('[Config] Migrating local.json to V2...');
-                    await fs.writeFile(this._localPath, JSON.stringify(migratedLocal, null, 2));
+                    await this._saveLocal(migratedLocal);
                     localConfig = migratedLocal;
                 }
 
@@ -153,6 +153,33 @@ class ConfigService {
     }
 
     /**
+     * Persists the local configuration to disk atomically.
+     * 
+     * @param {Object} config - The configuration object to save.
+     * @private
+     */
+    async _saveLocal(config) {
+        const tempPath = `${this._localPath}.tmp`;
+        const content = JSON.stringify(config, null, 2);
+
+        try {
+            // Write to a temporary file first
+            await fs.writeFile(tempPath, content, 'utf-8');
+
+            // Basic verification: ensure the written file is valid JSON
+            const verifyContent = await fs.readFile(tempPath, 'utf-8');
+            JSON.parse(verifyContent);
+
+            // Atomically rename the temp file to the target local configuration path
+            await fs.rename(tempPath, this._localPath);
+        } catch (error) {
+            // Clean up the temp file if it exists
+            try { await fs.unlink(tempPath); } catch (e) { /* ignore */ }
+            throw new Error(`Atomic configuration save failed: ${error.message}`);
+        }
+    }
+
+    /**
      * Updates the local configuration with partial changes and persists them to disk.
      * 
      * @param {Object} partialConfig - The partial configuration object to merge.
@@ -206,8 +233,8 @@ class ConfigService {
             configSchema.parse(fullCandidate);
             // Logic validation is handled by the API layer to avoid circular dependencies.
 
-            // Persist the updated local configuration to disk
-            await fs.writeFile(this._localPath, JSON.stringify(newLocalCandidate, null, 2));
+            // Persist the updated local configuration to disk atomically
+            await this._saveLocal(newLocalCandidate);
 
             // Reload the configuration to update the in-memory state
             await this.reload();
