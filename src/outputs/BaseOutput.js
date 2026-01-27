@@ -7,9 +7,10 @@ class BaseOutput {
      * Executes the output strategy.
      * @param {Object} payload - The event payload (prayer times, event type, etc).
      * @param {Object} metadata - Execution metadata (isTest, etc).
+     * @param {AbortSignal} [signal] - Optional signal to abort the execution.
      * @returns {Promise<void>}
      */
-    async execute(payload, metadata) { 
+    async execute(payload, metadata, signal) { 
         throw new Error('Not implemented'); 
     }
 

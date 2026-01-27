@@ -36,17 +36,26 @@ const getAudioSource = (settings, prayer, event) => {
 };
 
 /**
- * Helper to wrap a promise with a timeout.
+ * Helper to wrap a promise with a timeout and AbortController.
+ * @param {Function} task - Function that returns a promise and accepts a signal.
+ * @param {number} ms - Timeout in milliseconds.
+ * @param {string} errorMsg - Error message if timeout occurs.
  */
-const withTimeout = (promise, ms, errorMsg) => {
-    let timer;
-    const timeout = new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(errorMsg)), ms);
-    });
-    return Promise.race([
-        promise.finally(() => clearTimeout(timer)),
-        timeout
-    ]);
+const withTimeout = async (task, ms, errorMsg) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+
+    try {
+        const result = await task(controller.signal);
+        clearTimeout(timer);
+        return result;
+    } catch (error) {
+        clearTimeout(timer);
+        if (error.name === 'AbortError') {
+            throw new Error(errorMsg);
+        }
+        throw error;
+    }
 };
 
 /**
@@ -77,8 +86,11 @@ const triggerEvent = async (prayer, event) => {
     // Configured targets
     const configuredTargets = settings.targets || [];
     
-    // Always include browser (implicit dispatch)
-    const targets = new Set([...configuredTargets, 'browser']);
+    // Always include browser (implicit dispatch) unless explicitly skipped (test mode)
+    const targets = new Set([...configuredTargets]);
+    if (!settings.skipBrowser) {
+        targets.add('browser');
+    }
     
     const payload = {
         prayer,
@@ -114,7 +126,7 @@ const triggerEvent = async (prayer, event) => {
             const timeoutMs = metadata.timeoutMs || 5000;
             
             await withTimeout(
-                strategy.execute(payload, executionMetadata),
+                (signal) => strategy.execute(payload, executionMetadata, signal),
                 timeoutMs,
                 `Strategy ${targetId} timed out after ${timeoutMs}ms`
             );

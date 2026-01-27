@@ -23,7 +23,7 @@ class VoiceMonkeyOutput extends BaseOutput {
         };
     }
 
-    async execute(payload, metadata) {
+    async execute(payload, metadata, signal) {
         const isTest = metadata?.isTest;
         const prefix = isTest ? '[Test Output: VoiceMonkey]' : '[Output: VoiceMonkey]';
 
@@ -70,10 +70,15 @@ class VoiceMonkeyOutput extends BaseOutput {
                     token: token,
                     device: device,
                     audio: publicUrl
-                }
+                },
+                signal // REQ-007: Support aborting network requests on timeout
             }));
             console.log(`${prefix} Announcement triggered successfully`);
         } catch (error) {
+            if (error.name === 'CanceledError' || error.name === 'AbortError') {
+                console.warn(`${prefix} Execution aborted due to timeout`);
+                return;
+            }
             console.error(`${prefix} Trigger failed: ${error.message}`);
             throw error;
         }

@@ -13,7 +13,7 @@ class BrowserOutput extends BaseOutput {
         };
     }
 
-    async execute(payload, metadata) {
+    async execute(payload, metadata, signal) {
         const isTest = metadata?.isTest;
         const prefix = isTest ? '[Test Output: Browser]' : '[Output: Browser]';
 
