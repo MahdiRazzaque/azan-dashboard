@@ -27,7 +27,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
  * @param {React.ReactNode} [props.extraContent] - Optional additional content to render in the card.
  * @returns {JSX.Element} The rendered trigger card component.
  */
-export default function TriggerCard({ label, trigger, onChange, files, error, isDirty, eventType, extraContent }) {
+export default function TriggerCard({ label, trigger, onChange, files, error, isDirty, eventType, extraContent, strategies = [] }) {
     const { systemHealth, config, voices } = useSettings();
     
     // Cascading Master Switch Logic - Returns { disabled: boolean, reason: string }
@@ -111,19 +111,33 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                          
                          const issues = [];
                          if (trigger.type === 'tts' && !systemHealth.tts?.healthy) issues.push('TTS Service Offline');
-                         if (trigger.targets?.includes('local') && !systemHealth.local?.healthy) issues.push('Local Audio (mpg123) Offline');
                          
-                         // VoiceMonkey Reachability
-                         if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey?.healthy) {
-                             issues.push('VoiceMonkey Service Offline');
-                         }
-
-                         // VoiceMonkey Compatibility (for custom files)
-                         if (trigger.type === 'file' && trigger.targets?.includes('voiceMonkey')) {
-                             const file = files?.find(f => f.path === trigger.path);
-                             if (file && file.vmCompatible === false) {
-                                 issues.push(`Alexa Incompatible: ${file.vmIssues?.join(', ') || 'Unsupported properties'}`);
+                         // Check all active targets for health
+                         (trigger.targets || []).forEach(targetId => {
+                             const health = systemHealth[targetId];
+                             const outputConfig = config.automation?.outputs?.[targetId];
+                             
+                             if (outputConfig && !outputConfig.enabled) {
+                                 const strategy = strategies.find(s => s.id === targetId);
+                                 issues.push(`${strategy?.label || targetId} Output Disabled`);
+                             } else if (health && !health.healthy) {
+                                 const strategy = strategies.find(s => s.id === targetId);
+                                 issues.push(`${strategy?.label || targetId} Output Offline: ${health.message || 'Service unreachable'}`);
                              }
+                         });
+
+                         // Strategy-specific compatibility checks (e.g. Alexa/VoiceMonkey)
+                         if (trigger.type === 'file') {
+                             (trigger.targets || []).forEach(targetId => {
+                                 const strategy = strategies.find(s => s.id === targetId);
+                                 if (strategy?.compatibilityKey) {
+                                     const file = files?.find(f => f.path === trigger.path);
+                                     if (file && file[strategy.compatibilityKey] === false) {
+                                         const issuesKey = strategy.compatibilityKey.replace('Compatible', 'Issues');
+                                         issues.push(`${strategy.label} Incompatible: ${file[issuesKey]?.join(', ') || 'Unsupported properties'}`);
+                                     }
+                                 }
+                             });
                          }
 
                          if (issues.length === 0) return null;
@@ -297,55 +311,42 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                      <div>
                          <label className="text-xs font-bold text-app-dim uppercase tracking-wider block mb-2">Targets</label>
                          <div className="flex flex-wrap gap-3">
-                              {/* Local Audio Info */}
-                              {(() => {
-                                  const isOffline = !systemHealth.local?.healthy;
-                                  const isSelected = trigger.targets?.includes('local');
+                              {strategies.filter(s => !s.hidden && s.id !== 'browser').map(strategy => {
+                                  const isSelected = trigger.targets?.includes(strategy.id);
+                                  const health = systemHealth[strategy.id];
+                                  const outputConfig = config.automation?.outputs?.[strategy.id];
+                                  const isDisabled = outputConfig && !outputConfig.enabled;
+                                  const isOffline = health && !health.healthy;
                                   
+                                  const Icon = strategy.id === 'local' ? Server : Zap; // Fallback or dynamic icons?
+                                  
+                                  let colorClasses = "bg-app-bg border-app-border text-app-dim hover:bg-app-card-hover";
+                                  if (isSelected) {
+                                      if (isDisabled || isOffline) {
+                                          colorClasses = "bg-amber-900/20 border-amber-800 text-amber-400";
+                                      } else {
+                                          colorClasses = "bg-emerald-900/20 border-emerald-800 text-emerald-400";
+                                      }
+                                  } else if (isDisabled || isOffline) {
+                                      colorClasses = "bg-app-bg border-amber-900/30 text-amber-600/50";
+                                  }
+
                                   return (
-                                      <label className={cn(
+                                      <label key={strategy.id} className={cn(
                                           "flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors text-sm relative",
-                                          isSelected
-                                              ? (isOffline ? "bg-amber-900/20 border-amber-800 text-amber-400" : "bg-emerald-900/20 border-emerald-800 text-emerald-400")
-                                              : "bg-app-bg border-app-border text-app-dim hover:bg-app-card-hover",
-                                          isOffline && !isSelected && "border-amber-900/30 text-amber-600/50"
-                                      )} title={isOffline ? "Local Audio Service Offline" : ""}>
+                                          colorClasses
+                                      )} title={isDisabled ? "Output Strategy Disabled" : (isOffline ? `Offline: ${health.message}` : "")}>
                                           <input 
                                              type="checkbox" 
                                              className="hidden" 
                                              checked={isSelected || false} 
-                                             onChange={() => toggleTarget('local')} 
+                                             onChange={() => toggleTarget(strategy.id)} 
                                            />
-                                          {isOffline && <AlertTriangle className="w-3 h-3 text-amber-500 absolute -top-1 -right-1 bg-app-card rounded-full" />}
-                                          <Server className="w-4 h-4" /> Server
+                                          {(isDisabled || isOffline) && <AlertTriangle className="w-3 h-3 text-amber-500 absolute -top-1 -right-1 bg-app-card rounded-full" />}
+                                          <Icon className="w-4 h-4" /> {strategy.label}
                                       </label>
                                   );
-                              })()}
-
-                              {/* VoiceMonkey Info */}
-                              {(() => {
-                                  const isOffline = !systemHealth.voiceMonkey?.healthy;
-                                  const isSelected = trigger.targets?.includes('voiceMonkey');
-
-                                  return (
-                                      <label className={cn(
-                                          "flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors text-sm relative",
-                                          isSelected 
-                                              ? (isOffline ? "bg-amber-900/20 border-amber-800 text-amber-400" : "bg-emerald-900/20 border-emerald-800 text-emerald-400") 
-                                              : "bg-app-bg border-app-border text-app-dim hover:bg-app-card-hover",
-                                          isOffline && !isSelected && "border-amber-900/30 text-amber-600/50"
-                                      )} title={isOffline ? "VoiceMonkey Service Offline" : ""}>
-                                          <input 
-                                             type="checkbox" 
-                                             className="hidden" 
-                                             checked={isSelected || false} 
-                                             onChange={() => toggleTarget('voiceMonkey')} 
-                                           />
-                                          {isOffline && <AlertTriangle className="w-3 h-3 text-amber-500 absolute -top-1 -right-1 bg-app-card rounded-full" />}
-                                          <Zap className="w-4 h-4" /> VoiceMonkey
-                                      </label>
-                                  );
-                              })()}
+                              })}
                           </div>
                      </div>
                      

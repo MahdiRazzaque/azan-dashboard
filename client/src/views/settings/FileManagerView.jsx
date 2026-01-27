@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import AudioTestModal from '@/components/common/AudioTestModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { useSettings } from '@/hooks/useSettings';
 
 /**
  * A view component for managing audio files, allowing users to upload, preview,
@@ -10,11 +11,13 @@ import ConfirmModal from '@/components/common/ConfirmModal';
  * @returns {JSX.Element} The rendered file manager view.
  */
 export default function FileManagerView() {
+    const { systemHealth, config } = useSettings();
     const [files, setFiles] = useState([]);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState(null);
     const [playingFile, setPlayingFile] = useState(null);
     const [serverPlaying, setServerPlaying] = useState(null);
+    const [strategies, setStrategies] = useState([]);
     
     // Phase 5: Audio Testing & Consent
     const [testModalFile, setTestModalFile] = useState(null);
@@ -37,6 +40,12 @@ export default function FileManagerView() {
     useEffect(() => {
         loadFiles();
         
+        // Fetch output strategies for testing
+        fetch('/api/system/outputs/registry')
+            .then(res => res.json())
+            .then(setStrategies)
+            .catch(err => console.error("Failed to fetch strategies", err));
+
         // Cleanup audio on unmount
         const audio = audioRef.current;
         return () => {

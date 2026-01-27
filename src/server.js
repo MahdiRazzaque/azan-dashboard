@@ -89,7 +89,7 @@ const startServer = async (port = PORT) => {
         });
 
         // Run System Health Checks
-        await healthCheck.refresh('all', 'silent');
+        await healthCheck.refresh('all');
 
         // Initialise Voice Cache (Decoupled from Scheduler)
         const voiceService = require('@services/system/voiceService');

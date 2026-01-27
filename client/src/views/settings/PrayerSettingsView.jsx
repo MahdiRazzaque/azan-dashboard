@@ -36,6 +36,7 @@ export default function PrayerSettingsView() {
     } = useSettings();
     const [activeTab, setActiveTab] = useState('fajr');
     const [audioFiles, setAudioFiles] = useState([]);
+    const [strategies, setStrategies] = useState([]);
     
     // Local state for UI only
     const [validationErrors, setValidationErrors] = useState({});
@@ -51,6 +52,12 @@ export default function PrayerSettingsView() {
                 setAudioFiles(filtered);
             })
             .catch(err => console.error("Failed to load audio files", err));
+
+        // Fetch strategies for trigger card targets
+        fetch('/api/system/outputs/registry')
+            .then(res => res.json())
+            .then(setStrategies)
+            .catch(err => console.error("Failed to fetch output strategies", err));
     }, []);
 
     // Auto-dismiss notification
@@ -145,27 +152,36 @@ export default function PrayerSettingsView() {
                     errorsList.push(`${prayer} ${type}: ${error}`);
                 } else if (trigger.enabled) {
                     // Extra Service Availability Checks
-                    if (trigger.type === 'tts' && !systemHealth.tts) {
+                    if (trigger.type === 'tts' && (!systemHealth.tts || !systemHealth.tts.healthy)) {
                         hasErrors = true;
                         const msg = "TTS Service is offline";
                         newErrors[`${prayer}-${type}`] = msg;
                         trigger.enabled = false;
                         errorsList.push(`${prayer} ${type}: ${msg}`);
                     }
-                    if (trigger.targets?.includes('local') && !systemHealth.local) {
-                        hasErrors = true;
-                        const msg = "Local Audio Service is offline";
-                        newErrors[`${prayer}-${type}`] = msg;
-                        trigger.enabled = false;
-                        errorsList.push(`${prayer} ${type}: ${msg}`); 
-                    }
-                    if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey) {
-                         hasErrors = true;
-                         const msg = "VoiceMonkey integration is offline or unconfigured";
-                         newErrors[`${prayer}-${type}`] = msg;
-                         trigger.enabled = false;
-                         errorsList.push(`${prayer} ${type}: ${msg}`); 
-                    }
+                    
+                    (trigger.targets || []).forEach(targetId => {
+                        if (targetId === 'browser') return;
+                        
+                        const health = systemHealth[targetId];
+                        const outputConfig = localConfig.automation?.outputs?.[targetId];
+                        const strategy = strategies.find(s => s.id === targetId);
+                        const label = strategy?.label || targetId;
+
+                        if (outputConfig && !outputConfig.enabled) {
+                            hasErrors = true;
+                            const msg = `${label} output is disabled`;
+                            newErrors[`${prayer}-${type}`] = msg;
+                            trigger.enabled = false;
+                            errorsList.push(`${prayer} ${type}: ${msg}`);
+                        } else if (!health || !health.healthy) {
+                            hasErrors = true;
+                            const msg = `${label} output is offline`;
+                            newErrors[`${prayer}-${type}`] = msg;
+                            trigger.enabled = false;
+                            errorsList.push(`${prayer} ${type}: ${msg}`);
+                        }
+                    });
                 }
             }
         }
@@ -303,6 +319,7 @@ export default function PrayerSettingsView() {
                             trigger={currentTriggers.preAdhan} 
                             onChange={d => updateTrigger('preAdhan', d)} 
                             files={audioFiles}
+                            strategies={strategies}
                             error={validationErrors[`${activeTab}-preAdhan`]}
                             isDirty={isTriggerDirty(activeTab, 'preAdhan')}
                         />
@@ -312,6 +329,7 @@ export default function PrayerSettingsView() {
                             trigger={currentTriggers.adhan} 
                             onChange={d => updateTrigger('adhan', d)} 
                             files={audioFiles}
+                            strategies={strategies}
                             error={validationErrors[`${activeTab}-adhan`]}
                             isDirty={isTriggerDirty(activeTab, 'adhan')}
                         />
@@ -324,6 +342,7 @@ export default function PrayerSettingsView() {
                                     trigger={currentTriggers.preIqamah} 
                                     onChange={d => updateTrigger('preIqamah', d)} 
                                     files={audioFiles}
+                            strategies={strategies}
                                     error={validationErrors[`${activeTab}-preIqamah`]}
                                     isDirty={isTriggerDirty(activeTab, 'preIqamah')}
                                 />
@@ -333,6 +352,7 @@ export default function PrayerSettingsView() {
                                     trigger={currentTriggers.iqamah} 
                                     onChange={d => updateTrigger('iqamah', d)} 
                                     files={audioFiles}
+                            strategies={strategies}
                                     error={validationErrors[`${activeTab}-iqamah`]}
                                     isDirty={isTriggerDirty(activeTab, 'iqamah')}
                                     extraContent={(

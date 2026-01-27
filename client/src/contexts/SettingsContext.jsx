@@ -9,7 +9,7 @@ export const SettingsProvider = ({ children }) => {
   const [systemHealth, setSystemHealth] = useState({ 
       local: { healthy: true }, 
       tts: { healthy: true }, 
-      voiceMonkey: { healthy: true } 
+      voicemonkey: { healthy: true } 
   }); // Default optimistic
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -125,12 +125,12 @@ export const SettingsProvider = ({ children }) => {
   }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth, fetchVoices, fetchProviders]);
 
 
-  const refreshHealth = useCallback(async (target = 'all', mode = 'silent') => {
+  const refreshHealth = useCallback(async (target = 'all') => {
       try {
           const res = await fetch('/api/system/health/refresh', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ target, mode })
+              body: JSON.stringify({ target })
           });
           if (res.status === 429) {
               const data = await res.json();
@@ -324,12 +324,19 @@ export const SettingsProvider = ({ children }) => {
           if (trigger.type === 'tts' && !systemHealth.tts?.healthy) {
               issues.push({ trigger: name, type: 'TTS Service Offline' });
           }
-          if (trigger.targets?.includes('local') && !systemHealth.local?.healthy) {
-              issues.push({ trigger: name, type: 'Local Audio Offline' });
-          }
-          if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey?.healthy) {
-              issues.push({ trigger: name, type: systemHealth.voiceMonkey?.message || 'VoiceMonkey Offline' });
-          }
+          
+          (trigger.targets || []).forEach(targetId => {
+              if (targetId === 'browser') return;
+              
+              const health = systemHealth[targetId];
+              const outputConfig = draftConfig.automation?.outputs?.[targetId];
+              
+              if (outputConfig && !outputConfig.enabled) {
+                  issues.push({ trigger: name, type: `${targetId} Output Disabled` });
+              } else if (health && !health.healthy) {
+                  issues.push({ trigger: name, type: `${targetId} Output Offline` });
+              }
+          });
       };
 
       if (path.startsWith('prayers.')) {

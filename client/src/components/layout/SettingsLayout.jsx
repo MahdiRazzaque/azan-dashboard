@@ -52,10 +52,16 @@ export default function SettingsLayout({ logs, processStatus }) {
     getSectionHealth,
     resetDraft,
     saving,
-    validateBeforeSave
+    validateBeforeSave,
+    refreshHealth
   } = useSettings();
 
   const location = useLocation();
+
+  useEffect(() => {
+    // Refresh all system health when entering admin panel
+    refreshHealth('all');
+  }, [refreshHealth]);
 
   useEffect(() => {
     return () => {
@@ -123,9 +129,9 @@ export default function SettingsLayout({ logs, processStatus }) {
             if (!config || !draftConfig) return false;
             const cAuth = config.automation || {};
             const dAuth = draftConfig.automation || {};
-            // Compare automation excluding triggers and voiceMonkey (since VM is now separate)
-            const { triggers: t1, voiceMonkey: v1, ...rest1 } = cAuth;
-            const { triggers: t2, voiceMonkey: v2, ...rest2 } = dAuth;
+            // Compare automation excluding triggers and outputs (as they are checked/handled specifically)
+            const { triggers: t1, outputs: o1, ...rest1 } = cAuth;
+            const { triggers: t2, outputs: o2, ...rest2 } = dAuth;
             return JSON.stringify(rest1) !== JSON.stringify(rest2);
         }
     },

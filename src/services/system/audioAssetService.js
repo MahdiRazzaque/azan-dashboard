@@ -5,6 +5,7 @@ const axios = require('axios');
 const numberToWords = require('number-to-words');
 const configService = require('@config'); // Singleton
 const audioValidator = require('@utils/audioValidator');
+const OutputFactory = require('../../outputs');
 
 // AUDIO ROOT: public/audio (for mp3 files)
 const AUDIO_ROOT = path.join(__dirname, '../../../public/audio');
@@ -214,14 +215,19 @@ const syncAudioAssets = async (forceClean = false) => {
                 await generateTTS(filename, text, pythonServiceUrl, settings.voice);
                 
                 const metadata = await audioValidator.analyseAudioFile(audioPath);
-                const vmStatus = audioValidator.validateVoiceMonkeyCompatibility(metadata);
+                
+                // Polymorphically augment metadata from all strategies
+                const augmentedData = {};
+                OutputFactory.getAllStrategyInstances().forEach(instance => {
+                    Object.assign(augmentedData, instance.augmentAudioMetadata(metadata));
+                });
                 
                 fs.writeFileSync(metaPath, JSON.stringify({ 
                     text, 
                     voice: settings.voice || config.automation?.defaultVoice || 'ar-SA-HamedNeural',
                     generatedAt: new Date().toISOString(),
                     ...metadata,
-                    ...vmStatus
+                    ...augmentedData
                 }));
             }
         }
@@ -296,7 +302,12 @@ const generateMetadataForExistingFiles = async () => {
                 try {
                     console.log(`[AudioService] Generating metadata for ${file}...`);
                     const metadata = await audioValidator.analyseAudioFile(audioPath);
-                    const vmStatus = audioValidator.validateVoiceMonkeyCompatibility(metadata);
+                    
+                    // Polymorphically augment metadata from all strategies
+                    const augmentedData = {};
+                    OutputFactory.getAllStrategyInstances().forEach(instance => {
+                        Object.assign(augmentedData, instance.augmentAudioMetadata(metadata));
+                    });
                     
                     let existingData = {};
                     if (fs.existsSync(legacyMetaPath)) {
@@ -308,7 +319,7 @@ const generateMetadataForExistingFiles = async () => {
                     fs.writeFileSync(metaPath, JSON.stringify({
                         ...existingData,
                         ...metadata,
-                        ...vmStatus,
+                        ...augmentedData,
                         updatedAt: new Date().toISOString()
                     }));
 

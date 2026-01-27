@@ -1,6 +1,7 @@
-import React from 'react';
-import { X, Volume2, Monitor, Radio, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Volume2, Monitor, Radio, AlertCircle, Zap, Server } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
+import axios from 'axios';
 
 /**
  * A modal component that allows users to test audio playback across different
@@ -23,33 +24,52 @@ export default function AudioTestModal({
     setConsentGiven, 
     onTest 
 }) {
-    const { systemHealth } = useSettings();
+    const { systemHealth, config } = useSettings();
+    const [strategies, setStrategies] = useState([]);
+
+    useEffect(() => {
+        if (isOpen) {
+            axios.get('/api/system/outputs/registry')
+                .then(res => setStrategies(res.data))
+                .catch(console.error);
+        }
+    }, [isOpen]);
 
     if (!isOpen || !file) return null;
 
-    const targets = [
-        { 
-            id: 'local', 
-            label: 'Server Speaker', 
-            icon: Volume2, 
-            description: 'Plays on the mosque PA system',
-            disabled: !systemHealth.local?.healthy
-        },
-        { 
-            id: 'browser', 
-            label: 'All Browsers', 
-            icon: Monitor, 
-            description: 'Broadcasts to all connected dashboards',
-            disabled: false 
-        },
-        { 
-            id: 'voiceMonkey', 
-            label: 'VoiceMonkey', 
-            icon: Radio, 
-            description: 'Triggers Alexa/Smart Home devices',
-            disabled: !systemHealth.voiceMonkey?.healthy
+    const targets = strategies.filter(s => !s.hidden || s.id === 'browser').map(strategy => {
+        const health = systemHealth[strategy.id];
+        const outputConfig = config.automation?.outputs?.[strategy.id];
+        
+        // Browser is special
+        if (strategy.id === 'browser') {
+            return {
+                id: 'browser',
+                label: 'All Dashboards',
+                icon: Monitor,
+                description: 'Broadcasts to all connected browsers',
+                disabled: false
+            };
         }
-    ];
+
+        const isEnabled = outputConfig?.enabled ?? false;
+        const isHealthy = health?.healthy ?? false;
+
+        let description = strategy.id === 'local' 
+            ? 'Plays on the mosque PA system' 
+            : 'Triggers Alexa/Smart Home devices';
+        
+        if (!isEnabled) description = 'This output is disabled in settings';
+        else if (!isHealthy) description = `Offline: ${health?.message || 'Service unreachable'}`;
+
+        return {
+            id: strategy.id,
+            label: strategy.label,
+            icon: strategy.id === 'local' ? Server : Radio,
+            description,
+            disabled: !isEnabled || !isHealthy
+        };
+    });
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center isolate">

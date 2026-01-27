@@ -157,7 +157,7 @@ const scheduleMaintenanceJobs = () => {
     const healthAction = async () => {
         try {
             console.log('[Maintenance] Running Daily Health Check...');
-            await healthCheck.refresh('all', 'silent');
+            await healthCheck.refresh('all');
         } catch (e) {
             console.error('[Maintenance] Health Check Failed:', e);
             throw e;
@@ -188,8 +188,8 @@ const scheduleMaintenanceJobs = () => {
     const sourceAction = async () => {
         try {
             console.log('[Maintenance] Running Source Health Check...');
-            await healthCheck.refresh('primarySource', 'silent');
-            await healthCheck.refresh('backupSource', 'silent');
+            await healthCheck.refresh('primarySource');
+            await healthCheck.refresh('backupSource');
         } catch (e) {
             console.error('[Maintenance] Source Health Check Failed:', e);
             throw e;

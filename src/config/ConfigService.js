@@ -3,6 +3,7 @@ const path = require('path');
 const { z } = require('zod');
 const dotenv = require('dotenv');
 const { configSchema } = require('./schemas');
+const migrationService = require('../services/system/migrationService');
 
 class ConfigNotInitializedError extends Error {
     /**
@@ -84,7 +85,16 @@ class ConfigService {
             
             // Only parse if file is not empty
             if (localContent && localContent.trim().length > 0) {
-                const localConfig = JSON.parse(localContent);
+                let localConfig = JSON.parse(localContent);
+                
+                // [Migration Hook] Auto-migrate local configuration
+                const migratedLocal = migrationService.migrateConfig(localConfig);
+                if ((migratedLocal.version || 0) > (localConfig.version || 0)) {
+                    console.log('[Config] Migrating local.json to V2...');
+                    await fs.writeFile(this._localPath, JSON.stringify(migratedLocal, null, 2));
+                    localConfig = migratedLocal;
+                }
+
                 rawConfig = this._mergeDeep(rawConfig, localConfig);
             }
         } catch (e) {
@@ -95,21 +105,51 @@ class ConfigService {
             }
         }
 
+        // [Migration Hook] Ensure final configuration structure is up-to-date
+        rawConfig = migrationService.migrateConfig(rawConfig);
+
         // Merge environment variables to override file-based settings
         this._applyEnvOverrides(rawConfig);
+
+        // [Constraint Enforcement] Validate/Clamp values based on Strategy Metadata
+        this._validateConstraints(rawConfig);
 
         // Validate the final configuration against the Zod schema
         this._config = configSchema.parse(rawConfig);
     }
 
     /**
-     * Reloads environment variables from the .env file.
-     * 
-     * @returns {Promise<void>} A promise that resolves when environment variables are reloaded.
+     * Enforces strategy-defined constraints on configuration values.
+     * @param {Object} config - The configuration object.
+     * @private
      */
-    async reloadEnv() {
-        const ENV_FILE_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../../.env');
-        dotenv.config({ path: ENV_FILE_PATH, override: true });
+    _validateConstraints(config) {
+        if (!config.automation?.outputs) return;
+        
+        // Lazy load OutputFactory
+        let OutputFactory;
+        try { OutputFactory = require('../outputs'); } catch(e) { return; }
+
+        for (const [id, outputConfig] of Object.entries(config.automation.outputs)) {
+            try {
+                // We access the strategy by ID. If it doesn't exist, skip.
+                // OutputFactory.getStrategy throws if not found.
+                // We use try/catch inside loop.
+                const strategy = OutputFactory.getStrategy(id);
+                const metadata = strategy.constructor.getMetadata();
+                
+                if (metadata.leadTimeConstraints && typeof outputConfig.leadTimeMs === 'number') {
+                    const { min, max } = metadata.leadTimeConstraints;
+                    if (outputConfig.leadTimeMs < min || outputConfig.leadTimeMs > max) {
+                        const clamped = Math.max(min, Math.min(outputConfig.leadTimeMs, max));
+                        console.warn(`[Config] Warning: leadTimeMs for '${id}' (${outputConfig.leadTimeMs}ms) violates constraints [${min}-${max}ms]. Clamped to ${clamped}ms.`);
+                        outputConfig.leadTimeMs = clamped;
+                    }
+                }
+            } catch (e) {
+                // Strategy not found or error, ignore
+            }
+        }
     }
 
     /**
@@ -196,10 +236,14 @@ class ConfigService {
             if (Array.isArray(source[key])) {
                 // Arrays are completely overwritten in this configuration system
                  output[key] = source[key];
-            } else if (typeof source[key] === 'object' && source[key] !== null && 
-                       typeof output[key] === 'object' && output[key] !== null) {
-                // Recursively merge nested objects
-                output[key] = this._mergeDeep(output[key], source[key]);
+            } else if (typeof source[key] === 'object' && source[key] !== null) {
+                if (typeof output[key] === 'object' && output[key] !== null) {
+                    // Recursively merge nested objects
+                    output[key] = this._mergeDeep(output[key], source[key]);
+                } else {
+                    // Target is missing or primitive: deep clone source
+                    output[key] = this._mergeDeep({}, source[key]);
+                }
             } else {
                 // Direct assignment for primitive values
                 output[key] = source[key];
@@ -220,12 +264,22 @@ class ConfigService {
         if (process.env.BASE_URL) config.automation.baseUrl = process.env.BASE_URL;
         if (process.env.PYTHON_SERVICE_URL) config.automation.pythonServiceUrl = process.env.PYTHON_SERVICE_URL;
         
-        if (process.env.VOICEMONKEY_TOKEN) {
-            config.automation.voiceMonkey.token = process.env.VOICEMONKEY_TOKEN;
-        }
-        if (process.env.VOICEMONKEY_DEVICE) {
-            config.automation.voiceMonkey.device = process.env.VOICEMONKEY_DEVICE;
-        }
+                // [Dynamic Output Secrets]
+                const OutputFactory = require('../outputs');        const secrets = OutputFactory.getSecretRequirementKeys();
+
+        secrets.forEach(({ strategyId, key }) => {
+            // e.g. VOICEMONKEY_TOKEN
+            // Special case mapping if needed, but standard is ID_KEY
+            let envKey = `${strategyId.toUpperCase()}_${key.toUpperCase()}`;
+            
+            if (process.env[envKey]) {
+                if (!config.automation.outputs) config.automation.outputs = {};
+                if (!config.automation.outputs[strategyId]) config.automation.outputs[strategyId] = { params: {} };
+                if (!config.automation.outputs[strategyId].params) config.automation.outputs[strategyId].params = {};
+                
+                config.automation.outputs[strategyId].params[key] = process.env[envKey];
+            }
+        });
 
         // [REQ-006] Apply dynamic provider secrets from environment variables
         const { ProviderFactory } = require('@providers');
@@ -259,10 +313,18 @@ class ConfigService {
             if (process.env.BASE_URL) delete config.automation.baseUrl;
             if (process.env.PYTHON_SERVICE_URL) delete config.automation.pythonServiceUrl;
             
-            if (config.automation.voiceMonkey) {
-                 delete config.automation.voiceMonkey.token;
-                 delete config.automation.voiceMonkey.device;
-            }
+                    // [Dynamic Output Secrets]
+                    const OutputFactory = require('../outputs');            const secrets = OutputFactory.getSecretRequirementKeys();
+            
+            secrets.forEach(({ strategyId, key }) => {
+                const envKey = `${strategyId.toUpperCase()}_${key.toUpperCase()}`;
+                if (process.env[envKey]) {
+                     // If env var exists, remove from config to avoid saving it
+                     if (config.automation.outputs?.[strategyId]?.params?.[key] !== undefined) {
+                         delete config.automation.outputs[strategyId].params[key];
+                     }
+                }
+            });
         }
 
         // [REQ-006] Dynamic provider secrets from metadata

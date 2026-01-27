@@ -6,6 +6,8 @@ import { twMerge } from 'tailwind-merge';
 import PasswordInput from '@/components/common/PasswordInput';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import VoiceLibrary from '@/components/settings/VoiceLibrary';
+import OutputStrategyCard from '@/components/settings/OutputStrategyCard';
+import axios from 'axios';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
@@ -58,25 +60,33 @@ const Toggle = ({ checked, onChange, label, description }) => (
  * @returns {JSX.Element} The rendered automation settings view.
  */
 export default function AutomationSettingsView() {
-    const { 
-      config,
-      draftConfig, 
-      updateSetting, 
-      saveSettings, 
-      resetDraft,
-      saving, 
-      loading,
-      systemHealth,
-      bulkUpdateOffsets
-    } = useSettings();
-
-    const [testing, setTesting] = useState(false);
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [testError, setTestError] = useState(null);
-    const [batchVals, setBatchVals] = useState({ preAdhan: 15, preIqamah: 10 });
-    const [toast, setToast] = useState(null);
-
-  if (loading || !draftConfig) return <div className="p-8 text-center text-app-dim">Loading...</div>;
+        const {
+          config,
+          draftConfig, 
+          updateSetting, 
+          saveSettings, 
+          resetDraft,
+          saving, 
+          loading,
+          systemHealth,
+          bulkUpdateOffsets,
+          refreshHealth
+        } = useSettings();
+    
+        const [strategies, setStrategies] = useState([]);
+        
+        // ... existing states ...
+        const [testing, setTesting] = useState(false);
+        const [showConfirm, setShowConfirm] = useState(false);
+        const [testError, setTestError] = useState(null);
+        const [batchVals, setBatchVals] = useState({ preAdhan: 15, preIqamah: 10 });
+        const [toast, setToast] = useState(null);
+    
+            useEffect(() => {
+                axios.get('/api/system/outputs/registry')
+                    .then(res => setStrategies(res.data))
+                    .catch(console.error);
+            }, []);  if (loading || !draftConfig) return <div className="p-8 text-center text-app-dim">Loading...</div>;
 
   const formData = draftConfig;
 
@@ -97,8 +107,6 @@ export default function AutomationSettingsView() {
       setToast(`Successfully updated ${count} ${type.replace(/([A-Z])/g, ' $1').toLowerCase()} triggers.`);
       setTimeout(() => setToast(null), 5000);
   };
-
-  // FR-03 & Clean up: Removed VoiceMonkey logic
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
@@ -149,6 +157,28 @@ export default function AutomationSettingsView() {
                         />
                      </div>
                 </div>
+            </div>
+        </section>
+
+        {/* Output Integrations */}
+        <section className="bg-app-card p-6 rounded-lg border border-app-border shadow-md">
+            <h2 className="text-xl font-semibold mb-4 text-emerald-400 flex items-center gap-2 border-b border-app-border pb-2">
+                <Zap className="w-5 h-5" />
+                Output Integrations
+            </h2>
+            <p className="text-sm text-app-dim mb-6">
+                Configure audio output targets. Enable strategies to route audio to different devices or services.
+            </p>
+            <div className="grid grid-cols-1 gap-6">
+                {strategies.map(strategy => (
+                    <OutputStrategyCard 
+                        key={strategy.id} 
+                        strategy={strategy}
+                        config={draftConfig?.automation?.outputs?.[strategy.id]}
+                        systemHealth={systemHealth}
+                        onChange={(field, val) => updateSetting(`automation.outputs.${strategy.id}.${field}`, val)}
+                    />
+                ))}
             </div>
         </section>
 
