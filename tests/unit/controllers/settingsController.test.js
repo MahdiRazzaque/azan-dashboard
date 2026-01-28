@@ -48,10 +48,27 @@ describe('settingsController Unit Tests', () => {
         jest.clearAllMocks();
         validateConfig.mockReturnValue({ value: {} });
         validateConfigSource.mockResolvedValue();
-        audioAssetService.syncAudioAssets.mockResolvedValue();
+        audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
         audioValidator.analyseAudioFile.mockResolvedValue({ duration: 10 });
         audioValidator.validateVoiceMonkeyCompatibility.mockReturnValue({ vmCompatible: true });
         systemControllerHelper._getAudioFilesWithMetadata.mockResolvedValue([]);
+
+        // Default health state for mocks
+        let currentHealth = {
+            tts: { healthy: true },
+            local: { healthy: true },
+            voicemonkey: { healthy: true },
+            primarySource: { healthy: true },
+            backupSource: { healthy: true }
+        };
+
+        healthCheck.getHealth.mockImplementation(() => currentHealth);
+        healthCheck.refresh.mockImplementation(async (target, params) => {
+            if (target === 'all') {
+                return currentHealth;
+            }
+            return currentHealth; // Simplified for basic tests
+        });
         
         mockLocalStrategy = {
             id: 'local',
@@ -99,8 +116,8 @@ describe('settingsController Unit Tests', () => {
         it('should reload and return sanitised settings for public access', async () => {
             const mockConfig = {
                 location: { city: 'London' },
-                calculation: { method: 'ISNA' },
                 prayers: { fajr: {} },
+                sources: { primary: { type: 'aladhan' } },
                 automation: {
                     outputs: {
                         voicemonkey: {
@@ -120,8 +137,8 @@ describe('settingsController Unit Tests', () => {
             expect(configService.reload).toHaveBeenCalled();
             expect(res.json).toHaveBeenCalledWith({
                 location: mockConfig.location,
-                calculation: mockConfig.calculation,
                 prayers: mockConfig.prayers,
+                sources: mockConfig.sources,
                 automation: {
                     outputs: {
                         voicemonkey: {
@@ -166,11 +183,13 @@ describe('settingsController Unit Tests', () => {
                 }
             };
             req.body = newConfig;
-            healthCheck.refresh.mockResolvedValue({ 
+            const unhealthyHealth = { 
                 voicemonkey: { healthy: false, message: 'Offline' },
                 tts: { healthy: true },
                 local: { healthy: true }
-            });
+            };
+            healthCheck.refresh.mockResolvedValue(unhealthyHealth);
+            healthCheck.getHealth.mockReturnValue(unhealthyHealth);
             
             configService.get.mockReturnValue({
                 automation: {
@@ -198,10 +217,12 @@ describe('settingsController Unit Tests', () => {
                  }
              };
              req.body = newConfig;
-             healthCheck.refresh.mockResolvedValue({ 
+             const healthyStatus = { 
                  voicemonkey: { healthy: true },
                  tts: { healthy: true }
-             });
+             };
+             healthCheck.refresh.mockResolvedValue(healthyStatus);
+             healthCheck.getHealth.mockReturnValue(healthyStatus);
              
              mockVMStrategy.validateTrigger.mockReturnValue(['Fajr Adhan: Audio incompatible with Alexa (Bitrate too high)']);
 
@@ -231,10 +252,12 @@ describe('settingsController Unit Tests', () => {
                 }
             };
             req.body = newConfig;
-            healthCheck.refresh.mockResolvedValue({ 
+            const healthyStatus = { 
                 voicemonkey: { healthy: true }, 
                 tts: { healthy: true } 
-            });
+            };
+            healthCheck.refresh.mockResolvedValue(healthyStatus);
+            healthCheck.getHealth.mockReturnValue(healthyStatus);
             
             mockVMStrategy.validateTrigger.mockReturnValue(['Fajr Adhan: Audio incompatible with Alexa (Sample rate mismatch)']);
 
@@ -287,7 +310,7 @@ describe('settingsController Unit Tests', () => {
              expect(audioAssetService.syncAudioAssets).toHaveBeenCalled();
              expect(configService.update).toHaveBeenCalledWith({ old: 'config' }); // Rollback
              expect(res.status).toHaveBeenCalledWith(400);
-             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Storage Quota Exceeded' }));
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Sync Failed' }));
         });
 
         it('should generate warnings if services are unhealthy', async () => {
@@ -310,10 +333,12 @@ describe('settingsController Unit Tests', () => {
                 }
             });
             forceRefresh.mockResolvedValue({ meta: {} });
-            healthCheck.refresh.mockResolvedValue({ 
+            const unhealthyStatus = { 
                 tts: { healthy: false }, 
                 local: { healthy: false }
-            });
+            };
+            healthCheck.refresh.mockResolvedValue(unhealthyStatus);
+            healthCheck.getHealth.mockReturnValue(unhealthyStatus);
             
             await settingsController.updateSettings(req, res);
             
@@ -333,10 +358,12 @@ describe('settingsController Unit Tests', () => {
                 } 
             };
             validateConfigSource.mockResolvedValue();
-            healthCheck.refresh.mockResolvedValue({ 
+            const unhealthyStatus = { 
                 voicemonkey: { healthy: false, message: 'VM Down' },
                 tts: { healthy: true }
-            });
+            };
+            healthCheck.refresh.mockResolvedValue(unhealthyStatus);
+            healthCheck.getHealth.mockReturnValue(unhealthyStatus);
             configService.get.mockReturnValue({
                 automation: {
                     outputs: {
@@ -359,7 +386,7 @@ describe('settingsController Unit Tests', () => {
             fs.existsSync.mockReturnValue(true);
             configService.get.mockReturnValue({ some: 'default' });
             forceRefresh.mockResolvedValue({ meta: { reset: true } });
-            audioAssetService.syncAudioAssets.mockResolvedValue();
+            audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
             
             await settingsController.resetSettings(req, res);
             expect(fs.unlinkSync).toHaveBeenCalled();
@@ -374,7 +401,7 @@ describe('settingsController Unit Tests', () => {
             await settingsController.resetSettings(req, res);
             
             expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Reset Failed' }));
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Sync Failed' }));
         });
     });
 

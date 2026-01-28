@@ -53,7 +53,7 @@ The dashboard supports a discovery-driven provider architecture. To add a new pr
             id: 'my-new-provider',
             label: 'My New Provider',
             description: 'Short description for UI',
-            requiresCoordinates: true, // Show calculation settings
+            requiresCoordinates: true, // Show provider parameters requiring coordinates
             parameters: [
                 {
                     key: 'apiKey',

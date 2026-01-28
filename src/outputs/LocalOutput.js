@@ -6,6 +6,11 @@ const path = require('path');
 const OutputFactory = require('./OutputFactory');
 
 class LocalOutput extends BaseOutput {
+    /**
+     * Retrieves the metadata for the local audio output strategy.
+     *
+     * @returns {Object} The strategy metadata including ID, label, and parameters.
+     */
     static getMetadata() {
         return {
             id: 'local',
@@ -14,11 +19,11 @@ class LocalOutput extends BaseOutput {
             defaultLeadTimeMs: 0,
             hidden: false,
             params: [
-                { 
-                    key: 'audioPlayer', 
-                    type: 'string', 
-                    label: 'Audio Player', 
-                    default: 'mpg123', 
+                {
+                    key: 'audioPlayer',
+                    type: 'string',
+                    label: 'Audio Player',
+                    default: 'mpg123',
                     sensitive: false,
                     requiredForHealth: true,
                     subtext: "Only change this if you know what you're doing"
@@ -27,21 +32,31 @@ class LocalOutput extends BaseOutput {
         };
     }
 
+    /**
+     * Executes the audio playback locally on the server host using the configured audio player.
+     *
+     * @param {Object} payload - The execution payload containing audio source information.
+     * @param {Object} metadata - Additional metadata for the execution.
+     * @param {AbortSignal} signal - An optional signal to abort the playback.
+     * @returns {Promise<void>} A promise that resolves when playback is complete.
+     */
     async execute(payload, metadata, signal) {
         const isTest = metadata?.isTest;
         const prefix = isTest ? '[Test Output: Local]' : '[Output: Local]';
-        
+
         if (!payload.source) {
             return;
         }
 
         let filePath = payload.source.filePath;
 
-        // Path Resolution for tests or File Manager previews
+        // Path resolution for tests or File Manager previews.
         if (!filePath) {
             if (payload.source.path) {
+                // Construct the absolute path based on the relative path provided in the source.
                 filePath = path.join(__dirname, '../../public/audio', payload.source.path);
             } else if (payload.type && payload.filename) {
+                // Fallback to constructing the path from type and filename if an explicit path is missing.
                 filePath = path.join(__dirname, `../../public/audio/${payload.type}/${payload.filename}`);
             }
         }
@@ -84,14 +99,21 @@ class LocalOutput extends BaseOutput {
         });
     }
 
+    /**
+     * Performs a health check for the local audio output by verifying the availability 
+     * of the audio player and access to audio hardware on Linux systems.
+     *
+     * @param {Object} requestedParams - The parameters to check.
+     * @returns {Promise<Object>} The health status result.
+     */
     async healthCheck(requestedParams) {
         console.log('[Output: Local] Starting health check');
         const ConfigService = require('../config');
         const config = ConfigService.get();
-        
+
         // Use requested params (from UI test) or saved config or default
-        const audioPlayer = (requestedParams && requestedParams.audioPlayer) || 
-                           config.automation?.outputs?.local?.params?.audioPlayer || 
+        const audioPlayer = (requestedParams && requestedParams.audioPlayer) ||
+                           config.automation?.outputs?.local?.params?.audioPlayer ||
                            'mpg123';
 
         try {
@@ -102,10 +124,10 @@ class LocalOutput extends BaseOutput {
                 });
             });
 
-            // Linux/Docker specific check
+            // Linux-specific check for audio hardware access, particularly relevant in Docker environments.
             if (process.platform === 'linux') {
                 if (!fs.existsSync('/dev/snd')) {
-                    // Check for Docker
+                    // Detect if the application is running inside a Docker container.
                     let isDocker = false;
                     try {
                          if (fs.existsSync('/.dockerenv')) {
@@ -133,6 +155,13 @@ class LocalOutput extends BaseOutput {
         }
     }
 
+    /**
+     * Verifies the credentials for the local audio output strategy. 
+     * As no credentials are typically required, this always returns a successful result.
+     *
+     * @param {Object} credentials - The credentials to verify.
+     * @returns {Promise<Object>} The verification result.
+     */
     async verifyCredentials(credentials) {
         console.log('[Output: Local] Verifying credentials');
         console.log('[Output: Local] Verification: OK');

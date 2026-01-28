@@ -23,9 +23,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
  * @param {Array} [props.disabledTypes=[]] - A list of source types that should be disabled.
  * @param {boolean} [props.showCoordinates=true] - Whether to show coordinate input fields.
  * @param {object} [props.locationData={}] - Current location-related data (city, country, etc.).
- * @param {object} [props.calculationData={}] - Current calculation method settings.
  * @param {Function} props.onLocationChange - Callback function for location data changes.
- * @param {Function} props.onCalculationChange - Callback function for calculation data changes.
  * @param {boolean} [props.isBackup=false] - Whether this is a backup source configuration.
  * @param {string} [props.primarySourceType=''] - The ID of the primary source provider.
  * @returns {JSX.Element} The rendered source configurator component.
@@ -36,9 +34,7 @@ export default function SourceConfigurator({
     disabledTypes = [], 
     showCoordinates = true,
     locationData = {},
-    calculationData = {},
     onLocationChange,
-    onCalculationChange,
     isBackup = false,
     primarySourceType = ''
 }) {
@@ -148,59 +144,6 @@ export default function SourceConfigurator({
                                     onChange={e => onLocationChange?.('long', parseFloat(e.target.value))}
                                 />
                             </div>
-                        </div>
-                    )}
-
-                    {/* Hardcoded Calculation Settings (Only if not provided dynamically) */}
-                    {!activeProvider.parameters.some(p => p.key === 'method') && (
-                        <div>
-                            <label className="block text-sm font-medium text-app-dim mb-2">Calculation Method</label>
-                            <select
-                                className="w-full bg-app-card border border-app-border rounded p-2.5 text-app-text focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                value={calculationData?.method ?? ''}
-                                onChange={e => onCalculationChange?.('method', parseInt(e.target.value))}
-                            >
-                                {renderOptions(constants.calculationMethods)}
-                            </select>
-                        </div>
-                    )}
-                    
-                    {!activeProvider.parameters.some(p => p.key === 'madhab') && (
-                        <div>
-                            <label className="block text-sm font-medium text-app-dim mb-2">Madhab (Asr)</label>
-                            <select 
-                                className="w-full bg-app-card border border-app-border rounded p-2.5 text-app-text focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                value={calculationData?.madhab ?? ''}
-                                onChange={e => onCalculationChange?.('madhab', parseInt(e.target.value))}
-                            >
-                                {renderOptions(constants.madhabs)}
-                            </select>
-                        </div>
-                    )}
-
-                    {!activeProvider.parameters.some(p => p.key === 'latitudeAdjustmentMethod') && (
-                        <div>
-                            <label className="block text-sm font-medium text-app-dim mb-2">Latitude Adjustment</label>
-                            <select
-                                className="w-full bg-app-card border border-app-border rounded p-2.5 text-app-text focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                value={calculationData?.latitudeAdjustmentMethod ?? 0}
-                                onChange={e => onCalculationChange?.('latitudeAdjustmentMethod', parseInt(e.target.value))}
-                            >
-                                {renderOptions(constants.latitudeAdjustments)}
-                            </select>
-                        </div>
-                    )}
-
-                    {!activeProvider.parameters.some(p => p.key === 'midnightMode') && (
-                        <div>
-                            <label className="block text-sm font-medium text-app-dim mb-2">Midnight Mode</label>
-                            <select
-                                className="w-full bg-app-card border border-app-border rounded p-2.5 text-app-text focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                value={calculationData?.midnightMode ?? 0}
-                                onChange={e => onCalculationChange?.('midnightMode', parseInt(e.target.value))}
-                            >
-                                {renderOptions(constants.midnightModes)}
-                            </select>
                         </div>
                     )}
                 </div>

@@ -211,7 +211,7 @@ export default function PrayerSettingsView() {
         }
     };
 
-    const isDirty = isSectionDirty('prayers') || isSectionDirty('calculation') || isSectionDirty('automation.triggers');
+    const isDirty = isSectionDirty('prayers') || isSectionDirty('automation.triggers');
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-12 relative">

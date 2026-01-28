@@ -18,8 +18,7 @@ jest.mock('@providers', () => {
 describe('PrayerTimeService', () => {
     const mockConfig = {
         location: { timezone: 'UTC', coordinates: { lat: 0, long: 0 } },
-        calculation: { method: 'ISNA' },
-        sources: { primary: { type: 'aladhan' }, backup: { type: 'mymasjid' } },
+        sources: { primary: { type: 'aladhan', method: 15 }, backup: { type: 'mymasjid' } },
         prayers: {
             fajr: { iqamahOffset: 10, roundTo: 0, fixedTime: null },
             dhuhr: { iqamahOffset: 10, roundTo: 0, fixedTime: null },

@@ -3,6 +3,11 @@ const OutputFactory = require('./OutputFactory');
 const sseService = require('../services/system/sseService');
 
 class BrowserOutput extends BaseOutput {
+    /**
+     * Retrieves the metadata for the Browser (SSE) output strategy.
+     *
+     * @returns {Object} The strategy metadata including ID, label, and parameters.
+     */
     static getMetadata() {
         return {
             id: 'browser',
@@ -13,6 +18,14 @@ class BrowserOutput extends BaseOutput {
         };
     }
 
+    /**
+     * Executes the audio playback broadcast to all connected web clients via SSE.
+     *
+     * @param {Object} payload - The execution payload containing audio source information.
+     * @param {Object} metadata - Additional metadata for the execution.
+     * @param {AbortSignal} signal - An optional signal to abort the execution.
+     * @returns {Promise<void>} A promise that resolves when the broadcast is complete.
+     */
     async execute(payload, metadata, signal) {
         const isTest = metadata?.isTest;
         const prefix = isTest ? '[Test Output: Browser]' : '[Output: Browser]';
@@ -24,6 +37,7 @@ class BrowserOutput extends BaseOutput {
 
         console.log(`${prefix} Broadcasting playback to all clients: ${payload.source.url}`);
 
+        // Broadcast the audio playback event to all clients connected via Server-Sent Events (SSE).
         sseService.broadcast({
             type: 'AUDIO_PLAY',
             payload: {
@@ -35,12 +49,24 @@ class BrowserOutput extends BaseOutput {
         console.log(`${prefix} Broadcast complete`);
     }
 
+    /**
+     * Performs a health check for the browser output strategy.
+     *
+     * @param {Object} requestedParams - The parameters to check.
+     * @returns {Promise<Object>} The health status result.
+     */
     async healthCheck(requestedParams) {
         console.log('[Output: Browser] Starting health check');
         console.log('[Output: Browser] Health: Ready');
         return { healthy: true, message: 'Ready' };
     }
 
+    /**
+     * Verifies the credentials for the browser output strategy.
+     *
+     * @param {Object} credentials - The credentials to verify.
+     * @returns {Promise<Object>} The verification result.
+     */
     async verifyCredentials(credentials) {
         console.log('[Output: Browser] Verifying credentials');
         console.log('[Output: Browser] Verification: OK');
