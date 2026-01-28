@@ -116,8 +116,8 @@ describe('settingsController Unit Tests', () => {
         it('should reload and return sanitised settings for public access', async () => {
             const mockConfig = {
                 location: { city: 'London' },
-                calculation: { method: 'ISNA' },
                 prayers: { fajr: {} },
+                sources: { primary: { type: 'aladhan' } },
                 automation: {
                     outputs: {
                         voicemonkey: {
@@ -137,8 +137,8 @@ describe('settingsController Unit Tests', () => {
             expect(configService.reload).toHaveBeenCalled();
             expect(res.json).toHaveBeenCalledWith({
                 location: mockConfig.location,
-                calculation: mockConfig.calculation,
                 prayers: mockConfig.prayers,
+                sources: mockConfig.sources,
                 automation: {
                     outputs: {
                         voicemonkey: {

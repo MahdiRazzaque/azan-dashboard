@@ -44,7 +44,7 @@ export default function DynamicField({ param, value, onChange }) {
                 return (
                     <select
                         className={cn(commonClasses, error && errorClasses)}
-                        value={value || ''}
+                        value={value ?? ''}
                         onChange={e => handleValueChange(e.target.value)}
                     >
                         <option value="">Select {param.label}...</option>
@@ -62,7 +62,7 @@ export default function DynamicField({ param, value, onChange }) {
                         <input
                             type={showPassword ? "text" : "password"}
                             className={cn(commonClasses, error && errorClasses)}
-                            value={value || ''}
+                            value={value ?? ''}
                             onChange={e => handleValueChange(e.target.value)}
                             placeholder={param.placeholder}
                         />
@@ -95,7 +95,7 @@ export default function DynamicField({ param, value, onChange }) {
                     <input
                         type="text"
                         className={cn(commonClasses, error && errorClasses)}
-                        value={value || ''}
+                        value={value ?? ''}
                         onChange={e => handleValueChange(e.target.value)}
                         placeholder={param.placeholder}
                     />

@@ -119,9 +119,8 @@ export default function SettingsLayout({ logs, processStatus }) {
         to: '/settings/prayers', 
         label: 'Prayers', 
         icon: Clock, 
-        isDirty: () => isSectionDirty('prayers') || isSectionDirty('calculation') || isSectionDirty('automation.triggers')
-    },
-    { 
+                                    isDirty: () => isSectionDirty('prayers') || isSectionDirty('automation.triggers')
+                                },    { 
         to: '/settings/automation', 
         label: 'Automation', 
         icon: Zap, 

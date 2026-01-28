@@ -98,11 +98,13 @@ class AladhanProvider extends BaseProvider {
     async _doFetch(year) {
         const { coordinates, timezone } = this.globalConfig.location;
         
-        // Prefer provider-specific settings if they exist, fallback to global calculation settings
-        const method = this.sourceConfig.method ?? this.globalConfig.calculation.method;
-        const madhab = this.sourceConfig.madhab ?? this.globalConfig.calculation.madhab;
-        const latitudeAdjustmentMethod = this.sourceConfig.latitudeAdjustmentMethod ?? this.globalConfig.calculation.latitudeAdjustmentMethod;
-        const midnightMode = this.sourceConfig.midnightMode ?? this.globalConfig.calculation.midnightMode;
+        // Use provider-specific settings
+        const { 
+            method, 
+            madhab, 
+            latitudeAdjustmentMethod, 
+            midnightMode 
+        } = this.sourceConfig;
 
         const methodId = typeof method === 'number' ? method : this._getCalculationMethodId(method);
         const school = typeof madhab === 'number' ? madhab : this._getMadhabId(madhab);

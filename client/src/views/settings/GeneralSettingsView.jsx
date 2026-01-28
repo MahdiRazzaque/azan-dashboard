@@ -97,9 +97,7 @@ export default function GeneralSettingsView() {
                 source={primarySource}
                 onChange={handlePrimaryChange}
                 locationData={formData.location}
-                calculationData={formData.calculation}
                 onLocationChange={(field, val) => handleChange(`location.coordinates.${field}`, val)}
-                onCalculationChange={(field, val) => handleChange(`calculation.${field}`, val)}
             />
         </section>
 
@@ -138,8 +136,6 @@ export default function GeneralSettingsView() {
                         onChange={handleBackupChange}
                         disabledTypes={[primarySource.type]}
                         showCoordinates={false} // Coordinates are shared from primary card
-                        calculationData={formData.calculation}
-                        onCalculationChange={(field, val) => handleChange(`calculation.${field}`, val)}
                         isBackup={true}
                         primarySourceType={primarySource.type}
                     />

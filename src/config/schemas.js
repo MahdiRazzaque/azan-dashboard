@@ -84,26 +84,6 @@ const configSchema = z.object({
       long: z.number().min(-180).max(180),
     }),
   }),
-  calculation: z.object({
-    method: z.union([z.number(), z.string()]).transform((val) => {
-      if (typeof val === 'number') return val;
-      // Best effort legacy mapping or default to MWC (15)
-      return 15; 
-    }),
-    madhab: z.union([z.number(), z.string()]).transform((val) => {
-      if (typeof val === 'number') return val;
-      // Best effort legacy mapping or default to Hanafi (1)
-      return 1;
-    }),
-    latitudeAdjustmentMethod: z.union([z.number(), z.string()]).default(0).transform((val) => {
-       if (typeof val === 'number') return val;
-       return 0;
-    }),
-    midnightMode: z.union([z.number(), z.string()]).default(0).transform((val) => {
-       if (typeof val === 'number') return val;
-       return 0; 
-    }),
-  }),
   prayers: z.object({
     fajr: prayerSettingSchema,
     dhuhr: prayerSettingSchema,
@@ -112,9 +92,19 @@ const configSchema = z.object({
     isha: prayerSettingSchema,
   }),
   sources: z.object({
-    primary: z.object({ 
-      type: z.string()
-    }).passthrough(),
+    primary: z.discriminatedUnion('type', [
+      z.object({
+        type: z.literal('aladhan'),
+        method: z.number().default(15),
+        madhab: z.number().default(1),
+        latitudeAdjustmentMethod: z.number().default(0),
+        midnightMode: z.number().default(0)
+      }).passthrough(),
+      z.object({
+        type: z.literal('mymasjid'),
+        masjidId: z.string()
+      }).passthrough()
+    ]),
     backup: z.object({ 
       type: z.string(), 
       enabled: z.boolean().optional()

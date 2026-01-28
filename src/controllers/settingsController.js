@@ -59,8 +59,8 @@ const settingsController = {
 
         res.json({
             location: fullConfig.location,
-            calculation: fullConfig.calculation,
             prayers: fullConfig.prayers,
+            sources: fullConfig.sources,
             automation: automation
         });
     },

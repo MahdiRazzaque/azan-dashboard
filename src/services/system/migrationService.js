@@ -11,8 +11,12 @@ class MigrationService {
         // Deep clone to avoid mutation
         let newConfig = JSON.parse(JSON.stringify(config));
         
-        if (!newConfig.version) {
+        if (!newConfig.version || newConfig.version === 1) {
             newConfig = this.migrateV1toV2(newConfig);
+        }
+
+        if (newConfig.version === 2) {
+            newConfig = this.migrateV2toV3(newConfig);
         }
 
         return newConfig;
@@ -49,6 +53,33 @@ class MigrationService {
         }
 
         return v2Config;
+    }
+
+    /**
+     * Migrates V2 config to V3.
+     * Moves global calculation settings into the primary source if it's aladhan.
+     * @param {Object} config - V2 configuration.
+     * @returns {Object} V3 configuration.
+     */
+    migrateV2toV3(config) {
+        const v3Config = { ...config, version: 3 };
+
+        if (v3Config.calculation && v3Config.sources && v3Config.sources.primary) {
+            const primary = v3Config.sources.primary;
+            
+            if (primary.type === 'aladhan') {
+                // Move calculation fields to primary source
+                primary.method = v3Config.calculation.method;
+                primary.madhab = v3Config.calculation.madhab;
+                primary.latitudeAdjustmentMethod = v3Config.calculation.latitudeAdjustmentMethod;
+                primary.midnightMode = v3Config.calculation.midnightMode;
+            }
+
+            // Remove global calculation object
+            delete v3Config.calculation;
+        }
+
+        return v3Config;
     }
 }
 
