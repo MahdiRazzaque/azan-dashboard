@@ -150,7 +150,7 @@ const generateTTS = async (filename, text, serviceUrl, triggerVoice = null) => {
  * @param {string} event - The event identifier.
  * @param {Object} settings - The trigger settings for this event.
  * @param {Object} config - The full application configuration.
- * @returns {Promise<{success: boolean, message: string, generated: boolean}>}
+ * @returns {Promise<{success: boolean, message: string, generated: boolean}>} Object containing success status, message, and generation flag.
  */
 const ensureTTSFile = async (prayer, event, settings, config) => {
     const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';

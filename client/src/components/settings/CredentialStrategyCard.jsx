@@ -6,8 +6,24 @@ import axios from 'axios';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * Utility function to merge Tailwind CSS classes efficiently using clsx and tailwind-merge.
+ *
+ * @param {...(string|boolean|null|undefined)} inputs - A list of class names or conditional class objects.
+ * @returns {string} The merged and optimised class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+/**
+ * A component for managing and verifying credential strategies for system outputs.
+ *
+ * @param {Object} props - The component properties.
+ * @param {Object} props.strategy - The strategy configuration object.
+ * @param {Object} props.initialValues - The initial credential values.
+ * @param {boolean} props.verified - Whether the credentials are currently verified.
+ * @param {Function} props.onSave - Callback function triggered when saving credentials.
+ * @returns {JSX.Element} The rendered credential strategy card.
+ */
 export default function CredentialStrategyCard({ strategy, initialValues, verified, onSave }) {
     const [verifying, setVerifying] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
@@ -48,13 +64,15 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
     const handleReset = async () => {
         if(!confirm('Clear credentials? This will remove them from the system.')) return;
         const newValues = { ...values };
+        // Empty all sensitive parameters to prepare for a reset.
         sensitiveParams.forEach(p => newValues[p.key] = '');
         setValues(newValues);
         setIsDirty(true);
         
         setSaving(true);
         try {
-            await onSave(newValues, true); // true = isReset
+            // Pass 'true' to indicate this is a reset operation specifically.
+            await onSave(newValues, true); 
             setIsVerified(false);
             setResult({ success: true, message: 'Credentials Cleared' });
         } catch (e) {
@@ -69,9 +87,10 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
         setResult(null);
         try {
             const endpoint = `/api/system/outputs/${id}/verify`;
+            // Trigger a server-side verification test (e.g. sending a test sound).
             await axios.post(endpoint, values);
             
-            // If successful request, show modal
+            // Show the confirmation modal only if the server-side test was initiated successfully.
             setShowConfirm(true);
         } catch (e) {
             setResult({ success: false, message: e.response?.data?.error || e.message });
@@ -84,6 +103,7 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
         setShowConfirm(false);
         setSaving(true);
         try {
+            // Once the user confirms they heard the test, persist the validated credentials to the backend.
             const res = await onSave(values, false);
             if (res.success) {
                 setIsVerified(true);

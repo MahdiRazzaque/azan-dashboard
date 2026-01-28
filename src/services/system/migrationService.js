@@ -22,6 +22,13 @@ class MigrationService {
         return newConfig;
     }
 
+    /**
+     * Migrates the configuration from Version 1 to Version 2.
+     * Transitions the legacy VoiceMonkey settings into the new Output Strategy format.
+     * 
+     * @param {Object} config The Version 1 configuration object.
+     * @returns {Object} The migrated Version 2 configuration object.
+     */
     migrateV1toV2(config) {
         const v2Config = { ...config, version: 2 };
         
