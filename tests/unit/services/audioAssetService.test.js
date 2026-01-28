@@ -45,7 +45,7 @@ describe('AudioAssetService', () => {
         jest.spyOn(console, 'log').mockImplementation(() => {});
         jest.spyOn(console, 'error').mockImplementation(() => {});
         healthCheck.getHealth.mockReturnValue({ tts: { healthy: true } });
-        healthCheck.refresh.mockResolvedValue();
+        healthCheck.refresh.mockResolvedValue({ tts: { healthy: true } });
         audioValidator.analyseAudioFile.mockResolvedValue({
             format: 'mp3',
             codec: 'LAME',
@@ -61,9 +61,10 @@ describe('AudioAssetService', () => {
     });
 
     describe('syncAudioAssets', () => {
-        it('should throw error if TTS service is offline (L133)', async () => {
-            healthCheck.getHealth.mockReturnValue({ tts: { healthy: false } });
-            await expect(service.syncAudioAssets()).rejects.toThrow('TTS Service is offline');
+        it('should return warning if TTS service is offline', async () => {
+            healthCheck.refresh.mockResolvedValue({ tts: { healthy: false } });
+            const result = await service.syncAudioAssets();
+            expect(result.warnings).toEqual(expect.arrayContaining([expect.stringContaining('TTS Service Offline')]));
         });
 
         it('should return existing file if locally cached', async () => {
@@ -200,6 +201,10 @@ describe('AudioAssetService', () => {
     });
     
     describe('syncAudioAssets Edge Cases', () => {
+        beforeEach(() => {
+            healthCheck.refresh.mockResolvedValue({ tts: { healthy: true } });
+        });
+
         it('should handle TTS generation errors gracefully', async () => {
             fs.existsSync.mockReturnValue(false); 
             axios.post.mockRejectedValue(new Error('TTS Failed'));
@@ -259,6 +264,7 @@ describe('AudioAssetService', () => {
         // Use spyOn instead of mock to avoid breaking other tests
         jest.spyOn(mockedStorage, 'checkQuota').mockResolvedValue({ success: false, message: 'Full' });
         fs.existsSync.mockReturnValue(false);
+        // ensureTTSFile throws on quota check failure, and syncAudioAssets rethrows it
         await expect(service.syncAudioAssets()).rejects.toThrow('Storage Limit Exceeded');
     });
 

@@ -466,11 +466,24 @@ const systemController = {
 
     // New Output Strategy Endpoints
 
+    /**
+     * Retrieves the registry of all available output strategies and their schemas.
+     *
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
     getOutputRegistry: (req, res) => {
         const registry = OutputFactory.getAllStrategies();
         res.json(registry);
     },
 
+    /**
+     * Verifies the credentials for a specific output strategy based on provided parameters.
+     *
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the verification is complete.
+     */
     verifyOutput: async (req, res) => {
         const { strategyId } = req.params;
         try {
@@ -482,12 +495,19 @@ const systemController = {
         }
     },
 
+    /**
+     * Triggers a test execution for a specific output strategy using a predefined test audio file.
+     *
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the test execution is complete.
+     */
     testOutput: async (req, res) => {
         const { strategyId } = req.params;
         try {
             const strategy = OutputFactory.getStrategy(strategyId);
-            
-            // Construct payload with test.mp3
+
+            // Construct payload with test.mp3 to facilitate the verification sound.
             const testAudioPath = path.join(__dirname, '../../public/audio/custom/test.mp3');
             const payload = {
                 params: req.body,

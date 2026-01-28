@@ -2,12 +2,15 @@
  * Registry managing output strategy lifecycle.
  */
 class OutputFactory {
+    /**
+     * Initialises the OutputFactory with an empty mapping of strategies.
+     */
     constructor() {
         this.strategies = new Map();
     }
 
     /**
-     * Registers a strategy class.
+     * Registers a strategy class and initialises it as a singleton.
      * @param {Class} StrategyClass - The strategy class to register (must extend BaseOutput).
      */
     register(StrategyClass) {
@@ -15,7 +18,7 @@ class OutputFactory {
         if (!metadata || !metadata.id) {
             throw new Error('Strategy must have valid metadata with an ID');
         }
-        // Instantiate and store
+        // Instantiate and store the strategy as a singleton.
         this.strategies.set(metadata.id, new StrategyClass());
     }
 
@@ -23,7 +26,7 @@ class OutputFactory {
      * Returns a singleton instance of the requested strategy.
      * @param {string} id - The strategy ID.
      * @returns {Object} The strategy instance.
-     * @throws {Error} If strategy not found.
+     * @throws {Error} If strategy is not found in the registry.
      */
     getStrategy(id) {
         if (!this.strategies.has(id)) {
@@ -34,7 +37,7 @@ class OutputFactory {
 
     /**
      * Returns all registered strategy instances.
-     * @returns {BaseOutput[]}
+     * @returns {BaseOutput[]} An array containing all registered strategy singleton instances.
      */
     getAllStrategyInstances() {
         return Array.from(this.strategies.values());
@@ -42,7 +45,7 @@ class OutputFactory {
 
     /**
      * Returns metadata for all registered strategies.
-     * @returns {Object[]} Array of strategy metadata.
+     * @returns {Object[]} An array of metadata objects for each registered strategy.
      */
     getAllStrategies() {
         return Array.from(this.strategies.values()).map(instance => instance.constructor.getMetadata());
@@ -50,7 +53,7 @@ class OutputFactory {
 
     /**
      * Aggregates secrets across all outputs.
-     * @returns {Array<{strategyId: string, key: string}>}
+     * @returns {Array<{strategyId: string, key: string}>} An array of objects representing secret requirements.
      */
     getSecretRequirementKeys() {
         const requirements = [];
@@ -63,7 +66,9 @@ class OutputFactory {
         return requirements;
     }
 
-    // For testing purposes
+    /**
+     * Resets the factory by clearing all currently registered strategies. This is intended for testing purposes only.
+     */
     _reset() {
         this.strategies.clear();
     }

@@ -59,8 +59,8 @@ const settingsController = {
 
         res.json({
             location: fullConfig.location,
-            calculation: fullConfig.calculation,
             prayers: fullConfig.prayers,
+            sources: fullConfig.sources,
             automation: automation
         });
     },
@@ -79,6 +79,30 @@ const settingsController = {
                 return res.status(400).json({ error: 'Invalid configuration format' });
             }
             console.log('[SettingsController] Received update request:', JSON.stringify(newConfig.data));
+
+            // Identify services in use to perform a targeted health check as soon as request is received
+            const usedServices = new Set(['primarySource']);
+            if (newConfig.sources?.backup?.enabled !== false) {
+                usedServices.add('backupSource');
+            }
+
+            if (newConfig.automation?.triggers) {
+                Object.values(newConfig.automation.triggers).forEach(prayerTriggers => {
+                    Object.values(prayerTriggers).forEach(trigger => {
+                        if (!trigger.enabled) return;
+                        if (trigger.type === 'tts') usedServices.add('tts');
+                        if (trigger.targets) {
+                            trigger.targets.forEach(t => {
+                                if (t !== 'browser') usedServices.add(t);
+                            });
+                        }
+                    });
+                });
+            }
+
+            // Perform targeted health checks before proceeding with disk/cache operations
+            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Checking Service Health...' } });
+            await Promise.all(Array.from(usedServices).map(service => healthCheck.refresh(service)));
 
             // Validate the incoming configuration source for correct masjid identification
             sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Validating Configuration...' } });
@@ -103,8 +127,9 @@ const settingsController = {
             
             // Synchronise audio assets, such as TTS and custom files, while checking storage limits
             sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Generating Audio Assets...' } });
+            let syncResult = { warnings: [] };
             try {
-                await audioAssetService.syncAudioAssets();
+                syncResult = await audioAssetService.syncAudioAssets();
             } catch (err) {
                 console.error('[SettingsController] Audio asset synchronisation failed. Rolling back config.', err.message);
                 
@@ -112,7 +137,7 @@ const settingsController = {
                 await configService.update(previousConfig);
                 
                 return res.status(400).json({
-                    error: 'Storage Quota Exceeded',
+                    error: 'Sync Failed',
                     message: `Settings not saved: ${err.message}. Configuration has been rolled back.`
                 });
             }
@@ -122,8 +147,8 @@ const settingsController = {
             await schedulerService.initScheduler(); 
     
             // Generate warnings if configured automation services are currently offline or disabled
-            const warnings = [];
-            const health = await healthCheck.refresh('all');
+            const warnings = [...(syncResult.warnings || [])];
+            const health = healthCheck.getHealth(); // Use the health status updated at the start of the request
             const finalConfig = configService.get();
             const strategies = OutputFactory.getAllStrategies();
             
@@ -181,6 +206,7 @@ const settingsController = {
                 const outputConfig = finalConfig.automation?.outputs?.[strategy.id];
                 if (outputConfig?.enabled) {
                     const status = health[strategy.id];
+                    // Note: If the strategy wasn't in usedServices, health status here will be what was already in cache
                     if (status && !status.healthy) {
                         const msg = `${strategy.label} Integration: ${status.message || 'Offline'}`;
                         if (!warnings.some(w => w.includes(msg))) {
@@ -220,19 +246,21 @@ const settingsController = {
         await configService.reload();
         const result = await forceRefresh(configService.get());
         
+        let syncWarnings = [];
         try {
-            await audioAssetService.syncAudioAssets();
+            const syncRes = await audioAssetService.syncAudioAssets();
+            syncWarnings = syncRes.warnings || [];
         } catch (e) { 
             console.error('[SettingsController] Reset sync failed:', e.message);
             return res.status(400).json({ 
-                error: 'Reset Failed', 
+                error: 'Sync Failed', 
                 message: `Settings reset, but audio synchronisation failed: ${e.message}` 
             });
         }
 
         await schedulerService.initScheduler(); 
 
-        res.json({ message: 'Settings reset to defaults.', meta: result.meta, warnings: [] });
+        res.json({ message: 'Settings reset to defaults.', meta: result.meta, warnings: syncWarnings });
     },
 
     /**
@@ -271,7 +299,8 @@ const settingsController = {
 
         const warnings = [];
         try {
-            await audioAssetService.syncAudioAssets();
+            const syncRes = await audioAssetService.syncAudioAssets();
+            if (syncRes.warnings) warnings.push(...syncRes.warnings);
         } catch (e) {
             console.error('[SettingsController] Audio asset synchronisation failed:', e.message);
             return res.status(400).json({ 

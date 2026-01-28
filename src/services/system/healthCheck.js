@@ -36,10 +36,17 @@ function _ensureInitialized() {
     }
 }
 
+/**
+ * Validates the connectivity and functionality of a specific prayer time source.
+ * Attempts to fetch annual times to confirm the provider is responding correctly.
+ * 
+ * @param {'primary' | 'backup'} target The source configuration to validate.
+ * @returns {Promise<{healthy: boolean, message: string}>} The status of the source.
+ */
 async function checkSource(target) {
     const config = configService.get();
     const source = config.sources[target];
-    
+
     if (!source) return { healthy: false, message: 'Not Configured' };
     if (target === 'backup' && source.enabled === false) return { healthy: false, message: 'Disabled' };
 
@@ -54,6 +61,12 @@ async function checkSource(target) {
     }
 }
 
+/**
+ * Validates if the Python-based Text-to-Speech (TTS) service is reachable.
+ * Checks the service documentation endpoint as a heartbeat mechanism.
+ * 
+ * @returns {Promise<{healthy: boolean, message: string}>} The status of the TTS service.
+ */
 async function checkPythonService() {
      try {
         const ttsUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
@@ -64,6 +77,15 @@ async function checkPythonService() {
     }
 }
 
+/**
+ * Orchestrates a system-wide or targeted health check refresh.
+ * Updates the internal cache with new status reports for output strategies,
+ * prayer time providers, and secondary microservices.
+ * 
+ * @param {string} [target='all'] The specific service or strategy ID to refresh.
+ * @param {Object} [params] Optional transient credentials to override configuration.
+ * @returns {Promise<Object>} The updated health cache.
+ */
 async function refresh(target = 'all', params = null) {
     _ensureInitialized();
     const updates = {};
@@ -71,15 +93,15 @@ async function refresh(target = 'all', params = null) {
 
     // Strategies
     const strategies = OutputFactory.getAllStrategies();
-    
+
     const shouldCheckAll = (target === 'all');
-    
+
     for (const meta of strategies) {
         if (meta.hidden) continue;
-        
+
         if (shouldCheckAll || target.toLowerCase() === meta.id.toLowerCase()) {
              const strategy = OutputFactory.getStrategy(meta.id);
-             
+
              // REQ-006: Filter params based on each strategy's metadata requirements
              let strategyParams = null;
              if (params && meta.params) {
@@ -108,7 +130,7 @@ async function refresh(target = 'all', params = null) {
     if (shouldCheckAll || target === 'tts') {
         promises.push(checkPythonService().then(res => updates.tts = res));
     }
-    
+
     if (shouldCheckAll || target === 'primarySource') {
         promises.push(checkSource('primary').then(res => updates.primarySource = res));
     }
@@ -130,6 +152,12 @@ async function refresh(target = 'all', params = null) {
     return healthCache;
 }
 
+/**
+ * Retrieves the current health status from the application's internal cache.
+ * Ensures the cache is initialised if this is the first retrieval.
+ * 
+ * @returns {Object} The current health cache.
+ */
 function getHealth() {
     _ensureInitialized();
     return healthCache;

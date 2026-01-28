@@ -143,6 +143,86 @@ const generateTTS = async (filename, text, serviceUrl, triggerVoice = null) => {
 };
 
 /**
+ * Ensures a TTS file exists and is valid based on current configuration.
+ * Regenerates the file if it's missing or if the template/voice has changed.
+ * 
+ * @param {string} prayer - The prayer identifier.
+ * @param {string} event - The event identifier.
+ * @param {Object} settings - The trigger settings for this event.
+ * @param {Object} config - The full application configuration.
+ * @returns {Promise<{success: boolean, message: string, generated: boolean}>} Object containing success status, message, and generation flag.
+ */
+const ensureTTSFile = async (prayer, event, settings, config) => {
+    const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
+    const text = resolveTemplate(settings.template, prayer, settings.offsetMinutes);
+    const filename = `tts_${prayer}_${event}.mp3`;
+    const audioPath = path.join(AUDIO_CACHE_DIR, filename);
+    const metaPath = path.join(META_CACHE_DIR, filename + '.json');
+    const effectiveVoice = settings.voice || config.automation?.defaultVoice || 'ar-SA-HamedNeural';
+
+    let shouldGenerate = true;
+    if (fs.existsSync(audioPath) && fs.existsSync(metaPath)) {
+        try {
+            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            if (meta.text === text && meta.voice === effectiveVoice) {
+                const now = new Date();
+                fs.utimesSync(audioPath, now, now);
+                fs.utimesSync(metaPath, now, now);
+                shouldGenerate = false;
+            }
+        } catch (e) { /* corrupted */ }
+    }
+
+    if (!shouldGenerate) {
+        return { success: true, message: 'Valid file exists', generated: false };
+    }
+
+    // Check TTS Health before generating
+    const healthCheck = require('./healthCheck');
+    const ttsHealth = await healthCheck.refresh('tts');
+    if (!ttsHealth.tts?.healthy) {
+        return { 
+            success: false, 
+            message: 'TTS Service Offline. Generation will be attempted again at trigger time.', 
+            generated: false 
+        };
+    }
+
+    console.log(`[AudioService] Preparing TTS for ${prayer} - ${event}`);
+    const storageService = require('./storageService');
+    const estimatedSize = text.length * 1024;
+    const quotaCheck = await storageService.checkQuota(estimatedSize);
+    
+    if (!quotaCheck.success) {
+        throw new Error(`Storage Limit Exceeded: ${quotaCheck.message}`);
+    }
+
+    try {
+        await generateTTS(filename, text, pythonServiceUrl, settings.voice);
+        
+        const metadata = await audioValidator.analyseAudioFile(audioPath);
+        
+        // Polymorphically augment metadata from all strategies
+        const augmentedData = {};
+        OutputFactory.getAllStrategyInstances().forEach(instance => {
+            Object.assign(augmentedData, instance.augmentAudioMetadata(metadata));
+        });
+        
+        fs.writeFileSync(metaPath, JSON.stringify({ 
+            text, 
+            voice: effectiveVoice,
+            generatedAt: new Date().toISOString(),
+            ...metadata,
+            ...augmentedData
+        }));
+        return { success: true, message: 'Successfully generated', generated: true };
+    } catch (e) {
+        console.error(`[AudioService] TTS generation failed for ${filename}:`, e.message);
+        return { success: false, message: e.message, generated: false };
+    }
+};
+
+/**
  * Synchronises audio assets with the current configuration, generating missing TTS files.
  * 
  * @param {boolean} [forceClean=false] - If true, clears the cache before synchronising.
@@ -154,17 +234,7 @@ const syncAudioAssets = async (forceClean = false) => {
     
     const config = configService.get();
     const triggers = config.automation?.triggers;
-    const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
-
-    const healthCheck = require('./healthCheck');
-    console.log('[AudioService] Verifying TTS Service status...');
-    await healthCheck.refresh('tts');
-    const health = healthCheck.getHealth();
-    
-    if (!health.tts?.healthy) {
-        console.error('[AudioService] Aborting: TTS Service is offline.');
-        throw new Error('TTS Service is offline. Cannot generate audio assets.');
-    }
+    const warnings = [];
 
     if (forceClean) {
         console.log('[AudioService] Force cleaning all cached assets...');
@@ -184,56 +254,15 @@ const syncAudioAssets = async (forceClean = false) => {
         for (const [event, settings] of Object.entries(prayerTriggers)) {
             if (!settings.enabled || settings.type !== 'tts' || !settings.template) continue;
 
-            const text = resolveTemplate(settings.template, prayer, settings.offsetMinutes);
-            const filename = `tts_${prayer}_${event}.mp3`;
-            const audioPath = path.join(AUDIO_CACHE_DIR, filename);
-            const metaPath = path.join(META_CACHE_DIR, filename + '.json');
-
-            let shouldGenerate = true;
-            if (fs.existsSync(audioPath) && fs.existsSync(metaPath)) {
-                try {
-                    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-                    const effectiveVoice = settings.voice || config.automation?.defaultVoice || 'ar-SA-HamedNeural';
-                    if (meta.text === text && meta.voice === effectiveVoice) {
-                        const now = new Date();
-                        fs.utimesSync(audioPath, now, now);
-                        fs.utimesSync(metaPath, now, now);
-                        shouldGenerate = false;
-                    }
-                } catch (e) { /* corrupted */ }
-            }
-            
-            if (shouldGenerate) {
-                console.log(`[AudioService] Preparing TTS for ${prayer} - ${event}`);
-                const storageService = require('./storageService');
-                const estimatedSize = text.length * 1024;
-                const quotaCheck = await storageService.checkQuota(estimatedSize);
-                
-                if (!quotaCheck.success) {
-                    throw new Error(`Storage Limit Exceeded: ${quotaCheck.message}`);
+            try {
+                const result = await ensureTTSFile(prayer, event, settings, config);
+                if (!result.success) {
+                    const niceName = `${prayer.charAt(0).toUpperCase() + prayer.slice(1)} ${event.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
+                    warnings.push(`${niceName}: ${result.message}`);
                 }
-
-                try {
-                    await generateTTS(filename, text, pythonServiceUrl, settings.voice);
-                    
-                    const metadata = await audioValidator.analyseAudioFile(audioPath);
-                    
-                    // Polymorphically augment metadata from all strategies
-                    const augmentedData = {};
-                    OutputFactory.getAllStrategyInstances().forEach(instance => {
-                        Object.assign(augmentedData, instance.augmentAudioMetadata(metadata));
-                    });
-                    
-                    fs.writeFileSync(metaPath, JSON.stringify({ 
-                        text, 
-                        voice: settings.voice || config.automation?.defaultVoice || 'ar-SA-HamedNeural',
-                        generatedAt: new Date().toISOString(),
-                        ...metadata,
-                        ...augmentedData
-                    }));
-                } catch (e) {
-                    console.error(`[AudioService] Skipping ${filename} due to generation failure:`, e.message);
-                }
+            } catch (err) {
+                console.error(`[AudioService] Asset sync failed for ${prayer} ${event}:`, err.message);
+                throw err; // Quota issues should still be fatal
             }
         }
     }
@@ -241,6 +270,7 @@ const syncAudioAssets = async (forceClean = false) => {
     await cleanupCache();
     await cleanupTempAudio();
     console.log('[AudioService] Asset preparation complete.');
+    return { warnings };
 };
 
 /**
@@ -397,6 +427,7 @@ const generateMetadataForExistingFiles = async () => {
 
 module.exports = {
     syncAudioAssets,
+    ensureTTSFile,
     ensureTestAudio,
     cleanupCache,
     cleanupTempAudio,

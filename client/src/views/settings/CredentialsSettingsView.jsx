@@ -6,6 +6,13 @@ import PasswordInput from '@/components/common/PasswordInput';
 import CredentialStrategyCard from '@/components/settings/CredentialStrategyCard';
 import axios from 'axios';
 
+/**
+ * A view component for managing administrator credentials and integration secrets.
+ * It provides functionality for updating the admin password and configuring
+ * various integration strategies like Alexa or Voice Monkey.
+ *
+ * @returns {JSX.Element} The rendered credentials settings view.
+ */
 export default function CredentialsSettingsView() {
   const { logout } = useAuth();
   const { updateEnvSetting, config, refreshHealth } = useSettings();
@@ -16,6 +23,7 @@ export default function CredentialsSettingsView() {
       try {
           // 1. Save Secrets to .env
           for (const [key, value] of Object.entries(secrets)) {
+              // Construct the environment variable key from strategy and parameter identifiers (e.g. ALEXA_TOKEN).
               const envKey = `${strategyId.toUpperCase()}_${key.toUpperCase()}`;
               const res = await updateEnvSetting(envKey, value);
               if (!res.success) throw new Error(res.error || `Failed to save ${key}`);

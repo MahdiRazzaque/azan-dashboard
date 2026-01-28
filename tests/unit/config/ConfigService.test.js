@@ -20,7 +20,7 @@ describe('ConfigService', () => {
     it('should load default configuration', () => {
         const config = configService.get();
         expect(config.location.timezone).toBe('Europe/London');
-        expect(config.calculation.method).toBe(15);
+        expect(config.sources.primary.method).toBe(15);
     });
 
     it('should throw error if get() called before init()', () => {
@@ -217,7 +217,7 @@ describe('ConfigService', () => {
         expect(res2).toEqual({ a: 1 });
     });
 
-    it('should migrate V1 local config to V2 on reload', async () => {
+    it('should migrate V1 local config to V3 on reload', async () => {
         const v1Local = {
             automation: {
                 voiceMonkey: {
@@ -236,7 +236,7 @@ describe('ConfigService', () => {
         const localContent = await fs.readFile(configService._localPath, 'utf-8');
         const localConfig = JSON.parse(localContent);
         
-        expect(localConfig.version).toBe(2);
+        expect(localConfig.version).toBe(3);
         expect(localConfig.automation.voiceMonkey).toBeUndefined();
         expect(localConfig.automation.outputs.voicemonkey).toBeDefined();
         expect(localConfig.automation.outputs.voicemonkey.params.token).toBe('migToken');
