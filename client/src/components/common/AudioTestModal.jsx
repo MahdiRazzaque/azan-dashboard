@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { X, Volume2, Monitor, Radio, AlertCircle, Zap, Server } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Volume2, Monitor, Radio, AlertCircle, Server } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
-import axios from 'axios';
 
 /**
  * A modal component that allows users to test audio playback across different
@@ -29,8 +28,12 @@ export default function AudioTestModal({
 
     useEffect(() => {
         if (isOpen) {
-            axios.get('/api/system/outputs/registry')
-                .then(res => setStrategies(res.data))
+            fetch('/api/system/outputs/registry')
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to fetch strategies');
+                    return res.json();
+                })
+                .then(data => setStrategies(data))
                 .catch(console.error);
         }
     }, [isOpen]);

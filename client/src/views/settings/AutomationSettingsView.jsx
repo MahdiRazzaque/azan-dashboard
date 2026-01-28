@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useSettings } from '@/hooks/useSettings';
-import { Save, Power, Zap, CheckCircle, XCircle, Play, BadgeCheck, AlertTriangle, Loader2, Music } from 'lucide-react';
+import { Power, Zap, CheckCircle, Music } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import PasswordInput from '@/components/common/PasswordInput';
-import ConfirmModal from '@/components/common/ConfirmModal';
 import VoiceLibrary from '@/components/settings/VoiceLibrary';
 import OutputStrategyCard from '@/components/settings/OutputStrategyCard';
-import axios from 'axios';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
@@ -64,43 +61,30 @@ export default function AutomationSettingsView() {
           config,
           draftConfig, 
           updateSetting, 
-          saveSettings, 
-          resetDraft,
-          saving, 
           loading,
           systemHealth,
-          bulkUpdateOffsets,
-          refreshHealth
+          bulkUpdateOffsets
         } = useSettings();
     
         const [strategies, setStrategies] = useState([]);
         
         // ... existing states ...
-        const [testing, setTesting] = useState(false);
-        const [showConfirm, setShowConfirm] = useState(false);
-        const [testError, setTestError] = useState(null);
         const [batchVals, setBatchVals] = useState({ preAdhan: 15, preIqamah: 10 });
         const [toast, setToast] = useState(null);
     
             useEffect(() => {
-                axios.get('/api/system/outputs/registry')
-                    .then(res => setStrategies(res.data))
+                fetch('/api/system/outputs/registry')
+                    .then(res => {
+                        if (!res.ok) throw new Error('Failed to fetch strategies');
+                        return res.json();
+                    })
+                    .then(data => setStrategies(data))
                     .catch(console.error);
             }, []);  if (loading || !draftConfig) return <div className="p-8 text-center text-app-dim">Loading...</div>;
 
   const formData = draftConfig;
 
   const handleChange = (path, value) => updateSetting(path, value);
-
-  const handleSave = () => saveSettings();
-
-  const isDirty = (() => {
-      if (!config || !draftConfig) return false;
-      // Check automation section excluding triggers
-      const { triggers: t1, ...rest1 } = config.automation || {};
-      const { triggers: t2, ...rest2 } = draftConfig.automation || {};
-      return JSON.stringify(rest1) !== JSON.stringify(rest2);
-  })();
 
   const handleBulkUpdate = (type) => {
       const count = bulkUpdateOffsets(type, batchVals[type]);

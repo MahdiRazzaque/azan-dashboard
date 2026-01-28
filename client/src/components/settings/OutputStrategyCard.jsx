@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Loader2, Play, Power, AlertTriangle, Volume2 } from 'lucide-react';
-import PasswordInput from '@/components/common/PasswordInput';
+import { CheckCircle, XCircle, Loader2, Power, AlertTriangle, Volume2 } from 'lucide-react';
 import AudioConsentModal from './AudioConsentModal';
-import axios from 'axios';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -87,12 +85,22 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
         try {
             // Using refreshHealth endpoint to trigger health check for specific target
             // Pass current values to allow testing unsaved changes
-            const res = await axios.post('/api/system/health/refresh', { 
-                target: id,
-                params: values
+            const res = await fetch('/api/system/health/refresh', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target: id,
+                    params: values
+                })
             });
             
-            const healthData = res.data[id];
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || errData.error || 'Health check failed');
+            }
+
+            const data = await res.json();
+            const healthData = data[id];
             
             if (healthData && healthData.healthy) {
                 setStatus('online');
@@ -102,7 +110,7 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
             }
         } catch (e) {
             setStatus('offline');
-            setErrorMsg(e.response?.data?.error || e.message);
+            setErrorMsg(e.message);
         } finally {
             setTestingHealth(false);
         }
@@ -126,7 +134,15 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
     const triggerAudioTest = async () => {
         setTestingAudio(true);
         try {
-            await axios.post(`/api/system/outputs/${id}/test`, values);
+            const res = await fetch(`/api/system/outputs/${id}/test`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(values)
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || errData.error || 'Audio test failed');
+            }
         } catch (e) {
             console.error('Audio test failed:', e);
             // We don't necessarily want to change the health status just because a test failed

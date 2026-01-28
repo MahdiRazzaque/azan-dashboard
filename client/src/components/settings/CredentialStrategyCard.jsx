@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Loader2, Play, Lock, AlertTriangle, Trash2, Undo2 } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Play, Lock, Trash2, Undo2 } from 'lucide-react';
 import PasswordInput from '@/components/common/PasswordInput';
 import ConfirmModal from '@/components/common/ConfirmModal';
-import axios from 'axios';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -88,12 +87,21 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
         try {
             const endpoint = `/api/system/outputs/${id}/verify`;
             // Trigger a server-side verification test (e.g. sending a test sound).
-            await axios.post(endpoint, values);
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(values)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || errData.error || 'Verification trigger failed');
+            }
             
             // Show the confirmation modal only if the server-side test was initiated successfully.
             setShowConfirm(true);
         } catch (e) {
-            setResult({ success: false, message: e.response?.data?.error || e.message });
+            setResult({ success: false, message: e.message });
         } finally {
             setVerifying(false);
         }

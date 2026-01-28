@@ -4,7 +4,6 @@ import { useSettings } from '@/hooks/useSettings';
 import { Lock, ShieldCheck, Key } from 'lucide-react';
 import PasswordInput from '@/components/common/PasswordInput';
 import CredentialStrategyCard from '@/components/settings/CredentialStrategyCard';
-import axios from 'axios';
 
 /**
  * A view component for managing administrator credentials and integration secrets.
@@ -32,13 +31,22 @@ export default function CredentialsSettingsView() {
           // 2. Update Verified Status
           // If reset (empty values), set verified to false.
           // If normal save (confirmed via modal), set verified to true.
-          await axios.post('/api/settings/update', {
-              automation: {
-                  outputs: {
-                      [strategyId]: { verified: !isReset }
+          const updateRes = await fetch('/api/settings/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  automation: {
+                      outputs: {
+                          [strategyId]: { verified: !isReset }
+                      }
                   }
-              }
+              })
           });
+
+          if (!updateRes.ok) {
+              const errData = await updateRes.json().catch(() => ({}));
+              throw new Error(errData.message || errData.error || 'Failed to update verified status');
+          }
 
           // 3. Refresh Health for this strategy
           await refreshHealth(strategyId);
@@ -50,8 +58,12 @@ export default function CredentialsSettingsView() {
   };
 
   useEffect(() => {
-      axios.get('/api/system/outputs/registry')
-          .then(res => setStrategies(res.data.filter(s => s.params.some(p => p.sensitive))))
+      fetch('/api/system/outputs/registry')
+          .then(res => {
+              if (!res.ok) throw new Error('Failed to fetch strategies');
+              return res.json();
+          })
+          .then(data => setStrategies(data.filter(s => s.params.some(p => p.sensitive))))
           .catch(console.error);
   }, []);
   
