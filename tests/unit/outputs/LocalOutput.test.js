@@ -8,7 +8,6 @@ jest.mock('play-sound', () => {
 const LocalOutput = require('../../../src/outputs/LocalOutput');
 const { exec } = require('child_process');
 const fs = require('fs');
-const ConfigService = require('../../../src/config');
 
 jest.mock('../../../src/config', () => ({
     get: jest.fn(() => ({

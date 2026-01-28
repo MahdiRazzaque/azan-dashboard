@@ -300,7 +300,6 @@ const ensureTestAudio = async () => {
         await generateTTS(filename, text, pythonServiceUrl, voice);
         
         const cacheAudioPath = path.join(AUDIO_CACHE_DIR, filename);
-        const cacheMetaPath = path.join(META_CACHE_DIR, filename + '.json');
 
         // Move to custom
         if (fs.existsSync(cacheAudioPath)) {

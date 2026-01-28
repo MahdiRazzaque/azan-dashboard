@@ -127,7 +127,7 @@ const settingsController = {
             
             // Synchronise audio assets, such as TTS and custom files, while checking storage limits
             sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Generating Audio Assets...' } });
-            let syncResult = { warnings: [] };
+            let syncResult;
             try {
                 syncResult = await audioAssetService.syncAudioAssets();
             } catch (err) {

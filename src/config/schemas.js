@@ -8,7 +8,6 @@ const prayerSettingSchema = z.object({
 });
 
 const triggerActionSchema = z.enum(['tts', 'file', 'url']);
-const targetSchema = z.enum(['local', 'voicemonkey']);
 
 const triggerEventSchema = z.object({
   enabled: z.boolean(),

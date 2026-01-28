@@ -2,7 +2,6 @@ const VoiceMonkeyOutput = require('../../../src/outputs/VoiceMonkeyOutput');
 const axios = require('axios');
 const fs = require('fs');
 const ConfigService = require('../../../src/config');
-const { voiceMonkeyQueue } = require('../../../src/utils/requestQueue');
 
 jest.mock('axios');
 jest.mock('fs');
