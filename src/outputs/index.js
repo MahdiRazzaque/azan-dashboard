@@ -4,6 +4,5 @@ const OutputFactory = require('./OutputFactory');
 require('./LocalOutput');
 require('./VoiceMonkeyOutput');
 require('./BrowserOutput');
-require('./TestOutput');
 
 module.exports = OutputFactory;
