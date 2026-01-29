@@ -14,35 +14,51 @@ async function validateConfigSource(newConfig) {
     }
 
     const now = DateTime.now();
-    
-    // --- PRIMARY SOURCE VALIDATION ---
-    const primarySource = newConfig.sources.primary;
-    if (primarySource.type === 'aladhan') {
-        const coords = newConfig.location?.coordinates;
-        if (!coords || coords.lat === undefined || coords.long === undefined) {
-             throw new Error("Coordinates are required for Aladhan source");
-        }
-    } else if (primarySource.type === 'mymasjid') {
-        if (!primarySource.masjidId) {
-            throw new Error("Masjid ID is required for MyMasjid source");
-        }
-    }
+    const roles = ['primary', 'backup'];
 
-    console.log(`[Validation] Testing Primary source: ${primarySource.type}`);
-    const primaryProvider = ProviderFactory.create(primarySource, newConfig);
-    await primaryProvider.getAnnualTimes(now.year);
-
-    // --- BACKUP SOURCE VALIDATION ---
-    if (newConfig.sources.backup && newConfig.sources.backup.enabled !== false) {
-        const backupSource = newConfig.sources.backup;
+    for (const role of roles) {
+        const source = newConfig.sources[role];
         
-        if (backupSource.type === 'mymasjid' && !backupSource.masjidId) {
-            throw new Error("Masjid ID is required for Backup MyMasjid source");
+        // Skip if source is missing or is a disabled backup
+        if (!source || (role === 'backup' && source.enabled === false)) {
+            continue;
         }
 
-        console.log(`[Validation] Testing Backup source: ${backupSource.type}`);
-        const backupProvider = ProviderFactory.create(backupSource, newConfig);
-        await backupProvider.getAnnualTimes(now.year);
+        const providerClass = ProviderFactory.getProviderClass(source.type);
+        const metadata = providerClass.getMetadata();
+
+        // 1. Structural/Parameter Validation
+        try {
+            providerClass.getConfigSchema().parse(source);
+        } catch (e) {
+            if (e.name === 'ZodError') {
+                const issues = e.issues || e.errors || [];
+                const formattedErrors = issues.map(err => {
+                    const path = err.path.join('.');
+                    return path ? `${path}: ${err.message}` : err.message;
+                }).join(', ');
+                throw new Error(`${role.toUpperCase()} Source (${metadata.label}) Validation Failed: ${formattedErrors}`);
+            }
+            throw new Error(`${role.toUpperCase()} Source (${metadata.label}) Validation Failed: ${e.message}`);
+        }
+
+        // 2. Logical Requirements Check (e.g. Coordinates)
+        if (metadata.requiresCoordinates) {
+            const coords = newConfig.location?.coordinates;
+            if (!coords || coords.lat === undefined || coords.long === undefined) {
+                 throw new Error(`Coordinates (Latitude/Longitude) are required for ${metadata.label} (${role}) source`);
+            }
+        }
+
+        // 3. Functional/Connectivity Validation
+        console.log(`[Validation] Testing ${role} source: ${source.type}`);
+        try {
+            const provider = ProviderFactory.create(source, newConfig);
+            await provider.getAnnualTimes(now.year);
+        } catch (e) {
+            // Rethrow with role context
+            throw new Error(`${role.toUpperCase()} Source (${metadata.label}) Connection Failed: ${e.message}`);
+        }
     }
 }
 
