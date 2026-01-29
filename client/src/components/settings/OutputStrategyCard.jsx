@@ -76,6 +76,8 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
     // Global constraints for all strategies
     const minLead = -30000;
     const maxLead = 30000;
+    const snapPoints = [-30000, -25000, -20000, -15000, -10000, -5000, 0, 5000, 10000, 15000, 20000, 25000, 30000];
+    const snapThreshold = 750;
 
     const handleParamChange = (key, value) => {
         onChange('params', { ...values, [key]: value });
@@ -192,19 +194,65 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
                          leadTimeMs < 0 ? `Starts ${Math.abs(leadTimeMs)}ms after target time.` : 
                          "Starts exactly at target time."}
                     </div>
-                    <input 
-                        type="range"
-                        min={minLead}
-                        max={maxLead}
-                        step="100"
-                        value={leadTimeMs}
-                        onChange={e => onChange('leadTimeMs', parseInt(e.target.value) || 0)}
-                        className="w-full h-2 bg-app-bg rounded-lg appearance-none cursor-pointer accent-emerald-500 mb-2 border border-app-border"
-                    />
-                    <div className="flex justify-between text-[10px] text-app-dim px-1">
-                        <span>Lag ({minLead / 1000}s)</span>
-                        <span>0s</span>
-                        <span>Lead (+{maxLead / 1000}s)</span>
+                    <div className="relative mt-4 mb-8">
+                        {/* Track Background */}
+                        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 bg-zinc-800 rounded-lg border border-white/5" />
+                        
+                        {/* Bidirectional Fill (Center to Thumb) */}
+                        <div 
+                            className="absolute top-1/2 -translate-y-1/2 h-1.5 bg-emerald-500/40 rounded-full transition-all duration-75"
+                            style={{
+                                left: leadTimeMs >= 0 ? '50%' : `${((leadTimeMs - minLead) / (maxLead - minLead)) * 100}%`,
+                                width: `${Math.abs(leadTimeMs) / (maxLead - minLead) * 100}%`
+                            }}
+                        />
+
+                        {/* Markers */}
+                        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-4 pointer-events-none px-0">
+                            <div className="relative w-full h-full">
+                                {snapPoints.map(p => (
+                                    <div 
+                                        key={p}
+                                        className={cn(
+                                            "absolute top-1/2 -translate-y-1/2 w-[2px] rounded-full transition-all",
+                                            p === 0 ? "h-6 bg-emerald-500/80 z-20" : "h-2 bg-white/10 z-10"
+                                        )}
+                                        style={{ 
+                                            left: `${((p - minLead) / (maxLead - minLead)) * 100}%`,
+                                            transform: 'translate(-50%, -50%)'
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        <input 
+                            type="range"
+                            min={minLead}
+                            max={maxLead}
+                            step="100"
+                            value={leadTimeMs}
+                            onChange={(e) => {
+                                let val = parseInt(e.target.value) || 0;
+                                const nearest = snapPoints.reduce((prev, curr) => 
+                                    Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev
+                                );
+                                if (Math.abs(val - nearest) < snapThreshold) {
+                                    val = nearest;
+                                }
+                                onChange('leadTimeMs', val);
+                            }}
+                            className="absolute inset-0 w-full h-1.5 bg-transparent appearance-none cursor-pointer z-30
+                                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:shadow-[0_0_10px_rgba(16,185,129,0.5)] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-zinc-900
+                                [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-emerald-400 [&::-moz-range-thumb]:shadow-[0_0_10px_rgba(16,185,129,0.5)] [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-zinc-900"
+                        />
+                        
+                        {/* High-visibility markers for precise alignment */}
+                        <div className="absolute top-7 left-0 right-0 h-4 text-[10px] text-app-dim select-none pointer-events-none">
+                            <span className="absolute left-0">Lag (-30s)</span>
+                            <span className="absolute left-1/2 -translate-x-1/2 font-medium text-app-text/60">0s</span>
+                            <span className="absolute right-0 text-right">Lead (+30s)</span>
+                        </div>
                     </div>
                 </div>
 
