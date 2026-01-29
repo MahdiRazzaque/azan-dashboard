@@ -2,6 +2,7 @@ const axios = require('axios');
 const configService = require('@config');
 const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../../outputs');
+const asyncLock = require('@utils/asyncLock');
 
 let healthCache = null;
 
@@ -88,68 +89,76 @@ async function checkPythonService() {
  */
 async function refresh(target = 'all', params = null) {
     _ensureInitialized();
-    const updates = {};
-    const promises = [];
+    
+    // De-duplicate simultaneous health check requests using AsyncLock
+    // We include target and params (if any) in the key to allow specific checks to run concurrently
+    // but identical ones to collapse.
+    const lockKey = `health-refresh-${target}-${params ? JSON.stringify(params) : 'default'}`;
 
-    // Strategies
-    const strategies = OutputFactory.getAllStrategies();
+    return asyncLock.run(lockKey, async () => {
+        const updates = {};
+        const promises = [];
 
-    const shouldCheckAll = (target === 'all');
+        // Strategies
+        const strategies = OutputFactory.getAllStrategies();
 
-    for (const meta of strategies) {
-        if (meta.hidden) continue;
+        const shouldCheckAll = (target === 'all');
 
-        if (shouldCheckAll || target.toLowerCase() === meta.id.toLowerCase()) {
-             const strategy = OutputFactory.getStrategy(meta.id);
+        for (const meta of strategies) {
+            if (meta.hidden) continue;
 
-             // REQ-006: Filter params based on each strategy's metadata requirements
-             let strategyParams = null;
-             if (params && meta.params) {
-                 strategyParams = {};
-                 meta.params.forEach(p => {
-                     // Only pass parameters explicitly marked as required for health checks
-                     if (p.requiredForHealth && params[p.key] !== undefined) {
-                         strategyParams[p.key] = params[p.key];
-                     }
-                 });
-                 // Pass null if no relevant parameters were found to allow internal config fallback
-                 if (Object.keys(strategyParams).length === 0) {
-                     strategyParams = null;
-                 }
-             }
+            if (shouldCheckAll || target.toLowerCase() === meta.id.toLowerCase()) {
+                const strategy = OutputFactory.getStrategy(meta.id);
 
-             promises.push(
-                 strategy.healthCheck(strategyParams)
-                    .then(res => updates[meta.id] = res)
-                    .catch(e => updates[meta.id] = { healthy: false, message: e.message })
-             );
+                // REQ-006: Filter params based on each strategy's metadata requirements
+                let strategyParams = null;
+                if (params && meta.params) {
+                    strategyParams = {};
+                    meta.params.forEach(p => {
+                        // Only pass parameters explicitly marked as required for health checks
+                        if (p.requiredForHealth && params[p.key] !== undefined) {
+                            strategyParams[p.key] = params[p.key];
+                        }
+                    });
+                    // Pass null if no relevant parameters were found to allow internal config fallback
+                    if (Object.keys(strategyParams).length === 0) {
+                        strategyParams = null;
+                    }
+                }
+
+                promises.push(
+                    strategy.healthCheck(strategyParams)
+                        .then(res => updates[meta.id] = res)
+                        .catch(e => updates[meta.id] = { healthy: false, message: e.message })
+                );
+            }
         }
-    }
 
-    // Legacy / Other services
-    if (shouldCheckAll || target === 'tts') {
-        promises.push(checkPythonService().then(res => updates.tts = res));
-    }
+        // Legacy / Other services
+        if (shouldCheckAll || target === 'tts') {
+            promises.push(checkPythonService().then(res => updates.tts = res));
+        }
 
-    if (shouldCheckAll || target === 'primarySource') {
-        promises.push(checkSource('primary').then(res => updates.primarySource = res));
-    }
-    if (shouldCheckAll || target === 'backupSource') {
-        promises.push(checkSource('backup').then(res => updates.backupSource = res));
-    }
+        if (shouldCheckAll || target === 'primarySource') {
+            promises.push(checkSource('primary').then(res => updates.primarySource = res));
+        }
+        if (shouldCheckAll || target === 'backupSource') {
+            promises.push(checkSource('backup').then(res => updates.backupSource = res));
+        }
 
-    await Promise.all(promises);
+        await Promise.all(promises);
 
-    // Refresh ports
-    try {
-        const ttsUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
-        const port = new URL(ttsUrl).port;
-        if (port) healthCache.ports = { ...healthCache.ports, tts: port };
-    } catch(e) {}
-    healthCache.ports.api = process.env.PORT || 3000;
+        // Refresh ports
+        try {
+            const ttsUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
+            const port = new URL(ttsUrl).port;
+            if (port) healthCache.ports = { ...healthCache.ports, tts: port };
+        } catch(e) {}
+        healthCache.ports.api = process.env.PORT || 3000;
 
-    healthCache = { ...healthCache, ...updates, lastChecked: new Date().toISOString() };
-    return healthCache;
+        healthCache = { ...healthCache, ...updates, lastChecked: new Date().toISOString() };
+        return healthCache;
+    });
 }
 
 /**
