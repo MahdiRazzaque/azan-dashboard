@@ -80,10 +80,23 @@ const settingsController = {
             }
             console.log('[SettingsController] Received update request:', JSON.stringify(newConfig.data));
 
-            // Identify services in use to perform a targeted health check as soon as request is received
-            const usedServices = new Set(['primarySource']);
-            if (newConfig.sources?.backup?.enabled !== false) {
-                usedServices.add('backupSource');
+            // Persist the changes to disk; store previous state for rollback if needed
+            const previousConfig = configService.get();
+
+            // Detect if prayer-affecting settings have changed
+            const sourcesChanged = JSON.stringify(previousConfig.sources) !== JSON.stringify(newConfig.sources);
+            const locationChanged = JSON.stringify(previousConfig.location) !== JSON.stringify(newConfig.location);
+            const requiresRefresh = sourcesChanged || locationChanged;
+
+            // Identify services in use to perform targeted health checks
+            const usedServices = new Set();
+            
+            // Only refresh prayer source health if they changed and will be refreshed
+            if (requiresRefresh) {
+                usedServices.add('primarySource');
+                if (newConfig.sources?.backup?.enabled !== false) {
+                    usedServices.add('backupSource');
+                }
             }
 
             if (newConfig.automation?.triggers) {
@@ -101,29 +114,39 @@ const settingsController = {
             }
 
             // Perform targeted health checks before proceeding with disk/cache operations
-            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Checking Service Health...' } });
-            await Promise.all(Array.from(usedServices).map(service => healthCheck.refresh(service)));
-
-            // Validate the incoming configuration source for correct masjid identification
-            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Validating Configuration...' } });
-            try {
-                await validateConfigSource(newConfig);
-            } catch (e) {
-                if (e.name === 'ProviderValidationError' && e.userFriendly) {
-                    return res.status(400).json({ error: e.message });
-                }
-                return res.status(400).json({ error: `Validation Failed: ${e.message}` });
+            if (usedServices.size > 0) {
+                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Checking Service Health...' } });
+                await Promise.all(Array.from(usedServices).map(service => healthCheck.refresh(service)));
             }
 
-            // Persist the changes to disk; store previous state for rollback if needed
-            const previousConfig = configService.get();
+            // Validate the incoming configuration source for correct masjid identification
+            if (requiresRefresh) {
+                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Validating Configuration...' } });
+                try {
+                    await validateConfigSource(newConfig);
+                } catch (e) {
+                    if (e.name === 'ProviderValidationError' && e.userFriendly) {
+                        return res.status(400).json({ error: e.message });
+                    }
+                    return res.status(400).json({ error: `Validation Failed: ${e.message}` });
+                }
+            } else {
+                console.log('[SettingsController] skipping validateConfigSource (no source/location change).');
+            }
+
             sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Saving to Disk...' } });
             await configService.update(newConfig);
             
-            // Force a refresh of the prayer time cache to reflect the updated settings
-            console.log('[SettingsController] Settings updated, forcing cache refresh...');
-            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Refreshing Prayer Data...' } });
-            const result = await forceRefresh(configService.get());
+            // Refresh cache ONLY if source or location has changed
+            let result = { meta: { skip: true } };
+            if (requiresRefresh) {
+                console.log('[SettingsController] Settings updated, forcing cache refresh...');
+                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Refreshing Prayer Data...' } });
+                result = await forceRefresh(configService.get());
+            } else {
+                console.log('[SettingsController] Settings updated (no source/location change, skipping cache refresh).');
+                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Skipping Prayer Refresh...' } });
+            }
             
             // Synchronise audio assets, such as TTS and custom files, while checking storage limits
             sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Generating Audio Assets...' } });
@@ -248,7 +271,7 @@ const settingsController = {
         
         let syncWarnings = [];
         try {
-            const syncRes = await audioAssetService.syncAudioAssets();
+            const syncRes = await audioAssetService.syncAudioAssets(true);
             syncWarnings = syncRes.warnings || [];
         } catch (e) { 
             console.error('[SettingsController] Reset sync failed:', e.message);
@@ -385,6 +408,16 @@ const settingsController = {
         // Prevent directory traversal attacks
         if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
             return res.status(400).json({ error: 'Invalid filename' });
+        }
+
+        // Check if file is protected
+        if (fs.existsSync(metaPath)) {
+            try {
+                const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+                if (metadata.protected) {
+                    return res.status(403).json({ error: 'Forbidden: File is protected and cannot be deleted' });
+                }
+            } catch (e) { /* ignore corrupt meta */ }
         }
 
         let deleted = false;

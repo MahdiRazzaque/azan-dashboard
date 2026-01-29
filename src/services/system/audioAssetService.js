@@ -316,6 +316,7 @@ const ensureTestAudio = async () => {
                 text,
                 voice,
                 generatedAt: new Date().toISOString(),
+                hidden: true,
                 ...metadata,
                 ...augmentedData
             }));

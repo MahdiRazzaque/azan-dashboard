@@ -152,7 +152,8 @@ const systemController = {
                         vmIssues: metadata.vmIssues,
                         metadata: metadata
                     };
-                });
+                })
+                .filter(file => !file.metadata.hidden);
         };
         
         const custom = getFiles(audioCustomDir, metaCustomDir, 'custom');
@@ -504,18 +505,16 @@ const systemController = {
      */
     testOutput: async (req, res) => {
         const { strategyId } = req.params;
+        const { source } = req.body;
         try {
             const strategy = OutputFactory.getStrategy(strategyId);
 
-            // Construct payload with test.mp3 to facilitate the verification sound.
-            const testAudioPath = path.join(__dirname, '../../public/audio/custom/test.mp3');
-            const payload = {
-                params: req.body,
-                source: {
-                    url: '/public/audio/custom/test.mp3',
-                    filePath: testAudioPath
-                }
-            };
+            if (!source || !source.path) {
+                return res.status(400).json({ error: 'Audio source path is required for testing' });
+            }
+
+            // Dynamic source from request (e.g., File Manager preview)
+            const payload = { params: req.body, source };
 
             await strategy.execute(payload, { isTest: true });
             res.json({ success: true });
