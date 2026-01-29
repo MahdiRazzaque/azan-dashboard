@@ -1,8 +1,57 @@
 const { DateTime } = require('luxon');
+const { z } = require('zod');
 const BaseProvider = require('./BaseProvider');
 const { ProviderConnectionError, ProviderValidationError } = require('./errors');
 const { myMasjidQueue } = require('@utils/requestQueue');
-const { MyMasjidBulkResponseSchema } = require('@config/apiSchemas');
+
+// 1. Nested/Array Format (Standard/Web)
+const MyMasjidSalahEntrySchema = z.object({
+  salahName: z.string(),
+  salahTime: z.string(),
+  iqamahTime: z.string().nullable(),
+}).passthrough();
+
+const MyMasjidNestedDaySchema = z.object({
+    day: z.number(),
+    month: z.number(),
+    fajr: z.array(MyMasjidSalahEntrySchema),
+    zuhr: z.array(MyMasjidSalahEntrySchema),
+    asr: z.array(MyMasjidSalahEntrySchema),
+    maghrib: z.array(MyMasjidSalahEntrySchema),
+    isha: z.array(MyMasjidSalahEntrySchema),
+    shouruq: z.array(MyMasjidSalahEntrySchema),
+}).passthrough();
+
+// 2. Flat/String Format (Screen/Device)
+const MyMasjidFlatDaySchema = z.object({
+    day: z.number(),
+    month: z.number(),
+    fajr: z.string(),
+    zuhr: z.string(),
+    asr: z.string(),
+    maghrib: z.string(),
+    isha: z.string(),
+    shouruq: z.string(),
+    // Flat format typically uses keys like iqamah_Fajr
+    iqamah_Fajr: z.string().nullable().optional(),
+    iqamah_Zuhr: z.string().nullable().optional(),
+    iqamah_Asr: z.string().nullable().optional(),
+    iqamah_Maghrib: z.string().nullable().optional(),
+    iqamah_Isha: z.string().nullable().optional(),
+}).passthrough();
+
+/**
+ * Response from MyMasjid timings API.
+ * Accepts either nested array structure OR flat structure.
+ */
+const MyMasjidBulkResponseSchema = z.object({
+  model: z.object({
+    salahTimings: z.union([
+        z.array(MyMasjidNestedDaySchema),
+        z.array(MyMasjidFlatDaySchema)
+    ])
+  }).passthrough()
+});
 
 /**
  * Provider for the MyMasjid API.
@@ -12,6 +61,15 @@ class MyMasjidProvider extends BaseProvider {
     async getAnnualTimes(year) {
         const key = `mymasjid-${this.sourceConfig.masjidId}`;
         return this.deduplicateRequest(key, () => myMasjidQueue.schedule(() => this._doFetch(year)));
+    }
+
+    /** @override */
+    static getConfigSchema() {
+        const { z } = require('zod');
+        return z.object({
+            type: z.literal('mymasjid'),
+            masjidId: z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/, "Invalid Masjid ID format")
+        }).passthrough();
     }
 
     /** @override */
@@ -28,6 +86,7 @@ class MyMasjidProvider extends BaseProvider {
                     label: 'Masjid ID (GUID)',
                     placeholder: 'e.g. 94f1c71b-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
                     sensitive: false,
+                    default: '',
                     constraints: {
                         required: true,
                         pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'

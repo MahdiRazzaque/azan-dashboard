@@ -1,8 +1,45 @@
 const { DateTime } = require('luxon');
+const { z } = require('zod');
 const BaseProvider = require('./BaseProvider');
 const { ProviderConnectionError, ProviderValidationError } = require('./errors');
 const { aladhanQueue } = require('@utils/requestQueue');
-const { AladhanAnnualResponseSchema } = require('@config/apiSchemas');
+
+const AladhanDaySchema = z.object({
+  timings: z.object({
+    Fajr: z.string(),
+    Sunrise: z.string(),
+    Dhuhr: z.string(),
+    Asr: z.string(),
+    Sunset: z.string(),
+    Maghrib: z.string(),
+    Isha: z.string(),
+    Imsak: z.string(),
+    Midnight: z.string(),
+  }).passthrough(),
+  date: z.object({
+    gregorian: z.object({
+      date: z.string(),
+      day: z.string(),
+      month: z.object({
+        number: z.number(),
+      }).passthrough(),
+      year: z.string(),
+    }).passthrough(),
+  }).passthrough(),
+  meta: z.object({
+    timezone: z.string(),
+  }).passthrough(),
+}).passthrough();
+
+/**
+ * Response from Aladhan /v1/calendar/:year
+ * Data is structured as { "1": [days...], "2": [days...] }
+ */
+const AladhanAnnualResponseSchema = z.object({
+  code: z.number(),
+  status: z.string(),
+  data: z.record(z.string(), z.array(AladhanDaySchema)),
+});
 const {
     CALCULATION_METHODS,
     ASR_JURISTIC_METHODS,
@@ -19,6 +56,18 @@ class AladhanProvider extends BaseProvider {
     async getAnnualTimes(year) {
         const key = `aladhan-${this.globalConfig.location.coordinates.lat}-${this.globalConfig.location.coordinates.long}-${year}`;
         return this.deduplicateRequest(key, () => aladhanQueue.schedule(() => this._doFetch(year)));
+    }
+
+    /** @override */
+    static getConfigSchema() {
+        const { z } = require('zod');
+        return z.object({
+            type: z.literal('aladhan'),
+            method: z.coerce.number().int().min(0).max(23).default(15),
+            madhab: z.coerce.number().int().min(0).max(1).default(1),
+            latitudeAdjustmentMethod: z.coerce.number().int().min(0).max(3).default(0),
+            midnightMode: z.coerce.number().int().min(0).max(1).default(0)
+        }).passthrough();
     }
 
     /** @override */
@@ -50,6 +99,7 @@ class AladhanProvider extends BaseProvider {
                     type: 'select',
                     label: 'Calculation Method',
                     description: 'The method used to calculate prayer times.',
+                    default: 15,
                     constraints: {
                         required: true,
                         options: toOptions(CALCULATION_METHODS)
@@ -60,6 +110,7 @@ class AladhanProvider extends BaseProvider {
                     type: 'select',
                     label: 'Madhab (Asr)',
                     description: 'Juristic method for Asr prayer time.',
+                    default: 1,
                     constraints: {
                         required: true,
                         options: toOptions(ASR_JURISTIC_METHODS)
@@ -70,6 +121,7 @@ class AladhanProvider extends BaseProvider {
                     type: 'select',
                     label: 'Latitude Adjustment',
                     description: 'Method for adjusting times at high latitudes.',
+                    default: 0,
                     constraints: {
                         required: true,
                         options: toOptions(LATITUDE_ADJUSTMENT_METHODS)
@@ -80,6 +132,7 @@ class AladhanProvider extends BaseProvider {
                     type: 'select',
                     label: 'Midnight Mode',
                     description: 'The method used to calculate midnight.',
+                    default: 0,
                     constraints: {
                         required: true,
                         options: toOptions(MIDNIGHT_MODES)
