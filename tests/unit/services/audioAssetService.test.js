@@ -175,12 +175,12 @@ describe('AudioAssetService', () => {
 
             expect(axios.post).toHaveBeenCalledWith(
                 expect.stringContaining('generate-tts'),
-                expect.objectContaining({ text: 'Test', filename: 'test.mp3' })
+                expect.objectContaining({ text: 'This is a test of the notification system!', filename: 'test.mp3' })
             );
             expect(fs.renameSync).toHaveBeenCalled();
             expect(fs.writeFileSync).toHaveBeenCalledWith(
                 expect.stringContaining('test.mp3.json'),
-                expect.stringContaining('"text":"Test"')
+                expect.stringContaining('"text":"This is a test of the notification system!"')
             );
         });
 
