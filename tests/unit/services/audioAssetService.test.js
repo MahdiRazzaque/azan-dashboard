@@ -180,7 +180,7 @@ describe('AudioAssetService', () => {
             expect(fs.renameSync).toHaveBeenCalled();
             expect(fs.writeFileSync).toHaveBeenCalledWith(
                 expect.stringContaining('test.mp3.json'),
-                expect.stringContaining('"text":"This is a test of the notification system!"')
+                expect.stringContaining('"hidden":true')
             );
         });
 
