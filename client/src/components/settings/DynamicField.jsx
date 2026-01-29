@@ -45,9 +45,12 @@ export default function DynamicField({ param, value, onChange }) {
                     <select
                         className={cn(commonClasses, error && errorClasses)}
                         value={value ?? ''}
-                        onChange={e => handleValueChange(e.target.value)}
+                        onChange={e => {
+                            const val = e.target.value;
+                            const option = param.constraints?.options?.find(o => String(o.id) === val);
+                            handleValueChange(option ? option.id : val);
+                        }}
                     >
-                        <option value="">Select {param.label}...</option>
                         {param.constraints?.options?.map(opt => (
                             <option key={opt.id} value={opt.id}>
                                 {opt.label}

@@ -46,7 +46,25 @@ export default function SourceConfigurator({
 
     const setSourceType = (type) => {
         if (disabledTypes.includes(type)) return;
-        onChange({ ...source, type });
+        
+        const newProvider = providers.find(p => p.id === type);
+        const newSource = { type };
+        
+        // Apply defaults from the new provider's metadata
+        if (newProvider && newProvider.parameters) {
+            newProvider.parameters.forEach(param => {
+                if (param.default !== undefined) {
+                    newSource[param.key] = param.default;
+                }
+            });
+        }
+        
+        // Preserve common fields like 'enabled' if they exist in current source
+        if (source?.enabled !== undefined) {
+            newSource.enabled = source.enabled;
+        }
+
+        onChange(newSource);
     };
 
     const handleParamChange = (key, value) => {
@@ -117,35 +135,33 @@ export default function SourceConfigurator({
                 </div>
             )}
 
-            {/* Global Calculation Settings (Shown only for providers requiring coordinates and not providing dynamic fields for them) */}
-            {activeProvider?.requiresCoordinates && (
+            {/* Global Calculation Settings (Shown if coordinates are requested by parent) */}
+            {showCoordinates && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-top-4 duration-300 bg-app-bg p-6 rounded-lg border border-app-border">
                     {/* Coordinates (Always hardcoded as they are shared/global) */}
-                    {showCoordinates && (
-                        <div className="md:col-span-2 grid grid-cols-2 gap-4 border-b border-app-border pb-6 mb-2">
-                            <div className="col-span-2 mb-1 text-sm font-semibold text-app-dim uppercase tracking-wider">Coordinates</div>
-                            <div>
-                                <label className="block text-xs text-app-dim mb-1">Latitude</label>
-                                <input 
-                                    type="number"
-                                    step="any"
-                                    className="w-full bg-app-card border border-app-border rounded p-2.5 text-app-text focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                    value={locationData?.coordinates?.lat ?? ''}
-                                    onChange={e => onLocationChange?.('lat', parseFloat(e.target.value))}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-app-dim mb-1">Longitude</label>
-                                <input 
-                                    type="number"
-                                    step="any"
-                                    className="w-full bg-app-card border border-app-border rounded p-2.5 text-app-text focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                    value={locationData?.coordinates?.long ?? ''}
-                                    onChange={e => onLocationChange?.('long', parseFloat(e.target.value))}
-                                />
-                            </div>
+                    <div className="md:col-span-2 grid grid-cols-2 gap-4 border-b border-app-border pb-6 mb-2">
+                        <div className="col-span-2 mb-1 text-sm font-semibold text-app-dim uppercase tracking-wider">Coordinates</div>
+                        <div>
+                            <label className="block text-xs text-app-dim mb-1">Latitude</label>
+                            <input 
+                                type="number"
+                                step="any"
+                                className="w-full bg-app-card border border-app-border rounded p-2.5 text-app-text focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                value={locationData?.coordinates?.lat ?? ''}
+                                onChange={e => onLocationChange?.('lat', parseFloat(e.target.value))}
+                            />
                         </div>
-                    )}
+                        <div>
+                            <label className="block text-xs text-app-dim mb-1">Longitude</label>
+                            <input 
+                                type="number"
+                                step="any"
+                                className="w-full bg-app-card border border-app-border rounded p-2.5 text-app-text focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                value={locationData?.coordinates?.long ?? ''}
+                                onChange={e => onLocationChange?.('long', parseFloat(e.target.value))}
+                            />
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

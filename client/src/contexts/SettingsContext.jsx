@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { validateTrigger } from '@/utils/validation';
+import { validateTrigger, validateSourceSettings } from '@/utils/validation';
 import { SettingsContext } from '@/hooks/useSettings';
 
 export const SettingsProvider = ({ children }) => {
@@ -186,6 +186,21 @@ export const SettingsProvider = ({ children }) => {
               Intl.DateTimeFormat(undefined, { timeZone: configToSave.location.timezone });
           } catch (e) {
               return { success: false, error: 'Validation Error: Invalid Timezone' };
+          }
+      }
+
+      // 2. Prayer Source Validation
+      if (configToSave.sources) {
+          const roles = ['primary', 'backup'];
+          for (const role of roles) {
+              const source = configToSave.sources[role];
+              if (!source || (role === 'backup' && source.enabled === false)) continue;
+
+              const providerMeta = providers.find(p => p.id === source.type);
+              const sourceError = validateSourceSettings(source, providerMeta);
+              if (sourceError) {
+                  return { success: false, error: `Validation Error (${role.toUpperCase()} Source): ${sourceError}` };
+              }
           }
       }
 

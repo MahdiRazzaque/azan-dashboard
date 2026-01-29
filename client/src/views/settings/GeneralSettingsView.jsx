@@ -45,6 +45,10 @@ export default function GeneralSettingsView() {
   const backupSource = formData.sources?.backup || null;
   const backupEnabled = !!backupSource;
 
+  const primaryMeta = providers.find(p => p.id === primarySource.type);
+  const backupMeta = backupEnabled ? providers.find(p => p.id === backupSource.type) : null;
+  const needsCoordinates = (primaryMeta?.requiresCoordinates) || (backupEnabled && backupMeta?.requiresCoordinates);
+
   const handlePrimaryChange = (newSource) => {
       handleChange('sources.primary', newSource);
       
@@ -67,7 +71,19 @@ export default function GeneralSettingsView() {
       if (enabled) {
           const alternativeProvider = providers.find(p => p.id !== primarySource.type);
           if (alternativeProvider) {
-              handleChange('sources.backup', { type: alternativeProvider.id, enabled: true });
+              const type = alternativeProvider.id;
+              const defaults = { type, enabled: true };
+              
+              // Apply defaults from metadata
+              if (alternativeProvider.parameters) {
+                  alternativeProvider.parameters.forEach(param => {
+                      if (param.default !== undefined) {
+                          defaults[param.key] = param.default;
+                      }
+                  });
+              }
+              
+              handleChange('sources.backup', defaults);
           }
       } else {
           handleChange('sources.backup', null);
@@ -98,6 +114,7 @@ export default function GeneralSettingsView() {
                 onChange={handlePrimaryChange}
                 locationData={formData.location}
                 onLocationChange={(field, val) => handleChange(`location.coordinates.${field}`, val)}
+                showCoordinates={!!primaryMeta?.requiresCoordinates}
             />
         </section>
 
@@ -135,7 +152,9 @@ export default function GeneralSettingsView() {
                         source={backupSource}
                         onChange={handleBackupChange}
                         disabledTypes={[primarySource.type]}
-                        showCoordinates={false} // Coordinates are shared from primary card
+                        locationData={formData.location}
+                        onLocationChange={(field, val) => handleChange(`location.coordinates.${field}`, val)}
+                        showCoordinates={!!backupMeta?.requiresCoordinates}
                         isBackup={true}
                         primarySourceType={primarySource.type}
                     />
