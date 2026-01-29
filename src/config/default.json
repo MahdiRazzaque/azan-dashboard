@@ -8,7 +8,7 @@
     "dhuhr":   { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null },
     "asr":     { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null },
     "maghrib": { "iqamahOffset": 10, "roundTo": 5,  "fixedTime": null },
-    "isha":    { "iqamahOffset": 15, "roundTo": 15, "fixedTime": "20:00" }
+    "isha":    { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null }
   },
   "sources": {
     "primary": { 
