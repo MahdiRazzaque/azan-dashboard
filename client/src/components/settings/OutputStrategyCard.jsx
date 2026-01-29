@@ -73,6 +73,10 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
     const enabled = config?.enabled ?? false;
     const leadTimeMs = config?.leadTimeMs ?? strategy.defaultLeadTimeMs ?? 0;
 
+    // Derive constraints from metadata with global defaults
+    const minLead = strategy.leadTimeConstraints?.min ?? -5000;
+    const maxLead = strategy.leadTimeConstraints?.max ?? 5000;
+
     const handleParamChange = (key, value) => {
         onChange('params', { ...values, [key]: value });
         setStatus('idle'); // Reset status on change
@@ -190,17 +194,17 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
                     </div>
                     <input 
                         type="range"
-                        min="-5000"
-                        max="5000"
+                        min={minLead}
+                        max={maxLead}
                         step="100"
                         value={leadTimeMs}
                         onChange={e => onChange('leadTimeMs', parseInt(e.target.value) || 0)}
                         className="w-full h-2 bg-app-bg rounded-lg appearance-none cursor-pointer accent-emerald-500 mb-2 border border-app-border"
                     />
                     <div className="flex justify-between text-[10px] text-app-dim px-1">
-                        <span>Lag (-5s)</span>
+                        <span>Lag ({minLead / 1000}s)</span>
                         <span>0s</span>
-                        <span>Lead (+5s)</span>
+                        <span>Lead (+{maxLead / 1000}s)</span>
                     </div>
                 </div>
 
