@@ -22,6 +22,7 @@ export const SettingsProvider = ({ children }) => {
   
   // Ref to hold the latest config for stable callbacks
   const configRef = useRef(config);
+  const initialLoadDone = useRef(false);
 
   const { isAuthenticated } = useAuth();
 
@@ -113,7 +114,7 @@ export const SettingsProvider = ({ children }) => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!pausedPolling) {
+    if (!pausedPolling && !initialLoadDone.current) {
       fetchSettings();
       fetchHealth();
       
@@ -121,6 +122,7 @@ export const SettingsProvider = ({ children }) => {
         fetchVoices();
         fetchProviders();
       }
+      initialLoadDone.current = true;
     }
   }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth, fetchVoices, fetchProviders]);
 
