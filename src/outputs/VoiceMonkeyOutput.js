@@ -2,6 +2,7 @@
 const OutputFactory = require('./OutputFactory');
 const axios = require('axios');
 const fs = require('fs');
+const path = require('path');
 const ConfigService = require('../config');
 const { voiceMonkeyQueue } = require('../utils/requestQueue');
 const audioValidator = require('../utils/audioValidator');
@@ -46,16 +47,25 @@ class VoiceMonkeyOutput extends BaseOutput {
 
         if (!payload.source || !payload.source.url) return;
 
-        // Verify compatibility metadata stored alongside the audio file.
-        // If the validator previously flagged this file as incompatible, we skip execution.
-        if (payload.source.filePath && fs.existsSync(payload.source.filePath + '.json')) {
-            try {
-                const meta = JSON.parse(fs.readFileSync(payload.source.filePath + '.json', 'utf8'));
-                if (meta.vmCompatible === false) {
-                    console.warn(`${prefix} Skipped: Audio incompatible with Alexa`);
-                    return; // Skip
+        // Verify compatibility metadata stored in the sidecar JSON.
+        // Sidecar files are strictly stored in src/public/audio/ to keep the main public/audio clean.
+        if (payload.source.filePath) {
+            const projectPublicRoot = path.join(__dirname, '../../public/audio');
+            const srcPublicRoot = path.join(__dirname, '../public/audio');
+            const relativePath = path.relative(projectPublicRoot, payload.source.filePath);
+            const metaPath = path.join(srcPublicRoot, relativePath + '.json');
+
+            if (fs.existsSync(metaPath)) {
+                try {
+                    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+                    if (meta.vmCompatible === false) {
+                        console.warn(`${prefix} Skipped: Audio incompatible with Alexa`);
+                        return; // Skip
+                    }
+                } catch(e) {
+                    // Silently ignore corrupted or missing metadata
                 }
-            } catch(e) {}
+            }
         }
 
         const config = ConfigService.get();

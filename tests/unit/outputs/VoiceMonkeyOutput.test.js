@@ -87,11 +87,40 @@ describe('VoiceMonkeyOutput', () => {
         });
 
         it('should fail if audio metadata is incompatible', async () => {
+             // In the updated code, we don't check alongside. 
+             // We only check src/public/audio.
              fs.existsSync.mockReturnValue(true);
              fs.readFileSync.mockReturnValue(JSON.stringify({ vmCompatible: false }));
              
              await output.execute(payload);
              expect(axios.get).not.toHaveBeenCalled();
+        });
+
+        it('should resolve metadata from src/public/audio', async () => {
+             const path = require('path');
+             // Mock paths to align with VoiceMonkeyOutput's internal __dirname (src/outputs)
+             const projectRoot = path.resolve(__dirname, '../../../');
+             const audioPath = path.join(projectRoot, 'public/audio/cache/test.mp3');
+             
+             const payloadWithPath = {
+                 source: { 
+                     filePath: audioPath, 
+                     url: '/public/audio/cache/test.mp3' 
+                 },
+                 baseUrl: 'https://test.com'
+             };
+
+             fs.existsSync.mockReturnValue(true);
+             fs.readFileSync.mockReturnValue(JSON.stringify({ vmCompatible: false }));
+
+             await output.execute(payloadWithPath);
+             
+             expect(fs.existsSync).toHaveBeenCalled();
+             expect(axios.get).not.toHaveBeenCalled();
+             
+             // Verify the call path contains src/public/audio
+             const callPath = fs.existsSync.mock.calls[0][0];
+             expect(callPath).toMatch(/[\\/]src[\\/]public[\\/]audio[\\/]cache[\\/]test\.mp3\.json/);
         });
     });
 
