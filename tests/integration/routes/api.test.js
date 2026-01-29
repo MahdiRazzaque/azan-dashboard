@@ -291,7 +291,7 @@ describe('API Routes Integration', () => {
             await request(app)
                 .post('/api/system/outputs/local/test')
                 .set('Cookie', [`auth_token=${adminToken}`])
-                .send({ filename: 'test.mp3', type: 'custom' })
+                .send({ source: { path: 'custom/test.mp3' }, filename: 'test.mp3', type: 'custom' })
                 .expect(200);
             
             expect(OutputFactory.getStrategy).toHaveBeenCalledWith('local');
@@ -383,7 +383,7 @@ describe('API Routes Integration', () => {
                 ...mockConfig, 
                 sources: { 
                     ...mockConfig.sources, 
-                    primary: { type: 'aladhan', method: 2, madhab: 1 } 
+                    primary: { type: 'aladhan', method: 1, madhab: 1 } 
                 },
                 automation: {
                     ...mockConfig.automation,
@@ -405,7 +405,7 @@ describe('API Routes Integration', () => {
             
             // Check update call
             expect(mockConfigService.update).toHaveBeenCalledWith(expect.objectContaining({
-                sources: expect.objectContaining({ primary: { type: 'aladhan', method: 2, madhab: 1 } })
+                sources: expect.objectContaining({ primary: { type: 'aladhan', method: 1, madhab: 1 } })
             }));
             
             // Check reload/refresh calls
@@ -418,10 +418,18 @@ describe('API Routes Integration', () => {
                 getAnnualTimes: jest.fn().mockRejectedValue(new Error('Validation Failed: API Down'))
             });
 
+            const newConfig = {
+                ...mockConfig,
+                sources: {
+                    ...mockConfig.sources,
+                    primary: { ...mockConfig.sources.primary, method: 3 }
+                }
+            };
+
             const res = await request(app)
                 .post('/api/settings/update')
                 .set('Cookie', [`auth_token=${adminToken}`])
-                .send(mockConfig)
+                .send(newConfig)
                 .expect(400); 
             
             expect(res.body.error).toMatch(/Validation Failed/);
