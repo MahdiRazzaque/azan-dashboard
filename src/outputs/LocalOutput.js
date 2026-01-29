@@ -5,6 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const OutputFactory = require('./OutputFactory');
 
+const AUDIO_ROOT = path.resolve(__dirname, '../../public/audio');
+
 class LocalOutput extends BaseOutput {
     /**
      * Retrieves the metadata for the local audio output strategy.
@@ -54,7 +56,7 @@ class LocalOutput extends BaseOutput {
         if (!filePath) {
             if (payload.source.path) {
                 // Construct the absolute path based on the relative path provided in the source.
-                filePath = path.join(__dirname, '../../public/audio', payload.source.path);
+                filePath = path.resolve(__dirname, '../../public/audio', payload.source.path);
             } else if (payload.type && payload.filename) {
                 // Fallback to constructing the path from type and filename if an explicit path is missing.
                 filePath = path.join(__dirname, `../../public/audio/${payload.type}/${payload.filename}`);
@@ -65,6 +67,14 @@ class LocalOutput extends BaseOutput {
             console.warn(`${prefix} Playback skipped: No filePath provided and could not resolve from metadata`);
             return;
         }
+
+        // Security: Path traversal protection
+        const normalizedPath = path.resolve(filePath);
+        if (!normalizedPath.startsWith(AUDIO_ROOT)) {
+            console.error(`${prefix} SECURITY WARNING: Path traversal attempt blocked: ${payload.source?.path || filePath}`);
+            throw new Error('Invalid audio path: Access denied');
+        }
+        filePath = normalizedPath;
 
         console.log(`${prefix} Starting playback: ${path.basename(filePath)}`);
 
