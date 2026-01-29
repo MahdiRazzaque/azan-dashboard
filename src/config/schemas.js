@@ -49,7 +49,7 @@ const automationSchema = z.object({
   outputs: z.record(z.string(), z.object({
     enabled: z.boolean().default(false),
     verified: z.boolean().default(false),
-    leadTimeMs: z.number().min(-300000).max(300000).default(0),
+    leadTimeMs: z.number().min(-30000).max(30000).default(0),
     params: z.record(z.string(), z.any()).default({})
   })).default({}),
   triggers: z.object({

@@ -154,15 +154,14 @@ class ConfigService {
                 // OutputFactory.getStrategy throws if not found.
                 // We use try/catch inside loop.
                 const strategy = OutputFactory.getStrategy(id);
-                const metadata = strategy.constructor.getMetadata();
                 
                 if (typeof outputConfig.leadTimeMs === 'number') {
-                    // Default constraints if not provided by strategy metadata
-                    const { min = -5000, max = 5000 } = metadata.leadTimeConstraints || {};
+                    const min = -30000;
+                    const max = 30000;
                     
                     if (outputConfig.leadTimeMs < min || outputConfig.leadTimeMs > max) {
                         const clamped = Math.max(min, Math.min(outputConfig.leadTimeMs, max));
-                        console.warn(`[Config] Warning: leadTimeMs for '${id}' (${outputConfig.leadTimeMs}ms) violates constraints [${min}-${max}ms]. Clamped to ${clamped}ms.`);
+                        console.warn(`[Config] Warning: leadTimeMs for '${id}' (${outputConfig.leadTimeMs}ms) exceeds allowed range [${min}-${max}ms]. Clamped to ${clamped}ms.`);
                         outputConfig.leadTimeMs = clamped;
                     }
                 }

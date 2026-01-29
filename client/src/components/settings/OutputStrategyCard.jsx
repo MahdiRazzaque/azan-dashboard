@@ -73,9 +73,9 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
     const enabled = config?.enabled ?? false;
     const leadTimeMs = config?.leadTimeMs ?? strategy.defaultLeadTimeMs ?? 0;
 
-    // Derive constraints from metadata with global defaults
-    const minLead = strategy.leadTimeConstraints?.min ?? -5000;
-    const maxLead = strategy.leadTimeConstraints?.max ?? 5000;
+    // Global constraints for all strategies
+    const minLead = -30000;
+    const maxLead = 30000;
 
     const handleParamChange = (key, value) => {
         onChange('params', { ...values, [key]: value });

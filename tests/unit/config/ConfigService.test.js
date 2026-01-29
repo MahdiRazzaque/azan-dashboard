@@ -252,7 +252,7 @@ describe('ConfigService', () => {
                 outputs: {
                     voicemonkey: {
                         enabled: true,
-                        leadTimeMs: 10000 // Exceeds max (5000)
+                        leadTimeMs: 40000 // Exceeds max (30000)
                     }
                 }
             }
@@ -261,16 +261,16 @@ describe('ConfigService', () => {
         await configService.reload();
         
         const config = configService.get();
-        expect(config.automation.outputs.voicemonkey.leadTimeMs).toBe(5000);
+        expect(config.automation.outputs.voicemonkey.leadTimeMs).toBe(30000);
     });
 
-    it('should clamp leadTimeMs to default minimum of -5000', async () => {
+    it('should clamp leadTimeMs to default minimum of -30000', async () => {
         const invalidConfig = {
             automation: {
                 outputs: {
                     local: {
                         enabled: true,
-                        leadTimeMs: -10000 // Below min (-5000)
+                        leadTimeMs: -40000 // Below min (-30000)
                     }
                 }
             }
@@ -279,6 +279,6 @@ describe('ConfigService', () => {
         await configService.reload();
         
         const config = configService.get();
-        expect(config.automation.outputs.local.leadTimeMs).toBe(-5000);
+        expect(config.automation.outputs.local.leadTimeMs).toBe(-30000);
     });
 });
