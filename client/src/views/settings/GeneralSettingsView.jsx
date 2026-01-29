@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useSettings } from '@/hooks/useSettings';
-import { useConstants } from '@/hooks/useConstants';
 import { Globe, MapPin, CheckCircle, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -29,11 +28,9 @@ export default function GeneralSettingsView() {
     isSectionDirty
   } = useSettings();
   
-  const { constants, loading: loadingConstants } = useConstants();
-
   const { providers } = useProviders();
 
-  if (loading || loadingConstants || !draftConfig) return <div className="p-8 text-center text-app-dim">Loading settings...</div>;
+  if (loading || !draftConfig) return <div className="p-8 text-center text-app-dim">Loading settings...</div>;
 
   const formData = draftConfig;
 

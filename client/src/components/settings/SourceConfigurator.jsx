@@ -1,7 +1,6 @@
 import { Globe, MapPin, CheckCircle, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { useConstants } from '@/hooks/useConstants';
 import { useProviders } from '@/hooks/useProviders';
 import DynamicField from './DynamicField';
 
@@ -38,7 +37,6 @@ export default function SourceConfigurator({
     isBackup = false,
     primarySourceType = ''
 }) {
-    const { constants, loading: loadingConstants } = useConstants();
     const { providers, loading: loadingProviders } = useProviders();
 
     const activeProviderId = source?.type || 'aladhan';
@@ -71,15 +69,7 @@ export default function SourceConfigurator({
         onChange({ ...source, [key]: value });
     };
 
-    const renderOptions = (items) => {
-        return items?.map(item => (
-            <option key={item.id} value={item.id}>
-                {item.label}
-            </option>
-        ));
-    };
-
-    if (loadingConstants || loadingProviders) {
+    if (loadingProviders) {
         return (
             <div className="p-8 flex items-center justify-center gap-2 text-app-dim">
                 <Loader2 className="animate-spin w-5 h-5" />
@@ -93,6 +83,32 @@ export default function SourceConfigurator({
         ? providers.filter(p => p.id !== primarySourceType)
         : providers;
 
+    const getBrandingClasses = (provider, isActive) => {
+        if (!isActive) return "border-app-border bg-app-card text-app-dim hover:bg-app-card-hover text-app-text";
+        
+        const color = provider.branding?.accentColor || 'emerald';
+        const colorMap = {
+            blue: "border-blue-500 bg-blue-500/10 text-blue-400",
+            emerald: "border-emerald-500 bg-emerald-500/10 text-emerald-400",
+            indigo: "border-indigo-500 bg-indigo-500/10 text-indigo-400",
+            rose: "border-rose-500 bg-rose-500/10 text-rose-400",
+            amber: "border-amber-500 bg-amber-500/10 text-amber-400"
+        };
+        return colorMap[color] || colorMap.emerald;
+    };
+
+    const getIconColorClass = (provider) => {
+        const color = provider.branding?.accentColor || 'emerald';
+        const colorMap = {
+            blue: "text-blue-500",
+            emerald: "text-emerald-500",
+            indigo: "text-indigo-500",
+            rose: "text-rose-500",
+            amber: "text-amber-500"
+        };
+        return colorMap[color] || colorMap.emerald;
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row gap-4">
@@ -104,9 +120,7 @@ export default function SourceConfigurator({
                         disabled={disabledTypes.includes(provider.id)}
                         className={cn(
                             "flex-1 py-4 px-6 rounded-xl border-2 transition-all font-bold text-lg flex items-center justify-center gap-2 relative overflow-hidden",
-                            activeProviderId === provider.id
-                                ? (provider.id === 'aladhan' ? "border-blue-500 bg-blue-500/10 text-blue-400" : "border-emerald-500 bg-emerald-500/10 text-emerald-400")
-                                : "border-app-border bg-app-card text-app-dim hover:bg-app-card-hover text-app-text",
+                            getBrandingClasses(provider, activeProviderId === provider.id),
                             disabledTypes.includes(provider.id) && "opacity-50 cursor-not-allowed grayscale"
                         )}
                     >
@@ -114,7 +128,7 @@ export default function SourceConfigurator({
                         {activeProviderId === provider.id && (
                             <CheckCircle className={cn(
                                 "absolute top-2 right-2 w-5 h-5 opacity-50",
-                                provider.id === 'aladhan' ? "text-blue-500" : "text-emerald-500"
+                                getIconColorClass(provider)
                             )} />
                         )}
                     </button>
