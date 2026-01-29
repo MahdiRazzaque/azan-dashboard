@@ -91,14 +91,6 @@ const settingsController = {
             // Identify services in use to perform targeted health checks
             const usedServices = new Set();
             
-            // Only refresh prayer source health if they changed and will be refreshed
-            if (requiresRefresh) {
-                usedServices.add('primarySource');
-                if (newConfig.sources?.backup?.enabled !== false) {
-                    usedServices.add('backupSource');
-                }
-            }
-
             if (newConfig.automation?.triggers) {
                 Object.values(newConfig.automation.triggers).forEach(prayerTriggers => {
                     Object.values(prayerTriggers).forEach(trigger => {
@@ -136,6 +128,14 @@ const settingsController = {
 
             sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Saving to Disk...' } });
             await configService.update(newConfig);
+
+            // Refresh prayer source health after save so healthCheck reads the NEW config
+            if (requiresRefresh) {
+                await healthCheck.refresh('primarySource');
+                if (newConfig.sources?.backup && newConfig.sources.backup.enabled !== false) {
+                    await healthCheck.refresh('backupSource');
+                }
+            }
             
             // Refresh cache ONLY if source or location has changed
             let result = { meta: { skip: true } };
