@@ -74,7 +74,7 @@ describe('SystemController', () => {
              expect(res.json).toHaveBeenCalledWith({ success: true });
         });
         
-        it('should test output execution', async () => {
+        it('should return 400 if source is missing in testOutput', async () => {
              req.params.strategyId = 'test';
              req.body = { foo: 'bar' };
              const mockStrategy = { execute: jest.fn().mockResolvedValue() };
@@ -82,13 +82,22 @@ describe('SystemController', () => {
              
              await systemController.testOutput(req, res);
              
+             expect(res.status).toHaveBeenCalledWith(400);
+             expect(res.json).toHaveBeenCalledWith({ error: 'Audio source path is required for testing' });
+        });
+        
+        it('should use provided source in testOutput', async () => {
+             req.params.strategyId = 'test';
+             req.body = { source: { path: 'custom/test.mp3' }, foo: 'bar' };
+             const mockStrategy = { execute: jest.fn().mockResolvedValue() };
+             OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+             
+             await systemController.testOutput(req, res);
+             
              expect(mockStrategy.execute).toHaveBeenCalledWith(
                  expect.objectContaining({
-                     params: { foo: 'bar' },
-                     source: expect.objectContaining({
-                         url: expect.stringContaining('test.mp3'),
-                         filePath: expect.stringContaining('test.mp3')
-                     })
+                     params: req.body,
+                     source: { path: 'custom/test.mp3' }
                  }),
                  { isTest: true }
              );
@@ -213,6 +222,27 @@ describe('SystemController', () => {
             expect(res.json).toHaveBeenCalledWith(expect.arrayContaining([
                 expect.objectContaining({ name: 'test.mp3', type: 'custom' }),
                 expect.objectContaining({ name: 'test.mp3', type: 'cache' })
+            ]));
+        });
+
+        it('should filter out hidden files', async () => {
+            fs.existsSync.mockReturnValue(true);
+            fs.readdirSync.mockImplementation((dir) => {
+                if (dir.includes('custom')) return ['visible.mp3', 'hidden.mp3'];
+                return [];
+            });
+            fs.readFileSync.mockImplementation((p) => {
+                if (p.includes('hidden.mp3')) return JSON.stringify({ hidden: true });
+                return JSON.stringify({ hidden: false });
+            });
+            
+            await systemController.getAudioFiles(req, res);
+            
+            expect(res.json).toHaveBeenCalledWith([
+                expect.objectContaining({ name: 'visible.mp3' })
+            ]);
+            expect(res.json).not.toHaveBeenCalledWith(expect.arrayContaining([
+                expect.objectContaining({ name: 'hidden.mp3' })
             ]));
         });
     });
