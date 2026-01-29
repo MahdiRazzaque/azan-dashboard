@@ -3,6 +3,7 @@ const path = require('path');
 const { ProviderFactory, ProviderConnectionError, ProviderValidationError } = require('@providers');
 const { DateTime } = require('luxon');
 const { calculateIqamah, calculateNextPrayer } = require('@utils/calculations');
+const asyncLock = require('@utils/asyncLock');
 
 const CACHE_FILE = path.join(process.cwd(), 'data', 'cache.json');
 
@@ -102,104 +103,110 @@ async function getPrayerTimes(config, date = DateTime.now()) {
   const dateKey = date.toISODate();
   const year = date.year;
 
-  // 1. Read Cache
-  let cache = readCache();
-  
-  // Check hit
-  if (cache.data && cache.data[dateKey]) {
-    // console.log(`Cache HIT for ${dateKey}`);
+  // Use a lock key based on the primary source type and year to deduplicate
+  // identical fetch requests while they are in flight.
+  const lockKey = `fetch-${config.sources.primary.type}-${year}`;
+
+  return asyncLock.run(lockKey, async () => {
+    // 1. Read Cache
+    let cache = readCache();
+    
+    // Check hit
+    if (cache.data && cache.data[dateKey]) {
+      // console.log(`Cache HIT for ${dateKey}`);
+      return {
+        meta: {
+          date: dateKey,
+          source: cache.meta.source,
+          lastFetched: cache.meta.lastFetched,
+          cached: true
+        },
+        prayers: applyOverrides(cache.data[dateKey], config)
+      };
+    }
+
+    console.log(`Cache MISS for ${dateKey}, triggering bulk fetch.`);
+
+    // 2. Fetch
+    let newDataMap = null;
+    let sourceUsed = null;
+
+    /**
+     * Internal helper to attempt a fetch from a specific source.
+     * @param {Object} sourceConfig The configuration for the source.
+     * @returns {Promise<Object|null>} A promise resolving to the fetched data map or null.
+     */
+    const tryFetch = async (sourceConfig) => {
+      if (!sourceConfig || !sourceConfig.type) return null;
+      console.log(`[PrayerService] Attempting fetch from source: ${sourceConfig.type}`);
+      
+      const provider = ProviderFactory.create(sourceConfig, config);
+      return await provider.getAnnualTimes(year);
+    };
+
+    try {
+      const primary = config.sources.primary;
+      newDataMap = await tryFetch(primary);
+      
+      if (!newDataMap || Object.keys(newDataMap).length === 0) {
+        throw new Error(`Primary source (${primary.type}) returned empty data.`);
+      }
+
+      sourceUsed = primary.type;
+    } catch (error) {
+      console.error(`Primary source (${config.sources.primary.type}) failed: ${error.message}`);
+      
+      if (error instanceof ProviderValidationError) {
+        throw error;
+      }
+
+      if (config.sources.backup) {
+        console.log(`[PrayerService] Attempting failover to backup source.`);
+        try {
+          const backup = config.sources.backup;
+          newDataMap = await tryFetch(backup);
+          if (newDataMap && Object.keys(newDataMap).length > 0) {
+              sourceUsed = backup.type;
+          }
+        } catch (backupError) {
+          console.error(`Backup source (${config.sources.backup.type}) failed: ${backupError.message}`);
+        }
+      }
+      
+      if (!newDataMap || Object.keys(newDataMap).length === 0) {
+          throw error;
+      }
+    }
+
+    const updatedCache = {
+      meta: {
+        lastFetched: DateTime.now().toISO(),
+        source: sourceUsed
+      },
+      data: {
+        ...(cache.data || {}),
+        ...newDataMap
+      }
+    };
+
+    writeCache(updatedCache);
+
+    const resultForDate = updatedCache.data[dateKey];
+    
+    if (!resultForDate) {
+      throw new Error(`Data for ${dateKey} not found in bulk response.`);
+    }
+
     return {
       meta: {
         date: dateKey,
-        source: cache.meta.source,
-        lastFetched: cache.meta.lastFetched,
-        cached: true
+        source: sourceUsed,
+        lastFetched: updatedCache.meta.lastFetched,
+        cached: false
       },
-      prayers: applyOverrides(cache.data[dateKey], config)
+      prayers: applyOverrides(resultForDate, config)
     };
-  }
-
-  console.log(`Cache MISS for ${dateKey}, triggering bulk fetch.`);
-
-  // 2. Fetch
-  let newDataMap = null;
-  let sourceUsed = null;
-
-  /**
-   * Internal helper to attempt a fetch from a specific source.
-   * @param {Object} sourceConfig The configuration for the source.
-   * @returns {Promise<Object|null>} A promise resolving to the fetched data map or null.
-   */
-  const tryFetch = async (sourceConfig) => {
-    if (!sourceConfig || !sourceConfig.type) return null;
-    console.log(`[PrayerService] Attempting fetch from source: ${sourceConfig.type}`);
-    
-    const provider = ProviderFactory.create(sourceConfig, config);
-    return await provider.getAnnualTimes(year);
-  };
-
-  try {
-    const primary = config.sources.primary;
-    newDataMap = await tryFetch(primary);
-    
-    if (!newDataMap || Object.keys(newDataMap).length === 0) {
-      throw new Error(`Primary source (${primary.type}) returned empty data.`);
-    }
-
-    sourceUsed = primary.type;
-  } catch (error) {
-    console.error(`Primary source (${config.sources.primary.type}) failed: ${error.message}`);
-    
-    if (error instanceof ProviderValidationError) {
-      throw error;
-    }
-
-    if (config.sources.backup) {
-      console.log(`[PrayerService] Attempting failover to backup source.`);
-      try {
-        const backup = config.sources.backup;
-        newDataMap = await tryFetch(backup);
-        if (newDataMap && Object.keys(newDataMap).length > 0) {
-            sourceUsed = backup.type;
-        }
-      } catch (backupError) {
-        console.error(`Backup source (${config.sources.backup.type}) failed: ${backupError.message}`);
-      }
-    }
-    
-    if (!newDataMap || Object.keys(newDataMap).length === 0) {
-        throw error;
-    }
-  }
-
-  const updatedCache = {
-    meta: {
-      lastFetched: DateTime.now().toISO(),
-      source: sourceUsed
-    },
-    data: {
-      ...(cache.data || {}),
-      ...newDataMap
-    }
-  };
-
-  writeCache(updatedCache);
-
-  const resultForDate = updatedCache.data[dateKey];
-  
-  if (!resultForDate) {
-    throw new Error(`Data for ${dateKey} not found in bulk response.`);
-  }
-
-  return {
-    meta: {
-      date: dateKey,
-      source: sourceUsed,
-      lastFetched: updatedCache.meta.lastFetched,
-      cached: false
-    },
-    prayers: applyOverrides(resultForDate, config)
-  };
+  });
 }
 
 /**
