@@ -4,6 +4,9 @@
  * return the same promise while the operation is in flight.
  */
 class AsyncLock {
+    /**
+     * Initialises a new instance of the AsyncLock class.
+     */
     constructor() {
         this.pending = new Map();
     }
@@ -13,7 +16,7 @@ class AsyncLock {
      * 
      * @param {string} key - Unique identifier for the operation.
      * @param {Function} fn - The async function to execute.
-     * @returns {Promise<any>}
+     * @returns {Promise<any>} A promise that resolves to the result of the async function.
      */
     async run(key, fn) {
         if (this.pending.has(key)) {

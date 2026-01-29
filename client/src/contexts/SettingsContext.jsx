@@ -268,7 +268,7 @@ export const SettingsProvider = ({ children }) => {
     } finally {
       setSaving(false);
     }
-  }, [draftConfig]);
+  }, [draftConfig, providers]);
 
   const bulkUpdateOffsets = useCallback((eventType, minutes) => {
     const raw = parseInt(minutes);
