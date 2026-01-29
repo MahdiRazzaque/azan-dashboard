@@ -21,7 +21,6 @@ class VoiceMonkeyOutput extends BaseOutput {
             label: 'VoiceMonkey (Alexa)',
             timeoutMs: 10000,
             defaultLeadTimeMs: 2000,
-            leadTimeConstraints: { min: 0, max: 5000 },
             hidden: false,
             compatibilityKey: 'vmCompatible',
             params: [

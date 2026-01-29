@@ -263,4 +263,22 @@ describe('ConfigService', () => {
         const config = configService.get();
         expect(config.automation.outputs.voicemonkey.leadTimeMs).toBe(5000);
     });
+
+    it('should clamp leadTimeMs to default minimum of -5000', async () => {
+        const invalidConfig = {
+            automation: {
+                outputs: {
+                    local: {
+                        enabled: true,
+                        leadTimeMs: -10000 // Below min (-5000)
+                    }
+                }
+            }
+        };
+        await fs.writeFile(configService._localPath, JSON.stringify(invalidConfig));
+        await configService.reload();
+        
+        const config = configService.get();
+        expect(config.automation.outputs.local.leadTimeMs).toBe(-5000);
+    });
 });

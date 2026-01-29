@@ -156,8 +156,10 @@ class ConfigService {
                 const strategy = OutputFactory.getStrategy(id);
                 const metadata = strategy.constructor.getMetadata();
                 
-                if (metadata.leadTimeConstraints && typeof outputConfig.leadTimeMs === 'number') {
-                    const { min, max } = metadata.leadTimeConstraints;
+                if (typeof outputConfig.leadTimeMs === 'number') {
+                    // Default constraints if not provided by strategy metadata
+                    const { min = -5000, max = 5000 } = metadata.leadTimeConstraints || {};
+                    
                     if (outputConfig.leadTimeMs < min || outputConfig.leadTimeMs > max) {
                         const clamped = Math.max(min, Math.min(outputConfig.leadTimeMs, max));
                         console.warn(`[Config] Warning: leadTimeMs for '${id}' (${outputConfig.leadTimeMs}ms) violates constraints [${min}-${max}ms]. Clamped to ${clamped}ms.`);
