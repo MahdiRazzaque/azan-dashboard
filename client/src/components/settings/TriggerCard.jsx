@@ -248,11 +248,25 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                                 value={trigger.path || ""} 
                                 placeholder="Select Audio File..."
                                 onChange={val => update('path', val)}
-                                options={files.map(f => ({
-                                    value: f.path,
-                                    label: f.name,
-                                    sublabel: f.type
-                                }))}
+                                options={(() => {
+                                    const fileOptions = files.map(f => ({
+                                        value: f.path,
+                                        label: f.name,
+                                        sublabel: f.type
+                                    }));
+                                    
+                                    // Inject a "Missing" option if the selected file no longer exists
+                                    if (trigger.path && !files.some(f => f.path === trigger.path)) {
+                                        const filename = trigger.path.split('/').pop();
+                                        fileOptions.unshift({
+                                            value: trigger.path,
+                                            label: `Missing: ${filename}`,
+                                            sublabel: 'File not found',
+                                            missing: true
+                                        });
+                                    }
+                                    return fileOptions;
+                                })()}
                                 className={cn(error ? "border-red-500" : "")}
                             />
                         )}

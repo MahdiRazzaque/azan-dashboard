@@ -63,7 +63,9 @@ const SearchableSelect = ({ value, options = [], onChange, placeholder = "Select
         <div className="flex flex-col truncate mr-2">
           {selectedOption ? (
             <>
-              <span className="text-app-text font-medium truncate">{selectedOption.label}</span>
+              <span className={cn("font-medium truncate", selectedOption.missing ? "text-red-400" : "text-app-text")}>
+                {selectedOption.label}
+              </span>
               {selectedOption.sublabel && <span className="text-xs text-app-dim truncate">{selectedOption.sublabel}</span>}
             </>
           ) : (
@@ -105,7 +107,7 @@ const SearchableSelect = ({ value, options = [], onChange, placeholder = "Select
                   )}
                 >
                   <div className="flex flex-col truncate mr-2">
-                    <span className="font-medium truncate">{opt.label}</span>
+                    <span className={cn("font-medium truncate", opt.missing ? "text-red-400" : "")}>{opt.label}</span>
                     {opt.sublabel && <span className="text-xs text-app-dim truncate">{opt.sublabel}</span>}
                   </div>
                   {opt.value === value && <Check className="w-4 h-4 flex-shrink-0" />}

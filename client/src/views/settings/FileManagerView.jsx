@@ -247,7 +247,7 @@ export default function FileManagerView() {
                                 </button>
 
                                 {/* Delete (Custom only) */}
-                                {type === 'custom' && (
+                                {type === 'custom' && !file.metadata?.protected && (
                                     <button 
                                         onClick={() => handleDelete(file.name)}
                                         className="p-1.5 hover:bg-red-900/20 rounded text-app-dim hover:text-red-400"
