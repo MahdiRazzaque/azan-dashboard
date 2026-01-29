@@ -17,7 +17,6 @@ export default function FileManagerView() {
     const [error, setError] = useState(null);
     const [playingFile, setPlayingFile] = useState(null);
     const [serverPlaying, setServerPlaying] = useState(null);
-    const [strategies, setStrategies] = useState([]);
     
     // Phase 5: Audio Testing & Consent
     const [testModalFile, setTestModalFile] = useState(null);
