@@ -56,6 +56,11 @@ async function validateConfigSource(newConfig) {
             const provider = ProviderFactory.create(source, newConfig);
             await provider.getAnnualTimes(now.year);
         } catch (e) {
+            if (e.name === 'ProviderValidationError') {
+                // Preserving userFriendly flag while adding role context if not already present
+                const { ProviderValidationError } = require('@providers/errors');
+                throw new ProviderValidationError(e.message, e.validationDetails, e.userFriendly);
+            }
             // Rethrow with role context
             throw new Error(`${role.toUpperCase()} Source (${metadata.label}) Connection Failed: ${e.message}`);
         }

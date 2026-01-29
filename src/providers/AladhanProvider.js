@@ -93,6 +93,13 @@ class AladhanProvider extends BaseProvider {
             label: 'Aladhan.com',
             description: 'Global prayer times from Aladhan.com API',
             requiresCoordinates: true,
+            capabilities: {
+                providesIqamah: false
+            },
+            branding: {
+                accentColor: 'blue',
+                icon: 'Globe'
+            },
             parameters: [
                 {
                     key: 'method',

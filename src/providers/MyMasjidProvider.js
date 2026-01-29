@@ -79,6 +79,13 @@ class MyMasjidProvider extends BaseProvider {
             label: 'MyMasjid',
             description: 'Prayer times from MyMasjid.ca / MasjidBox',
             requiresCoordinates: false,
+            capabilities: {
+                providesIqamah: true
+            },
+            branding: {
+                accentColor: 'emerald',
+                icon: 'Database'
+            },
             parameters: [
                 {
                     key: 'masjidId',
@@ -128,9 +135,9 @@ class MyMasjidProvider extends BaseProvider {
             if (response.status >= 500) {
                 throw new ProviderConnectionError(message, response.status, 'MyMasjid');
             } else if (response.status === 400) {
-                throw new ProviderValidationError('Invalid Masjid ID: The ID provided is incorrect.', { statusCode: 400 });
+                throw new ProviderValidationError('Invalid Masjid ID: The ID provided is incorrect.', { statusCode: 400 }, true);
             } else if (response.status === 404) {
-                throw new ProviderValidationError('Masjid ID not found.', { statusCode: 404 });
+                throw new ProviderValidationError('Masjid ID not found.', { statusCode: 404 }, true);
             } else {
                 throw new ProviderValidationError(message, { statusCode: response.status });
             }
