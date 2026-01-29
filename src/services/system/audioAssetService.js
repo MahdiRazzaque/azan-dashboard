@@ -291,8 +291,8 @@ const ensureTestAudio = async () => {
     console.log('[AudioService] Generating "test.mp3" for output testing...');
     const config = configService.get();
     const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
-    const voice = config.automation?.defaultVoice || 'ar-SA-HamedNeural';
-    const text = 'Test';
+    const voice = 'en-GB-RyanNeural';
+    const text = 'This is a test of the notification system!';
     const filename = 'test.mp3';
 
     try {

@@ -91,19 +91,9 @@ const configSchema = z.object({
     isha: prayerSettingSchema,
   }),
   sources: z.object({
-    primary: z.discriminatedUnion('type', [
-      z.object({
-        type: z.literal('aladhan'),
-        method: z.number().default(15),
-        madhab: z.number().default(1),
-        latitudeAdjustmentMethod: z.number().default(0),
-        midnightMode: z.number().default(0)
-      }).passthrough(),
-      z.object({
-        type: z.literal('mymasjid'),
-        masjidId: z.string()
-      }).passthrough()
-    ]),
+    primary: z.object({
+      type: z.string()
+    }).passthrough(),
     backup: z.object({ 
       type: z.string(), 
       enabled: z.boolean().optional()

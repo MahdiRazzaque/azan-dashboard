@@ -25,6 +25,24 @@ class ProviderFactory {
     }
 
     /**
+     * Retrieves the provider class for a given type.
+     * 
+     * @param {string} type - The provider type (e.g., 'aladhan').
+     * @returns {typeof BaseProvider} The provider class.
+     * @throws {Error} If the provider type is unknown.
+     */
+    static getProviderClass(type) {
+        switch (type) {
+            case 'aladhan':
+                return AladhanProvider;
+            case 'mymasjid':
+                return MyMasjidProvider;
+            default:
+                throw new Error(`Unknown provider type: ${type}`);
+        }
+    }
+
+    /**
      * Retrieves the list of all registered prayer providers and their metadata.
      * 
      * @returns {Array<Object>} An array of provider metadata objects.

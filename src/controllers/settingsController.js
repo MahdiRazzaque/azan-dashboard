@@ -109,7 +109,7 @@ const settingsController = {
             try {
                 await validateConfigSource(newConfig);
             } catch (e) {
-                if (e.message.startsWith('Invalid Masjid ID') || e.message === 'Masjid ID not found.') {
+                if (e.name === 'ProviderValidationError' && e.userFriendly) {
                     return res.status(400).json({ error: e.message });
                 }
                 return res.status(400).json({ error: `Validation Failed: ${e.message}` });

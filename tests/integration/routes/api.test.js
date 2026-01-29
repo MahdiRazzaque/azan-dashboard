@@ -91,15 +91,44 @@ const sseService = require('@services/system/sseService');
 jest.mock('@services/system/audioAssetService', () => mockMockFactory.createMockAudioAssetService());
 const audioAssetService = require('@services/system/audioAssetService');
 
-jest.mock('@providers', () => ({
-    ProviderFactory: {
-        create: jest.fn(() => ({
-            getAnnualTimes: jest.fn().mockResolvedValue({ '2024-01-01': {} })
-        }))
-    },
-    ProviderConnectionError: jest.requireActual('@providers').ProviderConnectionError,
-    ProviderValidationError: jest.requireActual('@providers').ProviderValidationError
-}));
+jest.mock('@providers', () => {
+    const mockAladhanClass = {
+        getMetadata: jest.fn().mockReturnValue({ id: 'aladhan', label: 'Aladhan', requiresCoordinates: true }),
+        getConfigSchema: jest.fn().mockReturnValue({ 
+            parse: jest.fn().mockImplementation(data => {
+                if (data.type === 'aladhan' && (data.method === undefined || data.madhab === undefined)) {
+                    throw new Error('Validation failed');
+                }
+                return data;
+            })
+        })
+    };
+    const mockMyMasjidClass = {
+        getMetadata: jest.fn().mockReturnValue({ id: 'mymasjid', label: 'MyMasjid', requiresCoordinates: false }),
+        getConfigSchema: jest.fn().mockReturnValue({ 
+            parse: jest.fn().mockImplementation(data => {
+                if (data.type === 'mymasjid' && !data.masjidId) {
+                    throw new Error('Validation failed');
+                }
+                return data;
+            })
+        })
+    };
+    return {
+        ProviderFactory: {
+            create: jest.fn(() => ({
+                getAnnualTimes: jest.fn().mockResolvedValue({ '2024-01-01': {} })
+            })),
+            getProviderClass: jest.fn((type) => {
+                if (type === 'aladhan') return mockAladhanClass;
+                if (type === 'mymasjid') return mockMyMasjidClass;
+                return null;
+            })
+        },
+        ProviderConnectionError: jest.requireActual('@providers').ProviderConnectionError,
+        ProviderValidationError: jest.requireActual('@providers').ProviderValidationError
+    };
+});
 const { ProviderFactory } = require('@providers');
 
 let integrationHealth = {
@@ -354,7 +383,7 @@ describe('API Routes Integration', () => {
                 ...mockConfig, 
                 sources: { 
                     ...mockConfig.sources, 
-                    primary: { type: 'aladhan', method: 'MWL' } 
+                    primary: { type: 'aladhan', method: 2, madhab: 1 } 
                 },
                 automation: {
                     ...mockConfig.automation,
@@ -376,7 +405,7 @@ describe('API Routes Integration', () => {
             
             // Check update call
             expect(mockConfigService.update).toHaveBeenCalledWith(expect.objectContaining({
-                sources: expect.objectContaining({ primary: { type: 'aladhan', method: 'MWL' } })
+                sources: expect.objectContaining({ primary: { type: 'aladhan', method: 2, madhab: 1 } })
             }));
             
             // Check reload/refresh calls
@@ -673,7 +702,7 @@ describe('API Routes Integration', () => {
              const audioAssetService = require('@services/system/audioAssetService');
              audioAssetService.syncAudioAssets.mockRejectedValueOnce(new Error('Sync Fail'));
              
-             const newConfig = { ...mockConfig, sources: { ...mockConfig.sources, primary: { type: 'aladhan', method: 'MWL' } } };
+             const newConfig = { ...mockConfig, sources: { ...mockConfig.sources, primary: { type: 'aladhan', method: 2, madhab: 1 } } };
             
              const res = await request(app)
                 .post('/api/settings/update')
@@ -713,7 +742,7 @@ describe('API Routes Integration', () => {
              const newConfig = { 
                  ...mockConfig, 
                  sources: { 
-                     primary: { type: 'mymasjid', masjidId: 'test-id' } 
+                     primary: { type: 'mymasjid', masjidId: '94f1c71b-7f8a-4b9a-9e1d-3b5f6a7b8c9d' } 
                  },
                  automation: {
                      ...mockConfig.automation,

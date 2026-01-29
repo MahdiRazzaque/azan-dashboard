@@ -26,11 +26,13 @@ class ProviderValidationError extends Error {
      * Initialises a new ProviderValidationError instance.
      * @param {string} message - Error message.
      * @param {Object} [validationDetails] - Details of the validation failure.
+     * @param {boolean} [userFriendly=false] - Whether the error message is suitable for end-users.
      */
-    constructor(message, validationDetails) {
+    constructor(message, validationDetails, userFriendly = false) {
         super(message);
         this.name = 'ProviderValidationError';
         this.validationDetails = validationDetails;
+        this.userFriendly = userFriendly;
     }
 }
 

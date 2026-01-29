@@ -21,7 +21,7 @@ describe('Config Schemas', () => {
                 latitudeAdjustmentMethod: 0,
                 midnightMode: 0
             },
-            backup: { type: 'mymasjid', masjidId: '123' }
+            backup: { type: 'mymasjid', masjidId: '94f1c71b-7f8a-4b9a-9e1d-3b5f6a7b8c9d' }
         },
         data: { staleCheckDays: 7 },
         automation: {

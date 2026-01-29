@@ -287,16 +287,21 @@ describe('settingsController Unit Tests', () => {
         });
 
         it('should handle validation errors for masjid ID', async () => {
+            const { ProviderValidationError } = require('@providers/errors');
             req.body = { masjidId: 'invalid' };
-            validateConfigSource.mockRejectedValue(new Error('Masjid ID not found.'));
+            
+            const userFriendlyError = new ProviderValidationError('Masjid ID not found.', { statusCode: 404 }, true);
+            validateConfigSource.mockRejectedValue(userFriendlyError);
             
             await settingsController.updateSettings(req, res);
             expect(res.status).toHaveBeenCalledWith(400);
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Masjid ID not found.' }));
             
-            validateConfigSource.mockRejectedValue(new Error('Invalid Masjid ID format'));
+            const normalError = new Error('Invalid Masjid ID format');
+            validateConfigSource.mockRejectedValue(normalError);
             await settingsController.updateSettings(req, res);
             expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Validation Failed: Invalid Masjid ID format' }));
         });
         
         it('should rollback if audio sync fails', async () => {

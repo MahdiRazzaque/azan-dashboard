@@ -32,7 +32,8 @@ export default function PrayerSettingsView() {
         isSectionDirty,
         getSectionHealth,
         resetDraft,
-        systemHealth
+        systemHealth,
+        providers
     } = useSettings();
     const [activeTab, setActiveTab] = useState('fajr');
     const [audioFiles, setAudioFiles] = useState([]);
@@ -77,7 +78,9 @@ export default function PrayerSettingsView() {
     const localConfig = draftConfig; // Alias for compatibility
     const currentPrayerSettings = localConfig.prayers[activeTab];
     const currentTriggers = localConfig.automation.triggers[activeTab];
-    const isMyMasjid = localConfig.sources?.primary?.type === 'mymasjid';
+    
+    const activeProvider = providers.find(p => p.id === localConfig.sources?.primary?.type);
+    const providesIqamah = activeProvider?.capabilities?.providesIqamah;
 
     // Handler for Iqamah Config
     const updatePrayerConfig = (key, value) => {
@@ -292,14 +295,14 @@ export default function PrayerSettingsView() {
             </div>
 
             {/* Warning Banner */}
-            {activeTab !== 'sunrise' && isMyMasjid && currentPrayerSettings?.iqamahOverride && (
+            {activeTab !== 'sunrise' && providesIqamah && currentPrayerSettings?.iqamahOverride && (
                 <div className="bg-amber-900/20 border border-amber-800/50 rounded-lg p-4 flex items-start gap-4 mx-1">
                     <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                     <div>
                         <h4 className="text-amber-200 font-medium">External Source Override Active</h4>
                         <p className="text-amber-400/80 text-sm mt-1">
-                            You are using MyMasjid as a data source, but have enabled local Iqamah Overrides for {activeTab}. 
-                            The dashboard will ignore the timings provided by the masjid and calculate them locally instead.
+                            You are using a data source that provides its own Iqamah times, but you have enabled local overrides for {activeTab}. 
+                            The dashboard will ignore the timings provided by the source and calculate them locally instead.
                         </p>
                     </div>
                 </div>
@@ -367,11 +370,11 @@ export default function PrayerSettingsView() {
                                                 </h4>
                                             </div>
 
-                                            {/* Override Switch - Only Visible for MyMasjid */}
-                                            {isMyMasjid && (
+                                            {/* Override Switch - Only Visible for sources that provide iqamah */}
+                                            {providesIqamah && (
                                                 <div className="flex items-center justify-between pb-3 border-b border-app-border">
                                                     <div>
-                                                        <label className="text-xs font-medium text-app-dim">Override Masjid schedule</label>
+                                                        <label className="text-xs font-medium text-app-dim">Override source schedule</label>
                                                         <p className="text-[10px] text-app-dim mt-0.5">Calculate iqamah locally</p>
                                                     </div>
                                                     <button
@@ -389,7 +392,7 @@ export default function PrayerSettingsView() {
                                                 </div>
                                             )}
 
-                                            {(!isMyMasjid || currentPrayerSettings.iqamahOverride) ? (
+                                            {(!providesIqamah || currentPrayerSettings.iqamahOverride) ? (
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4">
                                                     <div className="space-y-2">
                                                         <label className="text-[10px] text-app-dim font-bold uppercase tracking-wider">Mode</label>
@@ -454,7 +457,7 @@ export default function PrayerSettingsView() {
                                                 <div className="flex items-center gap-3 py-2 px-3 bg-app-card/50 rounded-lg border border-app-border border-dashed">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                                                     <p className="text-app-dim text-[11px] leading-relaxed">
-                                                        Following masjid schedule. Toggle <strong className="text-app-text font-semibold">Override</strong> to set custom rules.
+                                                        Following source schedule. Toggle <strong className="text-app-text font-semibold">Override</strong> to set custom rules.
                                                     </p>
                                                 </div>
                                             )}
