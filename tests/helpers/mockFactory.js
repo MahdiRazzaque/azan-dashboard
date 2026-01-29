@@ -4,8 +4,8 @@
 
 const createMockConfig = (overrides = {}) => ({
     sources: { 
-        primary: { type: 'aladhan', method: 'ISNA' }, 
-        backup: { type: 'calculational' } 
+        primary: { type: 'aladhan', method: 2, madhab: 1 }, 
+        backup: { type: 'mymasjid', masjidId: '94f1c71b-7f8a-4b9a-9e1d-3b5f6a7b8c9d' } 
     },
     location: { 
         coordinates: { lat: 51.5, long: -0.1 },
