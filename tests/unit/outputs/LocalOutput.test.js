@@ -8,6 +8,7 @@ jest.mock('play-sound', () => {
 const LocalOutput = require('../../../src/outputs/LocalOutput');
 const { exec } = require('child_process');
 const fs = require('fs');
+const path = require('path');
 
 jest.mock('../../../src/config', () => ({
     get: jest.fn(() => ({
@@ -44,29 +45,33 @@ describe('LocalOutput', () => {
     });
 
     describe('execute', () => {
+        const audioRoot = path.resolve(__dirname, '../../../public/audio');
+
         it('should play audio file using configured player', async () => {
+            const testFile = path.join(audioRoot, 'custom/test.mp3');
             const payload = {
-                source: { filePath: '/path/to/audio.mp3' },
+                source: { filePath: testFile },
                 params: { audioPlayer: 'mplayer' }
             };
             
             await output.execute(payload);
             
             expect(mockPlay).toHaveBeenCalledWith(
-                '/path/to/audio.mp3',
+                testFile,
                 { player: 'mplayer' },
                 expect.any(Function)
             );
         });
 
         it('should default to mpg123 if player not specified', async () => {
+            const testFile = path.join(audioRoot, 'custom/test.mp3');
             const payload = {
-                source: { filePath: '/file.mp3' },
+                source: { filePath: testFile },
                 params: {}
             };
             await output.execute(payload);
             expect(mockPlay).toHaveBeenCalledWith(
-                '/file.mp3',
+                testFile,
                 { player: 'mpg123' },
                 expect.any(Function)
             );
@@ -80,8 +85,17 @@ describe('LocalOutput', () => {
         
          it('should reject if playback fails', async () => {
             mockPlay.mockImplementation((file, opts, cb) => cb(new Error('Play error')));
-            const payload = { source: { filePath: 'f.mp3' }, params: {} };
+            const testFile = path.join(audioRoot, 'custom/test.mp3');
+            const payload = { source: { filePath: testFile }, params: {} };
             await expect(output.execute(payload)).rejects.toThrow('Play error');
+        });
+
+        it('should block path traversal attempts', async () => {
+            const payload = {
+                source: { path: '../../../../etc/passwd' }
+            };
+            await expect(output.execute(payload)).rejects.toThrow('Invalid audio path: Access denied');
+            expect(mockPlay).not.toHaveBeenCalled();
         });
 
         it('should kill process if aborted', async () => {
@@ -94,7 +108,8 @@ describe('LocalOutput', () => {
             });
 
             const controller = new AbortController();
-            const payload = { source: { filePath: 'f.mp3' }, params: {} };
+            const testFile = path.join(audioRoot, 'custom/test.mp3');
+            const payload = { source: { filePath: testFile }, params: {} };
             
             const executePromise = output.execute(payload, {}, controller.signal);
             
