@@ -19,7 +19,8 @@ export default function DynamicField({ param, value, onChange }) {
     const errorClasses = "border-red-500 focus:border-red-500 focus:ring-red-500";
 
     const validate = (val) => {
-        if (param.constraints?.required && !val) {
+        const isEmpty = val === undefined || val === null || val === '';
+        if (param.constraints?.required && isEmpty) {
             setError(`${param.label} is required`);
             return;
         }
