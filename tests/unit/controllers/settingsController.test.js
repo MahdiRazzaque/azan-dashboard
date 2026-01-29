@@ -288,7 +288,8 @@ describe('settingsController Unit Tests', () => {
 
         it('should handle validation errors for masjid ID', async () => {
             const { ProviderValidationError } = require('@providers/errors');
-            req.body = { masjidId: 'invalid' };
+            req.body = { sources: { primary: { type: 'aladhan', masjidId: 'invalid' } } };
+            configService.get.mockReturnValue({ sources: { primary: { type: 'aladhan', masjidId: 'old' } } });
             
             const userFriendlyError = new ProviderValidationError('Masjid ID not found.', { statusCode: 404 }, true);
             validateConfigSource.mockRejectedValue(userFriendlyError);
@@ -384,10 +385,65 @@ describe('settingsController Unit Tests', () => {
                 warnings: expect.arrayContaining([expect.stringContaining('VM Down')])
             }));
         });
+
+        it('should skip forceRefresh if sources and location are unchanged', async () => {
+            const sameConfig = {
+                sources: { primary: { type: 'aladhan' } },
+                location: { city: 'London' }
+            };
+            req.body = sameConfig;
+            configService.get.mockReturnValue(sameConfig);
+            
+            await settingsController.updateSettings(req, res);
+            
+            expect(forceRefresh).not.toHaveBeenCalled();
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                meta: { skip: true }
+            }));
+        });
+
+        it('should call forceRefresh if sources changed', async () => {
+            const oldConfig = {
+                sources: { primary: { type: 'aladhan' } },
+                location: { city: 'London' }
+            };
+            const newConfig = {
+                sources: { primary: { type: 'mymasjid' } },
+                location: { city: 'London' }
+            };
+            req.body = newConfig;
+            configService.get.mockReturnValue(oldConfig);
+            forceRefresh.mockResolvedValue({ meta: { refreshed: true } });
+            
+            await settingsController.updateSettings(req, res);
+            
+            expect(forceRefresh).toHaveBeenCalled();
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                meta: { refreshed: true }
+            }));
+        });
+
+        it('should call forceRefresh if location changed', async () => {
+            const oldConfig = {
+                sources: { primary: { type: 'aladhan' } },
+                location: { city: 'London' }
+            };
+            const newConfig = {
+                sources: { primary: { type: 'aladhan' } },
+                location: { city: 'Manchester' }
+            };
+            req.body = newConfig;
+            configService.get.mockReturnValue(oldConfig);
+            forceRefresh.mockResolvedValue({ meta: { refreshed: true } });
+            
+            await settingsController.updateSettings(req, res);
+            
+            expect(forceRefresh).toHaveBeenCalled();
+        });
     });
 
     describe('resetSettings', () => {
-        it('should successfully reset settings', async () => {
+        it('should successfully reset settings and trigger deep clean', async () => {
             fs.existsSync.mockReturnValue(true);
             configService.get.mockReturnValue({ some: 'default' });
             forceRefresh.mockResolvedValue({ meta: { reset: true } });
@@ -395,6 +451,7 @@ describe('settingsController Unit Tests', () => {
             
             await settingsController.resetSettings(req, res);
             expect(fs.unlinkSync).toHaveBeenCalled();
+            expect(audioAssetService.syncAudioAssets).toHaveBeenCalledWith(true);
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: 'Settings reset to defaults.' }));
         });
 
@@ -430,9 +487,21 @@ describe('settingsController Unit Tests', () => {
             expect(res.status).toHaveBeenCalledWith(404);
         });
 
+        it('should return 403 if file is protected', () => {
+            req.body.filename = 'azan.mp3';
+            fs.existsSync.mockReturnValue(true); // meta exists
+            fs.readFileSync.mockReturnValue(JSON.stringify({ protected: true }));
+            
+            settingsController.deleteFile(req, res);
+            
+            expect(res.status).toHaveBeenCalledWith(403);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('protected') }));
+        });
+
         it('should return 200 on successful deletion', () => {
             req.body.filename = 'test.mp3';
             fs.existsSync.mockReturnValue(true);
+            fs.readFileSync.mockReturnValue(JSON.stringify({ protected: false }));
             settingsController.deleteFile(req, res);
             expect(fs.unlinkSync).toHaveBeenCalled();
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
@@ -441,6 +510,7 @@ describe('settingsController Unit Tests', () => {
         it('should return 500 if unlinkSync fails', () => {
             req.body.filename = 'test.mp3';
             fs.existsSync.mockReturnValue(true);
+            fs.readFileSync.mockReturnValue(JSON.stringify({ protected: false }));
             fs.unlinkSync.mockImplementation(() => { throw new Error('Delete fail'); });
             settingsController.deleteFile(req, res);
             expect(res.status).toHaveBeenCalledWith(500);
