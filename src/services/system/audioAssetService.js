@@ -413,6 +413,11 @@ const generateMetadataForExistingFiles = async () => {
                         try { existingData = JSON.parse(fs.readFileSync(redundantMetaPath, 'utf8')); } catch (e) {}
                     }
                     
+                    // REQ: azan.mp3 should be protected
+                    if (file === 'azan.mp3') {
+                        existingData.protected = true;
+                    }
+                    
                     fs.writeFileSync(metaPath, JSON.stringify({
                         ...existingData,
                         ...metadata,
