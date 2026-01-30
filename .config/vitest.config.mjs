@@ -12,6 +12,11 @@ export default defineConfig({
     globals: true,
     setupFiles: [path.resolve(__dirname, '../client/tests/setup.js')],
     include: ['client/tests/**/*.test.{js,jsx}'],
+    coverage: {
+      provider: 'v8',
+      all: true,
+      include: ['client/src/**/*.js', 'client/src/**/*.jsx'],
+    },
   },
   resolve: {
     alias: {
