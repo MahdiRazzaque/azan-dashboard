@@ -301,9 +301,16 @@ const ensureTestAudio = async () => {
         
         const cacheAudioPath = path.join(AUDIO_CACHE_DIR, filename);
 
-        // Move to custom
+        // Move to custom (Use copy + unlink to handle cross-device moves in Docker)
         if (fs.existsSync(cacheAudioPath)) {
-            fs.renameSync(cacheAudioPath, testAudioPath);
+            try {
+                fs.copyFileSync(cacheAudioPath, testAudioPath);
+                fs.unlinkSync(cacheAudioPath);
+            } catch (moveError) {
+                // Fallback for extreme cases if copy fails
+                console.error(`[AudioService] Move failed, attempting rename fallback:`, moveError.message);
+                fs.renameSync(cacheAudioPath, testAudioPath);
+            }
             
             // Generate metadata for the custom file
             const metadata = await audioValidator.analyseAudioFile(testAudioPath);

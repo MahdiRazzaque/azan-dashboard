@@ -40,6 +40,7 @@ describe('AudioAssetService', () => {
         fs.readdirSync.mockReturnValue([]);
         fs.statSync.mockReturnValue({ mtimeMs: Date.now() });
         fs.unlinkSync.mockImplementation(() => {});
+        fs.copyFileSync.mockImplementation(() => {});
         fs.writeFileSync.mockImplementation(() => {});
         fs.utimesSync.mockImplementation(() => {});
         jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -169,15 +170,15 @@ describe('AudioAssetService', () => {
                 return true;
             });
             axios.post.mockResolvedValue({ data: { success: true } });
-            fs.renameSync.mockImplementation(() => {});
-
+            
             await service.ensureTestAudio();
 
             expect(axios.post).toHaveBeenCalledWith(
                 expect.stringContaining('generate-tts'),
                 expect.objectContaining({ text: 'This is a test of the notification system!', filename: 'test.mp3' })
             );
-            expect(fs.renameSync).toHaveBeenCalled();
+            expect(fs.copyFileSync).toHaveBeenCalled();
+            expect(fs.unlinkSync).toHaveBeenCalled();
             expect(fs.writeFileSync).toHaveBeenCalledWith(
                 expect.stringContaining('test.mp3.json'),
                 expect.stringContaining('"hidden":true')
