@@ -245,11 +245,24 @@ export default function PrayerSettingsView() {
                     <p className="text-app-dim">Configure timing rules and automation triggers for each prayer.</p>
                 </div>
 
-                <div className="flex items-start gap-3 px-3 py-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg text-[10px] text-app-dim max-w-sm md:max-w-[240px]">
-                    <Info className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                    <p className="leading-tight font-medium">
-                        Enabled automations are automatically broadcasted to all devices with the dashboard open.
-                    </p>
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                    {isDirty && (
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-bold text-sm shadow-lg shadow-orange-900/20 transition-all animate-in fade-in zoom-in-95"
+                        >
+                            <Save className={cn("w-4 h-4", saving && "animate-spin")} />
+                            {saving ? 'Saving...' : 'Save Changes'}
+                        </button>
+                    )}
+
+                    <div className="flex items-start gap-3 px-3 py-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg text-[10px] text-app-dim max-w-sm md:max-w-[240px]">
+                        <Info className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <p className="leading-tight font-medium">
+                            Enabled automations are automatically broadcasted to all devices with the dashboard open.
+                        </p>
+                    </div>
                 </div>
             </div>
 
