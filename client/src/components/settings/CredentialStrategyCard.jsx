@@ -27,6 +27,7 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
     const [verifying, setVerifying] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [result, setResult] = useState(null);
+    const [showResetModal, setShowResetModal] = useState(false);
     const [values, setValues] = useState(initialValues || {});
     const [isVerified, setIsVerified] = useState(verified || false);
     const [isDirty, setIsDirty] = useState(false);
@@ -61,7 +62,11 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
     };
 
     const handleReset = async () => {
-        if(!confirm('Clear credentials? This will remove them from the system.')) return;
+        setShowResetModal(true);
+    };
+
+    const confirmReset = async () => {
+        setShowResetModal(false);
         const newValues = { ...values };
         // Empty all sensitive parameters to prepare for a reset.
         sensitiveParams.forEach(p => newValues[p.key] = '');
@@ -215,6 +220,17 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
                 confirmText="Yes, Verified"
                 cancelText="No, Try Again"
                 isDestructive={false}
+            />
+
+            <ConfirmModal 
+                isOpen={showResetModal}
+                onClose={() => setShowResetModal(false)}
+                onConfirm={confirmReset}
+                title="Clear Credentials"
+                message="Are you sure you want to clear these credentials? This will remove them from the system."
+                confirmText="Clear Credentials"
+                cancelText="Cancel"
+                isDestructive={true}
             />
         </div>
     );

@@ -26,6 +26,7 @@ export default function FileManagerView() {
     
     // Overwrite confirmation state
     const [pendingUpload, setPendingUpload] = useState(null);
+    const [deleteConfirmFile, setDeleteConfirmFile] = useState(null);
     
     // Audio ref for browser playback
     const audioRef = useRef(new Audio());
@@ -131,8 +132,12 @@ export default function FileManagerView() {
     };
 
     const handleDelete = async (filename) => {
-        if (!confirm(`Delete ${filename}?`)) return;
-        
+        setDeleteConfirmFile(filename);
+    };
+
+    const confirmDelete = async () => {
+        const filename = deleteConfirmFile;
+        setDeleteConfirmFile(null);
         try {
             const res = await fetch('/api/settings/files', {
                 method: 'DELETE',
@@ -409,6 +414,17 @@ export default function FileManagerView() {
                 title="Overwrite Existing File?"
                 message={`A file named "${pendingUpload?.name}" already exists. Do you want to replace it with the new file?`}
                 confirmText="Overwrite"
+                cancelText="Cancel"
+                isDestructive={true}
+            />
+
+            <ConfirmModal
+                isOpen={!!deleteConfirmFile}
+                onClose={() => setDeleteConfirmFile(null)}
+                onConfirm={confirmDelete}
+                title="Delete File"
+                message={`Are you sure you want to delete "${deleteConfirmFile}"? This action cannot be undone.`}
+                confirmText="Delete"
                 cancelText="Cancel"
                 isDestructive={true}
             />
