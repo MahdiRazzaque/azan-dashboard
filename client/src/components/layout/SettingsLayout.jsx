@@ -135,7 +135,7 @@ export default function SettingsLayout({ logs, processStatus }) {
             // Compare automation excluding triggers and outputs (as they are checked/handled specifically)
             const { triggers: t1, outputs: o1, ...rest1 } = cAuth;
             const { triggers: t2, outputs: o2, ...rest2 } = dAuth;
-            return JSON.stringify(rest1) !== JSON.stringify(rest2);
+            return JSON.stringify(rest1) !== JSON.stringify(rest2) || isSectionDirty('automation.outputs');
         }
     },
     { 
@@ -162,18 +162,33 @@ export default function SettingsLayout({ logs, processStatus }) {
   const getItemHealth = (item) => {
       if (item.health) return item.health();
       
+      // General: Show warnings for offline prayer sources
+      if (item.label === 'General') {
+          const issues = [];
+          if (systemHealth?.primarySource && !systemHealth.primarySource.healthy) {
+              issues.push({ type: 'Primary Source Offline' });
+          }
+          if (config?.sources?.backup?.enabled && systemHealth?.backupSource && !systemHealth.backupSource.healthy) {
+              issues.push({ type: 'Backup Source Offline' });
+          }
+          return { healthy: issues.length === 0, issues };
+      }
+      
       // Prayers: Show warnings for ANY bad trigger config
       if (item.label === 'Prayers') {
           return getSectionHealth('automation.triggers');
       }
       
-      // Automation
+      // Automation & Outputs
       if (item.label === 'Automation') {
-          // VoiceMonkey health is now relevant to Credentials page, but maybe keep here or move?
-          // PRD doesn't strictly say where to show health, but "Automation" view still has logical automation settings.
-          // However, VoiceMonkey credentials are in Credentials view.
-          // Let's keep it clean for now.
-          return { healthy: true, issues: [] };
+          const outputs = draftConfig?.automation?.outputs || {};
+          const issues = [];
+          Object.entries(outputs).forEach(([id, cfg]) => {
+              if (cfg.enabled && systemHealth[id] && !systemHealth[id].healthy) {
+                  issues.push({ type: `${id} Offline` });
+              }
+          });
+          return { healthy: issues.length === 0, issues };
       }
 
       if (item.label === 'Credentials') {

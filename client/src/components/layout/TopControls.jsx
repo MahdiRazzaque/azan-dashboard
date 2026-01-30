@@ -1,18 +1,70 @@
-import { Volume2, VolumeX, Settings, Monitor, Power } from 'lucide-react';
+import { Volume2, VolumeX, Settings, Monitor, Power, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import ClientSettingsModal from '@/components/settings/ClientSettingsModal';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { useClientPreferences } from '@/hooks/useClientPreferences';
+import { useSettings } from '@/hooks/useSettings';
 
 const TopControls = ({ isMuted, toggleMute, blocked }) => {
   const navigate = useNavigate();
   const wakeLock = useWakeLock();
   const { preferences } = useClientPreferences();
+  const { systemHealth, config } = useSettings();
 
   const [showSettings, setShowSettings] = useState(false);
   const [isManuallyPaused, setIsManuallyPaused] = useState(false);
   const [prevAutoStart, setPrevAutoStart] = useState(preferences.appearance.wakeLockAutoStart);
+
+  // Health check logic
+  const healthIssues = useMemo(() => {
+    if (!systemHealth || !config) return [];
+    const issues = [];
+    
+    // 1. Primary Source
+    if (systemHealth.primarySource && !systemHealth.primarySource.healthy) {
+      issues.push(`Primary Source: ${systemHealth.primarySource.message || 'Offline'}`);
+    }
+
+    // 2. TTS Service (if enabled)
+    const ttsTriggersEnabled = config.automation?.triggers && Object.values(config.automation.triggers).some(prayerTriggers => 
+      Object.values(prayerTriggers).some(trigger => trigger.enabled && trigger.type === 'tts')
+    );
+    if (ttsTriggersEnabled && systemHealth.tts && !systemHealth.tts.healthy) {
+      issues.push(`TTS Service: ${systemHealth.tts.message || 'Offline'}`);
+    }
+
+    // 3. Automation Usage Check (Output disabled or unavailable)
+    const outputs = config.automation?.outputs || {};
+    const triggers = config.automation?.triggers || {};
+    const usedOutputIssues = new Set();
+
+    Object.entries(triggers).forEach(([prayer, prayerTriggers]) => {
+      Object.entries(prayerTriggers).forEach(([type, trigger]) => {
+        if (trigger.enabled) {
+          (trigger.targets || []).forEach(targetId => {
+            if (targetId === 'browser') return;
+            
+            const outputCfg = outputs[targetId];
+            const health = systemHealth[targetId];
+            const label = health?.label || targetId.charAt(0).toUpperCase() + targetId.slice(1);
+
+            if (outputCfg && !outputCfg.enabled) {
+              usedOutputIssues.add(`${label} is used by ${prayer} ${type} but is DISABLED`);
+            } else if (health && !health.healthy) {
+              usedOutputIssues.add(`${label} is used by ${prayer} ${type} but is OFFLINE`);
+            }
+          });
+        }
+      });
+    });
+
+    issues.push(...Array.from(usedOutputIssues));
+
+    return issues;
+  }, [systemHealth, config]);
+
+  const isDegraded = healthIssues.length > 0;
 
   // Reset override if user toggles the setting in the modal
   if (preferences.appearance.wakeLockAutoStart !== prevAutoStart) {
@@ -85,13 +137,23 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
         <Monitor size={18} className="lg:size-5" />
       </button>
       
-      <button 
-        onClick={() => navigate('/settings')}
-        className="p-1.5 lg:p-3 rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
-        title="Settings"
-      >
-        <Settings size={18} className="lg:size-5" />
-      </button>
+      <div className="relative">
+        <button 
+          onClick={() => navigate('/settings')}
+          className="p-1.5 lg:p-3 rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
+          title={isDegraded ? `System Warning:\n${healthIssues.join('\n')}` : "Settings"}
+        >
+          <Settings size={18} className="lg:size-5" />
+        </button>
+        {isDegraded && (
+          <div 
+            className="absolute -top-1 -right-1 bg-amber-500 text-app-bg rounded-full p-0.5 border-2 border-app-bg shadow-sm animate-pulse"
+            title={`System Warning:\n${healthIssues.join('\n')}`}
+          >
+            <AlertTriangle size={10} className="lg:size-3" />
+          </div>
+        )}
+      </div>
 
       {showSettings && <ClientSettingsModal onClose={() => setShowSettings(false)} />}
     </div>

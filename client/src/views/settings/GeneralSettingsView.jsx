@@ -25,7 +25,8 @@ export default function GeneralSettingsView() {
     draftConfig, 
     updateSetting, 
     loading,
-    isSectionDirty
+    isSectionDirty,
+    systemHealth
   } = useSettings();
   
   const { providers } = useProviders();
@@ -45,6 +46,10 @@ export default function GeneralSettingsView() {
   const primaryMeta = providers.find(p => p.id === primarySource.type);
   const backupMeta = backupEnabled ? providers.find(p => p.id === backupSource.type) : null;
   const needsCoordinates = (primaryMeta?.requiresCoordinates) || (backupEnabled && backupMeta?.requiresCoordinates);
+
+  // Health checks for sources
+  const primaryHealthy = systemHealth?.primarySource?.healthy ?? true;
+  const backupHealthy = systemHealth?.backupSource?.healthy ?? true;
 
   const handlePrimaryChange = (newSource) => {
       handleChange('sources.primary', newSource);
@@ -101,6 +106,9 @@ export default function GeneralSettingsView() {
             <h2 className="text-xl font-semibold mb-6 text-emerald-400 border-b border-app-border pb-2 flex items-center gap-2">
                 <Globe className="w-5 h-5 text-emerald-500" /> 
                 Primary Data Source
+                {!primaryHealthy && (
+                    <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" title={systemHealth.primarySource.message || 'Offline'} />
+                )}
                 {isSectionDirty('sources.primary') && (
                     <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
                 )}
@@ -124,6 +132,9 @@ export default function GeneralSettingsView() {
                 <h2 className="text-xl font-semibold text-blue-400 flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-blue-500" /> 
                     Backup Data Source
+                    {!backupHealthy && backupEnabled && (
+                        <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" title={systemHealth.backupSource.message || 'Offline'} />
+                    )}
                     {isSectionDirty('sources.backup') && (
                         <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
                     )}

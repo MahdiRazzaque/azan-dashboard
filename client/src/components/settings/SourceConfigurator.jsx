@@ -1,7 +1,8 @@
-import { Globe, MapPin, CheckCircle, Loader2 } from 'lucide-react';
+import { Globe, MapPin, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useProviders } from '@/hooks/useProviders';
+import { useSettings } from '@/hooks/useSettings';
 import DynamicField from './DynamicField';
 
 /**
@@ -38,6 +39,7 @@ export default function SourceConfigurator({
     primarySourceType = ''
 }) {
     const { providers, loading: loadingProviders } = useProviders();
+    const { systemHealth } = useSettings();
 
     const activeProviderId = source?.type || 'aladhan';
     const activeProvider = providers.find(p => p.id === activeProviderId);
@@ -78,26 +80,46 @@ export default function SourceConfigurator({
         );
     }
 
+    // Health check for provider icons
+    const isProviderOffline = (id) => {
+        const healthKey = isBackup ? 'backupSource' : 'primarySource';
+        // Only show offline warning if this provider is actually the one active in the slot
+        if (id !== activeProviderId) return false;
+        
+        const health = systemHealth?.[healthKey];
+        return health && !health.healthy;
+    };
+
+    const getProviderErrorMessage = () => {
+        const healthKey = isBackup ? 'backupSource' : 'primarySource';
+        return systemHealth?.[healthKey]?.message || 'Offline';
+    };
+
     // [REQ-005] Enforce source mutual exclusion for backup
     const filteredProviders = isBackup 
         ? providers.filter(p => p.id !== primarySourceType)
         : providers;
 
     const getBrandingClasses = (provider, isActive) => {
+        const isOffline = isProviderOffline(provider.id);
+        
         if (!isActive) return "border-app-border bg-app-card text-app-dim hover:bg-app-card-hover text-app-text";
         
         const color = provider.branding?.accentColor || 'emerald';
         const colorMap = {
-            blue: "border-blue-500 bg-blue-500/10 text-blue-400",
-            emerald: "border-emerald-500 bg-emerald-500/10 text-emerald-400",
-            indigo: "border-indigo-500 bg-indigo-500/10 text-indigo-400",
-            rose: "border-rose-500 bg-rose-500/10 text-rose-400",
+            blue: isOffline ? "border-amber-500 bg-amber-500/10 text-amber-500" : "border-blue-500 bg-blue-500/10 text-blue-400",
+            emerald: isOffline ? "border-amber-500 bg-amber-500/10 text-amber-500" : "border-emerald-500 bg-emerald-500/10 text-emerald-400",
+            indigo: isOffline ? "border-amber-500 bg-amber-500/10 text-amber-500" : "border-indigo-500 bg-indigo-500/10 text-indigo-400",
+            rose: isOffline ? "border-amber-500 bg-amber-500/10 text-amber-500" : "border-rose-500 bg-rose-500/10 text-rose-400",
             amber: "border-amber-500 bg-amber-500/10 text-amber-400"
         };
         return colorMap[color] || colorMap.emerald;
     };
 
     const getIconColorClass = (provider) => {
+        const isOffline = isProviderOffline(provider.id);
+        if (isOffline) return "text-amber-500";
+
         const color = provider.branding?.accentColor || 'emerald';
         const colorMap = {
             blue: "text-blue-500",
@@ -127,9 +149,15 @@ export default function SourceConfigurator({
                         {provider.label}
                         {activeProviderId === provider.id && (
                             <CheckCircle className={cn(
-                                "absolute top-2 right-2 w-5 h-5 opacity-50",
+                                "absolute bottom-2 right-2 w-5 h-5 opacity-50",
                                 getIconColorClass(provider)
                             )} />
+                        )}
+                        {isProviderOffline(provider.id) && (
+                            <AlertTriangle 
+                                className="absolute top-2 right-2 w-5 h-5 text-amber-500 animate-pulse" 
+                                title={getProviderErrorMessage()} 
+                            />
                         )}
                     </button>
                 ))}

@@ -4,6 +4,6 @@ export const AuthContext = createContext(null);
 
 /**
  * Custom hook to access authentication state and actions.
- * @returns {object} Auth context value with isAuthenticated, login, logout, etc.
+ * @returns {object} Auth context value with isAuthenticated, login, logout, connectionError, etc.
  */
 export const useAuth = () => useContext(AuthContext);
