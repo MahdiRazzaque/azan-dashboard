@@ -134,7 +134,7 @@ export const SettingsProvider = ({ children }) => {
   }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth, fetchVoices, fetchProviders]);
 
 
-  const refreshHealth = useCallback(async (target = 'all') => {
+  const refreshHealth = useCallback(async (target = 'all', mode = 'silent') => {
       try {
           const res = await fetch('/api/system/health/refresh', {
               method: 'POST',
