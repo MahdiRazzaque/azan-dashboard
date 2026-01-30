@@ -164,9 +164,16 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
     return (
         <div className="bg-app-card p-6 rounded-lg border border-app-border shadow-md">
             <div className="flex items-center justify-between mb-4 border-b border-app-border pb-4">
-                <div>
-                    <h3 className="text-lg font-semibold text-app-text">{label}</h3>
-                    <div className="text-xs text-app-dim mt-1">ID: {id}</div>
+                <div className="flex items-center gap-3">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-semibold text-app-text">{label}</h3>
+                            {enabled && status === 'offline' && (
+                                <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" title={errorMsg || 'Service Offline'} />
+                            )}
+                        </div>
+                        <div className="text-xs text-app-dim mt-1">ID: {id}</div>
+                    </div>
                 </div>
                 <div className="flex items-center gap-3">
                     <span className={cn("text-sm font-medium", enabled ? "text-emerald-400" : "text-app-dim")}>
