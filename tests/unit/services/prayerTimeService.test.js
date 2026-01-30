@@ -30,6 +30,7 @@ describe('PrayerTimeService', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        ProviderFactory.create.mockReset();
         // Default fs behavior
         fs.existsSync.mockReturnValue(true);
         fs.mkdirSync.mockImplementation(() => {});
@@ -102,6 +103,36 @@ describe('PrayerTimeService', () => {
          expect(backupProvider.getAnnualTimes).toHaveBeenCalled();
          expect(result.meta.source).toBe('mymasjid');
     });
+
+    it('should NOT fallback to backup source if it is disabled', async () => {
+        const today = DateTime.fromObject({ year: 2023, month: 1, day: 1 });
+        fs.readFileSync.mockReturnValue(JSON.stringify({ data: {}, meta: {} }));
+        
+        const primaryProvider = { getAnnualTimes: jest.fn().mockRejectedValue(new ProviderConnectionError('API Down')) };
+        const backupProvider = { getAnnualTimes: jest.fn() };
+        
+        ProviderFactory.create
+            .mockReturnValueOnce(primaryProvider)
+            .mockReturnValueOnce(backupProvider);
+
+        const disabledBackupConfig = {
+            ...mockConfig,
+            sources: {
+                ...mockConfig.sources,
+                backup: { ...mockConfig.sources.backup, enabled: false }
+            }
+        };
+
+        const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+        await expect(service.getPrayerTimes(disabledBackupConfig, today)).rejects.toThrow('API Down');
+        
+        expect(primaryProvider.getAnnualTimes).toHaveBeenCalled();
+        expect(backupProvider.getAnnualTimes).not.toHaveBeenCalled();
+        expect(spy).toHaveBeenCalledWith(expect.stringContaining('Backup source configured but disabled. Skipping.'));
+        
+        spy.mockRestore();
+   });
 
     it('should NOT fallback to backup source if primary has validation error', async () => {
         const today = DateTime.fromObject({ year: 2023, month: 1, day: 1 });

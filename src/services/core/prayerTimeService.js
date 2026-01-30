@@ -161,15 +161,19 @@ async function getPrayerTimes(config, date = DateTime.now()) {
       }
 
       if (config.sources.backup) {
-        console.log(`[PrayerService] Attempting failover to backup source.`);
-        try {
-          const backup = config.sources.backup;
-          newDataMap = await tryFetch(backup);
-          if (newDataMap && Object.keys(newDataMap).length > 0) {
-              sourceUsed = backup.type;
+        if (config.sources.backup.enabled !== false) {
+          console.log(`[PrayerService] Attempting failover to backup source.`);
+          try {
+            const backup = config.sources.backup;
+            newDataMap = await tryFetch(backup);
+            if (newDataMap && Object.keys(newDataMap).length > 0) {
+                sourceUsed = backup.type;
+            }
+          } catch (backupError) {
+            console.error(`Backup source (${config.sources.backup.type}) failed: ${backupError.message}`);
           }
-        } catch (backupError) {
-          console.error(`Backup source (${config.sources.backup.type}) failed: ${backupError.message}`);
+        } else {
+          console.log(`[PrayerService] Backup source configured but disabled. Skipping.`);
         }
       }
       
