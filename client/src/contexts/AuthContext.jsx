@@ -5,6 +5,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(null); // null = unknown/loading
   const [setupRequired, setSetupRequired] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState(false);
 
   useEffect(() => {
     checkStatus();
@@ -12,8 +13,20 @@ export const AuthProvider = ({ children }) => {
   
   const checkStatus = async () => {
     try {
+        setConnectionError(false);
         // First check system status (is password set?)
         const statusRes = await fetch('/api/auth/status');
+        
+        if (!statusRes.ok) {
+            // If we get a 500+ error, the server (or proxy) is likely failing to reach the backend
+            if (statusRes.status >= 500) {
+                setConnectionError(true);
+            }
+            setIsAuthenticated(false);
+            setLoading(false);
+            return;
+        }
+
         const statusData = await statusRes.json();
         
         if (statusData.requiresSetup) {
@@ -32,6 +45,11 @@ export const AuthProvider = ({ children }) => {
             setIsAuthenticated(false);
         }
     } catch (e) {
+        // TypeError typically indicates a network error/server unreachable
+        // Also catch SyntaxError which happens if statusRes.json() tries to parse an HTML error page
+        if (e.name === 'TypeError' || e.name === 'SyntaxError' || e.message?.includes('Failed to fetch')) {
+            setConnectionError(true);
+        }
         setIsAuthenticated(false);
     } finally {
         setLoading(false);
@@ -40,6 +58,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (password) => {
     try {
+        setConnectionError(false);
         const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -69,8 +88,19 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
+  const clearConnectionError = () => setConnectionError(false);
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, loading, login, logout, setupRequired, refreshAuth: checkStatus }}>
+    <AuthContext.Provider value={{ 
+        isAuthenticated, 
+        loading, 
+        login, 
+        logout, 
+        setupRequired, 
+        refreshAuth: checkStatus,
+        connectionError,
+        clearConnectionError
+    }}>
       {children}
     </AuthContext.Provider>
   );

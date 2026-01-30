@@ -8,6 +8,7 @@ import { useClientPreferences } from '@/hooks/useClientPreferences';
 import DashboardView from '@/views/DashboardView';
 import LoginView from '@/views/LoginView';
 import SetupView from '@/views/SetupView';
+import ConnectionErrorView from '@/views/ConnectionErrorView';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import SettingsLayout from '@/components/layout/SettingsLayout';
 import GeneralSettingsView from '@/views/settings/GeneralSettingsView';
@@ -40,10 +41,12 @@ function App() {
   }, [isAudioExcluded, playUrl]);
 
   const { logs, isConnected, processStatus } = useSSE(handleAudioPlay);
-  const { setupRequired, loading, isAuthenticated } = useAuth();
+  const { setupRequired, loading, isAuthenticated, connectionError } = useAuth();
   const location = useLocation();
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-app-bg text-app-text">Loading...</div>;
+
+  if (connectionError) return <ConnectionErrorView />;
 
   // Force setup flow if required
   if (setupRequired && location.pathname !== '/setup') {
