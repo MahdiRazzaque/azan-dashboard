@@ -24,6 +24,8 @@ module.exports = {
     '^@services/(.*)$': '<rootDir>/src/services/$1',
     '^@config$': '<rootDir>/src/config',
     '^@config/(.*)$': '<rootDir>/src/config/$1',
+    '^@outputs$': '<rootDir>/src/outputs',
+    '^@outputs/(.*)$': '<rootDir>/src/outputs/$1',
     '^@utils/(.*)$': '<rootDir>/src/utils/$1',
     '^@controllers/(.*)$': '<rootDir>/src/controllers/$1',
     '^@middleware/(.*)$': '<rootDir>/src/middleware/$1',

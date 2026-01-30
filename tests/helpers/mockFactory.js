@@ -4,8 +4,8 @@
 
 const createMockConfig = (overrides = {}) => ({
     sources: { 
-        primary: { type: 'aladhan', method: 'ISNA' }, 
-        backup: { type: 'calculational' } 
+        primary: { type: 'aladhan', method: 2, madhab: 1 }, 
+        backup: { type: 'mymasjid', masjidId: '94f1c71b-7f8a-4b9a-9e1d-3b5f6a7b8c9d' } 
     },
     location: { 
         coordinates: { lat: 51.5, long: -0.1 },
@@ -20,9 +20,11 @@ const createMockConfig = (overrides = {}) => ({
     },
     automation: {
         baseUrl: 'http://localhost',
-        audioPlayer: 'mpg123',
         pythonServiceUrl: 'http://localhost',
-        voiceMonkey: { enabled: false },
+        outputs: {
+            local: { enabled: true, leadTimeMs: 0 },
+            voicemonkey: { enabled: false, leadTimeMs: 0, params: {} }
+        },
         triggers: {
             fajr: { 
                 preAdhan: { enabled: false, type: 'tts', targets: [] },
@@ -73,7 +75,7 @@ const createMockSSEService = () => ({
 });
 
 const createMockAudioAssetService = () => ({
-    syncAudioAssets: jest.fn().mockResolvedValue(),
+    syncAudioAssets: jest.fn().mockResolvedValue({ warnings: [] }),
     resolveTemplate: jest.fn((t) => t),
     previewTTS: jest.fn().mockResolvedValue({ url: 'http://temp.mp3' })
 });
@@ -82,7 +84,7 @@ const createMockHealthCheck = () => ({
     getHealth: jest.fn(() => ({ 
         tts: { healthy: true }, 
         local: { healthy: true }, 
-        voiceMonkey: { healthy: true } 
+        voicemonkey: { healthy: true } 
     })),
     refresh: jest.fn().mockResolvedValue(),
     checkSource: jest.fn(() => Promise.resolve({ healthy: true }))

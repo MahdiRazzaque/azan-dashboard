@@ -26,7 +26,7 @@ describe('EnvController', () => {
         await updateEnv(req, res);
 
         expect(envManager.setEnvValue).toHaveBeenCalledWith('BASE_URL', 'https://example.com');
-        expect(configService.reloadEnv).toHaveBeenCalled();
+        expect(configService.reload).toHaveBeenCalled();
         expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
             success: true,
             message: 'BASE_URL updated successfully'
@@ -34,7 +34,7 @@ describe('EnvController', () => {
     });
 
     it('should return 400 if validation fails', async () => {
-        req.body = { key: 'INVALID_KEY', value: '' }; // Validation should fail based on schema
+        req.body = { key: 'invalid-key', value: '' }; // Validation should fail based on schema
         
         await updateEnv(req, res);
 

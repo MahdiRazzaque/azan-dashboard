@@ -3,21 +3,21 @@
     "timezone": "Europe/London",
     "coordinates": { "lat": 51.5074, "long": -0.1278 }
   },
-  "calculation": {
-    "method": 15,
-    "madhab": 1,
-    "latitudeAdjustmentMethod": 0,
-    "midnightMode": 0
-  },
   "prayers": {
     "fajr":    { "iqamahOffset": 20, "roundTo": 15, "fixedTime": null },
     "dhuhr":   { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null },
     "asr":     { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null },
     "maghrib": { "iqamahOffset": 10, "roundTo": 5,  "fixedTime": null },
-    "isha":    { "iqamahOffset": 15, "roundTo": 15, "fixedTime": "20:00" }
+    "isha":    { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null }
   },
   "sources": {
-    "primary": { "type": "aladhan" },
+    "primary": { 
+      "type": "aladhan",
+      "method": 15,
+      "madhab": 1,
+      "latitudeAdjustmentMethod": 0,
+      "midnightMode": 0
+    },
     "backup":  null
   },
   "data": {
@@ -26,11 +26,21 @@
   },
   "automation": {
     "baseUrl": "http://localhost:3000",
-    "audioPlayer": "mpg123",
     "pythonServiceUrl": "http://localhost:8000",
     "defaultVoice": "ar-SA-HamedNeural",
-    "voiceMonkey": {
-        "enabled": false
+    "outputs": {
+      "local": {
+        "enabled": false,
+        "params": {
+          "audioPlayer": "mpg123"
+        }
+      },
+      "voicemonkey": {
+        "enabled": false,
+        "verified": false,
+        "leadTimeMs": 0,
+        "params": {}
+      }
     },
     "triggers": {
       "fajr": {

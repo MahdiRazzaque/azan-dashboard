@@ -30,11 +30,20 @@ The system determines *what* to play:
 *   **TTS:** Resolves the filename for the cached speech asset (e.g., `tts_fajr_preAdhan.mp3`).
 *   **URL:** Uses the provided external URL.
 
-### 2. Target Routing
-The audio is dispatched to one or more targets simultaneously:
-*   **Local:** Executes `mpg123` on the server hardware. Ideal for Mosque PA systems connected via AUX/HDMI.
-*   **Browser:** Broadcasts an SSE event (`AUDIO_PLAY`) to all connected clients. Each client decides whether to play it based on their local mute settings.
-*   **VoiceMonkey:** Sends an HTTP request to the VoiceMonkey API, triggering a routine on Alexa devices (e.g., "Announcement"). 
+### 2. Target Routing (Output Strategy System)
+The audio is dispatched using a polymorphic **Strategy Pattern**. The `automationService` delegates execution to the `OutputFactory`, which loads the appropriate handler for each configured target. This architecture allows for modular, plug-and-play output integrations.
+
+**Built-in Strategies:**
+*   **Local:** Executes audio on the server hardware (default: `mpg123`). Ideal for Mosque local audio systems connected via AUX/HDMI.
+*   **Browser:** Broadcasts an SSE event (`AUDIO_PLAY`) to all connected clients. (Implicitly always enabled).
+*   **VoiceMonkey:** Sends an HTTP request to the VoiceMonkey API for Alexa announcements. Supports custom credential management and lead-time offsets.
+
+**Strategy Capabilities:**
+Each output strategy is self-contained and defines its own:
+*   **Health Checks:** Verifies hardware presence (e.g., `/dev/snd`) or API connectivity.
+*   **Configuration:** Manages specific parameters (tokens, device IDs) securely.
+*   **Safety Constraints:** Enforces execution timeouts and lead-time limits (e.g., VoiceMonkey has a 5s max lead time constraint).
+
     > [!IMPORTANT]
     > VoiceMonkey requires an **HTTPS Base URL** (`BASE_URL`) to fetch audio assets. If the server is offline or using an insecure URL, VoiceMonkey targets will be automatically skipped.
 

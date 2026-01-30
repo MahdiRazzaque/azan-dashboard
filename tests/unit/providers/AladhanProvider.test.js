@@ -8,17 +8,17 @@ jest.mock('@utils/requestQueue', () => ({
 
 describe('AladhanProvider', () => {
     let provider;
-    const sourceConfig = { type: 'aladhan' };
+    const sourceConfig = { 
+        type: 'aladhan',
+        method: 'ISNA',
+        madhab: 'Shafi',
+        latitudeAdjustmentMethod: 'Angle Based',
+        midnightMode: 'Standard'
+    };
     const globalConfig = {
         location: {
             coordinates: { lat: 51.5, long: -0.1 },
             timezone: 'Europe/London'
-        },
-        calculation: {
-            method: 'ISNA',
-            madhab: 'Shafi',
-            latitudeAdjustmentMethod: 'Angle Based',
-            midnightMode: 'Standard'
         }
     };
 

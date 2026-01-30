@@ -53,7 +53,7 @@ The dashboard supports a discovery-driven provider architecture. To add a new pr
             id: 'my-new-provider',
             label: 'My New Provider',
             description: 'Short description for UI',
-            requiresCoordinates: true, // Show calculation settings
+            requiresCoordinates: true, // Show provider parameters requiring coordinates
             parameters: [
                 {
                     key: 'apiKey',
@@ -71,6 +71,51 @@ The dashboard supports a discovery-driven provider architecture. To add a new pr
     - Add to the `getRegisteredProviders()` return array.
 
 The frontend will automatically discover the new provider and render the appropriate configuration fields via the `SourceConfigurator` and `DynamicField` components.
+
+## Adding an Output Integration
+
+The system uses a polymorphic **Strategy Pattern** to handle audio outputs. To add a new integration (e.g., MQTT, Home Assistant):
+
+1.  **Create Strategy Class:** In `src/outputs/`, extend `BaseOutput`.
+    ```javascript
+    const BaseOutput = require('./BaseOutput');
+    const OutputFactory = require('./OutputFactory');
+
+    class MyOutput extends BaseOutput {
+        static getMetadata() {
+            return {
+                id: 'myoutput', // Unique ID
+                label: 'My Integration', // UI Label
+                timeoutMs: 5000,
+                params: [
+                    { key: 'brokerUrl', type: 'string', label: 'Broker URL', sensitive: false },
+                    { key: 'apiKey', type: 'string', label: 'API Key', sensitive: true }
+                ]
+            };
+        }
+
+        async execute(payload, metadata) {
+            // Implement execution logic (e.g., network request)
+            // payload contains { prayer, event, source: { url, filePath } }
+        }
+        
+        async healthCheck(requestedParams) {
+            // Implement connectivity check
+            return { healthy: true, message: 'Connected' };
+        }
+
+        async verifyCredentials(credentials) {
+            // Verify specific credentials (optional)
+            return { success: true };
+        }
+    }
+    
+    // Auto-register
+    OutputFactory.register(MyOutput);
+    module.exports = MyOutput;
+    ```
+2.  **Register:** Add `require('./MyOutput')` to `src/outputs/index.js`.
+3.  **UI Discovery:** The frontend automatically renders configuration cards based on `getMetadata()`. No frontend code changes are required.
 
 ## Known Issues & Limitations
 *   **Audio Hardware on Docker Desktop:** As noted in deployment, mapping `/dev/snd` relies on Linux ALSA. Windows/Mac users cannot use the "Local" target effectively in Docker.

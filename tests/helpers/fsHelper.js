@@ -22,7 +22,6 @@ const fsHelper = {
         // Write a valid default.json (using minimal valid structure derived from default.json)
         const defaultConfig = {
              "location": { "timezone": "Europe/London", "coordinates": { "lat": 51.5, "long": -0.1 } },
-             "calculation": { "method": "MoonsightingCommittee", "madhab": "Hanafi" },
              "prayers": {
                 "fajr":    { "iqamahOffset": 20, "roundTo": 15, "fixedTime": null },
                 "dhuhr":   { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null },
@@ -30,7 +29,16 @@ const fsHelper = {
                 "maghrib": { "iqamahOffset": 10, "roundTo": 5,  "fixedTime": null },
                 "isha":    { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null }
              },
-             "sources": { "primary": { "type": "aladhan" }, "backup": { "type": "mymasjid", "masjidId": "123" } },
+             "sources": { 
+                "primary": { 
+                    "type": "aladhan",
+                    "method": 15,
+                    "madhab": 1,
+                    "latitudeAdjustmentMethod": 0,
+                    "midnightMode": 0
+                }, 
+                "backup": { "type": "mymasjid", "masjidId": "94f1c71b-7f8a-4b9a-9e1d-3b5f6a7b8c9d" } 
+             },
              "data": { "staleCheckDays": 7 },
              "automation": { 
                  "baseUrl": "http://localhost", 

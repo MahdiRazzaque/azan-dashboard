@@ -35,7 +35,7 @@ export default function NetworkConfigCard() {
             const result = await updateEnvSetting('BASE_URL', baseUrl);
             if (result.success) {
                 setFeedback({ type: 'success', message: 'Saved' });
-                await refreshHealth('voiceMonkey', 'silent');
+                await refreshHealth('voiceMonkey');
                 setTimeout(() => setFeedback(null), 3000);
             } else {
                 setFeedback({ type: 'error', message: result.error || 'Failed' });

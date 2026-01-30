@@ -11,6 +11,7 @@ const diagnosticsService = require('@services/system/diagnosticsService');
 const configService = require('@config');
 const voiceService = require('@services/system/voiceService');
 const { ProviderFactory } = require('@providers');
+const OutputFactory = require('../outputs');
 const { 
     CALCULATION_METHODS, 
     ASR_JURISTIC_METHODS, 
@@ -59,9 +60,9 @@ const systemController = {
      * @returns {Promise<void>} A promise that resolves when the health check completes.
      */
     refreshHealth: async (req, res) => {
-        const { target, mode } = req.body;
-        // Default to checking all components in silent mode if not specified
-        const result = await healthCheck.refresh(target || 'all', mode || 'silent');
+        const { target, params } = req.body;
+        // Default to checking all components
+        const result = await healthCheck.refresh(target || 'all', params);
         res.json(result);
     },
 
@@ -151,7 +152,8 @@ const systemController = {
                         vmIssues: metadata.vmIssues,
                         metadata: metadata
                     };
-                });
+                })
+                .filter(file => !file.metadata.hidden);
         };
         
         const custom = getFiles(audioCustomDir, metaCustomDir, 'custom');
@@ -228,13 +230,13 @@ const systemController = {
         try {
             await configService.reload();
             await audioAssetService.syncAudioAssets(true);
-            res.json({ 
+            res.json({
                 success: true, 
                 message: 'Audio assets cleared and synchronised.'
             });
         } catch (error) {
             console.error('[SystemController] Regeneration failed:', error.message);
-            res.status(400).json({ 
+            res.status(400).json({
                 success: false, 
                 message: `Regeneration failed: ${error.message}` 
             });
@@ -252,56 +254,6 @@ const systemController = {
         await configService.reload();
         await schedulerService.hotReload();
         res.json({ success: true, message: 'Scheduler restarted.' });
-    },
-
-    /**
-     * Executes a playback test for a specific audio file on a target output device.
-     * 
-     * @param {import('express').Request} req - The Express request object.
-     * @param {import('express').Response} res - The Express response object.
-     * @returns {Promise<void>} A promise that resolves when the playback is triggered.
-     */
-    testAudio: async (req, res) => {
-        const { filename, type, target = 'local' } = req.body; 
-        if (!filename || !type) return res.status(400).json({ error: 'Missing filename or type' });
-        
-        // Input sanitisation for path category and output target
-        if (!['custom', 'cache'].includes(type)) return res.status(400).json({ error: 'Invalid type' });
-        if (!['local', 'browser', 'voiceMonkey'].includes(target)) return res.status(400).json({ error: 'Invalid target' });
-
-        // Mitigate directory traversal by allowing only simple filenames
-        if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-             return res.status(400).json({ error: 'Invalid filename' });
-        }
-
-        const filePath = path.join(__dirname, `../../public/audio/${type}/${filename}`);
-        const metaPath = path.join(__dirname, `../public/audio/${type}/${filename}.json`);
-        const url = `/public/audio/${type}/${filename}`;
-        
-        // Confirm the existence of the file before attempt playback
-        if (!fs.existsSync(filePath)) {
-            console.error(`[TestAudio] File not found at ${filePath}`);
-            return res.status(404).json({ error: 'File not found on disk' });
-        }
-
-        const prayer = 'test';
-        const event = filename;
-        const source = { filePath, url };
-
-        console.log(`[TestAudio] Target: ${target}, File: ${filename}`);
-
-        if (target === 'local') {
-            console.log(`[TestAudio] Executing handleLocal`);
-            automationService.handleLocal({}, prayer, event, source);
-        } else if (target === 'browser') {
-            console.log(`[TestAudio] Executing broadcastToClients`);
-            automationService.broadcastToClients({}, prayer, event, source);
-        } else if (target === 'voiceMonkey') {
-            console.log(`[TestAudio] Executing handleVoiceMonkey`);
-            await automationService.handleVoiceMonkey({}, prayer, event, source);
-        }
-
-        res.json({ success: true, message: `Testing audio on ${target}...` });
     },
 
     /**
@@ -384,29 +336,6 @@ const systemController = {
                 console.error(`[SystemController] Failed to refresh health after test failure:`, healthError.message);
             }
             throw error;
-        }
-    },
-
-    /**
-     * Initiates a test announcement via VoiceMonkey to verify API connectivity.
-     * 
-     * @param {import('express').Request} req - The Express request object.
-     * @param {import('express').Response} res - The Express response object.
-     * @returns {Promise<void>} A promise that resolves when the test announcement succeeds.
-     */
-    testVoiceMonkey: async (req, res) => {
-        const { token, device } = req.body;
-        if (!token || !device) return res.status(400).json({ error: 'Missing token or device' });
-
-        const response = await axios.get('https://api-v2.voicemonkey.io/announcement', {
-            params: { token, device, text: 'Test' },
-            timeout: 5000
-        });
-        
-        if (response.data && response.data.success === true) {
-            res.json({ success: true });
-        } else {
-            throw new Error(response.data?.error || 'VoiceMonkey API returned failure');
         }
     },
 
@@ -534,6 +463,64 @@ const systemController = {
         const { ProviderFactory } = require('@providers');
         const providers = ProviderFactory.getRegisteredProviders();
         res.json(providers);
+    },
+
+    // New Output Strategy Endpoints
+
+    /**
+     * Retrieves the registry of all available output strategies and their schemas.
+     *
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    getOutputRegistry: (req, res) => {
+        const registry = OutputFactory.getAllStrategies();
+        res.json(registry);
+    },
+
+    /**
+     * Verifies the credentials for a specific output strategy based on provided parameters.
+     *
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the verification is complete.
+     */
+    verifyOutput: async (req, res) => {
+        const { strategyId } = req.params;
+        try {
+            const strategy = OutputFactory.getStrategy(strategyId);
+            const result = await strategy.verifyCredentials(req.body);
+            res.json(result);
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    },
+
+    /**
+     * Triggers a test execution for a specific output strategy using a predefined test audio file.
+     *
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the test execution is complete.
+     */
+    testOutput: async (req, res) => {
+        const { strategyId } = req.params;
+        const { source } = req.body;
+        try {
+            const strategy = OutputFactory.getStrategy(strategyId);
+
+            if (!source || !source.path) {
+                return res.status(400).json({ error: 'Audio source path is required for testing' });
+            }
+
+            // Dynamic source from request (e.g., File Manager preview)
+            const payload = { params: req.body, source };
+
+            await strategy.execute(payload, { isTest: true });
+            res.json({ success: true });
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
     }
 };
 

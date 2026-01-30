@@ -99,23 +99,10 @@ const generateSecret = () => {
  */
 const isConfigured = () => !!process.env.ADMIN_PASSWORD;
 
-/**
- * Reloads environment variables from the .env file into process.env.
- */
-const reloadEnv = () => {
-    const dotenv = require('dotenv');
-    const result = dotenv.config({ path: ENV_PATH, override: true });
-    if (result.error) {
-        throw result.error;
-    }
-};
-
 module.exports = {
     getEnv: parseEnv,
     setEnvValue,
-    setEnvValue,
     deleteEnvValue,
     generateSecret,
-    isConfigured,
-    reloadEnv
+    isConfigured
 };

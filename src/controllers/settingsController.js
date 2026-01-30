@@ -10,6 +10,7 @@ const healthCheck = require('@services/system/healthCheck');
 const { validateConfigSource } = require('@services/core/validationService');
 const audioValidator = require('@utils/audioValidator');
 const systemControllerHelper = require('./systemController');
+const OutputFactory = require('../outputs');
 
 /**
  * Controller for settings-related operations, managing application configuration,
@@ -29,8 +30,8 @@ const settingsController = {
     },
 
     /**
-     * Retrieves a sanitized subset of application settings for public (non-admin) access.
-     * Excludes sensitive data like VoiceMonkey credentials.
+     * Retrieves a sanitised subset of application settings for public (non-admin) access.
+     * Excludes sensitive data like integration credentials.
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
@@ -40,19 +41,26 @@ const settingsController = {
         await configService.reload();
         const fullConfig = configService.get();
         
-        // Sanitize automation block to ensure no secrets are leaked
-        const automation = { ...fullConfig.automation };
-        if (automation.voiceMonkey) {
-            automation.voiceMonkey = {
-                enabled: automation.voiceMonkey.enabled
-                // Explicitly exclude token and device
-            };
+        // Deep clone automation block to ensure no secrets are leaked via reference
+        const automation = JSON.parse(JSON.stringify(fullConfig.automation || {}));
+        
+        // Polymorphically sanitise all output strategies
+        if (automation.outputs) {
+            const secrets = OutputFactory.getSecretRequirementKeys();
+            secrets.forEach(({ strategyId, key }) => {
+                if (automation.outputs[strategyId]?.params?.[key]) {
+                    delete automation.outputs[strategyId].params[key];
+                }
+            });
         }
+
+        // Decommissioned legacy keys (sanity check)
+        delete automation.voiceMonkey;
 
         res.json({
             location: fullConfig.location,
-            calculation: fullConfig.calculation,
             prayers: fullConfig.prayers,
+            sources: fullConfig.sources,
             automation: automation
         });
     },
@@ -65,101 +73,185 @@ const settingsController = {
      * @returns {Promise<void>} A promise that resolves when the update completes.
      */
     updateSettings: async (req, res) => {
-        const newConfig = req.body;
-        if (typeof newConfig !== 'object' || newConfig === null) {
-            return res.status(400).json({ error: 'Invalid configuration format' });
-        }
-        console.log('[SettingsController] Received update request:', JSON.stringify(newConfig.data));
-
-        // Validate the incoming configuration source for correct masjid identification
-        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Validating Configuration...' } });
         try {
-            await validateConfigSource(newConfig);
-        } catch (e) {
-            if (e.message.startsWith('Invalid Masjid ID') || e.message === 'Masjid ID not found.') {
-                return res.status(400).json({ error: e.message });
+            const newConfig = req.body;
+            if (typeof newConfig !== 'object' || newConfig === null) {
+                return res.status(400).json({ error: 'Invalid configuration format' });
             }
-            return res.status(400).json({ error: `Validation Failed: ${e.message}` });
-        }
+            console.log('[SettingsController] Received update request:', JSON.stringify(newConfig.data));
 
-        // Persist the changes to disk; store previous state for rollback if needed
-        const previousConfig = configService.get();
-        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Saving to Disk...' } });
-        await configService.update(newConfig);
-        
-        // Force a refresh of the prayer time cache to reflect the updated settings
-        console.log('[SettingsController] Settings updated, forcing cache refresh...');
-        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Refreshing Prayer Data...' } });
-        const result = await forceRefresh(configService.get());
-        
-        // Synchronise audio assets, such as TTS and custom files, while checking storage limits
-        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Generating Audio Assets...' } });
-        try {
-            await audioAssetService.syncAudioAssets();
-        } catch (err) {
-            console.error('[SettingsController] Audio asset synchronization failed. Rolling back config.', err.message);
+            // Persist the changes to disk; store previous state for rollback if needed
+            const previousConfig = configService.get();
+
+            // Detect if prayer-affecting settings have changed
+            const sourcesChanged = JSON.stringify(previousConfig.sources) !== JSON.stringify(newConfig.sources);
+            const locationChanged = JSON.stringify(previousConfig.location) !== JSON.stringify(newConfig.location);
+            const requiresRefresh = sourcesChanged || locationChanged;
+
+            // Identify services in use to perform targeted health checks
+            const usedServices = new Set();
             
-            // Revert configuration if audio synchronisation fails to maintain system consistency
-            await configService.update(previousConfig);
+            if (newConfig.automation?.triggers) {
+                Object.values(newConfig.automation.triggers).forEach(prayerTriggers => {
+                    Object.values(prayerTriggers).forEach(trigger => {
+                        if (!trigger.enabled) return;
+                        if (trigger.type === 'tts') usedServices.add('tts');
+                        if (trigger.targets) {
+                            trigger.targets.forEach(t => {
+                                if (t !== 'browser') usedServices.add(t);
+                            });
+                        }
+                    });
+                });
+            }
+
+            // Perform targeted health checks before proceeding with disk/cache operations
+            if (usedServices.size > 0) {
+                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Checking Service Health...' } });
+                await Promise.all(Array.from(usedServices).map(service => healthCheck.refresh(service)));
+            }
+
+            // Validate the incoming configuration source for correct masjid identification
+            if (requiresRefresh) {
+                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Validating Configuration...' } });
+                try {
+                    await validateConfigSource(newConfig);
+                } catch (e) {
+                    if (e.name === 'ProviderValidationError' && e.userFriendly) {
+                        return res.status(400).json({ error: e.message });
+                    }
+                    return res.status(400).json({ error: `Validation Failed: ${e.message}` });
+                }
+            } else {
+                console.log('[SettingsController] skipping validateConfigSource (no source/location change).');
+            }
+
+            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Saving to Disk...' } });
+            await configService.update(newConfig);
+
+            // Refresh prayer source health after save so healthCheck reads the NEW config
+            if (requiresRefresh) {
+                await healthCheck.refresh('primarySource');
+                if (newConfig.sources?.backup && newConfig.sources.backup.enabled !== false) {
+                    await healthCheck.refresh('backupSource');
+                }
+            }
             
-            return res.status(400).json({
-                error: 'Storage Quota Exceeded',
-                message: `Settings not saved: ${err.message}. Configuration has been rolled back.`
-            });
-        }
+            // Refresh cache ONLY if source or location has changed
+            let result = { meta: { skip: true } };
+            if (requiresRefresh) {
+                console.log('[SettingsController] Settings updated, forcing cache refresh...');
+                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Refreshing Prayer Data...' } });
+                result = await forceRefresh(configService.get());
+            } else {
+                console.log('[SettingsController] Settings updated (no source/location change, skipping cache refresh).');
+                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Skipping Prayer Refresh...' } });
+            }
+            
+            // Synchronise audio assets, such as TTS and custom files, while checking storage limits
+            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Generating Audio Assets...' } });
+            let syncResult;
+            try {
+                syncResult = await audioAssetService.syncAudioAssets();
+            } catch (err) {
+                console.error('[SettingsController] Audio asset synchronisation failed. Rolling back config.', err.message);
+                
+                // Revert configuration if audio synchronisation fails to maintain system consistency
+                await configService.update(previousConfig);
+                
+                return res.status(400).json({
+                    error: 'Sync Failed',
+                    message: `Settings not saved: ${err.message}. Configuration has been rolled back.`
+                });
+            }
 
-        // Re-initialise the scheduler with the new timing and configuration
-        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Restarting Scheduler...' } });
-        await schedulerService.initScheduler(); 
+            // Re-initialise the scheduler with the new timing and configuration
+            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Restarting Scheduler...' } });
+            await schedulerService.initScheduler(); 
+    
+            // Generate warnings if configured automation services are currently offline or disabled
+            const warnings = [...(syncResult.warnings || [])];
+            const health = healthCheck.getHealth(); // Use the health status updated at the start of the request
+            const finalConfig = configService.get();
+            const strategies = OutputFactory.getAllStrategies();
+            
+            // Internal method helper for metadata retrieval
+            const getFilesWithMetadata = systemControllerHelper._getAudioFilesWithMetadata || (async () => []);
+            const audioFiles = await getFilesWithMetadata();
+            
+            if (finalConfig.automation && finalConfig.automation.triggers) {
+                Object.entries(finalConfig.automation.triggers).forEach(([prayer, triggers]) => {
+                    Object.entries(triggers).forEach(([type, trigger]) => {
+                        if (!trigger.enabled) return;
+                        const prayerName = prayer.charAt(0).toUpperCase() + prayer.slice(1);
+                        const typeName = type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                        const niceName = `${prayerName} ${typeName}`;
 
-        // Generate warnings if configured automation services are currently offline
-        const warnings = [];
-        const health = healthCheck.getHealth();
+                        if (trigger.type === 'tts' && !health.tts?.healthy) {
+                            warnings.push(`${niceName}: TTS Service is offline`);
+                        }
+
+                        // Dynamic strategy checks
+                        (trigger.targets || []).forEach(targetId => {
+                            const strategy = strategies.find(s => s.id === targetId);
+                            if (!strategy || targetId === 'browser') return;
+                            
+                            const outputConfig = finalConfig.automation?.outputs?.[targetId];
+                            const strategyHealth = health[targetId];
+
+                            if (!outputConfig || !outputConfig.enabled) {
+                                warnings.push(`${niceName}: ${strategy.label} output is disabled in settings`);
+                            } else if (strategyHealth && !strategyHealth.healthy) {
+                                warnings.push(`${niceName}: ${strategy.label} output is offline (${strategyHealth.message || 'unreachable'})`);
+                            }
         
-        if (newConfig.automation && newConfig.automation.triggers) {
-            const audioFiles = await systemControllerHelper._getAudioFilesWithMetadata();
-            
-            Object.entries(newConfig.automation.triggers).forEach(([prayer, triggers]) => {
-                Object.entries(triggers).forEach(([type, trigger]) => {
-                    if (!trigger.enabled) return;
-                     const niceName = `${prayer.charAt(0).toUpperCase() + prayer.slice(1)} ${type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
-
-                    if (trigger.type === 'tts' && !health.tts?.healthy) {
-                        warnings.push(`${niceName}: TTS Service is offline`);
-                    }
-                    if (trigger.targets && trigger.targets.includes('local') && !health.local?.healthy) {
-                        warnings.push(`${niceName}: Local Audio Service is offline`);
-                    }
-                    
-                    // VoiceMonkey reachability check
-                    if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !health.voiceMonkey?.healthy) {
-                         warnings.push(`${niceName}: ${health.voiceMonkey?.message || 'VoiceMonkey Service is offline'}`);
-                    }
-                    
-                    // VoiceMonkey audio compatibility check
-                    if (trigger.targets?.includes('voiceMonkey')) {
-                        const file = audioFiles.find(f => 
-                            (trigger.type === 'file' && f.path === trigger.path) ||
-                            (trigger.type === 'tts' && f.name === `tts_${prayer}_${type}.mp3`)
-                        );
-                        
-                        if (file && file.vmCompatible === false) {
-                            warnings.push(`${niceName}: Audio incompatible with Alexa (${file.vmIssues?.join(', ') || 'Unknown issues'})`);
+                            // Polymorphic validation for strategy-specific warnings
+                            try {
+                                const instance = OutputFactory.getStrategy(targetId);
+                                const strategyWarnings = instance.validateTrigger(trigger, {
+                                    audioFiles,
+                                    prayer,
+                                    triggerType: type,
+                                    niceName
+                                });
+                                warnings.push(...strategyWarnings);
+                            } catch (e) {
+                                // Silently ignore if strategy instance can't be retrieved or validation fails
+                            }
+                        });
+                    });
+                });
+            }
+    
+            // Check if any ENABLED output itself is failing health check, even if not yet used in a trigger
+            strategies.forEach(strategy => {
+                if (strategy.hidden || strategy.id === 'browser') return;
+                const outputConfig = finalConfig.automation?.outputs?.[strategy.id];
+                if (outputConfig?.enabled) {
+                    const status = health[strategy.id];
+                    // Note: If the strategy wasn't in usedServices, health status here will be what was already in cache
+                    if (status && !status.healthy) {
+                        const msg = `${strategy.label} Integration: ${status.message || 'Offline'}`;
+                        if (!warnings.some(w => w.includes(msg))) {
+                            warnings.push(msg);
                         }
                     }
-                });
+                }
             });
+
+            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Configuration Saved' } });
+            
+            res.json({ 
+                message: 'Settings validated, updated, and cache refreshed.',
+                meta: result.meta,
+                warnings: warnings
+            });
+        } catch (error) {
+            console.error('[SettingsController] updateSettings FATAL ERROR:', error);
+            res.status(500).json({ error: 'Internal Server Error', message: error.message });
         }
-
-        sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Configuration Saved' } });
-        
-        res.json({ 
-            message: 'Settings validated, updated, and cache refreshed.',
-            meta: result.meta,
-            warnings: warnings
-        });
-    },
-
+    },    
+    
     /**
      * Resets settings to factory defaults by removing the local configuration file.
      * 
@@ -177,19 +269,21 @@ const settingsController = {
         await configService.reload();
         const result = await forceRefresh(configService.get());
         
+        let syncWarnings = [];
         try {
-            await audioAssetService.syncAudioAssets();
-        } catch(e) { 
+            const syncRes = await audioAssetService.syncAudioAssets(true);
+            syncWarnings = syncRes.warnings || [];
+        } catch (e) { 
             console.error('[SettingsController] Reset sync failed:', e.message);
             return res.status(400).json({ 
-                error: 'Reset Failed', 
-                message: `Settings reset, but audio synchronization failed: ${e.message}` 
+                error: 'Sync Failed', 
+                message: `Settings reset, but audio synchronisation failed: ${e.message}` 
             });
         }
 
         await schedulerService.initScheduler(); 
 
-        res.json({ message: 'Settings reset to defaults.', meta: result.meta, warnings: [] });
+        res.json({ message: 'Settings reset to defaults.', meta: result.meta, warnings: syncWarnings });
     },
 
     /**
@@ -228,13 +322,14 @@ const settingsController = {
 
         const warnings = [];
         try {
-           await audioAssetService.syncAudioAssets();
+            const syncRes = await audioAssetService.syncAudioAssets();
+            if (syncRes.warnings) warnings.push(...syncRes.warnings);
         } catch (e) {
-             console.error('[SettingsController] Audio asset synchronization failed:', e.message);
-             return res.status(400).json({ 
-                 error: 'Sync Failed', 
-                 message: `Cache refreshed, but audio synchronization failed: ${e.message}` 
-             });
+            console.error('[SettingsController] Audio asset synchronisation failed:', e.message);
+            return res.status(400).json({ 
+                error: 'Sync Failed', 
+                message: `Cache refreshed, but audio synchronisation failed: ${e.message}` 
+            });
         }
         await schedulerService.initScheduler(); 
         
@@ -264,19 +359,27 @@ const settingsController = {
 
             // Generate metadata sidecar in src/public
             const metadata = await audioValidator.analyseAudioFile(audioPath);
-            const vmStatus = audioValidator.validateVoiceMonkeyCompatibility(metadata);
             
-            fs.writeFileSync(metaPath, JSON.stringify({
+            // Polymorphically augment metadata from all strategies
+            const augmentedData = {};
+            OutputFactory.getAllStrategyInstances().forEach(instance => {
+                const augmentation = instance.augmentAudioMetadata(metadata);
+                Object.assign(augmentedData, augmentation);
+            });
+            
+            const finalMetadata = {
                 ...metadata,
-                ...vmStatus,
+                ...augmentedData,
                 updatedAt: new Date().toISOString()
-            }));
+            };
+
+            fs.writeFileSync(metaPath, JSON.stringify(finalMetadata));
             
             res.json({ 
                 message: 'File uploaded and analysed successfully', 
                 filename: req.file.originalname, 
                 path: `custom/${req.file.originalname}`,
-                ...vmStatus
+                ...augmentedData
             });
         } catch (error) {
             console.error('[SettingsController] Upload analysis failed:', error.message);
@@ -307,6 +410,16 @@ const settingsController = {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
+        // Check if file is protected
+        if (fs.existsSync(metaPath)) {
+            try {
+                const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+                if (metadata.protected) {
+                    return res.status(403).json({ error: 'Forbidden: File is protected and cannot be deleted' });
+                }
+            } catch (e) { /* ignore corrupt meta */ }
+        }
+
         let deleted = false;
         try {
             if (fs.existsSync(audioPath)) {
@@ -328,43 +441,6 @@ const settingsController = {
         } else {
             res.status(404).json({ error: 'File not found' });
         }
-    },
-
-    /**
-     * Persists VoiceMonkey API credentials to the environment configuration.
-     * 
-     * @param {import('express').Request} req - The Express request object.
-     * @param {import('express').Response} res - The Express response object.
-     * @returns {Promise<void>} A promise that resolves when credentials are saved.
-     */
-    saveVoiceMonkey: async (req, res) => {
-        const { token, device } = req.body;
-        if (!token || !device) return res.status(400).json({ error: 'Missing token or device' });
-
-        if (token.trim() === '' || device.trim() === '') {
-             return res.status(400).json({ error: 'Token and Device cannot be empty' });
-        }
-
-        envManager.setEnvValue('VOICEMONKEY_TOKEN', token);
-        envManager.setEnvValue('VOICEMONKEY_DEVICE', device);
-
-        await configService.reload();
-        res.json({ success: true, message: 'Credentials saved successfully' });
-    },
-
-    /**
-     * Removes VoiceMonkey API credentials from the environment configuration.
-     * 
-     * @param {import('express').Request} req - The Express request object.
-     * @param {import('express').Response} res - The Express response object.
-     * @returns {Promise<void>} A promise that resolves when credentials are removed.
-     */
-    deleteVoiceMonkey: async (req, res) => {
-        envManager.deleteEnvValue('VOICEMONKEY_TOKEN');
-        envManager.deleteEnvValue('VOICEMONKEY_DEVICE');
-
-        await configService.reload();
-        res.json({ success: true, message: 'Credentials removed successfully' });
     }
 };
 

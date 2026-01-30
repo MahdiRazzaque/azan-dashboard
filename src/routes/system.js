@@ -18,11 +18,14 @@ router.post('/preview-tts', operationsLimiter, authenticateToken, asyncHandler(s
 router.post('/regenerate-tts', operationsLimiter, authenticateToken, asyncHandler(systemController.regenerateTTS));
 router.post('/run-job', operationsLimiter, authenticateToken, asyncHandler(systemController.runJob));
 router.post('/restart-scheduler', operationsLimiter, authenticateToken, asyncHandler(systemController.restartScheduler));
-router.post('/test-audio', operationsLimiter, authenticateToken, asyncHandler(systemController.testAudio));
 router.post('/validate-url', operationsLimiter, authenticateToken, asyncHandler(systemController.validateUrl));
 router.post('/source/test', operationsLimiter, authenticateToken, asyncHandler(systemController.testSource));
-router.post('/test-voicemonkey', authenticateToken, asyncHandler(systemController.testVoiceMonkey));
 router.post('/cleanup-temp-tts', operationsLimiter, authenticateToken, asyncHandler(systemController.cleanupTempTTS));
 router.get('/providers', authenticateToken, asyncHandler(systemController.getProviders));
+
+// Output Strategy Endpoints
+router.get('/outputs/registry', authenticateToken, asyncHandler(systemController.getOutputRegistry));
+router.post('/outputs/:strategyId/verify', operationsLimiter, authenticateToken, asyncHandler(systemController.verifyOutput));
+router.post('/outputs/:strategyId/test', operationsLimiter, authenticateToken, asyncHandler(systemController.testOutput));
 
 module.exports = router;

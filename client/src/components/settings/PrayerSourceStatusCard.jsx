@@ -3,6 +3,7 @@ import { Database, Globe, Activity, CheckCircle, XCircle, AlertTriangle, Refresh
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useSettings } from '@/hooks/useSettings';
+import { useProviders } from '@/hooks/useProviders';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
@@ -22,6 +23,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
  */
 export default function PrayerSourceStatusCard({ config }) {
     const { systemHealth, refreshHealth } = useSettings();
+    const { providers } = useProviders();
     const [activeSource, setActiveSource] = useState(null);
     const [loading, setLoading] = useState(null); // 'primary' | 'backup' | null
     const [results, setResults] = useState({}); // { primary: { success: true, message: '...' } }
@@ -107,6 +109,13 @@ export default function PrayerSourceStatusCard({ config }) {
         const healthKey = target === 'primary' ? 'primarySource' : 'backupSource';
         const health = systemHealth?.[healthKey];
 
+        const provider = providers.find(p => p.id === source?.type);
+        const iconName = provider?.branding?.icon || 'Database';
+        const accentColor = provider?.branding?.accentColor || 'emerald';
+
+        const Icon = iconName === 'Globe' ? Globe : Database;
+        const colorClass = accentColor === 'blue' ? 'text-blue-400' : 'text-emerald-400';
+
         return (
             <div className={cn(
                 "flex flex-col p-4 bg-app-card rounded-lg border border-app-border transition-all gap-4",
@@ -115,7 +124,7 @@ export default function PrayerSourceStatusCard({ config }) {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-app-bg rounded-lg">
-                            {source?.type === 'aladhan' ? <Globe className="w-5 h-5 text-blue-400" /> : <Database className="w-5 h-5 text-emerald-400" />}
+                            <Icon className={cn("w-5 h-5", colorClass)} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
@@ -131,7 +140,7 @@ export default function PrayerSourceStatusCard({ config }) {
                                 )}
                             </div>
                             <div className="text-xs text-app-dim mt-0.5 font-mono">
-                                {source?.type || 'Not Set'}
+                                {provider?.label || source?.type || 'Not Set'}
                             </div>
                         </div>
                     </div>
