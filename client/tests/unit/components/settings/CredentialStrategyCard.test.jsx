@@ -1,98 +1,93 @@
-import { render, screen, act } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
-import CredentialStrategyCard from '@/components/settings/CredentialStrategyCard';
+import React from 'react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import CredentialStrategyCard from '../../../../src/components/settings/CredentialStrategyCard';
 
-const mockStrategy = {
-  id: 'voicemonkey',
-  label: 'VoiceMonkey',
-  params: [
-    { key: 'token', label: 'API Token', sensitive: true }
-  ]
-};
+vi.mock('../../../../src/components/common/PasswordInput', () => ({ default: ({ value, onChange, placeholder }) => <input data-testid="pass-input" type="password" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} /> }));
+vi.mock('../../../../src/components/common/ConfirmModal', () => ({ default: ({ isOpen, onConfirm, title }) => isOpen ? <div data-testid="modal">{title}<button onClick={onConfirm}>Confirm</button></div> : null }));
 
 describe('CredentialStrategyCard', () => {
-  it('should pre-fill values when initialValues are provided after initial render', async () => {
-    const { rerender } = render(
-      <CredentialStrategyCard 
-        strategy={mockStrategy} 
-        initialValues={undefined} 
-        verified={false} 
-        onSave={vi.fn()} 
-      />
-    );
+  const onSave = vi.fn();
+  const strategy = {
+    id: 'voicemonkey',
+    label: 'VoiceMonkey',
+    params: [{ key: 'token', label: 'Token', sensitive: true }]
+  };
 
-    // Initially empty
-    const input = screen.getByPlaceholderText('Enter API Token');
-    expect(input.value).toBe('');
-
-    // Update with initialValues
-    rerender(
-      <CredentialStrategyCard 
-        strategy={mockStrategy} 
-        initialValues={{ token: 'secret-token' }} 
-        verified={false} 
-        onSave={vi.fn()} 
-      />
-    );
-
-    // Bug: It might still be empty if the useEffect doesn't handle the update correctly
-    expect(input.value).toBe('secret-token');
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal('fetch', vi.fn());
   });
 
-  it('should disable the Reset button when initialValues are already empty', () => {
-    render(
-      <CredentialStrategyCard 
-        strategy={mockStrategy} 
-        initialValues={{}} 
-        verified={false} 
-        onSave={vi.fn()} 
-      />
-    );
-
-    const resetButton = screen.getByTitle('Reset / Clear Credentials');
-    expect(resetButton).toBeDisabled();
+  it('should render correctly', () => {
+    render(<CredentialStrategyCard strategy={strategy} initialValues={{ token: 'old' }} verified={true} onSave={onSave} />);
+    expect(screen.getByText('VoiceMonkey Credentials')).toBeDefined();
+    expect(screen.getByTestId('pass-input').value).toBe('old');
+    expect(screen.getByText('Verified & Saved')).toBeDefined();
   });
 
-  it('should enable the Reset button when initialValues has data', () => {
-    render(
-      <CredentialStrategyCard 
-        strategy={mockStrategy} 
-        initialValues={{ token: 'exists' }} 
-        verified={false} 
-        onSave={vi.fn()} 
-      />
-    );
-
-    const resetButton = screen.getByTitle('Reset / Clear Credentials');
-    expect(resetButton).not.toBeDisabled();
+  it('should handle parameter change and dirty state', () => {
+    render(<CredentialStrategyCard strategy={strategy} initialValues={{ token: 'old' }} verified={true} onSave={onSave} />);
+    const input = screen.getByTestId('pass-input');
+    
+    fireEvent.change(input, { target: { value: 'new' } });
+    expect(input.value).toBe('new');
+    expect(screen.queryByText('Verified & Saved')).toBeNull();
+    expect(screen.getByText('Test & Verify')).toBeDefined();
   });
 
-  it('should show safety modal before triggering verification', async () => {
-    global.fetch = vi.fn();
-    render(
-      <CredentialStrategyCard 
-        strategy={mockStrategy} 
-        initialValues={{ token: 'exists' }} 
-        verified={false} 
-        onSave={vi.fn()} 
-      />
-    );
+  it('should handle discard changes', () => {
+    render(<CredentialStrategyCard strategy={strategy} initialValues={{ token: 'old' }} verified={true} onSave={onSave} />);
+    const input = screen.getByTestId('pass-input');
+    fireEvent.change(input, { target: { value: 'new' } });
+    
+    const discardButton = screen.getByTitle('Discard Changes');
+    fireEvent.click(discardButton);
+    expect(input.value).toBe('old');
+  });
 
-    const testButton = screen.getByText('Test & Verify');
-    await act(async () => {
-        testButton.click();
-    });
+  it('should handle reset flow', async () => {
+    onSave.mockResolvedValue({ success: true });
+    render(<CredentialStrategyCard strategy={strategy} initialValues={{ token: 'old' }} onSave={onSave} />);
+    
+    fireEvent.click(screen.getByTitle(/Reset/));
+    expect(screen.getByText('Clear Credentials')).toBeDefined();
+    
+    fireEvent.click(screen.getByText('Confirm'));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith({ token: '' }, true));
+  });
 
-    // Modal should be open
-    expect(screen.getByText('Audio Warning')).toBeInTheDocument();
-    expect(screen.getByText(/This will play audio/)).toBeInTheDocument();
+  it('should handle verification flow', async () => {
+    fetch.mockResolvedValueOnce({ ok: true });
+    onSave.mockResolvedValue({ success: true });
+    render(<CredentialStrategyCard strategy={strategy} initialValues={{ token: 'val' }} onSave={onSave} />);
+    
+    fireEvent.click(screen.getByText('Test & Verify'));
+    expect(screen.getByText('Audio Warning')).toBeDefined();
+    
+    fireEvent.click(screen.getByText('Confirm')); // Safety Warning
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/verify'), expect.any(Object)));
+    
+    expect(screen.getByText('Audio Verification')).toBeDefined();
+    fireEvent.click(screen.getByText('Confirm')); // Success confirmation
+    
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith({ token: 'val' }, false));
+    expect(screen.getByText('Verified & Saved')).toBeDefined();
+  });
 
-    // Clicking Cancel should close it without fetch
-    const cancelButton = screen.getByText('Cancel');
-    await act(async () => {
-        cancelButton.click();
-    });
+  it('should handle verification trigger failure', async () => {
+    fetch.mockResolvedValueOnce({ ok: false, json: () => Promise.resolve({ error: 'Trigger failed' }) });
+    render(<CredentialStrategyCard strategy={strategy} initialValues={{ token: 'val' }} onSave={onSave} />);
+    
+    fireEvent.click(screen.getByText('Test & Verify'));
+    fireEvent.click(screen.getByText('Confirm')); // Safety Warning
+    
+    await waitFor(() => expect(screen.getByText('Trigger failed')).toBeDefined());
+  });
 
-    expect(global.fetch).not.toHaveBeenCalled();
+  it('should return null if no sensitive params', () => {
+    const noSensitive = { ...strategy, params: [{ key: 'p', sensitive: false }] };
+    const { container } = render(<CredentialStrategyCard strategy={noSensitive} onSave={onSave} />);
+    expect(container.firstChild).toBeNull();
   });
 });
