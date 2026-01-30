@@ -26,6 +26,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
 export default function CredentialStrategyCard({ strategy, initialValues, verified, onSave }) {
     const [verifying, setVerifying] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const [showSafetyWarning, setShowSafetyWarning] = useState(false);
     const [result, setResult] = useState(null);
     const [showResetModal, setShowResetModal] = useState(false);
     const [values, setValues] = useState(initialValues || {});
@@ -33,11 +34,16 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
     const [isDirty, setIsDirty] = useState(false);
     const [saving, setSaving] = useState(false);
 
+    // Sync local state when server config finishes loading.
+    // Uses JSON.stringify for stable deep comparison.
+    const initialValuesJson = JSON.stringify(initialValues || {});
     useEffect(() => {
-        if (initialValues) {
-            setValues(prev => ({ ...prev, ...initialValues }));
-        }
-    }, [initialValues]);
+        const parsed = JSON.parse(initialValuesJson);
+        // Populate the fields whenever server values change.
+        // We also reset isDirty because these values now match the server.
+        setValues(parsed);
+        setIsDirty(false);
+    }, [initialValuesJson]);
 
     useEffect(() => {
         setIsVerified(verified || false);
@@ -86,7 +92,12 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
         }
     };
 
-    const handleVerifyTrigger = async () => {
+    const handleVerifyTrigger = () => {
+        setShowSafetyWarning(true);
+    };
+
+    const proceedWithVerification = async () => {
+        setShowSafetyWarning(false);
         setVerifying(true);
         setResult(null);
         try {
@@ -133,6 +144,8 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
 
     if (sensitiveParams.length === 0) return null;
 
+    // Check if ALL sensitive params are empty in the *original* server values (not local state).
+    const originallyEmpty = sensitiveParams.every(p => !initialValues?.[p.key]);
     const allEmpty = sensitiveParams.every(p => !values[p.key]);
 
     return (
@@ -153,7 +166,7 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
                     </button>
                     <button
                         onClick={handleReset}
-                        disabled={saving}
+                        disabled={originallyEmpty || saving}
                         title="Reset / Clear Credentials"
                         className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-full transition-colors disabled:opacity-50"
                     >
@@ -219,6 +232,17 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
                 message={`Did you hear the test message from ${label}?`}
                 confirmText="Yes, Verified"
                 cancelText="No, Try Again"
+                isDestructive={false}
+            />
+
+            <ConfirmModal 
+                isOpen={showSafetyWarning}
+                onClose={() => setShowSafetyWarning(false)}
+                onConfirm={proceedWithVerification}
+                title="Audio Warning"
+                message="This will play audio through your connected output device (e.g., Alexa, speakers). Make sure the volume is at an appropriate level before proceeding."
+                confirmText="I Understand, Proceed"
+                cancelText="Cancel"
                 isDestructive={false}
             />
 

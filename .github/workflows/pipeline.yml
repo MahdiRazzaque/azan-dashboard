@@ -6,18 +6,29 @@ on:
   workflow_dispatch:
 
 jobs:
-  tests:
-    name: Node.js Tests
-    uses: ./.github/workflows/nodejs-tests.yml
+  lint:
+    name: Linting
+    uses: ./.github/workflows/lint.yml
+    secrets: inherit
+
+  src-tests:
+    name: Backend Tests
+    uses: ./.github/workflows/src-tests.yml
+    secrets: inherit
+
+  client-tests:
+    name: Frontend Tests
+    uses: ./.github/workflows/client-tests.yml
     secrets: inherit
 
   build:
     name: Docker Build
+    needs: [lint, src-tests, client-tests]
     uses: ./.github/workflows/docker-build.yml
     secrets: inherit
 
   deploy:
     name: Deployment
-    needs: [tests, build]
+    needs: [build]
     uses: ./.github/workflows/deploy.yml
     secrets: inherit
