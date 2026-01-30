@@ -14,7 +14,7 @@ import CredentialStrategyCard from '@/components/settings/CredentialStrategyCard
  */
 export default function CredentialsSettingsView() {
   const { logout } = useAuth();
-  const { updateEnvSetting, config, refreshHealth } = useSettings();
+  const { updateEnvSetting, config, refreshHealth, loading: settingsLoading } = useSettings();
   const [strategies, setStrategies] = useState([]);
   
   // New handlers to support card-level saving
@@ -72,6 +72,15 @@ export default function CredentialsSettingsView() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passMsg, setPassMsg] = useState(null);
   
+  if (settingsLoading && !config) {
+    return (
+        <div className="flex flex-col items-center justify-center py-12 text-app-dim">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mb-4"></div>
+            <p>Loading security configuration...</p>
+        </div>
+    );
+  }
+
   const handleChangePassword = async () => {
       setPassMsg(null);
       if (!newPassword) return;

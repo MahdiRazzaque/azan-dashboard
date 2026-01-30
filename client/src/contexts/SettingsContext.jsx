@@ -116,20 +116,20 @@ export const SettingsProvider = ({ children }) => {
   useEffect(() => {
     if (!pausedPolling) {
       // 1. Initial Load of Global Data (Settings & Health)
+      // We always fetch settings when authentication state changes to ensure
+      // we have the correct level of detail (public vs admin/secrets).
+      fetchSettings();
+      
       if (!initialLoadDone.current) {
-        fetchSettings();
         fetchHealth();
         initialLoadDone.current = true;
       }
       
       // 2. Load Authenticated-only Data (Voices & Providers)
-      // This should run whenever isAuthenticated becomes true, 
-      // even if the initial global load is already done.
       if (isAuthenticated) {
         fetchVoices();
         fetchProviders();
       }
-      initialLoadDone.current = true;
     }
   }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth, fetchVoices, fetchProviders]);
 
