@@ -89,7 +89,7 @@ const startServer = async (port = PORT) => {
         });
 
         // Run System Health Checks
-        await healthCheck.refresh('all', 'silent');
+        await healthCheck.refresh('all');
 
         // Initialise Voice Cache (Decoupled from Scheduler)
         const voiceService = require('@services/system/voiceService');
@@ -113,6 +113,7 @@ const startServer = async (port = PORT) => {
         const audioAssetService = require('@services/system/audioAssetService');
         try {
             await audioAssetService.syncAudioAssets();
+            await audioAssetService.ensureTestAudio();
             await audioAssetService.generateMetadataForExistingFiles();
         } catch (e) {
             console.error('[Startup] Failed to synchronise audio assets:', e.message);

@@ -1,13 +1,11 @@
-const fs = require('fs');
 const path = require('path');
-const player = require('play-sound')({});
-const axios = require('axios');
+const fs = require('fs');
 const configService = require('@config'); // Singleton
 const sseService = require('@services/system/sseService');
-const { voiceMonkeyQueue } = require('@utils/requestQueue');
+const audioAssetService = require('@services/system/audioAssetService');
+const OutputFactory = require('@outputs');
 
 const AUDIO_DIR = path.join(__dirname, '../../../public/audio');
-const META_DIR = path.join(__dirname, '../../public/audio');
 
 /**
  * Resolves the audio source path and URL based on the trigger settings.
@@ -32,7 +30,7 @@ const getAudioSource = (settings, prayer, event) => {
         };
     } else if (settings.type === 'url') {
         return {
-            filePath: settings.url,
+            filePath: null, // URLs don't have local paths usually
             url: settings.url
         };
     }
@@ -40,112 +38,178 @@ const getAudioSource = (settings, prayer, event) => {
 };
 
 /**
- * Handles local audio playback on the server.
- * 
- * @param {Object} settings - The trigger settings for the specific prayer event.
- * @param {string} prayer - The name of the prayer.
- * @param {string} event - The type of event.
- * @param {Object} source - The resolved audio source information.
- * @returns {void}
+ * Helper to wrap a promise with a timeout and AbortController.
+ * @param {Function} task - Function that returns a promise and accepts a signal.
+ * @param {number} ms - Timeout in milliseconds.
+ * @param {string} errorMsg - Error message if timeout occurs.
+ * @returns {Promise<any>} The result of the task.
  */
-const handleLocal = (settings, prayer, event, source) => {
-    if (!source.filePath) return;
-    const config = configService.get();
-    console.log(`[Target:Local] Playing ${source.filePath}`);
-    const audioPlayer = config.automation.audioPlayer || 'mpg123';
-    
-    // play-sound uses 'player' option to specify binary
-    player.play(source.filePath, { player: audioPlayer }, (err) => {
-        if (err) console.error(`[Target:Local] Playback error:`, err);
-    });
-};
+const withTimeout = async (task, ms, errorMsg) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
 
-/**
- * Broadcasts an audio playback event to all connected SSE clients.
- * 
- * @param {Object} settings - The trigger settings for the specific prayer event.
- * @param {string} prayer - The name of the prayer.
- * @param {string} event - The type of event.
- * @param {Object} source - The resolved audio source information.
- * @returns {void}
- */
-const broadcastToClients = (settings, prayer, event, source) => {
-    if (!source.url) return;
-    
-    sseService.broadcast({
-        type: 'AUDIO_PLAY',
-        payload: {
-            prayer,
-            event,
-            url: source.url
+    try {
+        const result = await task(controller.signal);
+        clearTimeout(timer);
+        return result;
+    } catch (error) {
+        clearTimeout(timer);
+        if (error.name === 'AbortError') {
+            throw new Error(errorMsg);
         }
-    });
-    console.log(`[SSE:Broadcast] Sent AUDIO_PLAY for ${prayer} ${event}`);
+        throw error;
+    }
 };
 
 /**
- * Triggers an announcement via Voice Monkey.
- * 
- * @param {Object} settings - The trigger settings for the specific prayer event.
- * @param {string} prayer - The name of the prayer.
- * @param {string} event - The type of event.
- * @param {Object} source - The resolved audio source information.
+ * Helper to delay execution.
+ * @param {number} ms - Delay in milliseconds.
+ * @param {AbortSignal} [signal] - Optional AbortSignal to cancel the delay.
  * @returns {Promise<void>}
  */
-const handleVoiceMonkey = async (settings, prayer, event, source) => {
-    if (!source.url || !source.filePath) return;
-    
-    // Resolve metadata path: src/public/audio/.../filename.mp3.json
-    const relativePath = path.relative(AUDIO_DIR, source.filePath);
-    const metaPath = path.join(META_DIR, relativePath + '.json');
-    
-    let metadata = null;
-    if (fs.existsSync(metaPath)) {
-        try { metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8')); } catch(e) {}
-    }
+const delay = (ms, signal) => {
+    return new Promise((resolve, reject) => {
+        if (signal?.aborted) {
+            return reject(new Error('Aborted'));
+        }
 
-    if (metadata && metadata.vmCompatible === false) {
-        console.warn(`[Automation] Skipped VoiceMonkey for ${source.filePath}: Audio properties violate Alexa requirements. Issues: ${metadata.vmIssues?.join(', ')}`);
-        return;
-    }
-    
-    const config = configService.get();
-    const baseUrl = config.automation.baseUrl || ''; 
+        const timer = setTimeout(resolve, ms);
 
-    // Guard: VoiceMonkey requires a valid HTTPS public URL for audio assets
-    if (!baseUrl || !baseUrl.startsWith('https://')) {
-        console.warn(`[Automation] Skipped VoiceMonkey for ${prayer} ${event}: Invalid or missing BASE_URL (${baseUrl}). HTTPS is required for Alexa to reach local assets.`);
-        return;
-    }
+        signal?.addEventListener('abort', () => {
+            clearTimeout(timer);
+            reject(new Error('Aborted'));
+        }, { once: true });
+    });
+};
 
-    const publicUrl = source.url.startsWith('http') ? source.url : `${baseUrl}${source.url}`;
-    
-    console.log(`[Target:VoiceMonkey] Triggering for ${publicUrl}`);
-    
-    const token = config.automation.voiceMonkey?.token;
-    const device = config.automation.voiceMonkey?.device;
-    
-    if (!token || !device) {
-        console.warn('[Target:VoiceMonkey] Missing credentials (token/device).');
-        return;
-    }
-    
-    try {
-        await voiceMonkeyQueue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
-            params: {
-                token: token,
-                device: device,
-                audio: publicUrl
+/**
+ * Validates and prepares the audio asset for an automation event.
+ * Attempts to regenerate TTS files if missing or invalid.
+ * 
+ * @param {Object} settings - The trigger settings.
+ * @param {string} prayer - The name of the prayer.
+ * @param {string} event - The type of event.
+ * @param {Object} config - The system configuration.
+ * @returns {Promise<{success: boolean, source?: Object}>} The validation result and source details.
+ * @private
+ */
+const _validateAndPrepareAudio = async (settings, prayer, event, config) => {
+    const source = getAudioSource(settings, prayer, event);
+
+    if (settings.type === 'tts') {
+        try {
+            const ttsResult = await audioAssetService.ensureTTSFile(prayer, event, settings, config);
+            if (!ttsResult.success) {
+                console.error(`[Automation] Aborting ${prayer} ${event}: TTS generation failed (${ttsResult.message})`);
+                sseService.broadcast({
+                    type: 'LOG',
+                    payload: { 
+                        message: `Skipped ${prayer} ${event}: TTS Service Offline`, 
+                        timestamp: new Date().toISOString(),
+                        type: 'error'
+                    }
+                });
+                return { success: false };
             }
-        }));
+        } catch (e) {
+            console.error(`[Automation] Critical error during TTS preparation:`, e.message);
+            return { success: false };
+        }
+    } else if (settings.type === 'file') {
+        if (!source.filePath || !fs.existsSync(source.filePath)) {
+            console.error(`[Automation] Aborting ${prayer} ${event}: Custom file missing (${source.filePath})`);
+            sseService.broadcast({
+                type: 'LOG',
+                payload: { 
+                    message: `Skipped ${prayer} ${event}: Custom file missing`, 
+                    timestamp: new Date().toISOString(),
+                    type: 'error'
+                }
+            });
+            return { success: false };
+        }
+    }
+    return { success: true, source };
+};
+
+/**
+ * Identifies active targets and calculates the master lead time for an automation event.
+ * 
+ * @param {Object} config - The system configuration.
+ * @param {Object} settings - The trigger settings.
+ * @returns {{activeTargets: Array<Object>, masterLeadTime: number}} The active targets and timing details.
+ * @private
+ */
+const _getActiveTargets = (config, settings) => {
+    const configuredTargets = settings.targets || [];
+    const targets = new Set([...configuredTargets, 'browser']);
+    
+    let masterLeadTime = 0;
+    const activeTargets = [];
+
+    targets.forEach(targetId => {
+        const outputConfig = config.automation?.outputs?.[targetId];
+        // 'browser' is implicitly enabled if not explicitly disabled
+        const isEnabled = targetId === 'browser' ? (outputConfig?.enabled !== false) : outputConfig?.enabled;
+        
+        if (isEnabled) {
+            const leadTime = outputConfig?.leadTimeMs || 0;
+            if (leadTime > masterLeadTime) {
+                masterLeadTime = leadTime;
+            }
+            activeTargets.push({ targetId, leadTime });
+        }
+    });
+
+    return { activeTargets, masterLeadTime };
+};
+
+/**
+ * Executes an automation event for a single target strategy.
+ * 
+ * @param {Object} target - The target details (id and lead time).
+ * @param {number} masterLeadTime - The overall master lead time.
+ * @param {Object} payload - The automation payload.
+ * @param {Object} executionMetadata - Additional metadata for execution.
+ * @returns {Promise<void>}
+ * @private
+ */
+const _executeTarget = async (target, masterLeadTime, payload, executionMetadata) => {
+    const { targetId, leadTime } = target;
+    try {
+        const strategy = OutputFactory.getStrategy(targetId);
+        const metadata = strategy.constructor.getMetadata();
+        
+        // Perform health check (except for browser)
+        if (targetId !== 'browser') {
+            const health = await strategy.healthCheck();
+            if (!health.healthy) {
+                console.warn(`[Automation] Skipping target '${targetId}': Service is unhealthy (${health.message || 'Unknown error'})`);
+                return;
+            }
+        }
+
+        const waitDelay = masterLeadTime - leadTime;
+        const timeoutMs = metadata.timeoutMs || 5000;
+        
+        await withTimeout(
+            async (signal) => {
+                if (waitDelay > 0) {
+                    await delay(waitDelay, signal);
+                }
+                return strategy.execute(payload, executionMetadata, signal);
+            },
+            timeoutMs + waitDelay,
+            `Strategy ${targetId} timed out after ${timeoutMs}ms`
+        );
     } catch (error) {
-         console.error('[Target:VoiceMonkey] Request failed:', error.message);
+        console.error(`[Automation] Error executing target '${targetId}' for ${payload.prayer} ${payload.event}:`, error.message);
     }
 };
 
 /**
  * Main entry point for triggering an automated prayer event.
- * Orchestrates local playback, SSE broadcasting, and remote automation triggers.
+ * Orchestrates audio preparation and output target execution.
  * 
  * @param {string} prayer - The name of the prayer.
  * @param {string} event - The type of event.
@@ -159,79 +223,37 @@ const triggerEvent = async (prayer, event) => {
         return;
     }
 
-    console.log(`[Automation] Triggering ${prayer} ${event}...`);
+    // 1. Audio Asset Validation & Preparation
+    const { success, source } = await _validateAndPrepareAudio(settings, prayer, event, config);
+    if (!success) return;
     
+    console.log(`[Automation] Triggering ${prayer} ${event}...`);
     sseService.broadcast({
         type: 'LOG',
         payload: { message: `Triggering ${prayer} ${event}`, timestamp: new Date().toISOString() }
     });
 
-    const source = getAudioSource(settings, prayer, event);
-    const targets = settings.targets || [];
+    // 2. Target Selection and Execution Orchestration
+    const { activeTargets, masterLeadTime } = _getActiveTargets(config, settings);
     
-    try {
-        // Always broadcast to connected clients (browser filtering is client-side)
-        if (source.url) {
-            broadcastToClients(settings, prayer, event, source);
-        }
+    const payload = {
+        prayer,
+        event,
+        source,
+        baseUrl: config.automation.baseUrl
+    };
+    
+    const executionMetadata = { isTest: false };
 
-        const promises = targets.map(target => {
-            if (target === 'local') return handleLocal(settings, prayer, event, source);
-            if (target === 'voiceMonkey') return handleVoiceMonkey(settings, prayer, event, source);
-        });
-        
-        await Promise.all(promises);
-    } catch (error) {
-        console.error(`[Automation] Error executing triggers for ${prayer} ${event}:`, error);
-    }
-};
+    // Execute targets in parallel (each handles its own stagger delay)
+    const promises = activeTargets.map(target => 
+        _executeTarget(target, masterLeadTime, payload, executionMetadata)
+    );
 
-/**
- * Verifies Voice Monkey API credentials by attempting a test announcement.
- * 
- * @param {string} token - The Voice Monkey API token.
- * @param {string} device - The Voice Monkey Device ID.
- * @returns {Promise<boolean>} A promise that resolves to true if verification succeeds.
- * @throws {Error} If credentials are missing or invalid.
- */
-const verifyCredentials = async (token, device) => {
-    if (!token || !device) {
-        throw new Error('Missing API Token or Device ID');
-    }
-
-    try {
-        // Use the announcement endpoint to verify credentials (scheduled via queue)
-        const response = await voiceMonkeyQueue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
-            params: {
-                token: token,
-                device: device,
-                text: "Test"
-            },
-            timeout: 5000
-        }));
-
-        if (response.data && response.data.success === true) {
-            return true;
-        } else {
-             throw new Error(response.data?.error || 'VoiceMonkey API verification failed');
-        }
-        
-    } catch (error) {
-        if (error.response) {
-             const { status, data } = error.response;
-             if ([400, 401, 403].includes(status) || (data && data.error && /authenticated|auth|token/i.test(data.error))) { 
-                 throw new Error('Invalid Voice Monkey credentials');
-             }
-        }
-        throw error; // Re-throw to caller
-    }
+    await Promise.allSettled(promises);
 };
 
 module.exports = {
     getAudioSource,
-    handleLocal,
-    broadcastToClients,
-    handleVoiceMonkey,
-    triggerEvent,
-    verifyCredentials
+    triggerEvent
 };

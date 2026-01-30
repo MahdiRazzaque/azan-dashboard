@@ -32,10 +32,12 @@ export default function PrayerSettingsView() {
         isSectionDirty,
         getSectionHealth,
         resetDraft,
-        systemHealth
+        systemHealth,
+        providers
     } = useSettings();
     const [activeTab, setActiveTab] = useState('fajr');
     const [audioFiles, setAudioFiles] = useState([]);
+    const [strategies, setStrategies] = useState([]);
     
     // Local state for UI only
     const [validationErrors, setValidationErrors] = useState({});
@@ -51,6 +53,12 @@ export default function PrayerSettingsView() {
                 setAudioFiles(filtered);
             })
             .catch(err => console.error("Failed to load audio files", err));
+
+        // Fetch strategies for trigger card targets
+        fetch('/api/system/outputs/registry')
+            .then(res => res.json())
+            .then(setStrategies)
+            .catch(err => console.error("Failed to fetch output strategies", err));
     }, []);
 
     // Auto-dismiss notification
@@ -70,7 +78,9 @@ export default function PrayerSettingsView() {
     const localConfig = draftConfig; // Alias for compatibility
     const currentPrayerSettings = localConfig.prayers[activeTab];
     const currentTriggers = localConfig.automation.triggers[activeTab];
-    const isMyMasjid = localConfig.sources?.primary?.type === 'mymasjid';
+    
+    const activeProvider = providers.find(p => p.id === localConfig.sources?.primary?.type);
+    const providesIqamah = activeProvider?.capabilities?.providesIqamah;
 
     // Handler for Iqamah Config
     const updatePrayerConfig = (key, value) => {
@@ -145,27 +155,36 @@ export default function PrayerSettingsView() {
                     errorsList.push(`${prayer} ${type}: ${error}`);
                 } else if (trigger.enabled) {
                     // Extra Service Availability Checks
-                    if (trigger.type === 'tts' && !systemHealth.tts) {
+                    if (trigger.type === 'tts' && (!systemHealth.tts || !systemHealth.tts.healthy)) {
                         hasErrors = true;
                         const msg = "TTS Service is offline";
                         newErrors[`${prayer}-${type}`] = msg;
                         trigger.enabled = false;
                         errorsList.push(`${prayer} ${type}: ${msg}`);
                     }
-                    if (trigger.targets?.includes('local') && !systemHealth.local) {
-                        hasErrors = true;
-                        const msg = "Local Audio Service is offline";
-                        newErrors[`${prayer}-${type}`] = msg;
-                        trigger.enabled = false;
-                        errorsList.push(`${prayer} ${type}: ${msg}`); 
-                    }
-                    if ((trigger.targets?.includes('voiceMonkey') || trigger.type === 'voiceMonkey') && !systemHealth.voiceMonkey) {
-                         hasErrors = true;
-                         const msg = "VoiceMonkey integration is offline or unconfigured";
-                         newErrors[`${prayer}-${type}`] = msg;
-                         trigger.enabled = false;
-                         errorsList.push(`${prayer} ${type}: ${msg}`); 
-                    }
+                    
+                    (trigger.targets || []).forEach(targetId => {
+                        if (targetId === 'browser') return;
+                        
+                        const health = systemHealth[targetId];
+                        const outputConfig = localConfig.automation?.outputs?.[targetId];
+                        const strategy = strategies.find(s => s.id === targetId);
+                        const label = strategy?.label || targetId;
+
+                        if (outputConfig && !outputConfig.enabled) {
+                            hasErrors = true;
+                            const msg = `${label} output is disabled`;
+                            newErrors[`${prayer}-${type}`] = msg;
+                            trigger.enabled = false;
+                            errorsList.push(`${prayer} ${type}: ${msg}`);
+                        } else if (!health || !health.healthy) {
+                            hasErrors = true;
+                            const msg = `${label} output is offline`;
+                            newErrors[`${prayer}-${type}`] = msg;
+                            trigger.enabled = false;
+                            errorsList.push(`${prayer} ${type}: ${msg}`);
+                        }
+                    });
                 }
             }
         }
@@ -195,7 +214,7 @@ export default function PrayerSettingsView() {
         }
     };
 
-    const isDirty = isSectionDirty('prayers') || isSectionDirty('calculation') || isSectionDirty('automation.triggers');
+    const isDirty = isSectionDirty('prayers') || isSectionDirty('automation.triggers');
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-12 relative">
@@ -276,14 +295,14 @@ export default function PrayerSettingsView() {
             </div>
 
             {/* Warning Banner */}
-            {activeTab !== 'sunrise' && isMyMasjid && currentPrayerSettings?.iqamahOverride && (
+            {activeTab !== 'sunrise' && providesIqamah && currentPrayerSettings?.iqamahOverride && (
                 <div className="bg-amber-900/20 border border-amber-800/50 rounded-lg p-4 flex items-start gap-4 mx-1">
                     <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                     <div>
                         <h4 className="text-amber-200 font-medium">External Source Override Active</h4>
                         <p className="text-amber-400/80 text-sm mt-1">
-                            You are using MyMasjid as a data source, but have enabled local Iqamah Overrides for {activeTab}. 
-                            The dashboard will ignore the timings provided by the masjid and calculate them locally instead.
+                            You are using a data source that provides its own Iqamah times, but you have enabled local overrides for {activeTab}. 
+                            The dashboard will ignore the timings provided by the source and calculate them locally instead.
                         </p>
                     </div>
                 </div>
@@ -303,6 +322,7 @@ export default function PrayerSettingsView() {
                             trigger={currentTriggers.preAdhan} 
                             onChange={d => updateTrigger('preAdhan', d)} 
                             files={audioFiles}
+                            strategies={strategies}
                             error={validationErrors[`${activeTab}-preAdhan`]}
                             isDirty={isTriggerDirty(activeTab, 'preAdhan')}
                         />
@@ -312,6 +332,7 @@ export default function PrayerSettingsView() {
                             trigger={currentTriggers.adhan} 
                             onChange={d => updateTrigger('adhan', d)} 
                             files={audioFiles}
+                            strategies={strategies}
                             error={validationErrors[`${activeTab}-adhan`]}
                             isDirty={isTriggerDirty(activeTab, 'adhan')}
                         />
@@ -324,6 +345,7 @@ export default function PrayerSettingsView() {
                                     trigger={currentTriggers.preIqamah} 
                                     onChange={d => updateTrigger('preIqamah', d)} 
                                     files={audioFiles}
+                            strategies={strategies}
                                     error={validationErrors[`${activeTab}-preIqamah`]}
                                     isDirty={isTriggerDirty(activeTab, 'preIqamah')}
                                 />
@@ -333,6 +355,7 @@ export default function PrayerSettingsView() {
                                     trigger={currentTriggers.iqamah} 
                                     onChange={d => updateTrigger('iqamah', d)} 
                                     files={audioFiles}
+                            strategies={strategies}
                                     error={validationErrors[`${activeTab}-iqamah`]}
                                     isDirty={isTriggerDirty(activeTab, 'iqamah')}
                                     extraContent={(
@@ -347,11 +370,11 @@ export default function PrayerSettingsView() {
                                                 </h4>
                                             </div>
 
-                                            {/* Override Switch - Only Visible for MyMasjid */}
-                                            {isMyMasjid && (
+                                            {/* Override Switch - Only Visible for sources that provide iqamah */}
+                                            {providesIqamah && (
                                                 <div className="flex items-center justify-between pb-3 border-b border-app-border">
                                                     <div>
-                                                        <label className="text-xs font-medium text-app-dim">Override Masjid schedule</label>
+                                                        <label className="text-xs font-medium text-app-dim">Override source schedule</label>
                                                         <p className="text-[10px] text-app-dim mt-0.5">Calculate iqamah locally</p>
                                                     </div>
                                                     <button
@@ -369,7 +392,7 @@ export default function PrayerSettingsView() {
                                                 </div>
                                             )}
 
-                                            {(!isMyMasjid || currentPrayerSettings.iqamahOverride) ? (
+                                            {(!providesIqamah || currentPrayerSettings.iqamahOverride) ? (
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4">
                                                     <div className="space-y-2">
                                                         <label className="text-[10px] text-app-dim font-bold uppercase tracking-wider">Mode</label>
@@ -434,7 +457,7 @@ export default function PrayerSettingsView() {
                                                 <div className="flex items-center gap-3 py-2 px-3 bg-app-card/50 rounded-lg border border-app-border border-dashed">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                                                     <p className="text-app-dim text-[11px] leading-relaxed">
-                                                        Following masjid schedule. Toggle <strong className="text-app-text font-semibold">Override</strong> to set custom rules.
+                                                        Following source schedule. Toggle <strong className="text-app-text font-semibold">Override</strong> to set custom rules.
                                                     </p>
                                                 </div>
                                             )}

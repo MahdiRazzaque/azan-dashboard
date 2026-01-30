@@ -1,4 +1,4 @@
-import { RefreshCw, Activity, Power, Database, RotateCcw, HardDrive, CheckCircle, XCircle, Volume2 } from 'lucide-react';
+import { RefreshCw, Activity, Power, Database, RotateCcw, HardDrive, CheckCircle, XCircle } from 'lucide-react';
 import PrayerSourceStatusCard from '@/components/settings/PrayerSourceStatusCard';
 import StorageManagementCard from './StorageManagementCard';
 import NetworkConfigCard from './NetworkConfigCard';
@@ -19,7 +19,6 @@ const cn = (...inputs) => twMerge(clsx(inputs));
  * @param {string|null} props.refreshing - The ID of the service currently being refreshed.
  * @param {Function} props.handleManualRefresh - Callback to trigger a manual refresh for a service.
  * @param {Object} props.feedback - Feedback messages for different services.
- * @param {boolean} props.failedVoiceMonkey - Whether the VoiceMonkey service has failed.
  * @param {string|null} props.loading - The ID of the action currently being performed.
  * @param {Function} props.callSystemAction - Callback to execute a system-level action.
  * @param {Function} props.handleRunJob - Callback to trigger a maintenance job manually.
@@ -34,7 +33,6 @@ export default function DiagnosticsTab({
     refreshing, 
     handleManualRefresh, 
     feedback, 
-    failedVoiceMonkey, 
     loading, 
     callSystemAction,
     handleRunJob,
@@ -60,41 +58,6 @@ export default function DiagnosticsTab({
                             refreshing={refreshing === 'api'}
                             feedback={feedback?.api}
                         />
-
-                        {/* VoiceMonkey */}
-                        <div className="flex items-center justify-between p-3 bg-app-card rounded border border-app-border">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="font-medium text-app-text">VoiceMonkey</span>
-                                    {systemHealth.voiceMonkey?.healthy && !failedVoiceMonkey ? (
-                                        <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                    ) : (
-                                        <XCircle className="w-4 h-4 text-red-500" />
-                                    )}
-                                </div>
-                                <div className="text-xs text-app-dim">Cloud API Connectivity</div>
-                            </div>
-                            <div className="relative flex items-center gap-1">
-                                {feedback?.voiceMonkey && <FeedbackBalloon text={feedback.voiceMonkey} />}
-                                <button 
-                                    onClick={() => handleManualRefresh('voiceMonkey', 'loud')}
-                                    disabled={refreshing === 'voiceMonkey'}
-                                    className={cn("p-1.5 hover:bg-app-card-hover rounded text-app-dim transition-colors", refreshing === 'voiceMonkey' && "text-amber-500")}
-                                    title="Test Speaker Output"
-                                >
-                                    <Volume2 className="w-4 h-4" />
-                                </button>
-                                <div className="w-px h-4 bg-app-border mx-1"></div>
-                                <button 
-                                    onClick={() => handleManualRefresh('voiceMonkey', 'silent')}
-                                    disabled={refreshing === 'voiceMonkey'}
-                                    className={cn("p-1.5 hover:bg-app-card-hover rounded text-app-dim transition-colors", refreshing === 'voiceMonkey' && "text-emerald-500")}
-                                    title="Silent Check"
-                                >
-                                    <RefreshCw className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
                     </div>
 
                     <div className="space-y-4">
@@ -105,14 +68,6 @@ export default function DiagnosticsTab({
                             onRefresh={() => handleManualRefresh('tts')}
                             refreshing={refreshing === 'tts'}
                             feedback={feedback?.tts}
-                        />
-                        <HealthItem 
-                            label="Local Audio" 
-                            online={systemHealth.local?.healthy} 
-                            subtext={systemHealth.local?.healthy ? "mpg123 CLI Tool" : (systemHealth.local?.message || "Not Found")}
-                            onRefresh={() => handleManualRefresh('local')}
-                            refreshing={refreshing === 'local'}
-                            feedback={feedback?.local}
                         />
                     </div>
                 </div>

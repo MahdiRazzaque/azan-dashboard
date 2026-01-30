@@ -18,8 +18,8 @@ const updateEnv = async (req, res) => {
         // Update .env file and current process
         envManager.setEnvValue(validated.key, validated.value);
         
-        // Reload environment in ConfigService
-        await configService.reloadEnv();
+        // Reload configuration to pick up environment changes
+        await configService.reload();
         
         res.json({
             success: true,

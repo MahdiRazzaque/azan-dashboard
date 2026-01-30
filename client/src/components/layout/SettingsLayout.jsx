@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/hooks/useSettings';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
@@ -52,10 +52,20 @@ export default function SettingsLayout({ logs, processStatus }) {
     getSectionHealth,
     resetDraft,
     saving,
-    validateBeforeSave
+    validateBeforeSave,
+    refreshHealth
   } = useSettings();
 
   const location = useLocation();
+  const initialRefreshDone = useRef(false);
+
+  useEffect(() => {
+    // Refresh all system health when entering admin panel
+    if (!initialRefreshDone.current) {
+        refreshHealth('all');
+        initialRefreshDone.current = true;
+    }
+  }, [refreshHealth]);
 
   useEffect(() => {
     return () => {
@@ -113,9 +123,8 @@ export default function SettingsLayout({ logs, processStatus }) {
         to: '/settings/prayers', 
         label: 'Prayers', 
         icon: Clock, 
-        isDirty: () => isSectionDirty('prayers') || isSectionDirty('calculation') || isSectionDirty('automation.triggers')
-    },
-    { 
+                                    isDirty: () => isSectionDirty('prayers') || isSectionDirty('automation.triggers')
+                                },    { 
         to: '/settings/automation', 
         label: 'Automation', 
         icon: Zap, 
@@ -123,9 +132,9 @@ export default function SettingsLayout({ logs, processStatus }) {
             if (!config || !draftConfig) return false;
             const cAuth = config.automation || {};
             const dAuth = draftConfig.automation || {};
-            // Compare automation excluding triggers and voiceMonkey (since VM is now separate)
-            const { triggers: t1, voiceMonkey: v1, ...rest1 } = cAuth;
-            const { triggers: t2, voiceMonkey: v2, ...rest2 } = dAuth;
+            // Compare automation excluding triggers and outputs (as they are checked/handled specifically)
+            const { triggers: t1, outputs: o1, ...rest1 } = cAuth;
+            const { triggers: t2, outputs: o2, ...rest2 } = dAuth;
             return JSON.stringify(rest1) !== JSON.stringify(rest2);
         }
     },

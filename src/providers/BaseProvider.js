@@ -39,6 +39,18 @@ class BaseProvider {
     }
 
     /**
+     * Returns a Zod schema for validating the provider's configuration.
+     * 
+     * @returns {import('zod').ZodObject} The Zod schema.
+     */
+    static getConfigSchema() {
+        const { z } = require('zod');
+        return z.object({
+            type: z.string()
+        }).passthrough();
+    }
+
+    /**
      * Deduplicates concurrent requests to the same resource.
      * 
      * @param {string} key - Unique key for the request.

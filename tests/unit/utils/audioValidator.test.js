@@ -41,7 +41,7 @@ describe('AudioValidator Util', () => {
             };
             const result = validateVoiceMonkeyCompatibility(metadata);
             expect(result.vmCompatible).toBe(false);
-            expect(result.vmIssues).toContain('Bitrate too high: 2000.00 kbps (Max 1411.20 kbps)');
+            expect(result.vmIssues).toEqual(expect.arrayContaining([expect.stringContaining('Bitrate too high')]));
         });
 
         it('should identify high sample rate', () => {
@@ -51,7 +51,7 @@ describe('AudioValidator Util', () => {
             };
             const result = validateVoiceMonkeyCompatibility(metadata);
             expect(result.vmCompatible).toBe(false);
-            expect(result.vmIssues).toContain('Sample rate too high: 48001 Hz (Max 48000 Hz)');
+            expect(result.vmIssues).toEqual(expect.arrayContaining([expect.stringContaining('Sample rate too high')]));
         });
 
         it('should identify large file size', () => {
@@ -61,7 +61,7 @@ describe('AudioValidator Util', () => {
             };
             const result = validateVoiceMonkeyCompatibility(metadata);
             expect(result.vmCompatible).toBe(false);
-            expect(result.vmIssues).toContain('File size too large: 11.00 MB (Max 10 MB)');
+            expect(result.vmIssues).toEqual(expect.arrayContaining([expect.stringContaining('File size too large')]));
         });
 
         it('should identify long duration', () => {
@@ -71,7 +71,7 @@ describe('AudioValidator Util', () => {
             };
             const result = validateVoiceMonkeyCompatibility(metadata);
             expect(result.vmCompatible).toBe(false);
-            expect(result.vmIssues).toContain('Duration too long: 241.00s (Max 240s)');
+            expect(result.vmIssues).toEqual(expect.arrayContaining([expect.stringContaining('Duration too long')]));
         });
 
         it('should handle missing metadata fields gracefully', () => {

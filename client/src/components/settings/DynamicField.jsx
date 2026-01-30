@@ -19,7 +19,8 @@ export default function DynamicField({ param, value, onChange }) {
     const errorClasses = "border-red-500 focus:border-red-500 focus:ring-red-500";
 
     const validate = (val) => {
-        if (param.constraints?.required && !val) {
+        const isEmpty = val === undefined || val === null || val === '';
+        if (param.constraints?.required && isEmpty) {
             setError(`${param.label} is required`);
             return;
         }
@@ -44,10 +45,13 @@ export default function DynamicField({ param, value, onChange }) {
                 return (
                     <select
                         className={cn(commonClasses, error && errorClasses)}
-                        value={value || ''}
-                        onChange={e => handleValueChange(e.target.value)}
+                        value={value ?? ''}
+                        onChange={e => {
+                            const val = e.target.value;
+                            const option = param.constraints?.options?.find(o => String(o.id) === val);
+                            handleValueChange(option ? option.id : val);
+                        }}
                     >
-                        <option value="">Select {param.label}...</option>
                         {param.constraints?.options?.map(opt => (
                             <option key={opt.id} value={opt.id}>
                                 {opt.label}
@@ -62,7 +66,7 @@ export default function DynamicField({ param, value, onChange }) {
                         <input
                             type={showPassword ? "text" : "password"}
                             className={cn(commonClasses, error && errorClasses)}
-                            value={value || ''}
+                            value={value ?? ''}
                             onChange={e => handleValueChange(e.target.value)}
                             placeholder={param.placeholder}
                         />
@@ -95,7 +99,7 @@ export default function DynamicField({ param, value, onChange }) {
                     <input
                         type="text"
                         className={cn(commonClasses, error && errorClasses)}
-                        value={value || ''}
+                        value={value ?? ''}
                         onChange={e => handleValueChange(e.target.value)}
                         placeholder={param.placeholder}
                     />

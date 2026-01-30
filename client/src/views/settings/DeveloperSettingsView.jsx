@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
-import { RefreshCw, Activity, Database, Volume2, LayoutGrid, Terminal, FileAudio, Settings2 } from 'lucide-react';
+import { RefreshCw, Activity, Database, LayoutGrid, Terminal, FileAudio, Settings2 } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
-import ConfirmModal from '@/components/common/ConfirmModal';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -39,14 +38,10 @@ export default function DeveloperSettingsView() {
     const [automationStatus, setAutomationStatus] = useState(null);
     const [ttsStatus, setTtsStatus] = useState(null);
 
-    const [refreshing, setRefreshing] = useState(null); // 'voiceMonkey' | 'tts' | 'local'
-    const [feedback, setFeedback] = useState({}); // { voiceMonkey: "Message", ... }
+    const [refreshing, setRefreshing] = useState(null); // 'api' | 'tts' | 'local'
+    const [feedback, setFeedback] = useState({}); // { api: "Message", ... }
     const [apiOnline, setApiOnline] = useState(true); 
     const [jobStatuses, setJobStatuses] = useState({}); // { [jobName]: 'loading' | 'success' | 'error' }
-
-    // Confirmation Logic
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [failedVoiceMonkey, setFailedVoiceMonkey] = useState(false);
 
     const TABS = [
         { id: 'diagnostics', label: 'Diagnostics', icon: Activity },
@@ -54,63 +49,48 @@ export default function DeveloperSettingsView() {
         { id: 'logs', label: 'System Logs', icon: Terminal }
     ];
 
-    const handleManualRefresh = async (target, mode = 'silent') => {
-        // Reset failure state on new attempt
-        if (target === 'voiceMonkey') {
-             setFailedVoiceMonkey(false);
-        }
-        await executeRefresh(target, mode);
+    const handleManualRefresh = async (target) => {
+        await executeRefresh(target);
     };
 
-    const executeRefresh = async (target, mode = 'silent') => {
+    const executeRefresh = async (target) => {
         setRefreshing(target);
         // Clear old feedback for this target
         setFeedback(prev => ({ ...prev, [target]: null }));
         
         let feedbackMsg = null;
-        let isHealthy = false;
 
         if (target === 'api') {
             try {
                 // Direct ping to check connectivity
                 const res = await fetch('/api/health'); // Use endpoint that just returns state
                 if (res.ok) {
-                     isHealthy = true;
                      setApiOnline(true);
                      feedbackMsg = "Online";
                 } else {
                      throw new Error('Status ' + res.status);
                 }
             } catch (e) {
-                isHealthy = false;
                 setApiOnline(false);
                 feedbackMsg = "Unreachable";
             }
         } else {
-            const res = await refreshHealth(target, mode);
+            const res = await refreshHealth(target);
             if (res && res[target]) {
                  const item = res[target];
-                 isHealthy = item.healthy;
                  feedbackMsg = item.message || (item.healthy ? "Online" : "Offline");
             } else if (res && res.error) {
                  // Handle Rate Limit or other explicit errors
                  feedbackMsg = res.error;
-                 isHealthy = false;
             }
         }
 
-        if (target === 'voiceMonkey' && mode === 'loud' && isHealthy) {
-             // API Success, now Verify Sound
-             setPendingTarget(target);
-             setShowConfirm(true);
-        } else {
-             if (feedbackMsg) {
-                 setFeedback(prev => ({ ...prev, [target]: feedbackMsg }));
-                 
-                 setTimeout(() => {
-                     setFeedback(prev => ({ ...prev, [target]: null }));
-                 }, 3000);
-            }
+        if (feedbackMsg) {
+            setFeedback(prev => ({ ...prev, [target]: feedbackMsg }));
+            
+            setTimeout(() => {
+                setFeedback(prev => ({ ...prev, [target]: null }));
+            }, 3000);
         }
         setRefreshing(null);
     };
@@ -187,8 +167,8 @@ export default function DeveloperSettingsView() {
             setLoading(null);
             if (action === 'config') {
                 await refresh();
-                await refreshHealth('primarySource', 'silent');
-                await refreshHealth('backupSource', 'silent');
+                await refreshHealth('primarySource');
+                await refreshHealth('backupSource');
             }
             fetchJobs();
             fetchDiagnostics();
@@ -280,7 +260,6 @@ export default function DeveloperSettingsView() {
                         refreshing={refreshing}
                         handleManualRefresh={handleManualRefresh}
                         feedback={feedback}
-                        failedVoiceMonkey={failedVoiceMonkey}
                         loading={loading}
                         callSystemAction={callSystemAction}
                         handleRunJob={handleRunJob}
@@ -303,21 +282,6 @@ export default function DeveloperSettingsView() {
                     <SystemLogsTab logs={logs} />
                 )}
             </div>
-            
-            <ConfirmModal 
-                isOpen={showConfirm}
-                onClose={() => setShowConfirm(false)}
-                onConfirm={() => setShowConfirm(false)} 
-                onCancel={() => {
-                    setFailedVoiceMonkey(true);
-                    setFeedback(prev => ({ ...prev, voiceMonkey: "Audible Check Failed" }));
-                    setShowConfirm(false); 
-                }}
-                title="Audio Verification"
-                message="A test sound was sent to your VoiceMonkey device. Did you hear it?"
-                confirmText="Yes"
-                cancelText="No"
-            />
         </div>
     );
 }

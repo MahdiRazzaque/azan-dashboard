@@ -1,415 +1,245 @@
-const getPlaySoundMock = () => {
-    const playMock = jest.fn((file, opts, cb) => {
-        if (cb) cb(null);
-        return { kill: jest.fn() };
-    });
-    return jest.fn(() => ({ play: playMock }));
-};
-// We need to mock play-sound module function that returns the player instance
-jest.mock('play-sound', () => getPlaySoundMock());
-
-const axios = require('axios');
-const fs = require('fs');
 const service = require('@services/core/automationService');
 const configService = require('@config');
 const sseService = require('@services/system/sseService');
+const audioAssetService = require('@services/system/audioAssetService');
+const OutputFactory = require('../../../src/outputs/OutputFactory');
 
-jest.mock('axios');
-jest.mock('fs');
 jest.mock('@config');
 jest.mock('@services/system/sseService');
-jest.mock('@utils/requestQueue', () => ({
-    voiceMonkeyQueue: { schedule: (fn) => fn() }
-}));
+jest.mock('@services/system/audioAssetService');
+jest.mock('../../../src/outputs/OutputFactory');
+jest.mock('fs');
 
 describe('AutomationService', () => {
-    const mockConfig = {
-        automation: {
-            baseUrl: 'https://test.com',
-            audioPlayer: 'mpg123',
-            voiceMonkey: { enabled: false },
-            triggers: {
-                fajr: {
-                    preAdhan: { enabled: true, type: 'tts', template: '...', targets: ['local', 'browser'], path: 'test.mp3' }
-                }
-            }
-        }
-    };
+    let mockStrategy;
 
     beforeEach(() => {
         jest.clearAllMocks();
-        configService.get.mockReturnValue(mockConfig);
-    });
 
-    it('should trigger local playback', async () => {
-         await service.triggerEvent('fajr', 'preAdhan');
-         
-         const playerInstance = require('play-sound')(); 
-         expect(playerInstance.play).toHaveBeenCalled();
-         expect(playerInstance.play).toHaveBeenCalledWith(
-             expect.stringContaining('mp3'), 
-             expect.objectContaining({ player: 'mpg123' }),
-             expect.any(Function)
-         );
-    });
-
-    it('should trigger browser broadcast', async () => {
-        await service.triggerEvent('fajr', 'preAdhan');
+        audioAssetService.ensureTTSFile.mockResolvedValue({ success: true });
         
-        expect(sseService.broadcast).toHaveBeenCalledWith(expect.objectContaining({
-            type: 'AUDIO_PLAY',
-            payload: expect.objectContaining({ prayer: 'fajr', event: 'preAdhan' })
-        }));
-    });
-
-    it('should disable trigger if disabled in config', async () => {
-        const disabledConfig = JSON.parse(JSON.stringify(mockConfig));
-        disabledConfig.automation.triggers.fajr.preAdhan.enabled = false;
-        configService.get.mockReturnValue(disabledConfig);
-
-        await service.triggerEvent('fajr', 'preAdhan');
+        mockStrategy = {
+            execute: jest.fn().mockResolvedValue(),
+            constructor: {
+                getMetadata: jest.fn().mockReturnValue({ timeoutMs: 1000 })
+            },
+            // Fallback for direct calls if any logic uses instance methods
+            getMetadata: jest.fn().mockReturnValue({ timeoutMs: 1000 }),
+            healthCheck: jest.fn().mockResolvedValue({ healthy: true })
+        };
         
-        const playerInstance = require('play-sound')(); 
-        expect(playerInstance.play).not.toHaveBeenCalled();
+        // Consolidate mock implementation to be consistent across all tests
+        OutputFactory.getStrategy.mockImplementation((id) => {
+            if (id === 'browser') {
+                return {
+                    execute: jest.fn().mockResolvedValue(),
+                    constructor: { getMetadata: () => ({ timeoutMs: 5000 }) },
+                    healthCheck: jest.fn().mockResolvedValue({ healthy: true })
+                };
+            }
+            // Return mockStrategy for mockTarget or any other
+            return mockStrategy;
+        });
+        
+        configService.get.mockReturnValue({
+            automation: {
+                outputs: {
+                    mockTarget: { enabled: true },
+                    browser: { enabled: true }
+                },
+                triggers: {
+                    fajr: {
+                        preAdhan: {
+                            enabled: true,
+                            type: 'tts',
+                            targets: ['mockTarget'],
+                            // source related
+                            template: 'template' 
+                        }
+                    }
+                }
+            }
+        });
     });
 
-    it('should handle local playback directly', () => {
-        const source = { filePath: 'test.mp3', url: '/test.mp3' };
-        service.handleLocal({}, 'test', 'event', source);
-        const playerInstance = require('play-sound')(); 
-        expect(playerInstance.play).toHaveBeenCalledWith('test.mp3', expect.objectContaining({ player: 'mpg123' }), expect.any(Function));
-    });
+    describe('triggerEvent', () => {
+        it('should broadcast LOG event', async () => {
+            await service.triggerEvent('fajr', 'preAdhan');
+            expect(sseService.broadcast).toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'LOG' })
+            );
+        });
 
-    describe('Audio Source Types', () => {
-        const path = require('path');
-        it('should handle type "file"', async () => {
-             const fileConfig = JSON.parse(JSON.stringify(mockConfig));
-             fileConfig.automation.triggers.fajr.preAdhan.type = 'file';
-             fileConfig.automation.triggers.fajr.preAdhan.path = 'adhans/makkah.mp3';
-             configService.get.mockReturnValue(fileConfig);
-             
+        it('should execute configured targets using OutputFactory', async () => {
+            await service.triggerEvent('fajr', 'preAdhan');
+            
+            expect(OutputFactory.getStrategy).toHaveBeenCalledWith('mockTarget');
+            expect(mockStrategy.execute).toHaveBeenCalled();
+        });
+
+        it('should implicitly execute browser strategy', async () => {
              await service.triggerEvent('fajr', 'preAdhan');
              
-             const playerInstance = require('play-sound')();
-             expect(playerInstance.play).toHaveBeenCalledWith(
-                 expect.stringContaining('adhans'),
-                 expect.anything(),
-                 expect.anything()
+             expect(OutputFactory.getStrategy).toHaveBeenCalledWith('browser');
+        });
+
+        it('should resolve audio source and pass to strategy', async () => {
+            await service.triggerEvent('fajr', 'preAdhan');
+            
+            const expectedPayload = expect.objectContaining({
+                source: expect.objectContaining({ url: expect.stringContaining('tts_fajr_preAdhan.mp3') }),
+                prayer: 'fajr',
+                event: 'preAdhan'
+            });
+            
+            expect(mockStrategy.execute).toHaveBeenCalledWith(expectedPayload, expect.anything(), expect.anything());
+        });
+
+        it('should handle execution errors gracefully', async () => {
+            mockStrategy.execute.mockRejectedValue(new Error('Exec Fail'));
+            await service.triggerEvent('fajr', 'preAdhan');
+            // Should not throw, just log
+        });
+
+        it('should enforce timeout on strategy execution and pass AbortSignal', async () => {
+             // Mock strategy that hangs but respects signal
+             const mockHangingExecute = jest.fn().mockImplementation((payload, meta, signal) => {
+                 return new Promise((resolve, reject) => {
+                     const timer = setTimeout(resolve, 5000);
+                     signal.addEventListener('abort', () => {
+                         clearTimeout(timer);
+                         reject(new Error('Aborted'));
+                     });
+                 });
+             });
+
+             // Force mockTarget to hang
+             OutputFactory.getStrategy.mockImplementation((id) => {
+                 if (id === 'mockTarget') {
+                     return {
+                         execute: mockHangingExecute,
+                         constructor: { getMetadata: () => ({ timeoutMs: 10 }) },
+                         healthCheck: jest.fn().mockResolvedValue({ healthy: true })
+                     };
+                 }
+                 // Return standard non-hanging mock for others (e.g. browser)
+                 return {
+                     execute: jest.fn().mockResolvedValue(),
+                     constructor: { getMetadata: () => ({ timeoutMs: 5000 }) },
+                     healthCheck: jest.fn().mockResolvedValue({ healthy: true })
+                 };
+             });
+             
+             const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+             
+             jest.useFakeTimers();
+             
+             // We don't await here because it will hang until timers are advanced
+             const triggerPromise = service.triggerEvent('fajr', 'preAdhan');
+             
+             // Advance timers to trigger the withTimeout timeout
+             // We need to advance enough to cover waitDelay (0 here) + timeoutMs (10)
+             await jest.advanceTimersByTimeAsync(100);
+             
+             await triggerPromise; 
+             
+             expect(consoleSpy).toHaveBeenCalledWith(
+                 expect.stringContaining(`Error executing target 'mockTarget'`),
+                 expect.stringContaining('Aborted')
              );
+             
+             consoleSpy.mockRestore();
+             jest.useRealTimers();
         });
         
-        it('should handle type "url"', async () => {
-             const urlConfig = JSON.parse(JSON.stringify(mockConfig));
-             urlConfig.automation.triggers.fajr.preAdhan.type = 'url';
-             urlConfig.automation.triggers.fajr.preAdhan.url = 'http://example.com/audio.mp3';
-             configService.get.mockReturnValue(urlConfig);
-             
-             await service.triggerEvent('fajr', 'preAdhan');
-             
-             expect(sseService.broadcast).toHaveBeenCalledWith(expect.objectContaining({
-                 payload: expect.objectContaining({ url: 'http://example.com/audio.mp3' })
-             }));
-        });
-    });
-
-    describe('Edge Cases', () => {
-        beforeEach(() => {
-            jest.spyOn(console, 'error').mockImplementation(() => {});
-            jest.spyOn(console, 'warn').mockImplementation(() => {});
-            jest.spyOn(console, 'log').mockImplementation(() => {});
-            fs.existsSync.mockReturnValue(false);
-        });
-
-        it('should handle VoiceMonkey trigger', async () => {
-            const vmConfig = JSON.parse(JSON.stringify(mockConfig));
-            vmConfig.automation.voiceMonkey = { enabled: true, token: 'token', device: 'device' };
-            vmConfig.automation.triggers.fajr.preAdhan.targets = ['voiceMonkey'];
-            configService.get.mockReturnValue(vmConfig);
-            
-            axios.get.mockResolvedValue({ data: {} });
-
-            await service.triggerEvent('fajr', 'preAdhan');
-
-            expect(axios.get).toHaveBeenCalledWith(
-                 expect.stringContaining('announcement'),
-                 expect.objectContaining({
-                     params: expect.objectContaining({ token: 'token', device: 'device' })
-                 })
-            );
-        });
-
-        it('should handle VoiceMonkey errors', async () => {
-            const vmConfig = JSON.parse(JSON.stringify(mockConfig));
-            vmConfig.automation.voiceMonkey = { enabled: true, token: 'tok', device: 'dev' };
-            vmConfig.automation.triggers.fajr.preAdhan.targets = ['voiceMonkey'];
-            configService.get.mockReturnValue(vmConfig);
-            
-            axios.get.mockRejectedValue(new Error('API fail'));
-            
-            await service.triggerEvent('fajr', 'preAdhan');
-            
-            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Request failed'), 'API fail');
-        });
-
-        it('should handle VoiceMonkey missing tokens', async () => {
-            const vmConfig = JSON.parse(JSON.stringify(mockConfig));
-            vmConfig.automation.voiceMonkey = { enabled: true }; 
-            vmConfig.automation.triggers.fajr.preAdhan.targets = ['voiceMonkey'];
-            configService.get.mockReturnValue(vmConfig);
-            
-            await service.triggerEvent('fajr', 'preAdhan');
-            
-            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Missing credentials'));
-            expect(axios.get).not.toHaveBeenCalled();
-        });
-
-        it('should handle missing device in VoiceMonkey', async () => {
-            const vmConfig = JSON.parse(JSON.stringify(mockConfig));
-            vmConfig.automation.voiceMonkey = { enabled: true, token: 'token' }; 
-            vmConfig.automation.triggers.fajr.preAdhan.targets = ['voiceMonkey'];
-            configService.get.mockReturnValue(vmConfig);
-            
-            await service.triggerEvent('fajr', 'preAdhan');
-            
-            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Missing credentials'));
-            expect(axios.get).not.toHaveBeenCalled();
-        });
-
-        it('should handle missing targets array in config', async () => {
-            const configWithoutTargets = JSON.parse(JSON.stringify(mockConfig));
-            delete configWithoutTargets.automation.triggers.fajr.preAdhan.targets;
-            configService.get.mockReturnValue(configWithoutTargets);
-
-            await service.triggerEvent('fajr', 'preAdhan');
-            // Success means it didn't crash on .map
-        });
-
-        it('should skip VoiceMonkey if metadata says incompatible', async () => {
-            const source = { filePath: 'test.mp3', url: '/test.mp3' };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(JSON.stringify({ vmCompatible: false, vmIssues: ['Incompatible audio format'] }));
-            
-            await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
-            
-            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Audio properties violate Alexa requirements'));
-            expect(axios.get).not.toHaveBeenCalled();
-       });
-
-       it('should handle VoiceMonkey metadata read errors gracefully', async () => {
-            const source = { filePath: 'test.mp3', url: '/test.mp3' };
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockImplementation(() => { throw new Error('FS error'); });
-            
-            // Should continue to baseUrl check
-            await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
-            expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('Audio properties violate Alexa requirements'));
-       });
-
-       it('should skip VoiceMonkey if baseUrl is missing or not HTTPS', async () => {
-            const insecureConfig = JSON.parse(JSON.stringify(mockConfig));
-            insecureConfig.automation.baseUrl = 'http://insecure.com';
-            configService.get.mockReturnValue(insecureConfig);
-            
-            const source = { filePath: 'test.mp3', url: '/test.mp3' };
-            await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
-            
-            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('HTTPS is required'));
-            expect(axios.get).not.toHaveBeenCalled();
-
-            insecureConfig.automation.baseUrl = '';
-            configService.get.mockReturnValue(insecureConfig);
-            await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
-            expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('Invalid or missing BASE_URL'));
-       });
-
-        it('should use default audio player if not configured', () => {
-             const configWithoutPlayer = JSON.parse(JSON.stringify(mockConfig));
-             delete configWithoutPlayer.automation.audioPlayer;
-             configService.get.mockReturnValue(configWithoutPlayer);
-             
-             const playerInstance = require('play-sound')();
-             service.handleLocal({}, 'fajr', 'adhan', { filePath: 'f.mp3' });
-             expect(playerInstance.play).toHaveBeenCalledWith('f.mp3', { player: 'mpg123' }, expect.any(Function));
-        });
-
-        it('should handle local playback errors', async () => {
-             const playerInstance = require('play-sound')();
-             playerInstance.play.mockImplementationOnce((file, opts, cb) => {
-                 cb(new Error('Play fail'));
-                 return { kill: jest.fn() };
-             });
-             
-             await service.triggerEvent('fajr', 'preAdhan');
-             
-             expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Playback error'), expect.any(Error));
-        });
-
-        it('should return nulls if audio type is unknown', () => {
-             const source = service.getAudioSource({ type: 'unknown' }, 'fajr', 'adhan');
-             expect(source.filePath).toBeNull();
-             expect(source.url).toBeNull();
-        });
-
-        it('should return early in handlers if source is missing', async () => {
-             const source = { filePath: null, url: null };
-             service.handleLocal({}, 'fajr', 'adhan', source);
-             service.broadcastToClients({}, 'fajr', 'adhan', source);
-             await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
-             
-             const playerInstance = require('play-sound')();
-             expect(playerInstance.play).not.toHaveBeenCalled();
-             expect(sseService.broadcast).not.toHaveBeenCalled();
-             expect(axios.get).not.toHaveBeenCalled();
-        });
-
-        it('should handle absolute URLs in VoiceMonkey', async () => {
-            const vmConfig = {
+        it('should skip if trigger disabled', async () => {
+            configService.get.mockReturnValue({
                 automation: {
-                    baseUrl: 'https://test.com',
-                    voiceMonkey: { token: 't', device: 'd' }
+                    triggers: {
+                        fajr: { preAdhan: { enabled: false } }
+                    }
                 }
+            });
+            
+            await service.triggerEvent('fajr', 'preAdhan');
+            expect(OutputFactory.getStrategy).not.toHaveBeenCalled();
+        });
+
+        it('should implement staggered launch using wait delays', async () => {
+            jest.useFakeTimers();
+            
+            // Strategy A (mockTarget): lead 0ms
+            // Strategy B (secondTarget): lead 2000ms
+            // Master Lead Time: 2000ms
+            // Wait Delay for A: 2000 - 0 = 2000ms
+            // Wait Delay for B: 2000 - 2000 = 0ms
+            
+            const strategyA = {
+                execute: jest.fn().mockResolvedValue(),
+                constructor: { getMetadata: () => ({ timeoutMs: 5000 }) },
+                healthCheck: jest.fn().mockResolvedValue({ healthy: true })
             };
-            configService.get.mockReturnValue(vmConfig);
-            const source = { url: 'http://recorded-adhan.com/adhan.mp3', filePath: 'test.mp3' };
-            
-            await service.handleVoiceMonkey({}, 'fajr', 'adhan', source);
-            
-            expect(axios.get).toHaveBeenCalledWith(
-                expect.anything(),
-                expect.objectContaining({
-                    params: expect.objectContaining({ audio: 'http://recorded-adhan.com/adhan.mp3' })
-                })
-            );
-        });
+            const strategyB = {
+                execute: jest.fn().mockResolvedValue(),
+                constructor: { getMetadata: () => ({ timeoutMs: 5000 }) },
+                healthCheck: jest.fn().mockResolvedValue({ healthy: true })
+            };
+            const strategyBrowser = {
+                execute: jest.fn().mockResolvedValue(),
+                constructor: { getMetadata: () => ({ timeoutMs: 5000 }) },
+                healthCheck: jest.fn().mockResolvedValue({ healthy: true })
+            };
 
-        it('should catch errors in triggerEvent', async () => {
-             sseService.broadcast
-                .mockImplementationOnce(() => {}) // First call (LOG)
-                .mockImplementationOnce(() => { throw new Error('Broadcast Error'); }); // Second call (AUDIO_PLAY)
-            
-            await service.triggerEvent('fajr', 'preAdhan');
-            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error executing triggers'), expect.any(Error));
-        });
-
-        it('should handle unknown targets gracefully', async () => {
-            const config = JSON.parse(JSON.stringify(mockConfig));
-            config.automation.triggers.fajr.preAdhan.targets = ['unknown-target'];
-            configService.get.mockReturnValue(config);
-            
-            await service.triggerEvent('fajr', 'preAdhan');
-            // Simply ensures no crash and covers the map branches
-        });
-
-        it('should skip broadcasting if source URL is missing', async () => {
-            const config = JSON.parse(JSON.stringify(mockConfig));
-            config.automation.triggers.fajr.preAdhan.type = 'unknown';
-            configService.get.mockReturnValue(config);
-
-            await service.triggerEvent('fajr', 'preAdhan');
-            expect(sseService.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'LOG' }));
-            expect(sseService.broadcast).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'AUDIO_PLAY' }));
-        });
-    });
-
-    describe('verifyCredentials', () => {
-        it('should return true for valid credentials (success)', async () => {
-             axios.get.mockResolvedValue({ 
-                status: 200, 
-                data: { success: true } 
+            OutputFactory.getStrategy.mockImplementation((id) => {
+                if (id === 'mockTarget') return strategyA;
+                if (id === 'secondTarget') return strategyB;
+                if (id === 'browser') return strategyBrowser;
             });
-            const result = await service.verifyCredentials('token', 'device');
-            expect(result).toBe(true);
-            expect(axios.get).toHaveBeenCalledWith(
-                'https://api-v2.voicemonkey.io/announcement',
-                expect.objectContaining({
-                    params: expect.objectContaining({ token: 'token', device: 'device' })
-                })
-            );
-        });
 
-        it('should throw for authentication failure (401)', async () => {
-             axios.get.mockRejectedValue({
-                 response: {
-                     status: 401,
-                     data: { error: 'Authentication failed' }
-                 }
-             });
-             
-             await expect(service.verifyCredentials('token', 'device'))
-                 .rejects.toThrow('Invalid Voice Monkey credentials');
-        });
-
-        it('should throw for authentication failure (403)', async () => {
-            axios.get.mockRejectedValue({
-                response: {
-                    status: 403,
-                    data: { error: 'Forbidden' }
+            configService.get.mockReturnValue({
+                automation: {
+                    outputs: {
+                        mockTarget: { enabled: true, leadTimeMs: 0 },
+                        secondTarget: { enabled: true, leadTimeMs: 2000 },
+                        browser: { enabled: true, leadTimeMs: 0 }
+                    },
+                    triggers: {
+                        fajr: {
+                            preAdhan: {
+                                enabled: true,
+                                type: 'tts',
+                                targets: ['mockTarget', 'secondTarget']
+                            }
+                        }
+                    }
                 }
             });
-            
-            await expect(service.verifyCredentials('token', 'device'))
-                .rejects.toThrow('Invalid Voice Monkey credentials');
-       });
 
-       it('should throw for authentication failure based on error message', async () => {
-            axios.get.mockRejectedValue({
-                response: {
-                    status: 499, // Some other code
-                    data: { error: 'Invalid token provided' }
-                }
-            });
-            
-            await expect(service.verifyCredentials('token', 'device'))
-                .rejects.toThrow('Invalid Voice Monkey credentials');
-       });
+            const triggerPromise = service.triggerEvent('fajr', 'preAdhan');
 
-        it('should throw for 400 status (often used for bad args/auth)', async () => {
-             axios.get.mockRejectedValue({
-                 response: {
-                     status: 400,
-                     data: { error: 'Invalid token' }
-                 }
-             });
-             await expect(service.verifyCredentials('token', 'device'))
-                 .rejects.toThrow('Invalid Voice Monkey credentials');
-        });
+            // Wait for initial microtasks to allow _executeTarget to reach delay()
+            await Promise.resolve();
+            await Promise.resolve();
+            await Promise.resolve();
 
-        it('should throw generic error for response status 500', async () => {
-             const error = new Error('Server Crash');
-             error.response = { status: 500, data: { error: 'Broken' } };
-             axios.get.mockRejectedValue(error);
-             
-             await expect(service.verifyCredentials('token', 'device'))
-                 .rejects.toThrow('Server Crash');
-        });
+            // At T=0:
+            // strategyB (lead 2000ms) should be called immediately (waitDelay = 0)
+            expect(strategyB.execute).toHaveBeenCalled();
+            expect(strategyA.execute).not.toHaveBeenCalled();
+            expect(strategyBrowser.execute).not.toHaveBeenCalled();
 
-        it('should throw error if API returns success=false', async () => {
-             axios.get.mockResolvedValue({ 
-                 status: 200, 
-                 data: { success: false, error: 'Custom API Error' } 
-             });
-             await expect(service.verifyCredentials('token', 'device'))
-                 .rejects.toThrow('Custom API Error');
-        });
+            // Advance by 1000ms
+            await jest.advanceTimersByTimeAsync(1000);
+            expect(strategyA.execute).not.toHaveBeenCalled();
+            expect(strategyBrowser.execute).not.toHaveBeenCalled();
 
-        it('should throw default error if API returns success=false without msg', async () => {
-             axios.get.mockResolvedValue({ 
-                 status: 200, 
-                 data: { success: false } 
-             });
-             await expect(service.verifyCredentials('token', 'device'))
-                 .rejects.toThrow('VoiceMonkey API verification failed');
-        });
+            // Advance by another 1000ms (Total 2000ms)
+            await jest.advanceTimersByTimeAsync(1000);
+            expect(strategyA.execute).toHaveBeenCalled();
+            expect(strategyBrowser.execute).toHaveBeenCalled();
 
-        it('should re-throw generic error if error has no response', async () => {
-            axios.get.mockRejectedValue(new Error('No Response Error'));
-            await expect(service.verifyCredentials('token', 'device'))
-                .rejects.toThrow('No Response Error');
-        });
-
-        it('should throw if tokens missing', async () => {
-             await expect(service.verifyCredentials(null, 'device'))
-                 .rejects.toThrow('Missing API Token');
+            await triggerPromise;
+            jest.useRealTimers();
         });
     });
 });

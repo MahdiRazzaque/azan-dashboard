@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import AudioTestModal from '@/components/common/AudioTestModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { useSettings } from '@/hooks/useSettings';
 
 /**
  * A view component for managing audio files, allowing users to upload, preview,
@@ -10,11 +11,13 @@ import ConfirmModal from '@/components/common/ConfirmModal';
  * @returns {JSX.Element} The rendered file manager view.
  */
 export default function FileManagerView() {
+    const { systemHealth, config } = useSettings();
     const [files, setFiles] = useState([]);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState(null);
     const [playingFile, setPlayingFile] = useState(null);
     const [serverPlaying, setServerPlaying] = useState(null);
+    const [strategies, setStrategies] = useState([]);
     
     // Phase 5: Audio Testing & Consent
     const [testModalFile, setTestModalFile] = useState(null);
@@ -37,6 +40,12 @@ export default function FileManagerView() {
     useEffect(() => {
         loadFiles();
         
+        // Fetch output strategies for testing
+        fetch('/api/system/outputs/registry')
+            .then(res => res.json())
+            .then(setStrategies)
+            .catch(err => console.error("Failed to fetch strategies", err));
+
         // Cleanup audio on unmount
         const audio = audioRef.current;
         return () => {
@@ -150,15 +159,37 @@ export default function FileManagerView() {
         }
     };
 
-    const handleServerPlay = async (file, target = 'local') => {
+    const handleServerPlay = async (file, targetId = 'local') => {
         setServerPlaying(file.name);
         try {
-            const res = await fetch('/api/system/test-audio', {
+            // Polymorphic strategy test endpoint
+            const endpoint = `/api/system/outputs/${targetId}/test`;
+            
+            // Construct payload consistent with automationService expectations
+            const payload = {
+                prayer: 'test',
+                event: file.name,
+                source: {
+                    filePath: null,
+                    path: file.path,
+                    url: file.url
+                },
+                baseUrl: config.automation?.baseUrl,
+                // Include filename/type for strategy compatibility (e.g. LocalOutput resolution)
+                filename: file.name,
+                type: file.type
+            };
+
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename: file.name, type: file.type, target })
+                body: JSON.stringify(payload)
             });
-            if (!res.ok) throw new Error('Test request failed');
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Test request failed');
+            }
             
             setTestModalFile(null); // Close modal on success
             
@@ -216,7 +247,7 @@ export default function FileManagerView() {
                                 </button>
 
                                 {/* Delete (Custom only) */}
-                                {type === 'custom' && (
+                                {type === 'custom' && !file.metadata?.protected && (
                                     <button 
                                         onClick={() => handleDelete(file.name)}
                                         className="p-1.5 hover:bg-red-900/20 rounded text-app-dim hover:text-red-400"

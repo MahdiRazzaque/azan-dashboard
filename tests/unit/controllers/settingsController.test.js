@@ -8,6 +8,7 @@ const envManager = require('@utils/envManager');
 const systemControllerHelper = require('@controllers/systemController');
 const fs = require('fs');
 const path = require('path');
+const OutputFactory = require('../../../src/outputs');
 
 jest.mock('@config');
 jest.mock('@services/system/sseService');
@@ -19,6 +20,7 @@ jest.mock('@services/core/schedulerService', () => ({
 jest.mock('@services/system/healthCheck');
 jest.mock('@utils/envManager');
 jest.mock('@controllers/systemController');
+jest.mock('../../../src/outputs');
 jest.mock('fs');
 jest.mock('@utils/audioValidator');
 jest.mock('@services/core/prayerTimeService', () => ({
@@ -35,6 +37,7 @@ const audioValidator = require('@utils/audioValidator');
 
 describe('settingsController Unit Tests', () => {
     let req, res;
+    let mockLocalStrategy, mockVMStrategy;
 
     beforeEach(() => {
         req = { body: {} };
@@ -45,11 +48,56 @@ describe('settingsController Unit Tests', () => {
         jest.clearAllMocks();
         validateConfig.mockReturnValue({ value: {} });
         validateConfigSource.mockResolvedValue();
-        audioAssetService.syncAudioAssets.mockResolvedValue();
+        audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
         audioValidator.analyseAudioFile.mockResolvedValue({ duration: 10 });
         audioValidator.validateVoiceMonkeyCompatibility.mockReturnValue({ vmCompatible: true });
         systemControllerHelper._getAudioFilesWithMetadata.mockResolvedValue([]);
+
+        // Default health state for mocks
+        let currentHealth = {
+            tts: { healthy: true },
+            local: { healthy: true },
+            voicemonkey: { healthy: true },
+            primarySource: { healthy: true },
+            backupSource: { healthy: true }
+        };
+
+        healthCheck.getHealth.mockImplementation(() => currentHealth);
+        healthCheck.refresh.mockImplementation(async (target, params) => {
+            if (target === 'all') {
+                return currentHealth;
+            }
+            return currentHealth; // Simplified for basic tests
+        });
         
+        mockLocalStrategy = {
+            id: 'local',
+            label: 'Local Audio',
+            validateTrigger: jest.fn().mockReturnValue([]),
+            augmentAudioMetadata: jest.fn().mockReturnValue({})
+        };
+        mockVMStrategy = {
+            id: 'voicemonkey',
+            label: 'VoiceMonkey (Alexa)',
+            validateTrigger: jest.fn().mockReturnValue([]),
+            augmentAudioMetadata: jest.fn().mockReturnValue({})
+        };
+
+        OutputFactory.getAllStrategies.mockReturnValue([
+            { id: 'local', label: 'Local Audio' },
+            { id: 'voicemonkey', label: 'VoiceMonkey (Alexa)' }
+        ]);
+        OutputFactory.getAllStrategyInstances.mockReturnValue([mockLocalStrategy, mockVMStrategy]);
+        OutputFactory.getStrategy.mockImplementation((id) => {
+            if (id === 'local') return mockLocalStrategy;
+            if (id === 'voicemonkey') return mockVMStrategy;
+            throw new Error('Not found');
+        });
+        OutputFactory.getSecretRequirementKeys.mockReturnValue([
+            { strategyId: 'voicemonkey', key: 'token' },
+            { strategyId: 'voicemonkey', key: 'device' }
+        ]);
+
         jest.spyOn(console, 'log').mockImplementation(() => {});
         jest.spyOn(console, 'error').mockImplementation(() => {});
     });
@@ -68,13 +116,17 @@ describe('settingsController Unit Tests', () => {
         it('should reload and return sanitised settings for public access', async () => {
             const mockConfig = {
                 location: { city: 'London' },
-                calculation: { method: 'ISNA' },
                 prayers: { fajr: {} },
+                sources: { primary: { type: 'aladhan' } },
                 automation: {
-                    voiceMonkey: {
-                        enabled: true,
-                        token: 'secret-token',
-                        device: 'secret-device'
+                    outputs: {
+                        voicemonkey: {
+                            enabled: true,
+                            params: {
+                                token: 'secret-token',
+                                device: 'secret-device'
+                            }
+                        }
                     }
                 }
             };
@@ -85,17 +137,20 @@ describe('settingsController Unit Tests', () => {
             expect(configService.reload).toHaveBeenCalled();
             expect(res.json).toHaveBeenCalledWith({
                 location: mockConfig.location,
-                calculation: mockConfig.calculation,
                 prayers: mockConfig.prayers,
+                sources: mockConfig.sources,
                 automation: {
-                    voiceMonkey: {
-                        enabled: true
+                    outputs: {
+                        voicemonkey: {
+                            enabled: true,
+                            params: {}
+                        }
                     }
                 }
             });
         });
 
-        it('should handle missing voiceMonkey config in public settings', async () => {
+        it('should handle missing outputs in public settings', async () => {
             const mockConfig = {
                 location: { city: 'London' },
                 automation: {}
@@ -119,92 +174,66 @@ describe('settingsController Unit Tests', () => {
             expect(res.json).toHaveBeenCalledWith({ error: 'Validation Failed: Other Error' });
         });
 
-        it('should generate voiceMonkey warnings if type is voiceMonkey', async () => {
+        it('should generate voicemonkey warnings if targets includes voicemonkey', async () => {
             const newConfig = {
                 automation: {
                     triggers: {
-                        fajr: { adhan: { enabled: true, type: 'voiceMonkey' } }
+                        fajr: { adhan: { enabled: true, targets: ['voicemonkey'] } }
                     }
                 }
             };
             req.body = newConfig;
-            healthCheck.getHealth.mockReturnValue({ voiceMonkey: { healthy: false, message: 'Offline' } });
+            const unhealthyHealth = { 
+                voicemonkey: { healthy: false, message: 'Offline' },
+                tts: { healthy: true },
+                local: { healthy: true }
+            };
+            healthCheck.refresh.mockResolvedValue(unhealthyHealth);
+            healthCheck.getHealth.mockReturnValue(unhealthyHealth);
             
-            configService.get.mockReturnValue({});
-            forceRefresh.mockResolvedValue({});
+            configService.get.mockReturnValue({
+                automation: {
+                    outputs: {
+                        voicemonkey: { enabled: true }
+                    },
+                    triggers: newConfig.automation.triggers
+                }
+            });
+            forceRefresh.mockResolvedValue({ meta: {} });
             
             await settingsController.updateSettings(req, res);
             
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-                warnings: expect.arrayContaining(['Fajr Adhan: Offline'])
+                warnings: expect.arrayContaining([expect.stringContaining('VoiceMonkey (Alexa) Integration: Offline')])
             }));
         });
 
-        it('should generate voiceMonkey warnings if targets includes voiceMonkey', async () => {
+        it('should generate warnings if VoiceMonkey audio is incompatible with Alexa', async () => {
              const newConfig = {
                  automation: {
                      triggers: {
-                         fajr: { adhan: { enabled: true, targets: ['voiceMonkey'] } }
+                         fajr: { adhan: { enabled: true, type: 'file', path: 'custom/adhan.mp3', targets: ['voicemonkey'] } }
                      }
                  }
              };
              req.body = newConfig;
-             healthCheck.getHealth.mockReturnValue({ voiceMonkey: { healthy: false, message: 'Offline' } });
+             const healthyStatus = { 
+                 voicemonkey: { healthy: true },
+                 tts: { healthy: true }
+             };
+             healthCheck.refresh.mockResolvedValue(healthyStatus);
+             healthCheck.getHealth.mockReturnValue(healthyStatus);
              
-             configService.get.mockReturnValue({});
-             forceRefresh.mockResolvedValue({});
-             
-             await settingsController.updateSettings(req, res);
-             
-             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-                 warnings: expect.arrayContaining(['Fajr Adhan: Offline'])
-             }));
-         });
+             mockVMStrategy.validateTrigger.mockReturnValue(['Fajr Adhan: Audio incompatible with Alexa (Bitrate too high)']);
 
-         it('should cover all branches in warning loops', async () => {
-             const newConfig = {
+             configService.get.mockReturnValue({
                  automation: {
-                     triggers: {
-                         fajr: { 
-                             adhan: { enabled: true, type: 'tts' },
-                             preAdhan: { enabled: false }
-                         },
-                         sunrise: {
-                             adhan: { enabled: true, targets: ['local'] }
-                         }
-                     }
+                     outputs: {
+                         voicemonkey: { enabled: true }
+                     },
+                     triggers: newConfig.automation.triggers
                  }
-             };
-             req.body = newConfig;
-             healthCheck.getHealth.mockReturnValue({ 
-                 tts: { healthy: false }, 
-                 local: { healthy: false },
-                 voiceMonkey: { healthy: true } 
              });
-             
-             configService.get.mockReturnValue({});
-             forceRefresh.mockResolvedValue({});
-             
-             await settingsController.updateSettings(req, res);
-             
-             expect(res.json).toHaveBeenCalled();
-         });
-
-         it('should generate warnings if VoiceMonkey audio is incompatible with Alexa', async () => {
-             const newConfig = {
-                 automation: {
-                     triggers: {
-                         fajr: { adhan: { enabled: true, type: 'file', path: 'custom/adhan.mp3', targets: ['voiceMonkey'] } }
-                     }
-                 }
-             };
-             req.body = newConfig;
-             healthCheck.getHealth.mockReturnValue({ voiceMonkey: { healthy: true } });
-             systemControllerHelper._getAudioFilesWithMetadata.mockResolvedValue([
-                 { path: 'custom/adhan.mp3', vmCompatible: false, vmIssues: ['Bitrate too high'] }
-             ]);
-             
-             configService.get.mockReturnValue({});
              forceRefresh.mockResolvedValue({ meta: {} });
              
              await settingsController.updateSettings(req, res);
@@ -218,17 +247,28 @@ describe('settingsController Unit Tests', () => {
             const newConfig = {
                 automation: {
                     triggers: {
-                        fajr: { adhan: { enabled: true, type: 'tts', targets: ['voiceMonkey'] } }
+                        fajr: { adhan: { enabled: true, type: 'tts', targets: ['voicemonkey'] } }
                     }
                 }
             };
             req.body = newConfig;
-            healthCheck.getHealth.mockReturnValue({ voiceMonkey: { healthy: true } });
-            systemControllerHelper._getAudioFilesWithMetadata.mockResolvedValue([
-                { name: 'tts_fajr_adhan.mp3', vmCompatible: false, vmIssues: ['Sample rate mismatch'] }
-            ]);
+            const healthyStatus = { 
+                voicemonkey: { healthy: true }, 
+                tts: { healthy: true } 
+            };
+            healthCheck.refresh.mockResolvedValue(healthyStatus);
+            healthCheck.getHealth.mockReturnValue(healthyStatus);
             
-            configService.get.mockReturnValue({});
+            mockVMStrategy.validateTrigger.mockReturnValue(['Fajr Adhan: Audio incompatible with Alexa (Sample rate mismatch)']);
+
+            configService.get.mockReturnValue({
+                automation: {
+                    outputs: {
+                        voicemonkey: { enabled: true }
+                    },
+                    triggers: newConfig.automation.triggers
+                }
+            });
             forceRefresh.mockResolvedValue({ meta: {} });
             
             await settingsController.updateSettings(req, res);
@@ -247,16 +287,22 @@ describe('settingsController Unit Tests', () => {
         });
 
         it('should handle validation errors for masjid ID', async () => {
-            req.body = { masjidId: 'invalid' };
-            validateConfigSource.mockRejectedValue(new Error('Masjid ID not found.'));
+            const { ProviderValidationError } = require('@providers/errors');
+            req.body = { sources: { primary: { type: 'aladhan', masjidId: 'invalid' } } };
+            configService.get.mockReturnValue({ sources: { primary: { type: 'aladhan', masjidId: 'old' } } });
+            
+            const userFriendlyError = new ProviderValidationError('Masjid ID not found.', { statusCode: 404 }, true);
+            validateConfigSource.mockRejectedValue(userFriendlyError);
             
             await settingsController.updateSettings(req, res);
             expect(res.status).toHaveBeenCalledWith(400);
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Masjid ID not found.' }));
             
-            validateConfigSource.mockRejectedValue(new Error('Invalid Masjid ID format'));
+            const normalError = new Error('Invalid Masjid ID format');
+            validateConfigSource.mockRejectedValue(normalError);
             await settingsController.updateSettings(req, res);
             expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Validation Failed: Invalid Masjid ID format' }));
         });
         
         it('should rollback if audio sync fails', async () => {
@@ -270,7 +316,7 @@ describe('settingsController Unit Tests', () => {
              expect(audioAssetService.syncAudioAssets).toHaveBeenCalled();
              expect(configService.update).toHaveBeenCalledWith({ old: 'config' }); // Rollback
              expect(res.status).toHaveBeenCalledWith(400);
-             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Storage Quota Exceeded' }));
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Sync Failed' }));
         });
 
         it('should generate warnings if services are unhealthy', async () => {
@@ -278,19 +324,27 @@ describe('settingsController Unit Tests', () => {
                 automation: { 
                     triggers: { 
                         fajr: { 
-                            preAdhan: { enabled: true, type: 'tts' } 
+                            preAdhan: { enabled: true, type: 'tts', targets: ['local'] } 
                         } 
                     } 
                 } 
             };
             validateConfigSource.mockResolvedValue();
-            configService.get.mockReturnValue(req.body);
-            forceRefresh.mockResolvedValue({ meta: {} });
-            healthCheck.getHealth.mockReturnValue({ 
-                tts: { healthy: false }, 
-                local: { healthy: false },
-                voiceMonkey: { healthy: true } 
+            configService.get.mockReturnValue({
+                automation: {
+                    outputs: {
+                        local: { enabled: true }
+                    },
+                    triggers: req.body.automation.triggers
+                }
             });
+            forceRefresh.mockResolvedValue({ meta: {} });
+            const unhealthyStatus = { 
+                tts: { healthy: false }, 
+                local: { healthy: false }
+            };
+            healthCheck.refresh.mockResolvedValue(unhealthyStatus);
+            healthCheck.getHealth.mockReturnValue(unhealthyStatus);
             
             await settingsController.updateSettings(req, res);
             
@@ -299,23 +353,31 @@ describe('settingsController Unit Tests', () => {
             }));
         });
 
-        it('should generate voiceMonkey warnings if offline', async () => {
+        it('should generate voicemonkey warnings if offline', async () => {
             req.body = { 
                 automation: { 
                     triggers: { 
                         fajr: { 
-                            adhan: { enabled: true, type: 'voiceMonkey' } 
+                            adhan: { enabled: true, targets: ['voicemonkey'] } 
                         } 
                     } 
                 } 
             };
             validateConfigSource.mockResolvedValue();
-            healthCheck.getHealth.mockReturnValue({ 
-                voiceMonkey: { healthy: false, message: 'VM Down' },
-                tts: { healthy: true },
-                local: { healthy: true }
+            const unhealthyStatus = { 
+                voicemonkey: { healthy: false, message: 'VM Down' },
+                tts: { healthy: true }
+            };
+            healthCheck.refresh.mockResolvedValue(unhealthyStatus);
+            healthCheck.getHealth.mockReturnValue(unhealthyStatus);
+            configService.get.mockReturnValue({
+                automation: {
+                    outputs: {
+                        voicemonkey: { enabled: true }
+                    },
+                    triggers: req.body.automation.triggers
+                }
             });
-            configService.get.mockReturnValue(req.body);
             forceRefresh.mockResolvedValue({ meta: {} });
             
             await settingsController.updateSettings(req, res);
@@ -323,17 +385,73 @@ describe('settingsController Unit Tests', () => {
                 warnings: expect.arrayContaining([expect.stringContaining('VM Down')])
             }));
         });
+
+        it('should skip forceRefresh if sources and location are unchanged', async () => {
+            const sameConfig = {
+                sources: { primary: { type: 'aladhan' } },
+                location: { city: 'London' }
+            };
+            req.body = sameConfig;
+            configService.get.mockReturnValue(sameConfig);
+            
+            await settingsController.updateSettings(req, res);
+            
+            expect(forceRefresh).not.toHaveBeenCalled();
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                meta: { skip: true }
+            }));
+        });
+
+        it('should call forceRefresh if sources changed', async () => {
+            const oldConfig = {
+                sources: { primary: { type: 'aladhan' } },
+                location: { city: 'London' }
+            };
+            const newConfig = {
+                sources: { primary: { type: 'mymasjid' } },
+                location: { city: 'London' }
+            };
+            req.body = newConfig;
+            configService.get.mockReturnValue(oldConfig);
+            forceRefresh.mockResolvedValue({ meta: { refreshed: true } });
+            
+            await settingsController.updateSettings(req, res);
+            
+            expect(forceRefresh).toHaveBeenCalled();
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                meta: { refreshed: true }
+            }));
+        });
+
+        it('should call forceRefresh if location changed', async () => {
+            const oldConfig = {
+                sources: { primary: { type: 'aladhan' } },
+                location: { city: 'London' }
+            };
+            const newConfig = {
+                sources: { primary: { type: 'aladhan' } },
+                location: { city: 'Manchester' }
+            };
+            req.body = newConfig;
+            configService.get.mockReturnValue(oldConfig);
+            forceRefresh.mockResolvedValue({ meta: { refreshed: true } });
+            
+            await settingsController.updateSettings(req, res);
+            
+            expect(forceRefresh).toHaveBeenCalled();
+        });
     });
 
     describe('resetSettings', () => {
-        it('should successfully reset settings', async () => {
+        it('should successfully reset settings and trigger deep clean', async () => {
             fs.existsSync.mockReturnValue(true);
             configService.get.mockReturnValue({ some: 'default' });
             forceRefresh.mockResolvedValue({ meta: { reset: true } });
-            audioAssetService.syncAudioAssets.mockResolvedValue();
+            audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
             
             await settingsController.resetSettings(req, res);
             expect(fs.unlinkSync).toHaveBeenCalled();
+            expect(audioAssetService.syncAudioAssets).toHaveBeenCalledWith(true);
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: 'Settings reset to defaults.' }));
         });
 
@@ -345,7 +463,7 @@ describe('settingsController Unit Tests', () => {
             await settingsController.resetSettings(req, res);
             
             expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Reset Failed' }));
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Sync Failed' }));
         });
     });
 
@@ -369,9 +487,21 @@ describe('settingsController Unit Tests', () => {
             expect(res.status).toHaveBeenCalledWith(404);
         });
 
+        it('should return 403 if file is protected', () => {
+            req.body.filename = 'azan.mp3';
+            fs.existsSync.mockReturnValue(true); // meta exists
+            fs.readFileSync.mockReturnValue(JSON.stringify({ protected: true }));
+            
+            settingsController.deleteFile(req, res);
+            
+            expect(res.status).toHaveBeenCalledWith(403);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('protected') }));
+        });
+
         it('should return 200 on successful deletion', () => {
             req.body.filename = 'test.mp3';
             fs.existsSync.mockReturnValue(true);
+            fs.readFileSync.mockReturnValue(JSON.stringify({ protected: false }));
             settingsController.deleteFile(req, res);
             expect(fs.unlinkSync).toHaveBeenCalled();
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
@@ -380,6 +510,7 @@ describe('settingsController Unit Tests', () => {
         it('should return 500 if unlinkSync fails', () => {
             req.body.filename = 'test.mp3';
             fs.existsSync.mockReturnValue(true);
+            fs.readFileSync.mockReturnValue(JSON.stringify({ protected: false }));
             fs.unlinkSync.mockImplementation(() => { throw new Error('Delete fail'); });
             settingsController.deleteFile(req, res);
             expect(res.status).toHaveBeenCalledWith(500);
@@ -435,35 +566,6 @@ describe('settingsController Unit Tests', () => {
              req.file = { originalname: 'test.mp3' };
              await settingsController.uploadFile(req, res);
              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ filename: 'test.mp3' }));
-        });
-    });
-
-    describe('saveVoiceMonkey', () => {
-        it('should return 400 if missing fields', async () => {
-             req.body = { token: 't' };
-             await settingsController.saveVoiceMonkey(req, res);
-             expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 400 if empty fields', async () => {
-             req.body = { token: ' ', device: ' ' };
-             await settingsController.saveVoiceMonkey(req, res);
-             expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should save and return 200', async () => {
-             req.body = { token: 'real_token', device: 'real_device' };
-             await settingsController.saveVoiceMonkey(req, res);
-             expect(envManager.setEnvValue).toHaveBeenCalledWith('VOICEMONKEY_TOKEN', 'real_token');
-             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-        });
-    });
-
-    describe('deleteVoiceMonkey', () => {
-        it('should delete and return 200', async () => {
-             await settingsController.deleteVoiceMonkey(req, res);
-             expect(envManager.deleteEnvValue).toHaveBeenCalledWith('VOICEMONKEY_TOKEN');
-             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
         });
     });
 });

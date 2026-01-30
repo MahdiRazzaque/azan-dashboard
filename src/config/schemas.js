@@ -8,7 +8,6 @@ const prayerSettingSchema = z.object({
 });
 
 const triggerActionSchema = z.enum(['tts', 'file', 'url']);
-const targetSchema = z.enum(['local', 'voiceMonkey']);
 
 const triggerEventSchema = z.object({
   enabled: z.boolean(),
@@ -18,7 +17,7 @@ const triggerEventSchema = z.object({
   path: z.string().optional(),
   url: z.string().optional(),
   voice: z.string().optional(),
-  targets: z.array(z.union([targetSchema, z.literal('browser')]))
+  targets: z.array(z.string()) // Dynamic targets
     .transform(arr => arr.filter(t => t !== 'browser'))
     .default([]),
 });
@@ -44,15 +43,15 @@ const automationSchema = z.object({
     preIqamahEnabled: z.boolean().default(true),
     iqamahEnabled: z.boolean().default(true),
   }).default({}),
-  baseUrl: z.string(),
-  audioPlayer: z.string(),
-  pythonServiceUrl: z.string(),
+  baseUrl: z.string().optional(),
+  pythonServiceUrl: z.string().optional(),
   defaultVoice: z.string().optional(),
-  voiceMonkey: z.object({
-    enabled: z.boolean(),
-    token: z.string().optional(),
-    device: z.string().optional(),
-  }),
+  outputs: z.record(z.string(), z.object({
+    enabled: z.boolean().default(false),
+    verified: z.boolean().default(false),
+    leadTimeMs: z.number().min(-30000).max(30000).default(0),
+    params: z.record(z.string(), z.any()).default({})
+  })).default({}),
   triggers: z.object({
     fajr: prayerTriggersSchema,
     sunrise: sunriseTriggersSchema,
@@ -61,7 +60,7 @@ const automationSchema = z.object({
     maghrib: prayerTriggersSchema,
     isha: prayerTriggersSchema,
   }),
-});
+}).passthrough();
 
 const dataSchema = z.object({
   staleCheckDays: z.number().default(7),
@@ -69,6 +68,7 @@ const dataSchema = z.object({
 });
 
 const configSchema = z.object({
+  version: z.number().optional().default(1),
   location: z.object({
     timezone: z.string().refine((val) => {
       try {
@@ -83,26 +83,6 @@ const configSchema = z.object({
       long: z.number().min(-180).max(180),
     }),
   }),
-  calculation: z.object({
-    method: z.union([z.number(), z.string()]).transform((val) => {
-      if (typeof val === 'number') return val;
-      // Best effort legacy mapping or default to MWC (15)
-      return 15; 
-    }),
-    madhab: z.union([z.number(), z.string()]).transform((val) => {
-      if (typeof val === 'number') return val;
-      // Best effort legacy mapping or default to Hanafi (1)
-      return 1;
-    }),
-    latitudeAdjustmentMethod: z.union([z.number(), z.string()]).default(0).transform((val) => {
-       if (typeof val === 'number') return val;
-       return 0;
-    }),
-    midnightMode: z.union([z.number(), z.string()]).default(0).transform((val) => {
-       if (typeof val === 'number') return val;
-       return 0; 
-    }),
-  }),
   prayers: z.object({
     fajr: prayerSettingSchema,
     dhuhr: prayerSettingSchema,
@@ -111,7 +91,7 @@ const configSchema = z.object({
     isha: prayerSettingSchema,
   }),
   sources: z.object({
-    primary: z.object({ 
+    primary: z.object({
       type: z.string()
     }).passthrough(),
     backup: z.object({ 
@@ -124,10 +104,11 @@ const configSchema = z.object({
 });
 
 const envUpdateSchema = z.object({
-  key: z.enum(['BASE_URL']),
-  value: z.string().url().refine(val => val.startsWith('https://'), {
-    message: "BASE_URL must use HTTPS"
-  })
+  key: z.string().refine(val => {
+      // Allow BASE_URL or any uppercase alphanumeric key (for strategy env vars)
+      return val === 'BASE_URL' || /^[A-Z0-9_]+$/.test(val);
+  }, { message: "Invalid Environment Key" }),
+  value: z.string()
 });
 
 module.exports = {

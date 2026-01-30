@@ -12,6 +12,7 @@ const { ProviderFactory } = require('@providers');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const OutputFactory = require('../../../src/outputs');
 
 jest.mock('@services/system/healthCheck');
 jest.mock('@services/core/schedulerService');
@@ -25,6 +26,7 @@ jest.mock('@config');
 jest.mock('@providers');
 jest.mock('axios');
 jest.mock('fs');
+jest.mock('../../../src/outputs');
 
 describe('SystemController', () => {
     let req, res;
@@ -38,12 +40,68 @@ describe('SystemController', () => {
         };
         jest.clearAllMocks();
 
+        // Default OutputFactory mock
+        OutputFactory.getStrategy = jest.fn();
+        OutputFactory.getAllStrategies = jest.fn();
+
         // Default ProviderFactory mock
         ProviderFactory.create.mockImplementation((source) => {
             if (source.type === 'aladhan' || source.type === 'mymasjid') {
                 return { getAnnualTimes: jest.fn().mockResolvedValue({}) };
             }
             throw new Error(`Unknown provider type: ${source.type}`);
+        });
+    });
+
+    describe('Output Strategies', () => {
+        it('should get output registry', () => {
+             const mockMeta = [{ id: 'test', label: 'Test' }];
+             OutputFactory.getAllStrategies.mockReturnValue(mockMeta);
+             systemController.getOutputRegistry(req, res);
+             expect(res.json).toHaveBeenCalledWith(mockMeta);
+        });
+        
+        it('should verify output credentials', async () => {
+             req.params.strategyId = 'test';
+             req.body = { token: 't' };
+             const mockStrategy = { verifyCredentials: jest.fn().mockResolvedValue({ success: true }) };
+             OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+             
+             await systemController.verifyOutput(req, res);
+             
+             expect(OutputFactory.getStrategy).toHaveBeenCalledWith('test');
+             expect(mockStrategy.verifyCredentials).toHaveBeenCalledWith({ token: 't' });
+             expect(res.json).toHaveBeenCalledWith({ success: true });
+        });
+        
+        it('should return 400 if source is missing in testOutput', async () => {
+             req.params.strategyId = 'test';
+             req.body = { foo: 'bar' };
+             const mockStrategy = { execute: jest.fn().mockResolvedValue() };
+             OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+             
+             await systemController.testOutput(req, res);
+             
+             expect(res.status).toHaveBeenCalledWith(400);
+             expect(res.json).toHaveBeenCalledWith({ error: 'Audio source path is required for testing' });
+        });
+        
+        it('should use provided source in testOutput', async () => {
+             req.params.strategyId = 'test';
+             req.body = { source: { path: 'custom/test.mp3' }, foo: 'bar' };
+             const mockStrategy = { execute: jest.fn().mockResolvedValue() };
+             OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+             
+             await systemController.testOutput(req, res);
+             
+             expect(mockStrategy.execute).toHaveBeenCalledWith(
+                 expect.objectContaining({
+                     params: req.body,
+                     source: { path: 'custom/test.mp3' }
+                 }),
+                 { isTest: true }
+             );
+             expect(res.json).toHaveBeenCalledWith({ success: true });
         });
     });
 
@@ -114,14 +172,14 @@ describe('SystemController', () => {
         it('should call healthCheck.refresh with defaults', async () => {
             healthCheck.refresh.mockResolvedValue({ success: true });
             await systemController.refreshHealth(req, res);
-            expect(healthCheck.refresh).toHaveBeenCalledWith('all', 'silent');
+            expect(healthCheck.refresh).toHaveBeenCalledWith('all', undefined);
             expect(res.json).toHaveBeenCalled();
         });
 
-        it('should use provided target and mode', async () => {
-            req.body = { target: 'tts', mode: 'verbose' };
+        it('should use provided target', async () => {
+            req.body = { target: 'tts' };
             await systemController.refreshHealth(req, res);
-            expect(healthCheck.refresh).toHaveBeenCalledWith('tts', 'verbose');
+            expect(healthCheck.refresh).toHaveBeenCalledWith('tts', undefined);
         });
     });
 
@@ -164,6 +222,27 @@ describe('SystemController', () => {
             expect(res.json).toHaveBeenCalledWith(expect.arrayContaining([
                 expect.objectContaining({ name: 'test.mp3', type: 'custom' }),
                 expect.objectContaining({ name: 'test.mp3', type: 'cache' })
+            ]));
+        });
+
+        it('should filter out hidden files', async () => {
+            fs.existsSync.mockReturnValue(true);
+            fs.readdirSync.mockImplementation((dir) => {
+                if (dir.includes('custom')) return ['visible.mp3', 'hidden.mp3'];
+                return [];
+            });
+            fs.readFileSync.mockImplementation((p) => {
+                if (p.includes('hidden.mp3')) return JSON.stringify({ hidden: true });
+                return JSON.stringify({ hidden: false });
+            });
+            
+            await systemController.getAudioFiles(req, res);
+            
+            expect(res.json).toHaveBeenCalledWith([
+                expect.objectContaining({ name: 'visible.mp3' })
+            ]);
+            expect(res.json).not.toHaveBeenCalledWith(expect.arrayContaining([
+                expect.objectContaining({ name: 'hidden.mp3' })
             ]));
         });
     });
@@ -219,60 +298,6 @@ describe('SystemController', () => {
             await systemController.regenerateTTS(req, res);
             expect(res.status).toHaveBeenCalledWith(400);
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
-        });
-    });
-
-    describe('testAudio', () => {
-        it('should reject missing filename/type', async () => {
-            await systemController.testAudio(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should reject invalid type', async () => {
-            req.body = { filename: 'test.mp3', type: 'invalid' };
-            await systemController.testAudio(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should reject invalid target', async () => {
-            req.body = { filename: 'test.mp3', type: 'custom', target: 'invalid' };
-            await systemController.testAudio(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should reject directory traversal', async () => {
-            req.body = { filename: '../secret.mp3', type: 'custom' };
-            await systemController.testAudio(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 404 if file not found', async () => {
-            req.body = { filename: 'miss.mp3', type: 'custom' };
-            fs.existsSync.mockReturnValue(false);
-            await systemController.testAudio(req, res);
-            expect(res.status).toHaveBeenCalledWith(404);
-        });
-
-        it('should trigger local automation', async () => {
-            req.body = { filename: 'test.mp3', type: 'custom', target: 'local' };
-            fs.existsSync.mockReturnValue(true);
-            await systemController.testAudio(req, res);
-            expect(automationService.handleLocal).toHaveBeenCalled();
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-        });
-
-        it('should trigger browser broadcast', async () => {
-            req.body = { filename: 'test.mp3', type: 'cache', target: 'browser' };
-            fs.existsSync.mockReturnValue(true);
-            await systemController.testAudio(req, res);
-            expect(automationService.broadcastToClients).toHaveBeenCalled();
-        });
-
-        it('should trigger VoiceMonkey', async () => {
-            req.body = { filename: 'test.mp3', type: 'custom', target: 'voiceMonkey' };
-            fs.existsSync.mockReturnValue(true);
-            await systemController.testAudio(req, res);
-            expect(automationService.handleVoiceMonkey).toHaveBeenCalled();
         });
     });
 
@@ -404,32 +429,6 @@ describe('SystemController', () => {
             
             await expect(systemController.testSource(req, res)).rejects.toThrow('Fetch failed');
             expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource');
-        });
-    });
-
-    describe('testVoiceMonkey', () => {
-        it('should reject missing params', async () => {
-            await systemController.testVoiceMonkey(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return success if API returns success', async () => {
-            req.body = { token: 'tok', device: 'dev' };
-            axios.get.mockResolvedValue({ data: { success: true } });
-            await systemController.testVoiceMonkey(req, res);
-            expect(res.json).toHaveBeenCalledWith({ success: true });
-        });
-
-        it('should throw if API returns failure', async () => {
-            req.body = { token: 'tok', device: 'dev' };
-            axios.get.mockResolvedValue({ data: { success: false, error: 'API Error' } });
-            await expect(systemController.testVoiceMonkey(req, res)).rejects.toThrow('API Error');
-        });
-
-        it('should use default error message if API returns failure without msg', async () => {
-            req.body = { token: 'tok', device: 'dev' };
-            axios.get.mockResolvedValue({ data: { success: false } });
-            await expect(systemController.testVoiceMonkey(req, res)).rejects.toThrow('VoiceMonkey API returned failure');
         });
     });
 

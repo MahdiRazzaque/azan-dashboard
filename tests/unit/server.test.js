@@ -60,14 +60,14 @@ describe('Server Startup', () => {
         healthCheck.refresh.mockResolvedValue();
         forceRefresh.mockResolvedValue();
         initScheduler.mockResolvedValue();
-        audioAssetService.syncAudioAssets.mockResolvedValue();
+        audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
 
         // Run
         server = await app.startServer(0); // Port 0 usually means random free port
 
         // Verify
         expect(configService.init).toHaveBeenCalled();
-        expect(healthCheck.refresh).toHaveBeenCalledWith('all', 'silent');
+        expect(healthCheck.refresh).toHaveBeenCalledWith('all');
         expect(forceRefresh).toHaveBeenCalled();
         expect(initScheduler).toHaveBeenCalled();
         expect(audioAssetService.syncAudioAssets).toHaveBeenCalled();

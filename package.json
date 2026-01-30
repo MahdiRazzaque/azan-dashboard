@@ -47,6 +47,7 @@
     "@adapters": "src/adapters",
     "@providers": "src/providers",
     "@config": "src/config",
+    "@outputs": "src/outputs",
     "@services": "src/services",
     "@utils": "src/utils",
     "@controllers": "src/controllers",

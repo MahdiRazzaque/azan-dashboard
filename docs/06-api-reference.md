@@ -37,7 +37,9 @@ The API uses **HttpOnly Cookies** storing a JWT (JSON Web Token) for authenticat
 | `POST` | `/health/refresh` | Forces a re-check of system health. |
 | `GET` | `/jobs` | Lists active scheduled jobs (Maintenance and Automation). |
 | `GET` | `/storage` | Returns disk usage stats for the audio library. |
-| `POST` | `/test-audio` | Triggers playback of a specific file on a specific target. |
+| `GET` | `/outputs/registry` | Lists all registered output strategies and their metadata. |
+| `POST` | `/outputs/:id/verify` | Verifies credentials for a specific output strategy. |
+| `POST` | `/outputs/:id/test` | Executes a playback test for a strategy. |
 | `POST` | `/regenerate-tts`| Manually triggers the TTS generation pipeline. |
 
 ### Settings (`/api/settings`)

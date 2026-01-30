@@ -45,7 +45,7 @@ describe('AudioAssetService', () => {
         jest.spyOn(console, 'log').mockImplementation(() => {});
         jest.spyOn(console, 'error').mockImplementation(() => {});
         healthCheck.getHealth.mockReturnValue({ tts: { healthy: true } });
-        healthCheck.refresh.mockResolvedValue();
+        healthCheck.refresh.mockResolvedValue({ tts: { healthy: true } });
         audioValidator.analyseAudioFile.mockResolvedValue({
             format: 'mp3',
             codec: 'LAME',
@@ -61,9 +61,10 @@ describe('AudioAssetService', () => {
     });
 
     describe('syncAudioAssets', () => {
-        it('should throw error if TTS service is offline (L133)', async () => {
-            healthCheck.getHealth.mockReturnValue({ tts: { healthy: false } });
-            await expect(service.syncAudioAssets()).rejects.toThrow('TTS Service is offline');
+        it('should return warning if TTS service is offline', async () => {
+            healthCheck.refresh.mockResolvedValue({ tts: { healthy: false } });
+            const result = await service.syncAudioAssets();
+            expect(result.warnings).toEqual(expect.arrayContaining([expect.stringContaining('TTS Service Offline')]));
         });
 
         it('should return existing file if locally cached', async () => {
@@ -154,6 +155,44 @@ describe('AudioAssetService', () => {
         });
     });
 
+    describe('ensureTestAudio', () => {
+        it('should return early if test.mp3 already exists', async () => {
+            fs.existsSync.mockReturnValue(true);
+            await service.ensureTestAudio();
+            expect(axios.post).not.toHaveBeenCalled();
+        });
+
+        it('should generate and move test.mp3 if it does not exist', async () => {
+            fs.existsSync.mockImplementation((p) => {
+                if (p.includes('custom' + path.sep + 'test.mp3')) return false;
+                if (p.includes('cache' + path.sep + 'test.mp3')) return true;
+                return true;
+            });
+            axios.post.mockResolvedValue({ data: { success: true } });
+            fs.renameSync.mockImplementation(() => {});
+
+            await service.ensureTestAudio();
+
+            expect(axios.post).toHaveBeenCalledWith(
+                expect.stringContaining('generate-tts'),
+                expect.objectContaining({ text: 'This is a test of the notification system!', filename: 'test.mp3' })
+            );
+            expect(fs.renameSync).toHaveBeenCalled();
+            expect(fs.writeFileSync).toHaveBeenCalledWith(
+                expect.stringContaining('test.mp3.json'),
+                expect.stringContaining('"hidden":true')
+            );
+        });
+
+        it('should handle errors during test audio generation', async () => {
+            fs.existsSync.mockReturnValue(false);
+            axios.post.mockRejectedValue(new Error('TTS Failed'));
+            
+            await service.ensureTestAudio();
+            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Failed to generate test audio'), 'TTS Failed');
+        });
+    });
+
     describe('resolveTemplate', () => {
         it('should resolve placeholders correctly', () => {
             const res = service.resolveTemplate('{prayerEnglish} at {minutes}', 'fajr', 10);
@@ -162,6 +201,10 @@ describe('AudioAssetService', () => {
     });
     
     describe('syncAudioAssets Edge Cases', () => {
+        beforeEach(() => {
+            healthCheck.refresh.mockResolvedValue({ tts: { healthy: true } });
+        });
+
         it('should handle TTS generation errors gracefully', async () => {
             fs.existsSync.mockReturnValue(false); 
             axios.post.mockRejectedValue(new Error('TTS Failed'));
@@ -221,6 +264,7 @@ describe('AudioAssetService', () => {
         // Use spyOn instead of mock to avoid breaking other tests
         jest.spyOn(mockedStorage, 'checkQuota').mockResolvedValue({ success: false, message: 'Full' });
         fs.existsSync.mockReturnValue(false);
+        // ensureTTSFile throws on quota check failure, and syncAudioAssets rethrows it
         await expect(service.syncAudioAssets()).rejects.toThrow('Storage Limit Exceeded');
     });
 
