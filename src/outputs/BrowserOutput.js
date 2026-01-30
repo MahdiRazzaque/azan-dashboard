@@ -1,5 +1,4 @@
 const BaseOutput = require('./BaseOutput');
-const OutputFactory = require('./OutputFactory');
 const sseService = require('../services/system/sseService');
 
 class BrowserOutput extends BaseOutput {
@@ -74,5 +73,4 @@ class BrowserOutput extends BaseOutput {
     }
 }
 
-OutputFactory.register(BrowserOutput);
 module.exports = BrowserOutput;

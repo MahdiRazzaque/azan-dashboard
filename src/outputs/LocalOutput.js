@@ -1,11 +1,11 @@
 const BaseOutput = require('./BaseOutput');
 const player = require('play-sound')({});
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const OutputFactory = require('./OutputFactory');
 
 const AUDIO_ROOT = path.resolve(__dirname, '../../public/audio');
+const ALLOWED_AUDIO_PLAYERS = ['mpg123', 'omxplayer', 'aplay', 'mplayer', 'cvlc'];
 
 class LocalOutput extends BaseOutput {
     /**
@@ -23,9 +23,10 @@ class LocalOutput extends BaseOutput {
             params: [
                 {
                     key: 'audioPlayer',
-                    type: 'string',
+                    type: 'select',
                     label: 'Audio Player',
                     default: 'mpg123',
+                    options: ALLOWED_AUDIO_PLAYERS,
                     sensitive: false,
                     requiredForHealth: true,
                     subtext: "Only change this if you know what you're doing"
@@ -76,9 +77,15 @@ class LocalOutput extends BaseOutput {
         }
         filePath = normalizedPath;
 
-        console.log(`${prefix} Starting playback: ${path.basename(filePath)}`);
-
         const audioPlayer = (payload.params && payload.params.audioPlayer) || 'mpg123';
+
+        // Security: Audio player allowlist validation
+        if (!ALLOWED_AUDIO_PLAYERS.includes(audioPlayer)) {
+            console.error(`${prefix} SECURITY WARNING: Invalid audio player rejected: ${audioPlayer}`);
+            throw new Error('Invalid audio player');
+        }
+
+        console.log(`${prefix} Starting playback: ${path.basename(filePath)}`);
 
         return new Promise((resolve, reject) => {
             const audioProcess = player.play(filePath, { player: audioPlayer }, (err) => {
@@ -126,9 +133,15 @@ class LocalOutput extends BaseOutput {
                            config.automation?.outputs?.local?.params?.audioPlayer ||
                            'mpg123';
 
+        // Security: Audio player allowlist validation
+        if (!ALLOWED_AUDIO_PLAYERS.includes(audioPlayer)) {
+            console.warn(`[Output: Local] Health: Offline (Invalid Audio Player: ${audioPlayer})`);
+            return { healthy: false, message: 'Invalid Audio Player' };
+        }
+
         try {
             await new Promise((resolve, reject) => {
-                exec(`${audioPlayer} --version`, (error) => {
+                execFile(audioPlayer, ['--version'], (error) => {
                     if (error) reject(error);
                     else resolve();
                 });
@@ -178,8 +191,5 @@ class LocalOutput extends BaseOutput {
         return { success: true };
     }
 }
-
-// Auto-register
-OutputFactory.register(LocalOutput);
 
 module.exports = LocalOutput;

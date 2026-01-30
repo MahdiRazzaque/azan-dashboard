@@ -281,4 +281,23 @@ describe('ConfigService', () => {
         const config = configService.get();
         expect(config.automation.outputs.local.leadTimeMs).toBe(-30000);
     });
+
+    it('should sanitise audioPlayer if it is not in allowlist', async () => {
+        const invalidConfig = {
+            automation: {
+                outputs: {
+                    local: {
+                        params: {
+                            audioPlayer: 'malicious_cmd; rm -rf /'
+                        }
+                    }
+                }
+            }
+        };
+        await fs.writeFile(configService._localPath, JSON.stringify(invalidConfig));
+        await configService.reload();
+        
+        const config = configService.get();
+        expect(config.automation.outputs.local.params.audioPlayer).toBe('mpg123');
+    });
 });

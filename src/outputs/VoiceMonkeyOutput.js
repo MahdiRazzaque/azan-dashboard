@@ -1,5 +1,4 @@
 ﻿const BaseOutput = require('./BaseOutput');
-const OutputFactory = require('./OutputFactory');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -239,5 +238,4 @@ class VoiceMonkeyOutput extends BaseOutput {
     }
 }
 
-OutputFactory.register(VoiceMonkeyOutput);
 module.exports = VoiceMonkeyOutput;

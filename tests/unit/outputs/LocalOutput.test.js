@@ -6,7 +6,7 @@ jest.mock('play-sound', () => {
 });
 
 const LocalOutput = require('../../../src/outputs/LocalOutput');
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -32,6 +32,10 @@ describe('LocalOutput', () => {
         
         // Default fs mock
         fs.existsSync.mockReturnValue(true);
+        
+        // Reset mocks
+        exec.mockReset();
+        execFile.mockReset();
     });
 
     describe('Metadata', () => {
@@ -41,6 +45,13 @@ describe('LocalOutput', () => {
             expect(meta.params).toEqual(expect.arrayContaining([
                 expect.objectContaining({ key: 'audioPlayer' })
             ]));
+        });
+
+        it('should have audioPlayer as a select type with options', () => {
+            const meta = LocalOutput.getMetadata();
+            const playerParam = meta.params.find(p => p.key === 'audioPlayer');
+            expect(playerParam.type).toBe('select');
+            expect(playerParam.options).toContain('mpg123');
         });
     });
 
@@ -61,6 +72,17 @@ describe('LocalOutput', () => {
                 { player: 'mplayer' },
                 expect.any(Function)
             );
+        });
+
+        it('should reject if audioPlayer is not in allowlist', async () => {
+            const testFile = path.join(audioRoot, 'custom/test.mp3');
+            const payload = {
+                source: { filePath: testFile },
+                params: { audioPlayer: 'malicious_cmd; rm -rf /' }
+            };
+            
+            await expect(output.execute(payload)).rejects.toThrow('Invalid audio player');
+            expect(mockPlay).not.toHaveBeenCalled();
         });
 
         it('should default to mpg123 if player not specified', async () => {
@@ -121,16 +143,23 @@ describe('LocalOutput', () => {
     });
 
     describe('healthCheck', () => {
-        it('should return healthy if mpg123 is found', async () => {
-            exec.mockImplementation((cmd, cb) => cb(null)); // Success
+        it('should return healthy if mpg123 is found using execFile', async () => {
+            execFile.mockImplementation((file, args, cb) => cb(null)); // Success
             const result = await output.healthCheck();
             expect(result).toEqual({ healthy: true, message: 'Ready' });
+            expect(execFile).toHaveBeenCalledWith('mpg123', ['--version'], expect.any(Function));
         });
 
-        it('should return unhealthy if mpg123 is missing', async () => {
-            exec.mockImplementation((cmd, cb) => cb(new Error('Not found')));
+        it('should return unhealthy if player is missing', async () => {
+            execFile.mockImplementation((file, args, cb) => cb(new Error('Not found')));
             const result = await output.healthCheck();
             expect(result).toEqual({ healthy: false, message: 'mpg123 Not Found' });
+        });
+
+        it('should reject invalid players', async () => {
+            const result = await output.healthCheck({ audioPlayer: 'invalid_player' });
+            expect(result).toEqual({ healthy: false, message: 'Invalid Audio Player' });
+            expect(execFile).not.toHaveBeenCalled();
         });
     });
 

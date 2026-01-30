@@ -165,6 +165,18 @@ class ConfigService {
                         outputConfig.leadTimeMs = clamped;
                     }
                 }
+
+                // [REQ-004] LocalOutput specific constraint: audioPlayer allowlist
+                if (id === 'local' && outputConfig.params?.audioPlayer) {
+                    const metadata = strategy.constructor.getMetadata();
+                    const playerParam = metadata.params.find(p => p.key === 'audioPlayer');
+                    const allowed = playerParam?.options || [];
+                    
+                    if (!allowed.includes(outputConfig.params.audioPlayer)) {
+                        console.warn(`[Config] Warning: Invalid audioPlayer '${outputConfig.params.audioPlayer}' for 'local' output. Reverting to default 'mpg123'.`);
+                        outputConfig.params.audioPlayer = 'mpg123';
+                    }
+                }
             } catch (e) {
                 // Strategy not found or error, ignore
             }
