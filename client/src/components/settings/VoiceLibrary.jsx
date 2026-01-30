@@ -197,12 +197,35 @@ const getRegion = (locale) => {
 /**
  * Inline Voice Library component for embedding in settings views.
  * 
+ * @param {object} props - The component props.
+ * @param {string} [props.searchQuery] - Lifted search query state.
+ * @param {Function} [props.onSearchChange] - Callback for search query changes.
+ * @param {string} [props.selectedLocale] - Lifted locale filter state.
+ * @param {Function} [props.onLocaleChange] - Callback for locale filter changes.
+ * @param {string} [props.selectedGender] - Lifted gender filter state.
+ * @param {Function} [props.onGenderChange] - Callback for gender filter changes.
  * @returns {JSX.Element} The rendered VoiceLibrary component.
  */
-const VoiceLibrary = () => {
+const VoiceLibrary = ({ 
+  searchQuery, onSearchChange,
+  selectedLocale, onLocaleChange,
+  selectedGender, onGenderChange
+}) => {
   const { config, draftConfig, updateSetting, voices, voicesLoading: loading, voicesError: error } = useSettings();
-  const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState({ gender: "All", locale: "All" });
+  
+  // Internal state for when props are not provided (backwards compatibility)
+  const [internalSearch, setInternalSearch] = useState("");
+  const [internalFilters, setInternalFilters] = useState({ gender: "All", locale: "All" });
+  
+  // Use props if provided, otherwise fallback to internal state
+  const search = searchQuery !== undefined ? searchQuery : internalSearch;
+  const setSearch = onSearchChange || setInternalSearch;
+  
+  const gender = selectedGender !== undefined ? selectedGender : internalFilters.gender;
+  const setGender = onGenderChange || ((val) => setInternalFilters(f => ({ ...f, gender: val })));
+  
+  const locale = selectedLocale !== undefined ? selectedLocale : internalFilters.locale;
+  const setLocale = onLocaleChange || ((val) => setInternalFilters(f => ({ ...f, locale: val })));
   
   const [previewPrayer, setPreviewPrayer] = useState("Maghrib");
   const [previewText, setPreviewText] = useState(DEFAULT_PREVIEW_TEXT);
@@ -223,11 +246,11 @@ const VoiceLibrary = () => {
     return voices.filter(v => {
       const matchSearch = v.Name.toLowerCase().includes(search.toLowerCase()) || 
                           v.ShortName.toLowerCase().includes(search.toLowerCase());
-      const matchGender = filters.gender === "All" || v.Gender === filters.gender;
-      const matchLocale = filters.locale === "All" || v.Locale === filters.locale;
+      const matchGender = gender === "All" || v.Gender === gender;
+      const matchLocale = locale === "All" || v.Locale === locale;
       return matchSearch && matchGender && matchLocale;
     });
-  }, [voices, search, filters]);
+  }, [voices, search, gender, locale]);
 
   const locales = useMemo(() => {
     const set = new Set(voices.map(v => v.Locale));
@@ -411,8 +434,8 @@ const VoiceLibrary = () => {
         <div className="w-[160px] flex items-center gap-2">
           <UserIcon className="w-4 h-4 text-app-dim flex-shrink-0" />
           <SearchableSelect
-            value={filters.gender}
-            onChange={(val) => setFilters(f => ({ ...f, gender: val }))}
+            value={gender}
+            onChange={setGender}
             options={[
               { value: "All", label: "All Genders" },
               { value: "Male", label: "Male" },
@@ -424,8 +447,8 @@ const VoiceLibrary = () => {
         <div className="w-[200px] flex items-center gap-2">
           <Globe className="w-4 h-4 text-app-dim flex-shrink-0" />
           <SearchableSelect
-            value={filters.locale}
-            onChange={(val) => setFilters(f => ({ ...f, locale: val }))}
+            value={locale}
+            onChange={setLocale}
             options={locales.map(l => ({
               value: l,
               label: l === "All" ? "All Languages" : (LOCALE_NAMES[l] || l)
