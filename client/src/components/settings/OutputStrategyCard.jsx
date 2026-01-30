@@ -143,7 +143,10 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
             const res = await fetch(`/api/system/outputs/${id}/test`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(values)
+                body: JSON.stringify({
+                    ...values,
+                    source: { path: 'custom/test.mp3' }
+                })
             });
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
@@ -194,7 +197,7 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
                          leadTimeMs < 0 ? `Starts ${Math.abs(leadTimeMs)}ms after target time.` : 
                          "Starts exactly at target time."}
                     </div>
-                    <div className="relative mt-4 mb-8">
+                    <div className="relative mt-4 mb-16">
                         {/* Track Background */}
                         <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 bg-zinc-800 rounded-lg border border-white/5" />
                         
@@ -265,12 +268,24 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
                                     {param.label}
                                     {param.requiredForHealth && <span className="text-red-400 ml-1">*</span>}
                                 </label>
-                                <input 
-                                    type="text"
-                                    value={values[param.key] || param.default || ''}
-                                    onChange={e => handleParamChange(param.key, e.target.value)}
-                                    className="w-full bg-app-bg border border-app-border rounded p-2 text-app-text focus:ring-emerald-500 focus:border-emerald-500 mb-1"
-                                />
+                                {param.type === 'select' ? (
+                                    <select
+                                        value={values[param.key] || param.default || ''}
+                                        onChange={e => handleParamChange(param.key, e.target.value)}
+                                        className="w-full bg-app-bg border border-app-border rounded p-2 text-app-text focus:ring-emerald-500 focus:border-emerald-500 mb-1 appearance-none cursor-pointer"
+                                    >
+                                        {param.options?.map(opt => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input 
+                                        type="text"
+                                        value={values[param.key] || param.default || ''}
+                                        onChange={e => handleParamChange(param.key, e.target.value)}
+                                        className="w-full bg-app-bg border border-app-border rounded p-2 text-app-text focus:ring-emerald-500 focus:border-emerald-500 mb-1"
+                                    />
+                                )}
                                 {param.subtext && (
                                     <div className="text-xs text-app-dim italic ml-1">
                                         {param.subtext}
