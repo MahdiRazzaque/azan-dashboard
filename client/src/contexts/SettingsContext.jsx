@@ -43,7 +43,7 @@ export const SettingsProvider = ({ children }) => {
     setLoading(true);
     try {
       const endpoint = isAuthenticated ? '/api/settings' : '/api/settings/public';
-      const res = await fetch(`${endpoint}?t=${Date.now()}`);
+      const res = await fetch(`${endpoint}?t=${Date.now()}`, { credentials: 'include' });
       if (res.status === 429) {
           handleRateLimit();
           return;
@@ -63,7 +63,7 @@ export const SettingsProvider = ({ children }) => {
   const fetchHealth = useCallback(async () => {
       if (pausedPolling) return;
       try {
-          const res = await fetch(`/api/system/health?t=${Date.now()}`);
+          const res = await fetch(`/api/system/health?t=${Date.now()}`, { credentials: 'include' });
           if (res.status === 429) {
               handleRateLimit();
               return;
@@ -81,7 +81,7 @@ export const SettingsProvider = ({ children }) => {
     setVoicesLoading(true);
     setVoicesError(null);
     try {
-        const res = await fetch('/api/system/voices');
+        const res = await fetch('/api/system/voices', { credentials: 'include' });
         if (res.ok) {
             const data = await res.json();
             setVoices(data);
@@ -100,7 +100,7 @@ export const SettingsProvider = ({ children }) => {
     if (!isAuthenticated) return;
     setProvidersLoading(true);
     try {
-        const res = await fetch('/api/system/providers');
+        const res = await fetch('/api/system/providers', { credentials: 'include' });
         if (res.ok) {
             const data = await res.json();
             setProviders(data);
@@ -114,9 +114,16 @@ export const SettingsProvider = ({ children }) => {
 
   useEffect(() => {
     if (!pausedPolling) {
-      fetchSettings();
-      fetchHealth();
+      // 1. Initial Load of Global Data (Settings & Health)
+      if (!initialLoadDone.current) {
+        fetchSettings();
+        fetchHealth();
+        initialLoadDone.current = true;
+      }
       
+      // 2. Load Authenticated-only Data (Voices & Providers)
+      // This should run whenever isAuthenticated becomes true, 
+      // even if the initial global load is already done.
       if (isAuthenticated) {
         fetchVoices();
         fetchProviders();
@@ -130,6 +137,7 @@ export const SettingsProvider = ({ children }) => {
           const res = await fetch('/api/system/health/refresh', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
               body: JSON.stringify({ target, mode })
           });
           if (res.status === 429) {
@@ -219,6 +227,7 @@ export const SettingsProvider = ({ children }) => {
       const res = await fetch('/api/settings/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(configToSave)
       });
       const data = await res.json();
@@ -284,7 +293,10 @@ export const SettingsProvider = ({ children }) => {
   const resetToDefaults = useCallback(async () => {
      setSaving(true);
      try {
-         const res = await fetch('/api/settings/reset', { method: 'POST' });
+         const res = await fetch('/api/settings/reset', { 
+             method: 'POST',
+             credentials: 'include'
+         });
          if (res.ok) {
              await fetchSettings();
              return { success: true };
@@ -362,6 +374,7 @@ export const SettingsProvider = ({ children }) => {
         const res = await fetch('/api/settings/env', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ key, value })
         });
         const data = await res.json();
