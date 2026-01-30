@@ -1,0 +1,23 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Node.js Tests
+    uses: ./.github/workflows/nodejs-tests.yml
+    secrets: inherit
+
+  build:
+    name: Docker Build
+    uses: ./.github/workflows/docker-build.yml
+    secrets: inherit
+
+  deploy:
+    name: Deployment
+    needs: [tests, build]
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit
