@@ -124,8 +124,8 @@ const resolveTemplate = (template, prayerKey, offsetMinutes) => {
  * @param {string} filename - The target filename for the generated audio.
  * @param {string} text - The text to be converted to speech.
  * @param {string} serviceUrl - The base URL of the TTS service.
- * @param {string} [triggerVoice=null] - Optional specific voice to use for this generation.
- * @returns {Promise<void>} Resolves when the TTS generation is triggered.
+ * @param {string} voice - The voice profile to be used for the speech generation.
+ * @returns {Promise<void>} Resolves when the TTS generation is triggered successfully.
  */
 const generateTTS = async (filename, text, serviceUrl, voice) => {
     const url = `${serviceUrl}/generate-tts`;

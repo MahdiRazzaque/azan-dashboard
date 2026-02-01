@@ -6,12 +6,12 @@ const SALT = 'azan-dashboard-v2-secure-salt'; // Fixed salt for consistent deriv
 
 /**
  * Derives a 32-byte key from a secret string using scrypt.
- * @param {string} secret 
- * @returns {Buffer}
+ * @param {string} secret - The raw secret string used to derive the cryptographic key.
+ * @returns {Buffer} A 32-byte Buffer containing the derived key.
  * @private
  */
 function _deriveKey(secret) {
-    // 16384 cost, 8 block size, 1 parallelization - robust but fast enough for small secrets
+    // 16384 cost, 8 block size, 1 parallelisation - robust but fast enough for small secrets
     return crypto.scryptSync(secret, SALT, 32, { N: 16384, r: 8, p: 1 });
 }
 
@@ -66,7 +66,7 @@ function decrypt(ciphertext, key) {
 
 /**
  * Returns a masked representation of a sensitive value.
- * @returns {string}
+ * @returns {string} A string consisting of eight asterisks to represent a masked value.
  */
 function mask() {
     return '********';
@@ -74,8 +74,8 @@ function mask() {
 
 /**
  * Checks if a value is masked.
- * @param {any} value 
- * @returns {boolean}
+ * @param {any} value - The value to check for masking.
+ * @returns {boolean} True if the value matches the standard mask string, false otherwise.
  */
 function isMasked(value) {
     return value === '********';

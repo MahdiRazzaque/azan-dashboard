@@ -101,13 +101,10 @@ class ConfigurationWorkflowService {
         
         
         
-            /**
-        
-             * Identifies which services are active based on the configuration.
-        
-        
-     * @param {Object} config 
-     * @returns {Set<string>}
+    /**
+     * Identifies which services are active based on the given configuration.
+     * @param {Object} config - The configuration object to analyse for active services.
+     * @returns {Set<string>} A set of identifiers for all active services identified within the config.
      * @private
      */
     _getUsedServices(config) {
@@ -129,7 +126,11 @@ class ConfigurationWorkflowService {
     }
 
     /**
-     * Collects all warnings from various components after an update.
+     * Collects all warnings from various components after a configuration update.
+     * @param {Object} syncResult - The result object from the synchronisation process.
+     * @param {Object} health - The health status of relevant system components.
+     * @param {Object} finalConfig - The final merged configuration object to validate.
+     * @returns {Promise<Array<string>>} A promise that resolves to an array of warning strings.
      * @private
      */
     async _collectWarnings(syncResult, health, finalConfig) {

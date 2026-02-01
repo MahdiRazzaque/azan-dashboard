@@ -524,8 +524,8 @@ class ConfigService {
     }
 
     /**
-     * Returns the encryption key derived from JWT_SECRET.
-     * @returns {string}
+     * Returns the encryption key derived from JWT_SECRET or a fallback value.
+     * @returns {string} The encryption key used for securing sensitive data.
      * @private
      */
     _getEncryptionKey() {
