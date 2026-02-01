@@ -1,4 +1,5 @@
-const fs = require('fs');
+const fs = require('fs/promises');
+const fsSync = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
@@ -7,22 +8,26 @@ const ENV_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../../.env')
 /**
  * Parses the .env file and returns its content as an object.
  * 
- * @returns {Object} An object containing the environment variables.
+ * @returns {Promise<Object>} An object containing the environment variables.
  */
-const parseEnv = () => {
-    if (!fs.existsSync(ENV_PATH)) return {};
-    const content = fs.readFileSync(ENV_PATH, 'utf-8');
-    const lines = content.split('\n'); // Split by new line, handling different EOLs might be needed but usually split \n covers it or \r\n
-    const result = {};
-    lines.forEach(line => {
-        const match = line.match(/^([^=]+)=(.*)$/);
-        if (match) {
-            const key = match[1].trim();
-            const value = match[2].trim();
-            result[key] = value;
-        }
-    });
-    return result;
+const parseEnv = async () => {
+    try {
+        await fs.access(ENV_PATH);
+        const content = await fs.readFile(ENV_PATH, 'utf-8');
+        const lines = content.split(/\r?\n/);
+        const result = {};
+        lines.forEach(line => {
+            const match = line.match(/^([^=]+)=(.*)$/);
+            if (match) {
+                const key = match[1].trim();
+                const value = match[2].trim();
+                result[key] = value;
+            }
+        });
+        return result;
+    } catch (e) {
+        return {};
+    }
 };
 
 /**
@@ -30,13 +35,16 @@ const parseEnv = () => {
  * 
  * @param {string} key - The environment variable key.
  * @param {string} value - The environment variable value.
- * @returns {void}
+ * @returns {Promise<void>}
  */
-const setEnvValue = (key, value) => {
+const setEnvValue = async (key, value) => {
     // Read existing
     let content = '';
-    if (fs.existsSync(ENV_PATH)) {
-        content = fs.readFileSync(ENV_PATH, 'utf-8');
+    try {
+        await fs.access(ENV_PATH);
+        content = await fs.readFile(ENV_PATH, 'utf-8');
+    } catch (e) {
+        // File doesn't exist, start with empty content
     }
 
     const lines = content.split(/\r?\n/);
@@ -57,7 +65,7 @@ const setEnvValue = (key, value) => {
         newLines.push(`${key}=${value}`);
     }
 
-    fs.writeFileSync(ENV_PATH, newLines.join('\n'));
+    await fs.writeFile(ENV_PATH, newLines.join('\n'));
     
     // Update current process
     process.env[key] = value;
@@ -67,29 +75,33 @@ const setEnvValue = (key, value) => {
  * Deletes an environment variable from the .env file and removes it from the current process.
  * 
  * @param {string} key - The environment variable key to delete.
- * @returns {void}
+ * @returns {Promise<void>}
  */
-const deleteEnvValue = (key) => {
-    if (!fs.existsSync(ENV_PATH)) return;
+const deleteEnvValue = async (key) => {
+    try {
+        await fs.access(ENV_PATH);
+        const content = await fs.readFile(ENV_PATH, 'utf-8');
+        const lines = content.split(/\r?\n/);
+        
+        const newLines = lines.filter(line => !line.trim().startsWith(`${key}=`));
 
-    let content = fs.readFileSync(ENV_PATH, 'utf-8');
-    const lines = content.split(/\r?\n/);
-    
-    const newLines = lines.filter(line => !line.trim().startsWith(`${key}=`));
-
-    if (newLines.length !== lines.length) {
-        fs.writeFileSync(ENV_PATH, newLines.join('\n'));
-        delete process.env[key];
+        if (newLines.length !== lines.length) {
+            await fs.writeFile(ENV_PATH, newLines.join('\n'));
+            delete process.env[key];
+        }
+    } catch (e) {
+        // File doesn't exist, nothing to delete
     }
 };
 
 /**
  * Generates a secure random secret string using the crypto module.
  * 
- * @returns {string} A 64-character hexadecimal string.
+ * @param {number} [length=32] - The number of random bytes to generate.
+ * @returns {string} A hexadecimal string.
  */
-const generateSecret = () => {
-    return crypto.randomBytes(32).toString('hex');
+const generateSecret = (length = 32) => {
+    return crypto.randomBytes(length).toString('hex');
 };
 
 /**

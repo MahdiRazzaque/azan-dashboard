@@ -176,11 +176,6 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
             </div>
 
             <div className="space-y-4">
-                <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded text-xs text-blue-300 mb-4">
-                    Credentials are stored securely in the system environment. 
-                    You must verify them by hearing a test sound before they are saved.
-                </div>
-
                 {sensitiveParams.map(param => (
                     <div key={param.key}>
                         <label className="block text-sm font-medium text-app-text mb-1">

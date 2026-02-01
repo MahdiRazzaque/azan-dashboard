@@ -1,0 +1,100 @@
+const fs = require('fs');
+const fsAsync = require('fs/promises');
+const path = require('path');
+const { DateTime } = require('luxon');
+
+const LOG_DIR = path.join(__dirname, '../../logs');
+const MAX_FILES = 10;
+
+/**
+ * Ensures the log directory exists.
+ * Synchronous to be safe during early startup or logging calls.
+ */
+const ensureLogDir = () => {
+    if (!fs.existsSync(LOG_DIR)) {
+        fs.mkdirSync(LOG_DIR, { recursive: true });
+    }
+};
+
+/**
+ * Returns the path to the current log file.
+ * Format: session-YYYY-MM-DD.log
+ * 
+ * @returns {string} The full path to the current log file.
+ */
+const getLogFilePath = () => {
+    const date = DateTime.now().toISODate();
+    return path.join(LOG_DIR, `session-${date}.log`);
+};
+
+/**
+ * Rotates log files, keeping only the most recent ones.
+ * Reads all session-*.log files and deletes oldest ones if count > MAX_FILES.
+ * 
+ * @returns {Promise<void>}
+ */
+const rotateLogs = async () => {
+    try {
+        ensureLogDir();
+        const files = await fsAsync.readdir(LOG_DIR);
+        const logFiles = [];
+        
+        for (const file of files) {
+            if (file.startsWith('session-') && file.endsWith('.log')) {
+                const filePath = path.join(LOG_DIR, file);
+                try {
+                    const stats = await fsAsync.stat(filePath);
+                    logFiles.push({ name: file, path: filePath, mtime: stats.mtimeMs });
+                } catch (e) {
+                    // Skip if file disappeared or error
+                }
+            }
+        }
+
+        // Sort by modified time descending (newest first)
+        logFiles.sort((a, b) => b.mtime - a.mtime);
+
+        if (logFiles.length > MAX_FILES) {
+            const toDelete = logFiles.slice(MAX_FILES);
+            for (const file of toDelete) {
+                try {
+                    await fsAsync.unlink(file.path);
+                } catch (e) {
+                    // Ignore errors during deletion
+                }
+            }
+        }
+    } catch (e) {
+        // Fail silently to avoid breaking the application due to logging issues
+    }
+};
+
+/**
+ * Appends a log entry to the current log file.
+ * Includes timestamp and log level.
+ * 
+ * @param {Object} entry - The log entry object { timestamp, level, message }.
+ * @returns {void}
+ */
+const writeToFile = (entry) => {
+    try {
+        ensureLogDir();
+        const filePath = getLogFilePath();
+        const formatted = `[${entry.timestamp}] [${entry.level.toUpperCase()}] ${entry.message}\n`;
+        
+        // Append to file asynchronously
+        fs.appendFile(filePath, formatted, (err) => {
+            if (err) {
+                // Can't use console.error here as it might be intercepted
+            }
+        });
+    } catch (e) {
+        // Fail silently
+    }
+};
+
+module.exports = {
+    writeToFile,
+    rotateLogs,
+    LOG_DIR
+};

@@ -124,6 +124,21 @@ export default function CredentialsSettingsView() {
                         <Key className="w-5 h-5" /> Integration Secrets
                     </h2>
                 </div>
+
+                <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg text-sm text-blue-300 space-y-2">
+                    <p className="flex items-center gap-2 font-medium">
+                        <ShieldCheck className="w-4 h-4 text-blue-400" />
+                        Secure Secret Management
+                    </p>
+                    <p className="text-xs leading-relaxed opacity-90">
+                        Credentials are encrypted at rest and stored securely. For your protection, once a secret is saved, 
+                        it will be masked (<span className="font-mono text-blue-200">********</span>) and cannot be viewed again. 
+                        If you need to update a credential, simply enter the new value and verify it.
+                    </p>
+                    <p className="text-xs italic opacity-75">
+                        Note: You must verify credentials by hearing a test sound before they can be committed to the system.
+                    </p>
+                </div>
                 
                 <div className="grid grid-cols-1 gap-6">
                     {strategies.map(strategy => (

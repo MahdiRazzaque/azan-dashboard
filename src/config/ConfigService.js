@@ -4,6 +4,7 @@ const { z } = require('zod');
 const dotenv = require('dotenv');
 const { configSchema } = require('./schemas');
 const migrationService = require('../services/system/migrationService');
+const encryption = require('../utils/encryption');
 
 class ConfigNotInitializedError extends Error {
     /**
@@ -105,8 +106,27 @@ class ConfigService {
             }
         }
 
+        // Decrypt sensitive fields loaded from local.json
+        this._processSensitiveFields(rawConfig, 'decrypt');
+
         // [Migration Hook] Ensure final configuration structure is up-to-date
         rawConfig = migrationService.migrateConfig(rawConfig);
+
+        // [Migration Hook] Migrate secrets from .env if present
+        const { config: envMigrated, changed, migratedKeys } = migrationService.migrateEnvSecrets(rawConfig);
+        if (changed) {
+            console.log(`[Config] Migrating ${migratedKeys.length} secrets from .env to local.json...`);
+            // Use _saveLocal to persist immediately
+            // We need to do this before applying env overrides so we don't save overrides
+            await this._saveLocal(envMigrated);
+            rawConfig = envMigrated;
+            
+            // Clean up .env (non-blocking)
+            const envManager = require('../utils/envManager');
+            for (const key of migratedKeys) {
+                envManager.deleteEnvValue(key);
+            }
+        }
 
         // Merge environment variables to override file-based settings
         this._applyEnvOverrides(rawConfig);
@@ -190,8 +210,12 @@ class ConfigService {
      * @private
      */
     async _saveLocal(config) {
+        // Create a deep copy to avoid mutating the original config while encrypting
+        const copy = JSON.parse(JSON.stringify(config));
+        this._processSensitiveFields(copy, 'encrypt');
+
         const tempPath = `${this._localPath}.tmp`;
-        const content = JSON.stringify(config, null, 2);
+        const content = JSON.stringify(copy, null, 2);
 
         try {
             // Write to a temporary file first
@@ -493,6 +517,102 @@ class ConfigService {
                         if (source[key] !== undefined) {
                             delete source[key];
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns the encryption key derived from JWT_SECRET or a fallback value.
+     * @returns {string} The encryption key used for securing sensitive data.
+     * @private
+     */
+    _getEncryptionKey() {
+        return process.env.JWT_SECRET || 'azan-dashboard-v2-fallback-secret-non-production';
+    }
+
+    /**
+     * Encrypts or decrypts sensitive fields in the configuration object.
+     * @param {Object} obj - The configuration object to process.
+     * @param {'encrypt'|'decrypt'} action - The action to perform.
+     * @private
+     */
+    _processSensitiveFields(obj, action = 'encrypt') {
+        if (!obj || typeof obj !== 'object') return;
+
+        const key = this._getEncryptionKey();
+
+        // 1. Process Outputs
+        if (obj.automation?.outputs) {
+            let OutputFactory;
+            try { OutputFactory = require('../outputs'); } catch(e) {}
+            
+            if (OutputFactory) {
+                for (const [id, outputConfig] of Object.entries(obj.automation.outputs)) {
+                    try {
+                        const strategy = OutputFactory.getStrategy(id);
+                        const metadata = strategy.constructor.getMetadata();
+                        const sensitiveKeys = metadata.params?.filter(p => p.sensitive).map(p => p.key) || [];
+                        
+                        if (outputConfig.params) {
+                            for (const sKey of sensitiveKeys) {
+                                const val = outputConfig.params[sKey];
+                                if (val && typeof val === 'string') {
+                                    if (action === 'encrypt') {
+                                        // Only encrypt if it's not already encrypted and not masked
+                                        if (!val.includes(':') && !encryption.isMasked(val)) {
+                                            outputConfig.params[sKey] = encryption.encrypt(val, key);
+                                        }
+                                    } else {
+                                        // Decrypt if it looks like encrypted data
+                                        if (val.includes(':')) {
+                                            try {
+                                                outputConfig.params[sKey] = encryption.decrypt(val, key);
+                                            } catch (e) {
+                                                // Decryption failed (wrong key or corrupted), keep as is
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) { /* strategy not found */ }
+                }
+            }
+        }
+
+        // 2. Process Sources
+        if (obj.sources) {
+            let ProviderFactory;
+            try { ProviderFactory = require('../providers').ProviderFactory; } catch(e) {}
+            
+            if (ProviderFactory) {
+                for (const role of ['primary', 'backup']) {
+                    const source = obj.sources[role];
+                    if (source && source.type) {
+                        try {
+                            const providerClass = ProviderFactory.getProviderClass(source.type);
+                            const metadata = providerClass.getMetadata();
+                            const sensitiveKeys = metadata.parameters?.filter(p => p.sensitive).map(p => p.key) || [];
+                            
+                            for (const sKey of sensitiveKeys) {
+                                const val = source[sKey];
+                                if (val && typeof val === 'string') {
+                                    if (action === 'encrypt') {
+                                        if (!val.includes(':') && !encryption.isMasked(val)) {
+                                            source[sKey] = encryption.encrypt(val, key);
+                                        }
+                                    } else {
+                                        if (val.includes(':')) {
+                                            try {
+                                                source[sKey] = encryption.decrypt(val, key);
+                                            } catch (e) { /* ignore */ }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e) { /* provider not found */ }
                     }
                 }
             }

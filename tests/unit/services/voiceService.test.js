@@ -125,7 +125,10 @@ describe('VoiceService', () => {
             const result = await service.refreshVoices();
 
             expect(result).toEqual(mockVoices);
-            expect(mockAxios.get).toHaveBeenCalledWith('http://mock-python:8000/voices', { timeout: 10000 });
+            expect(mockAxios.get).toHaveBeenCalledWith('http://mock-python:8000/voices', { 
+                timeout: 10000,
+                maxContentLength: 5000000
+            });
             expect(mockFs.mkdirSync).toHaveBeenCalled();
             expect(mockFs.writeFileSync).toHaveBeenCalled();
         });
@@ -136,7 +139,10 @@ describe('VoiceService', () => {
 
             await service.refreshVoices();
 
-            expect(mockAxios.get).toHaveBeenCalledWith('http://localhost:8000/voices', { timeout: 10000 });
+            expect(mockAxios.get).toHaveBeenCalledWith('http://localhost:8000/voices', { 
+                timeout: 10000,
+                maxContentLength: 5000000
+            });
         });
 
         it('should handle fetch errors and return current voices', async () => {

@@ -58,6 +58,19 @@ const startServer = async (port = PORT) => {
         console.log(`Server is running on http://localhost:${PORT}`);
         console.log(`Health check available at http://localhost:${PORT}/api/health`);
         
+        const envManager = require('@utils/envManager');
+        const logger = require('@utils/logger');
+
+        // [REQ-006] Maintain persistent logs
+        await logger.rotateLogs();
+
+        // [REQ-004] Ensure robust JWT_SECRET exists
+        if (!process.env.JWT_SECRET) {
+            console.log('[Startup] JWT_SECRET missing. Generating a robust 64-byte key...');
+            const secret = envManager.generateSecret(64);
+            await envManager.setEnvValue('JWT_SECRET', secret);
+        }
+
         // Initialise Config Service
         const configService = require('@config');
         try {

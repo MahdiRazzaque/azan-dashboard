@@ -21,38 +21,38 @@ describe('authController Unit Tests', () => {
     });
 
     describe('setup', () => {
-        it('should return 403 if already configured', () => {
+        it('should return 403 if already configured', async () => {
             const originalPass = process.env.ADMIN_PASSWORD;
             process.env.ADMIN_PASSWORD = 'set';
-            authController.setup(req, res);
+            await authController.setup(req, res);
             expect(res.status).toHaveBeenCalledWith(403);
             process.env.ADMIN_PASSWORD = originalPass;
         });
 
-        it('should return 400 if password is missing', () => {
+        it('should return 400 if password is missing', async () => {
              const originalPass = process.env.ADMIN_PASSWORD;
              delete process.env.ADMIN_PASSWORD;
              req.body.password = undefined; // Branch: !password
-             authController.setup(req, res);
+             await authController.setup(req, res);
              expect(res.status).toHaveBeenCalledWith(400);
              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Password too short' }));
              process.env.ADMIN_PASSWORD = originalPass;
         });
 
-        it('should handle setup error and return 500', () => {
+        it('should handle setup error and return 500', async () => {
             const originalPass = process.env.ADMIN_PASSWORD;
             delete process.env.ADMIN_PASSWORD;
             req.body.password = 'validpass';
             authUtils.hashPassword.mockImplementation(() => { throw new Error('DB Error'); });
             
             const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
-            authController.setup(req, res);
+            await authController.setup(req, res);
             expect(res.status).toHaveBeenCalledWith(500);
             spy.mockRestore();
             process.env.ADMIN_PASSWORD = originalPass;
         });
         
-        it('should generate JWT_SECRET if missing', () => {
+        it('should generate JWT_SECRET if missing', async () => {
             const originalPass = process.env.ADMIN_PASSWORD;
             const originalSecret = process.env.JWT_SECRET;
             delete process.env.ADMIN_PASSWORD;
@@ -63,7 +63,7 @@ describe('authController Unit Tests', () => {
             envManager.generateSecret.mockReturnValue('newsecret');
             jwt.sign.mockReturnValue('token');
 
-            authController.setup(req, res);
+            await authController.setup(req, res);
             
             expect(envManager.generateSecret).toHaveBeenCalled();
             expect(envManager.setEnvValue).toHaveBeenCalledWith('JWT_SECRET', 'newsecret');
@@ -74,23 +74,23 @@ describe('authController Unit Tests', () => {
     });
 
     describe('changePassword', () => {
-        it('should return 400 if password missing', () => {
-             authController.changePassword(req, res);
+        it('should return 400 if password missing', async () => {
+             await authController.changePassword(req, res);
              expect(res.status).toHaveBeenCalledWith(400);
         });
 
-        it('should successfully change password', () => {
+        it('should successfully change password', async () => {
              req.body.password = 'newpass';
              authUtils.hashPassword.mockReturnValue('hashed');
-             authController.changePassword(req, res);
+             await authController.changePassword(req, res);
              expect(envManager.setEnvValue).toHaveBeenCalledWith('ADMIN_PASSWORD', 'hashed');
              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
         });
 
-        it('should handle errors and return 500', () => {
+        it('should handle errors and return 500', async () => {
             req.body.password = 'pass';
             authUtils.hashPassword.mockImplementation(() => { throw new Error('Fail'); });
-            authController.changePassword(req, res);
+            await authController.changePassword(req, res);
             expect(res.status).toHaveBeenCalledWith(500);
         });
     });

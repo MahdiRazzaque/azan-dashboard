@@ -21,4 +21,19 @@ describe('ProviderFactory', () => {
         const sourceConfig = { type: 'unknown' };
         expect(() => ProviderFactory.create(sourceConfig, config)).toThrow('Unknown provider type: unknown');
     });
+
+    it('should allow registering new providers', () => {
+        class MockProvider {
+            constructor(sourceConfig, globalConfig) {
+                this.sourceConfig = sourceConfig;
+                this.globalConfig = globalConfig;
+            }
+            static getMetadata() { return { id: 'mock' }; }
+        }
+        ProviderFactory.register('mock', MockProvider);
+        const provider = ProviderFactory.create({ type: 'mock' }, config);
+        expect(provider).toBeInstanceOf(MockProvider);
+        expect(ProviderFactory.getProviderClass('mock')).toBe(MockProvider);
+        expect(ProviderFactory.getRegisteredProviders().some(m => m.id === 'mock')).toBe(true);
+    });
 });

@@ -3,6 +3,7 @@ const configService = require('@config');
 const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../../outputs');
 const asyncLock = require('@utils/asyncLock');
+const configUnmasker = require('@utils/configUnmasker');
 
 let healthCache = null;
 
@@ -69,10 +70,12 @@ async function checkSource(target) {
  * @returns {Promise<{healthy: boolean, message: string}>} The status of the TTS service.
  */
 async function checkPythonService() {
-     try {
-        const ttsUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
-        await axios.get(`${ttsUrl}/docs`, { timeout: 2000 });
-        return { healthy: true, message: 'Online' };
+        try {
+            await axios.get(`${ttsUrl}/docs`, { 
+                timeout: 2000,
+                maxContentLength: 5000000 
+            });
+            return { healthy: true, message: 'Online' };
     } catch (e) {
         return { healthy: false, message: 'Service Unreachable' };
     }
@@ -120,6 +123,10 @@ async function refresh(target = 'all', params = null) {
                             strategyParams[p.key] = params[p.key];
                         }
                     });
+
+                    // Unmask secrets received from the UI
+                    configUnmasker.unmaskParams(meta.id, strategyParams, configService.get());
+
                     // Pass null if no relevant parameters were found to allow internal config fallback
                     if (Object.keys(strategyParams).length === 0) {
                         strategyParams = null;

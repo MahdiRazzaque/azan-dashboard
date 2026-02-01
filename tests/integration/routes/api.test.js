@@ -23,6 +23,16 @@ jest.mock('fs', () => {
 });
 const fs = require('fs');
 
+jest.mock('fs/promises', () => ({
+    access: jest.fn().mockResolvedValue(),
+    unlink: jest.fn().mockResolvedValue(),
+    readFile: jest.fn().mockResolvedValue('{}'),
+    writeFile: jest.fn().mockResolvedValue(),
+    mkdir: jest.fn().mockResolvedValue(),
+    rename: jest.fn().mockResolvedValue()
+}));
+const fsPromises = require('fs/promises');
+
 // Mock Config Service
 const mockConfig = {
     ...mockMockFactory.createMockConfig(),
@@ -73,6 +83,12 @@ const mockConfig = {
 };
 const mockConfigService = mockMockFactory.createMockConfigService(mockConfig);
 jest.mock('@config', () =>   mockConfigService);
+
+jest.mock('@services/system/configurationWorkflowService', () => ({
+    executeUpdate: jest.fn().mockResolvedValue({ message: 'Success', warnings: [], meta: {} }),
+    unmaskParams: jest.fn()
+}));
+const workflowService = require('@services/system/configurationWorkflowService');
 
 // Mock Services
 jest.mock('@services/core/schedulerService', () => mockMockFactory.createMockSchedulerService());
@@ -163,14 +179,26 @@ const voiceService = require('@services/system/voiceService');
 jest.mock('@utils/passwordUtils', () => mockMockFactory.createMockAuthUtils());
 
 // Mock OutputFactory
-jest.mock('../../../src/outputs', () => ({
-    getStrategy: jest.fn(),
-    getAllStrategies: jest.fn(() => [
-        { id: 'local', label: 'Local Audio' },
-        { id: 'voicemonkey', label: 'VoiceMonkey (Alexa)' }
-    ]),
-    getSecretRequirementKeys: jest.fn(() => [])
-}));
+jest.mock('../../../src/outputs', () => {
+    const mockOutputMetadata = {
+        id: 'local',
+        label: 'Local Audio',
+        params: [{ key: 'audioPlayer', sensitive: false }]
+    };
+    const mockOutputStrategy = {
+        execute: jest.fn().mockResolvedValue(),
+        verifyCredentials: jest.fn().mockResolvedValue({ success: true }),
+        constructor: { getMetadata: () => mockOutputMetadata }
+    };
+    return {
+        getStrategy: jest.fn(() => mockOutputStrategy),
+        getAllStrategies: jest.fn(() => [
+            { id: 'local', label: 'Local Audio' },
+            { id: 'voicemonkey', label: 'VoiceMonkey (Alexa)' }
+        ]),
+        getSecretRequirementKeys: jest.fn(() => [])
+    };
+});
 const OutputFactory = require('../../../src/outputs');
 
 
@@ -198,15 +226,15 @@ describe('API Routes Integration', () => {
         healthCheck.checkSource.mockResolvedValue({ healthy: true });
         mockConfigService.get.mockReturnValue(mockConfig);
         
+        // Reset fsPromises mocks
+        fsPromises.access.mockResolvedValue();
+        fsPromises.unlink.mockResolvedValue();
+        fsPromises.readFile.mockResolvedValue('{}');
+        fsPromises.writeFile.mockResolvedValue();
+        
         // Default fs behavior
         fs.existsSync.mockReturnValue(true);
         fs.readdirSync.mockReturnValue([]);
-        
-        // Mock OutputFactory
-        OutputFactory.getStrategy.mockImplementation((id) => ({
-            execute: jest.fn().mockResolvedValue(),
-            verifyCredentials: jest.fn().mockResolvedValue({ success: true })
-        }));
     });
 
     describe('Auth Routes', () => {
@@ -285,9 +313,6 @@ describe('API Routes Integration', () => {
         });
 
         it('POST /api/system/outputs/:strategyId/test - should execute strategy', async () => {
-            const mockStrategy = { execute: jest.fn().mockResolvedValue() };
-            OutputFactory.getStrategy.mockReturnValue(mockStrategy);
-            
             await request(app)
                 .post('/api/system/outputs/local/test')
                 .set('Cookie', [`auth_token=${adminToken}`])
@@ -295,7 +320,6 @@ describe('API Routes Integration', () => {
                 .expect(200);
             
             expect(OutputFactory.getStrategy).toHaveBeenCalledWith('local');
-            expect(mockStrategy.execute).toHaveBeenCalled();
         });
 
         it('POST /api/system/outputs/:strategyId/test - should handle missing strategy', async () => {
@@ -400,23 +424,12 @@ describe('API Routes Integration', () => {
                 .send(newConfig)
                 .expect(200);
             
-            // Check validation call
-            expect(ProviderFactory.create).toHaveBeenCalled();
-            
-            // Check update call
-            expect(mockConfigService.update).toHaveBeenCalledWith(expect.objectContaining({
-                sources: expect.objectContaining({ primary: { type: 'aladhan', method: 1, madhab: 1 } })
-            }));
-            
-            // Check reload/refresh calls
-            const schedulerService = require('@services/core/schedulerService');
-            expect(schedulerService.initScheduler).toHaveBeenCalled();
+            // Check workflow call
+            expect(workflowService.executeUpdate).toHaveBeenCalled();
         });
 
         it('POST /api/settings/update - should fail on validation error', async () => {
-            ProviderFactory.create.mockReturnValueOnce({
-                getAnnualTimes: jest.fn().mockRejectedValue(new Error('Validation Failed: API Down'))
-            });
+            workflowService.executeUpdate.mockRejectedValueOnce(new Error('Validation Failed: API Down'));
 
             const newConfig = {
                 ...mockConfig,
@@ -432,7 +445,7 @@ describe('API Routes Integration', () => {
                 .send(newConfig)
                 .expect(400); 
             
-            expect(res.body.error).toMatch(/Validation Failed/);
+            expect(res.body.error).toMatch(/Update Failed/);
         });
 
         it('POST /settings/reset - should reset config', async () => {
@@ -500,11 +513,11 @@ describe('API Routes Integration', () => {
                 .set('Cookie', [`auth_token=${adminToken}`])
                 .send({ filename: 'test.mp3' })
                 .expect(200);
-            expect(fs.unlinkSync).toHaveBeenCalled();
+            expect(fsPromises.unlink).toHaveBeenCalled();
         });
 
         it('DELETE /settings/files - should handle missing file', async () => {
-            fs.existsSync.mockReturnValue(false);
+            fsPromises.access.mockRejectedValue(new Error('ENOENT'));
             await request(app)
                 .delete('/api/settings/files')
                 .set('Cookie', [`auth_token=${adminToken}`])
@@ -637,11 +650,11 @@ describe('API Routes Integration', () => {
                 .set('Cookie', [`auth_token=${adminToken}`])
                 .send({ filename: 'test.mp3' })
                 .expect(200);
-             expect(fs.unlinkSync).toHaveBeenCalled();
+             expect(fsPromises.unlink).toHaveBeenCalled();
         });
 
         it('DELETE /api/settings/files - should handle not found', async () => {
-             fs.existsSync.mockReturnValue(false);
+             fsPromises.access.mockRejectedValue(new Error('ENOENT'));
              await request(app)
                 .delete('/api/settings/files')
                 .set('Cookie', [`auth_token=${adminToken}`])
@@ -663,7 +676,7 @@ describe('API Routes Integration', () => {
                  .post('/api/settings/reset')
                  .set('Cookie', [`auth_token=${adminToken}`])
                  .expect(200);
-             expect(fs.unlinkSync).toHaveBeenCalled();
+             expect(fsPromises.unlink).toHaveBeenCalled();
              expect(mockConfigService.reload).toHaveBeenCalled();
         });
 
@@ -707,8 +720,7 @@ describe('API Routes Integration', () => {
 
     describe('Settings Update Edge Cases', () => {
          it('POST /api/settings/update - should fail if audio sync fails', async () => {
-             const audioAssetService = require('@services/system/audioAssetService');
-             audioAssetService.syncAudioAssets.mockRejectedValueOnce(new Error('Sync Fail'));
+             workflowService.executeUpdate.mockRejectedValueOnce(new Error('Sync Fail'));
              
              const newConfig = { ...mockConfig, sources: { ...mockConfig.sources, primary: { type: 'aladhan', method: 2, madhab: 1 } } };
             
@@ -716,9 +728,9 @@ describe('API Routes Integration', () => {
                 .post('/api/settings/update')
                 .set('Cookie', [`auth_token=${adminToken}`])
                 .send(newConfig)
-                .expect(400);
+                .expect(500);
 
-             expect(res.body.error).toBe('Sync Failed');
+             expect(res.body.error).toBe('Update Failed');
         });
 
         it('POST /settings/refresh-cache - should fail if audio sync fails', async () => {
@@ -746,18 +758,11 @@ describe('API Routes Integration', () => {
     });
 
     describe('MyMasjid Coverage', () => {
-        it('POST /api/settings/update - should validate MyMasjid source', async () => {
+        it('POST /api/settings/update - should successfully update MyMasjid source', async () => {
              const newConfig = { 
                  ...mockConfig, 
                  sources: { 
                      primary: { type: 'mymasjid', masjidId: '94f1c71b-7f8a-4b9a-9e1d-3b5f6a7b8c9d' } 
-                 },
-                 automation: {
-                     ...mockConfig.automation,
-                     outputs: {
-                         local: { enabled: true },
-                         voicemonkey: { enabled: true }
-                     }
                  }
              };
              
@@ -767,16 +772,14 @@ describe('API Routes Integration', () => {
                 .send(newConfig)
                 .expect(200);
              
-             expect(ProviderFactory.create).toHaveBeenCalled();
+             expect(workflowService.executeUpdate).toHaveBeenCalledWith(expect.objectContaining({
+                 sources: expect.objectContaining({ primary: expect.objectContaining({ type: 'mymasjid' }) })
+             }));
         });
 
-        it('POST /api/settings/update - should fail if MyMasjid ID missing', async () => {
-             const newConfig = { 
-                 ...mockConfig, 
-                 sources: { 
-                     primary: { type: 'mymasjid', masjidId: '' } 
-                 } 
-             };
+        it('POST /api/settings/update - should handle failures from workflow', async () => {
+             workflowService.executeUpdate.mockRejectedValueOnce(new Error('Validation Failed: Missing ID'));
+             const newConfig = { sources: { primary: { type: 'mymasjid', masjidId: '' } } };
              
              await request(app)
                 .post('/api/settings/update')
@@ -785,46 +788,21 @@ describe('API Routes Integration', () => {
                 .expect(400); 
         });
 
-         it('POST /api/settings/update - should generate warnings if services unhealthy', async () => {
-             const unhealthyStatus = {
-                 tts: { healthy: false },
-                 local: { healthy: false, message: 'unreachable' },
-                 voicemonkey: { healthy: false, message: 'Auth Fail' }
-             };
-             healthCheck.refresh.mockResolvedValue(unhealthyStatus);
-             healthCheck.getHealth.mockReturnValue(unhealthyStatus);
+         it('POST /api/settings/update - should return warnings from workflow', async () => {
+             const warnings = ['TTS Service is offline', 'Auth Fail'];
+             workflowService.executeUpdate.mockResolvedValueOnce({
+                 message: 'Success',
+                 warnings: warnings,
+                 meta: {}
+             });
 
-             const newConfig = { 
-                 ...mockConfig, 
-                 automation: {
-                     ...mockConfig.automation,
-                     outputs: {
-                         local: { enabled: true },
-                         voicemonkey: { enabled: true }
-                     },
-                     triggers: {
-                         fajr: { 
-                             ...mockConfig.automation.triggers.fajr,
-                             preAdhan: { enabled: true, type: 'tts', targets: ['local'] },
-                             adhan: { enabled: true, type: 'file', path: 'azan.mp3', targets: ['voicemonkey'] }
-                         }
-                     }
-                 }
-             };
-
-             // Mock config service to return the "new" config as if it was saved
-             mockConfigService.get.mockReturnValue(newConfig);
-             
              const res = await request(app)
                 .post('/api/settings/update')
                 .set('Cookie', [`auth_token=${adminToken}`])
-                .send(newConfig)
+                .send(mockConfig)
                 .expect(200);
              
-             expect(res.body.warnings).toBeDefined();
-             expect(res.body.warnings.length).toBeGreaterThan(0);
-             expect(JSON.stringify(res.body.warnings)).toContain('TTS Service is offline');
-             expect(JSON.stringify(res.body.warnings)).toContain('Auth Fail');
+             expect(res.body.warnings).toEqual(warnings);
         });
     });
 

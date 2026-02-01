@@ -25,9 +25,9 @@ const authController = {
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
-     * @returns {void}
+     * @returns {Promise<void>}
      */
-    setup: (req, res) => {
+    setup: async (req, res) => {
         // Prevent setup if an admin password is already configured
         if (process.env.ADMIN_PASSWORD) {
             return res.status(403).json({ error: 'System already configured. Login to change settings.' });
@@ -40,13 +40,13 @@ const authController = {
 
         try {
             const hashed = hashPassword(password);
-            envManager.setEnvValue('ADMIN_PASSWORD', hashed);
+            await envManager.setEnvValue('ADMIN_PASSWORD', hashed);
             
             // Automatically generate a secret for JWT signing if one is not already present
             let jwtSecret = process.env.JWT_SECRET;
             if (!jwtSecret) {
-                jwtSecret = envManager.generateSecret();
-                envManager.setEnvValue('JWT_SECRET', jwtSecret);
+                jwtSecret = envManager.generateSecret(64);
+                await envManager.setEnvValue('JWT_SECRET', jwtSecret);
             }
 
             // Generate an initial token for immediate login after setup
@@ -70,15 +70,15 @@ const authController = {
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
-     * @returns {void}
+     * @returns {Promise<void>}
      */
-    changePassword: (req, res) => {
+    changePassword: async (req, res) => {
         const { password } = req.body;
         if (!password) return res.status(400).json({ error: 'Missing password' });
 
         try {
             const hashed = hashPassword(password);
-            envManager.setEnvValue('ADMIN_PASSWORD', hashed);
+            await envManager.setEnvValue('ADMIN_PASSWORD', hashed);
             res.json({ success: true, message: 'Password updated' });
         } catch (e) {
             res.status(500).json({ error: 'Failed to update password' });

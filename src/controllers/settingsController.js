@@ -1,4 +1,5 @@
 const fs = require('fs');
+const fsAsync = require('fs/promises');
 const path = require('path');
 const configService = require('@config');
 const envManager = require('@utils/envManager');
@@ -11,6 +12,8 @@ const { validateConfigSource } = require('@services/core/validationService');
 const audioValidator = require('@utils/audioValidator');
 const systemControllerHelper = require('./systemController');
 const OutputFactory = require('../outputs');
+
+const workflowService = require('@services/system/configurationWorkflowService');
 
 /**
  * Controller for settings-related operations, managing application configuration,
@@ -26,7 +29,54 @@ const settingsController = {
      */
     getSettings: async (req, res) => {
         await configService.reload();
-        res.json(configService.get());
+        const config = JSON.parse(JSON.stringify(configService.get()));
+        settingsController._maskSecrets(config);
+        res.json(config);
+    },
+
+    /**
+     * Internal helper to mask sensitive fields in a configuration object.
+     * @param {Object} obj - The configuration object to mask.
+     * @private
+     */
+    _maskSecrets: (obj) => {
+        const encryption = require('../utils/encryption');
+        const { ProviderFactory } = require('../providers');
+
+        if (obj.automation?.outputs) {
+            for (const [id, outputConfig] of Object.entries(obj.automation.outputs)) {
+                try {
+                    const strategy = OutputFactory.getStrategy(id);
+                    const metadata = strategy.constructor.getMetadata();
+                    const sensitiveKeys = metadata.params?.filter(p => p.sensitive).map(p => p.key) || [];
+                    if (outputConfig.params) {
+                        for (const sKey of sensitiveKeys) {
+                            if (outputConfig.params[sKey]) {
+                                outputConfig.params[sKey] = encryption.mask();
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }
+        }
+
+        if (obj.sources) {
+            for (const role of ['primary', 'backup']) {
+                const source = obj.sources[role];
+                if (source && source.type) {
+                    try {
+                        const providerClass = ProviderFactory.getProviderClass(source.type);
+                        const metadata = providerClass.getMetadata();
+                        const sensitiveKeys = metadata.parameters?.filter(p => p.sensitive).map(p => p.key) || [];
+                        for (const sKey of sensitiveKeys) {
+                            if (source[sKey]) {
+                                source[sKey] = encryption.mask();
+                            }
+                        }
+                    } catch (e) {}
+                }
+            }
+        }
     },
 
     /**
@@ -66,193 +116,70 @@ const settingsController = {
     },
 
     /**
-     * Updates application settings, validates them, and synchronises dependent services.
-     * 
-     * @param {import('express').Request} req - The Express request object.
-     * @param {import('express').Response} res - The Express response object.
-     * @returns {Promise<void>} A promise that resolves when the update completes.
+     * Internal helper to mask sensitive fields in a configuration object.
+     * @param {Object} obj - The configuration object to mask.
+     * @private
      */
-    updateSettings: async (req, res) => {
-        try {
-            const newConfig = req.body;
-            if (typeof newConfig !== 'object' || newConfig === null) {
-                return res.status(400).json({ error: 'Invalid configuration format' });
-            }
-            console.log('[SettingsController] Received update request:', JSON.stringify(newConfig.data));
+    _maskSecrets: (obj) => {
+        const encryption = require('../utils/encryption');
+        const { ProviderFactory } = require('../providers');
 
-            // Persist the changes to disk; store previous state for rollback if needed
-            const previousConfig = configService.get();
-
-            // Detect if prayer-affecting settings have changed
-            const sourcesChanged = JSON.stringify(previousConfig.sources) !== JSON.stringify(newConfig.sources);
-            const locationChanged = JSON.stringify(previousConfig.location) !== JSON.stringify(newConfig.location);
-            const requiresRefresh = sourcesChanged || locationChanged;
-
-            // Identify services in use to perform targeted health checks
-            const usedServices = new Set();
-            
-            if (newConfig.automation?.triggers) {
-                Object.values(newConfig.automation.triggers).forEach(prayerTriggers => {
-                    Object.values(prayerTriggers).forEach(trigger => {
-                        if (!trigger.enabled) return;
-                        if (trigger.type === 'tts') usedServices.add('tts');
-                        if (trigger.targets) {
-                            trigger.targets.forEach(t => {
-                                if (t !== 'browser') usedServices.add(t);
-                            });
-                        }
-                    });
-                });
-            }
-
-            // Perform targeted health checks before proceeding with disk/cache operations
-            if (usedServices.size > 0) {
-                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Checking Service Health...' } });
-                await Promise.all(Array.from(usedServices).map(service => healthCheck.refresh(service)));
-            }
-
-            // Validate the incoming configuration source for correct masjid identification
-            if (requiresRefresh) {
-                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Validating Configuration...' } });
+        if (obj.automation?.outputs) {
+            for (const [id, outputConfig] of Object.entries(obj.automation.outputs)) {
                 try {
-                    await validateConfigSource(newConfig);
-                } catch (e) {
-                    if (e.name === 'ProviderValidationError' && e.userFriendly) {
-                        return res.status(400).json({ error: e.message });
-                    }
-                    return res.status(400).json({ error: `Validation Failed: ${e.message}` });
-                }
-            } else {
-                console.log('[SettingsController] skipping validateConfigSource (no source/location change).');
-            }
-
-            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Saving to Disk...' } });
-            await configService.update(newConfig);
-
-            // Refresh prayer source health after save so healthCheck reads the NEW config
-            if (requiresRefresh) {
-                await healthCheck.refresh('primarySource');
-                if (newConfig.sources?.backup && newConfig.sources.backup.enabled !== false) {
-                    await healthCheck.refresh('backupSource');
-                }
-            }
-            
-            // Refresh cache ONLY if source or location has changed
-            let result = { meta: { skip: true } };
-            if (requiresRefresh) {
-                console.log('[SettingsController] Settings updated, forcing cache refresh...');
-                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Refreshing Prayer Data...' } });
-                result = await forceRefresh(configService.get());
-            } else {
-                console.log('[SettingsController] Settings updated (no source/location change, skipping cache refresh).');
-                sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Skipping Prayer Refresh...' } });
-            }
-            
-            // Synchronise audio assets, such as TTS and custom files, while checking storage limits
-            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Generating Audio Assets...' } });
-            let syncResult;
-            try {
-                syncResult = await audioAssetService.syncAudioAssets();
-            } catch (err) {
-                console.error('[SettingsController] Audio asset synchronisation failed. Rolling back config.', err.message);
-                
-                // Revert configuration if audio synchronisation fails to maintain system consistency
-                await configService.update(previousConfig);
-                
-                return res.status(400).json({
-                    error: 'Sync Failed',
-                    message: `Settings not saved: ${err.message}. Configuration has been rolled back.`
-                });
-            }
-
-            // Re-initialise the scheduler with the new timing and configuration
-            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Restarting Scheduler...' } });
-            await schedulerService.initScheduler(); 
-    
-            // Generate warnings if configured automation services are currently offline or disabled
-            const warnings = [...(syncResult.warnings || [])];
-            const health = healthCheck.getHealth(); // Use the health status updated at the start of the request
-            const finalConfig = configService.get();
-            const strategies = OutputFactory.getAllStrategies();
-            
-            // Internal method helper for metadata retrieval
-            const getFilesWithMetadata = systemControllerHelper._getAudioFilesWithMetadata || (async () => []);
-            const audioFiles = await getFilesWithMetadata();
-            
-            if (finalConfig.automation && finalConfig.automation.triggers) {
-                Object.entries(finalConfig.automation.triggers).forEach(([prayer, triggers]) => {
-                    Object.entries(triggers).forEach(([type, trigger]) => {
-                        if (!trigger.enabled) return;
-                        const prayerName = prayer.charAt(0).toUpperCase() + prayer.slice(1);
-                        const typeName = type.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-                        const niceName = `${prayerName} ${typeName}`;
-
-                        if (trigger.type === 'tts' && !health.tts?.healthy) {
-                            warnings.push(`${niceName}: TTS Service is offline`);
-                        }
-
-                        // Dynamic strategy checks
-                        (trigger.targets || []).forEach(targetId => {
-                            const strategy = strategies.find(s => s.id === targetId);
-                            if (!strategy || targetId === 'browser') return;
-                            
-                            const outputConfig = finalConfig.automation?.outputs?.[targetId];
-                            const strategyHealth = health[targetId];
-
-                            if (!outputConfig || !outputConfig.enabled) {
-                                warnings.push(`${niceName}: ${strategy.label} output is disabled in settings`);
-                            } else if (strategyHealth && !strategyHealth.healthy) {
-                                warnings.push(`${niceName}: ${strategy.label} output is offline (${strategyHealth.message || 'unreachable'})`);
+                    const strategy = OutputFactory.getStrategy(id);
+                    const metadata = strategy.constructor.getMetadata();
+                    const sensitiveKeys = metadata.params?.filter(p => p.sensitive).map(p => p.key) || [];
+                    if (outputConfig.params) {
+                        for (const sKey of sensitiveKeys) {
+                            if (outputConfig.params[sKey]) {
+                                outputConfig.params[sKey] = encryption.mask();
                             }
-        
-                            // Polymorphic validation for strategy-specific warnings
-                            try {
-                                const instance = OutputFactory.getStrategy(targetId);
-                                const strategyWarnings = instance.validateTrigger(trigger, {
-                                    audioFiles,
-                                    prayer,
-                                    triggerType: type,
-                                    niceName
-                                });
-                                warnings.push(...strategyWarnings);
-                            } catch (e) {
-                                // Silently ignore if strategy instance can't be retrieved or validation fails
-                            }
-                        });
-                    });
-                });
-            }
-    
-            // Check if any ENABLED output itself is failing health check, even if not yet used in a trigger
-            strategies.forEach(strategy => {
-                if (strategy.hidden || strategy.id === 'browser') return;
-                const outputConfig = finalConfig.automation?.outputs?.[strategy.id];
-                if (outputConfig?.enabled) {
-                    const status = health[strategy.id];
-                    // Note: If the strategy wasn't in usedServices, health status here will be what was already in cache
-                    if (status && !status.healthy) {
-                        const msg = `${strategy.label} Integration: ${status.message || 'Offline'}`;
-                        if (!warnings.some(w => w.includes(msg))) {
-                            warnings.push(msg);
                         }
                     }
-                }
-            });
-
-            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Configuration Saved' } });
-            
-            res.json({ 
-                message: 'Settings validated, updated, and cache refreshed.',
-                meta: result.meta,
-                warnings: warnings
-            });
-        } catch (error) {
-            console.error('[SettingsController] updateSettings FATAL ERROR:', error);
-            res.status(500).json({ error: 'Internal Server Error', message: error.message });
+                } catch (e) {}
+            }
         }
-    },    
-    
-    /**
+
+        if (obj.sources) {
+            for (const role of ['primary', 'backup']) {
+                const source = obj.sources[role];
+                if (source && source.type) {
+                    try {
+                        const providerClass = ProviderFactory.getProviderClass(source.type);
+                        const metadata = providerClass.getMetadata();
+                        const sensitiveKeys = metadata.parameters?.filter(p => p.sensitive).map(p => p.key) || [];
+                        for (const sKey of sensitiveKeys) {
+                            if (source[sKey]) {
+                                source[sKey] = encryption.mask();
+                            }
+                        }
+                    } catch (e) {}
+                }
+            }
+                }
+            },
+        
+            /**
+             * Updates application settings, validates them, and synchronises dependent services.
+        
+         * 
+         * @param {import('express').Request} req - The Express request object.
+         * @param {import('express').Response} res - The Express response object.
+         * @returns {Promise<void>} A promise that resolves when the update completes.
+         */
+        updateSettings: async (req, res) => {
+            try {
+                const result = await workflowService.executeUpdate(req.body);
+                res.json(result);
+            } catch (error) {
+                console.error('[SettingsController] updateSettings FATAL ERROR:', error);
+                // Handle specific error types if needed, otherwise generic 400/500
+                const status = error.message.includes('Validation Failed') ? 400 : 500;
+                res.status(status).json({ error: 'Update Failed', message: error.message });
+            }
+        },
+        /**
      * Resets settings to factory defaults by removing the local configuration file.
      * 
      * @param {import('express').Request} req - The Express request object.
@@ -261,9 +188,12 @@ const settingsController = {
      */
     resetSettings: async (req, res) => {
         const localPath = path.join(__dirname, '../config/local.json');
-        if (fs.existsSync(localPath)) {
-            fs.unlinkSync(localPath);
+        try {
+            await fsAsync.access(localPath);
+            await fsAsync.unlink(localPath);
             console.log('[SettingsController] local.json deleted. Reverting to default.');
+        } catch (e) {
+            // Ignore if file doesn't exist
         }
 
         await configService.reload();
@@ -355,7 +285,11 @@ const settingsController = {
             const metaDir = path.join(__dirname, '../public/audio/custom');
             const metaPath = path.join(metaDir, req.file.originalname + '.json');
             
-            if (!fs.existsSync(metaDir)) fs.mkdirSync(metaDir, { recursive: true });
+            try {
+                await fsAsync.access(metaDir);
+            } catch (e) {
+                await fsAsync.mkdir(metaDir, { recursive: true });
+            }
 
             // Generate metadata sidecar in src/public
             const metadata = await audioValidator.analyseAudioFile(audioPath);
@@ -373,7 +307,7 @@ const settingsController = {
                 updatedAt: new Date().toISOString()
             };
 
-            fs.writeFileSync(metaPath, JSON.stringify(finalMetadata));
+            await fsAsync.writeFile(metaPath, JSON.stringify(finalMetadata));
             
             res.json({ 
                 message: 'File uploaded and analysed successfully', 
@@ -396,9 +330,9 @@ const settingsController = {
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
-     * @returns {void} Sends a JSON response confirming the deletion status.
+     * @returns {Promise<void>} Sends a JSON response confirming the deletion status.
      */
-    deleteFile: (req, res) => {
+    deleteFile: async (req, res) => {
         const { filename } = req.body;
         if (!filename) return res.status(400).json({ error: 'Missing filename' });
         
@@ -411,24 +345,28 @@ const settingsController = {
         }
 
         // Check if file is protected
-        if (fs.existsSync(metaPath)) {
-            try {
-                const metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-                if (metadata.protected) {
-                    return res.status(403).json({ error: 'Forbidden: File is protected and cannot be deleted' });
-                }
-            } catch (e) { /* ignore corrupt meta */ }
-        }
+        try {
+            await fsAsync.access(metaPath);
+            const metaContent = await fsAsync.readFile(metaPath, 'utf8');
+            const metadata = JSON.parse(metaContent);
+            if (metadata.protected) {
+                return res.status(403).json({ error: 'Forbidden: File is protected and cannot be deleted' });
+            }
+        } catch (e) { /* ignore if meta missing or corrupt */ }
 
         let deleted = false;
         try {
-            if (fs.existsSync(audioPath)) {
-                fs.unlinkSync(audioPath);
+            let audioExists = false;
+            try { await fsAsync.access(audioPath); audioExists = true; } catch (e) {}
+            if (audioExists) {
+                await fsAsync.unlink(audioPath);
                 deleted = true;
             }
 
-            if (fs.existsSync(metaPath)) {
-                fs.unlinkSync(metaPath);
+            let metaExists = false;
+            try { await fsAsync.access(metaPath); metaExists = true; } catch (e) {}
+            if (metaExists) {
+                await fsAsync.unlink(metaPath);
                 deleted = true;
             }
         } catch (e) {

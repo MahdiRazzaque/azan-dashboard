@@ -16,7 +16,7 @@ const updateEnv = async (req, res) => {
         const validated = envUpdateSchema.parse(req.body);
         
         // Update .env file and current process
-        envManager.setEnvValue(validated.key, validated.value);
+        await envManager.setEnvValue(validated.key, validated.value);
         
         // Reload configuration to pick up environment changes
         await configService.reload();
