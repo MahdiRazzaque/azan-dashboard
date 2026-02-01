@@ -12,6 +12,7 @@ const configService = require('@config');
 const voiceService = require('@services/system/voiceService');
 const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../outputs');
+const workflowService = require('@services/system/configurationWorkflowService');
 const { 
     CALCULATION_METHODS, 
     ASR_JURISTIC_METHODS, 
@@ -268,12 +269,19 @@ const systemController = {
         if (!url) return res.status(400).json({ valid: false, error: 'URL is required' });
 
         try {
-            await axios.head(url, { timeout: 5000 });
+            await axios.head(url, { 
+                timeout: 5000,
+                maxContentLength: 5000000
+            });
             res.json({ valid: true });
         } catch (e) {
             // Attempt a GET request if the server rejects HEAD requests
             try {
-                await axios.get(url, { timeout: 5000, responseType: 'stream' });
+                await axios.get(url, { 
+                    timeout: 5000, 
+                    responseType: 'stream',
+                    maxContentLength: 5000000
+                });
                 res.json({ valid: true });
             } catch (e2) {
                  const msg = e2.response ? `Status ${e2.response.status}` : e2.message;
@@ -488,8 +496,12 @@ const systemController = {
     verifyOutput: async (req, res) => {
         const { strategyId } = req.params;
         try {
+            const params = req.body;
+            const currentConfig = configService.get();
+            workflowService.unmaskParams(strategyId, params, currentConfig);
+
             const strategy = OutputFactory.getStrategy(strategyId);
-            const result = await strategy.verifyCredentials(req.body);
+            const result = await strategy.verifyCredentials(params);
             res.json(result);
         } catch (error) {
             res.status(400).json({ error: error.message });
@@ -507,6 +519,10 @@ const systemController = {
         const { strategyId } = req.params;
         const { source } = req.body;
         try {
+            const params = req.body;
+            const currentConfig = configService.get();
+            workflowService.unmaskParams(strategyId, params, currentConfig);
+
             const strategy = OutputFactory.getStrategy(strategyId);
 
             if (!source || !source.path) {
@@ -514,11 +530,12 @@ const systemController = {
             }
 
             // Dynamic source from request (e.g., File Manager preview)
-            const payload = { params: req.body, source };
+            const payload = { params, source };
 
             await strategy.execute(payload, { isTest: true });
             res.json({ success: true });
         } catch (error) {
+            console.error('[SystemController] testOutput error:', error);
             res.status(400).json({ error: error.message });
         }
     }
