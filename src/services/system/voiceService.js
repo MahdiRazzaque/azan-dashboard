@@ -96,14 +96,19 @@ const refreshVoices = async () => {
     isFetching = true;
 
     try {
-        const response = await axios.get(`${pythonUrl}/voices`, { timeout: 10000 });
-        voices = response.data;
-        lastFetched = new Date();
-        
-        // 4. Update disk cache
-        _saveToCache(voices);
-        
-        console.log(`[VoiceService] Successfully cached ${voices.length} voices.`);
+        const response = await axios.get(`${pythonUrl}/voices`, { 
+            timeout: 10000,
+            maxContentLength: 5000000
+        });
+        if (response.data && Array.isArray(response.data)) {
+            voices = response.data;
+            lastFetched = new Date();
+            
+            // 4. Update disk cache
+            _saveToCache(voices);
+            
+            console.log(`[VoiceService] Successfully cached ${voices.length} voices.`);
+        }
         return voices;
     } catch (error) {
         console.error('[VoiceService] Failed to fetch voices from Python service:', error.message);

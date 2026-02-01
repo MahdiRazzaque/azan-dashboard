@@ -127,15 +127,13 @@ const resolveTemplate = (template, prayerKey, offsetMinutes) => {
  * @param {string} [triggerVoice=null] - Optional specific voice to use for this generation.
  * @returns {Promise<void>} Resolves when the TTS generation is triggered.
  */
-const generateTTS = async (filename, text, serviceUrl, triggerVoice = null) => {
+const generateTTS = async (filename, text, serviceUrl, voice) => {
+    const url = `${serviceUrl}/generate-tts`;
     try {
-        const url = `${serviceUrl}/generate-tts`;
-        const config = configService.get();
-        const globalDefault = config.automation?.defaultVoice;
-        const voice = triggerVoice || globalDefault || 'ar-SA-HamedNeural';
-                
-        await axios.post(url, { text, filename, voice });
-        console.log(`[AudioService] Generated: ${filename} using voice: ${voice}`);
+        await axios.post(url, { text, filename, voice }, {
+            maxContentLength: 5000000
+        });
+        console.log(`[AudioService] Successfully generated: ${filename}`);
     } catch (error) {
         console.error(`[AudioService] TTS Generation failed for ${filename}:`, error.message);
         throw error;
@@ -198,7 +196,7 @@ const ensureTTSFile = async (prayer, event, settings, config) => {
     }
 
     try {
-        await generateTTS(filename, text, pythonServiceUrl, settings.voice);
+        await generateTTS(filename, text, pythonServiceUrl, effectiveVoice);
         
         const metadata = await audioValidator.analyseAudioFile(audioPath);
         
@@ -362,9 +360,10 @@ const previewTTS = async (template, prayerKey, offsetMinutes, voice) => {
     }
 
     try {
-        const storageService = require('./storageService');
-        await storageService.checkQuota(text.length * 1024);
-        const response = await axios.post(`${pythonUrl}/preview-tts`, { text, voice, filename });
+        const response = await axios.post(`${pythonUrl}/preview-tts`, 
+            { text, voice, filename },
+            { maxContentLength: 5000000 }
+        );
         return response.data;
     } catch (error) {
         console.error('[AudioService] Preview generation failed:', error.message);

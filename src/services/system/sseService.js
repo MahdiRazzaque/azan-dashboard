@@ -1,3 +1,5 @@
+const logger = require('@utils/logger');
+
 let clients = [];
 const logHistory = [];
 const MAX_HISTORY = 1000;
@@ -65,6 +67,9 @@ const log = (message, level = 'info') => {
     if (logHistory.length > MAX_HISTORY) {
         logHistory.shift();
     }
+
+    // [REQ-006] Write to persistent log file
+    logger.writeToFile(entry);
     
     // Broadcast wrapped in LOG type to match frontend expectations
     broadcast({ type: 'LOG', payload: entry });

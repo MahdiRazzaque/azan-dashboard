@@ -99,7 +99,8 @@ class VoiceMonkeyOutput extends BaseOutput {
                     device: device,
                     audio: publicUrl
                 },
-                signal // REQ-007: Support aborting network requests on timeout
+                signal, // REQ-007: Support aborting network requests on timeout
+                maxContentLength: 5000000
             }));
             console.log(`${prefix} Announcement triggered successfully`);
         } catch (error) {
@@ -144,9 +145,9 @@ class VoiceMonkeyOutput extends BaseOutput {
                 params: {
                     token: token,
                     device: deviceToCheck,
-                    text: 'Test'
                 },
-                timeout: 5000
+                timeout: 5000,
+                maxContentLength: 5000000
             }));
 
             if (response.data && response.data.success === true) {
@@ -183,7 +184,8 @@ class VoiceMonkeyOutput extends BaseOutput {
                     device: credentials.device,
                     text: 'Test'
                 },
-                timeout: 5000
+                timeout: 5000,
+                maxContentLength: 5000000
             }));
              if (response.data && response.data.success === true) {
                 console.log('[Output: VoiceMonkey] Verification: OK');

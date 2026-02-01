@@ -92,6 +92,7 @@ describe('AudioAssetService', () => {
             const callArgs = axios.post.mock.calls[0];
             expect(callArgs[0]).toContain('tts');
             expect(callArgs[1].text).toContain('Fajr'); 
+            expect(callArgs[2]).toEqual(expect.objectContaining({ maxContentLength: 5000000 }));
         });
 
         it('should use trigger-specific voice if provided', async () => {
@@ -102,7 +103,8 @@ describe('AudioAssetService', () => {
             await service.syncAudioAssets();
             expect(axios.post).toHaveBeenCalledWith(
                 expect.stringContaining('generate-tts'),
-                expect.objectContaining({ voice: 'en-US-JennyNeural' })
+                expect.objectContaining({ voice: 'en-US-JennyNeural' }),
+                expect.objectContaining({ maxContentLength: 5000000 })
             );
         });
 
@@ -114,7 +116,8 @@ describe('AudioAssetService', () => {
             await service.syncAudioAssets();
             expect(axios.post).toHaveBeenCalledWith(
                 expect.stringContaining('generate-tts'),
-                expect.objectContaining({ voice: 'en-GB-SoniaNeural' })
+                expect.objectContaining({ voice: 'en-GB-SoniaNeural' }),
+                expect.objectContaining({ maxContentLength: 5000000 })
             );
         });
     });
@@ -175,7 +178,8 @@ describe('AudioAssetService', () => {
 
             expect(axios.post).toHaveBeenCalledWith(
                 expect.stringContaining('generate-tts'),
-                expect.objectContaining({ text: 'This is a test of the notification system!', filename: 'test.mp3' })
+                expect.objectContaining({ text: 'This is a test of the notification system!', filename: 'test.mp3' }),
+                expect.objectContaining({ maxContentLength: 5000000 })
             );
             expect(fs.copyFileSync).toHaveBeenCalled();
             expect(fs.unlinkSync).toHaveBeenCalled();
@@ -224,7 +228,8 @@ describe('AudioAssetService', () => {
              
              expect(axios.post).toHaveBeenCalledWith(
                  expect.stringContaining('http://localhost:8000'),
-                 expect.any(Object)
+                 expect.any(Object),
+                 expect.objectContaining({ maxContentLength: 5000000 })
              );
         });
 
@@ -288,7 +293,8 @@ describe('AudioAssetService', () => {
              await service.previewTTS('Hello', 'fajr', 0, 'voice1');
              expect(axios.post).toHaveBeenCalledWith(
                  expect.stringContaining('http://custom-python-service'),
-                 expect.any(Object)
+                 expect.any(Object),
+                 expect.objectContaining({ maxContentLength: 5000000 })
              );
         });
 
@@ -302,7 +308,8 @@ describe('AudioAssetService', () => {
              await service.previewTTS('Hello', 'fajr', 0, 'voice1');
              expect(axios.post).toHaveBeenCalledWith(
                  expect.stringContaining('http://localhost:8000'),
-                 expect.any(Object)
+                 expect.any(Object),
+                 expect.objectContaining({ maxContentLength: 5000000 })
              );
         });
 
