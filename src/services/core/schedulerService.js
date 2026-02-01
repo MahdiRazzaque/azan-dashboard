@@ -95,9 +95,18 @@ const scheduleEvent = (date, prayer, event) => {
     const maxLeadTime = getMaxLeadTime(config, prayer, event);
     const adjustedDate = date.minus({ milliseconds: maxLeadTime });
 
-    // Safety buffer: If adjusted time is in the past, don't schedule
-    if (adjustedDate < DateTime.now()) {
-        console.warn(`[Scheduler] Adjusted time for ${prayer} ${event} is in the past (${adjustedDate.toFormat('HH:mm:ss')}), skipping.`);
+    const now = DateTime.now();
+    const diffSeconds = now.diff(adjustedDate, 'seconds').seconds;
+
+    // Safety buffer: If adjusted time is in the past
+    if (adjustedDate < now) {
+        // [REQ-005] Execute missed events if they were scheduled within the last 60 seconds
+        if (diffSeconds <= 60) {
+            console.warn(`[Scheduler] Missed ${prayer} ${event} by ${diffSeconds.toFixed(1)}s, executing catch-up.`);
+            automationService.triggerEvent(prayer, event);
+        } else {
+            console.warn(`[Scheduler] Adjusted time for ${prayer} ${event} is in the past (${adjustedDate.toFormat('HH:mm:ss')}), skipping.`);
+        }
         return;
     }
 
