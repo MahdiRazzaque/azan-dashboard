@@ -13,6 +13,7 @@ const voiceService = require('@services/system/voiceService');
 const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../outputs');
 const workflowService = require('@services/system/configurationWorkflowService');
+const configUnmasker = require('@utils/configUnmasker');
 const { 
     CALCULATION_METHODS, 
     ASR_JURISTIC_METHODS, 
@@ -498,7 +499,7 @@ const systemController = {
         try {
             const params = req.body;
             const currentConfig = configService.get();
-            workflowService.unmaskParams(strategyId, params, currentConfig);
+            configUnmasker.unmaskParams(strategyId, params, currentConfig);
 
             const strategy = OutputFactory.getStrategy(strategyId);
             const result = await strategy.verifyCredentials(params);
@@ -521,7 +522,7 @@ const systemController = {
         try {
             const params = req.body;
             const currentConfig = configService.get();
-            workflowService.unmaskParams(strategyId, params, currentConfig);
+            configUnmasker.unmaskParams(strategyId, params, currentConfig);
 
             const strategy = OutputFactory.getStrategy(strategyId);
 

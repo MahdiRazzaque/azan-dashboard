@@ -8,6 +8,7 @@ const { validateConfigSource } = require('@services/core/validationService');
 const OutputFactory = require('../../outputs');
 const encryption = require('@utils/encryption');
 const { ProviderFactory } = require('@providers');
+const configUnmasker = require('@utils/configUnmasker');
 
 /**
  * Service responsible for orchestrating the configuration update workflow.
@@ -25,7 +26,7 @@ class ConfigurationWorkflowService {
         const previousConfig = configService.get();
         
         // 1. Unmask secrets received from the UI (preserve existing ones if masked)
-        this._unmaskSecrets(newConfig, previousConfig);
+        configUnmasker.unmaskSecrets(newConfig, previousConfig);
 
         // Detect if prayer-affecting settings have changed
         const sourcesChanged = JSON.stringify(previousConfig.sources) !== JSON.stringify(newConfig.sources);
@@ -86,51 +87,25 @@ class ConfigurationWorkflowService {
 
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Configuration Saved' } });
         
-        return { 
-            message: 'Settings validated, updated, and cache refreshed.',
-            meta: result.meta,
-            warnings: warnings
-        };
-    }
-
-    /**
-     * Public wrapper for unmasking secrets in a full configuration object.
-     * @param {Object} newConfig 
-     * @param {Object} currentConfig 
-     */
-    unmaskSecrets(newConfig, currentConfig) {
-        return this._unmaskSecrets(newConfig, currentConfig);
-    }
-
-    /**
-     * Unmasks a set of parameters for a specific strategy using current values.
-     * @param {string} strategyId 
-     * @param {Object} params 
-     * @param {Object} currentConfig 
-     */
-    unmaskParams(strategyId, params, currentConfig) {
-        if (!params || typeof params !== 'object') return;
-
-        try {
-            const strategy = OutputFactory.getStrategy(strategyId);
-            const metadata = strategy.constructor.getMetadata();
-            const sensitiveKeys = metadata.params?.filter(p => p.sensitive).map(p => p.key) || [];
-
-            for (const sKey of sensitiveKeys) {
-                if (encryption.isMasked(params[sKey])) {
-                    const currentVal = currentConfig.automation?.outputs?.[strategyId]?.params?.[sKey];
-                    if (currentVal) {
-                        params[sKey] = currentVal;
-                    } else {
-                        delete params[sKey];
-                    }
-                }
+                return {
+        
+                    message: 'Settings validated, updated, and cache refreshed.',
+        
+                    meta: result.meta,
+        
+                    warnings: warnings
+        
+                };
+        
             }
-        } catch (e) {}
-    }
-
-    /**
-     * Identifies which services are active based on the configuration.
+        
+        
+        
+            /**
+        
+             * Identifies which services are active based on the configuration.
+        
+        
      * @param {Object} config 
      * @returns {Set<string>}
      * @private
@@ -151,63 +126,6 @@ class ConfigurationWorkflowService {
             });
         }
         return usedServices;
-    }
-
-    /**
-     * Unmasks secrets received from the client by restoring original values from the database.
-     * @param {Object} newConfig 
-     * @param {Object} currentConfig 
-     * @private
-     */
-    _unmaskSecrets(newConfig, currentConfig) {
-        // 1. Unmask Outputs
-        if (newConfig.automation?.outputs) {
-            for (const [id, outputConfig] of Object.entries(newConfig.automation.outputs)) {
-                try {
-                    const strategy = OutputFactory.getStrategy(id);
-                    const metadata = strategy.constructor.getMetadata();
-                    const sensitiveKeys = metadata.params?.filter(p => p.sensitive).map(p => p.key) || [];
-                    
-                    if (outputConfig.params) {
-                        for (const sKey of sensitiveKeys) {
-                            if (encryption.isMasked(outputConfig.params[sKey])) {
-                                const currentVal = currentConfig.automation?.outputs?.[id]?.params?.[sKey];
-                                if (currentVal) {
-                                    outputConfig.params[sKey] = currentVal;
-                                } else {
-                                    delete outputConfig.params[sKey];
-                                }
-                            }
-                        }
-                    }
-                } catch (e) {}
-            }
-        }
-
-        // 2. Unmask Sources
-        if (newConfig.sources) {
-            for (const role of ['primary', 'backup']) {
-                const source = newConfig.sources[role];
-                if (source && source.type) {
-                    try {
-                        const providerClass = ProviderFactory.getProviderClass(source.type);
-                        const metadata = providerClass.getMetadata();
-                        const sensitiveKeys = metadata.parameters?.filter(p => p.sensitive).map(p => p.key) || [];
-                        
-                        for (const sKey of sensitiveKeys) {
-                            if (encryption.isMasked(source[sKey])) {
-                                const currentVal = currentConfig.sources?.[role]?.[sKey];
-                                if (currentVal) {
-                                    source[sKey] = currentVal;
-                                } else {
-                                    delete source[sKey];
-                                }
-                            }
-                        }
-                    } catch (e) {}
-                }
-            }
-        }
     }
 
     /**

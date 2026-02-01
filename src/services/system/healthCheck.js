@@ -3,7 +3,7 @@ const configService = require('@config');
 const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../../outputs');
 const asyncLock = require('@utils/asyncLock');
-const workflowService = require('./configurationWorkflowService');
+const configUnmasker = require('@utils/configUnmasker');
 
 let healthCache = null;
 
@@ -125,7 +125,7 @@ async function refresh(target = 'all', params = null) {
                     });
 
                     // Unmask secrets received from the UI
-                    workflowService.unmaskParams(meta.id, strategyParams, configService.get());
+                    configUnmasker.unmaskParams(meta.id, strategyParams, configService.get());
 
                     // Pass null if no relevant parameters were found to allow internal config fallback
                     if (Object.keys(strategyParams).length === 0) {
