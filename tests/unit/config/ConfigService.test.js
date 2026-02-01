@@ -121,8 +121,8 @@ describe('ConfigService', () => {
          expect(config).toBeDefined();
     });
 
-    it('should strip existing secrets when saving', async () => {
-         process.env.VOICEMONKEY_TOKEN = 'secret';
+    it('should migrate and encrypt existing secrets from env when updating', async () => {
+         process.env.VOICEMONKEY_TOKEN = 'secret-env';
          
          const updateData = { 
              automation: { 
@@ -132,15 +132,14 @@ describe('ConfigService', () => {
              } 
          };
          
-         // It should save, but strip the token because env var is present
+         // It should save and encrypt
          await configService.update(updateData);
          
-         // Read file directly to ensure it's not there
+         // Read file directly to ensure it's encrypted
          const localContent = await fs.readFile(configService._localPath, 'utf-8');
          const localConfig = JSON.parse(localContent);
          
-         // In V2, we check output params
-         expect(localConfig.automation.outputs.voicemonkey.params.token).toBeUndefined();
+         expect(localConfig.automation.outputs.voicemonkey.params.token).toContain(':');
          
          delete process.env.VOICEMONKEY_TOKEN;
     });
@@ -239,9 +238,10 @@ describe('ConfigService', () => {
         expect(localConfig.version).toBe(3);
         expect(localConfig.automation.voiceMonkey).toBeUndefined();
         expect(localConfig.automation.outputs.voicemonkey).toBeDefined();
-        expect(localConfig.automation.outputs.voicemonkey.params.token).toBe('migToken');
+        // Encrypted in file
+        expect(localConfig.automation.outputs.voicemonkey.params.token).toContain(':');
         
-        // Check loaded config object
+        // Decrypted in memory
         const config = configService.get();
         expect(config.automation.outputs.voicemonkey.params.token).toBe('migToken');
     });

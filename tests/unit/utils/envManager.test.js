@@ -1,7 +1,7 @@
 const envManager = require('@utils/envManager');
-const fs = require('fs');
+const fs = require('fs/promises');
 
-jest.mock('fs');
+jest.mock('fs/promises');
 
 describe('EnvManager', () => {
     const originalEnv = process.env;
@@ -9,6 +9,7 @@ describe('EnvManager', () => {
     beforeEach(() => {
         jest.resetModules();
         process.env = { ...originalEnv };
+        jest.clearAllMocks();
     });
     
     afterAll(() => {
@@ -28,57 +29,57 @@ describe('EnvManager', () => {
     });
 
     describe('getEnv', () => {
-        it('should parse .env file', () => {
+        it('should parse .env file', async () => {
             const mockEnvContent = 'KEY=VALUE\nANOTHER=TEST';
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue(mockEnvContent);
+            fs.access.mockResolvedValue(undefined);
+            fs.readFile.mockResolvedValue(mockEnvContent);
             
-            const result = envManager.getEnv();
+            const result = await envManager.getEnv();
             expect(result.KEY).toBe('VALUE');
             expect(result.ANOTHER).toBe('TEST');
         });
 
-        it('should return empty if file missing', () => {
-            fs.existsSync.mockReturnValue(false);
-            expect(envManager.getEnv()).toEqual({});
+        it('should return empty if file missing', async () => {
+            fs.access.mockRejectedValue(new Error('ENOENT'));
+            const result = await envManager.getEnv();
+            expect(result).toEqual({});
         });
     });
 
     describe('setEnvValue', () => {
-        it('should append new value if key not exists', () => {
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue('FOO=BAR');
+        it('should append new value if key not exists', async () => {
+            fs.access.mockResolvedValue(undefined);
+            fs.readFile.mockResolvedValue('FOO=BAR');
             
-            envManager.setEnvValue('NEW_KEY', 'NEW_VAL');
+            await envManager.setEnvValue('NEW_KEY', 'NEW_VAL');
             
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
+            expect(fs.writeFile).toHaveBeenCalledWith(
                 expect.stringContaining('.env'),
                 expect.stringContaining('NEW_KEY=NEW_VAL')
             );
             expect(process.env.NEW_KEY).toBe('NEW_VAL');
         });
         
-        it('should update existing value', () => {
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue('FOO=BAR\nTARGET=OLD');
+        it('should update existing value', async () => {
+            fs.access.mockResolvedValue(undefined);
+            fs.readFile.mockResolvedValue('FOO=BAR\nTARGET=OLD');
             
-            envManager.setEnvValue('TARGET', 'NEW');
+            await envManager.setEnvValue('TARGET', 'NEW');
             
-            expect(fs.writeFileSync).toHaveBeenCalled();
-            const calledContent = fs.writeFileSync.mock.calls[0][1];
+            expect(fs.writeFile).toHaveBeenCalled();
+            const calledContent = fs.writeFile.mock.calls[0][1];
             expect(calledContent).toContain('TARGET=NEW');
             expect(calledContent).not.toContain('TARGET=OLD');
             
             expect(process.env.TARGET).toBe('NEW');
         });
         
-        it('should handle creating new file if missing', () => {
-             fs.existsSync.mockReturnValue(false);
-             fs.readFileSync.mockReturnValue(''); // New file, empty content
+        it('should handle creating new file if missing', async () => {
+             fs.access.mockRejectedValue(new Error('ENOENT'));
              
-             envManager.setEnvValue('KEY', 'VAL');
+             await envManager.setEnvValue('KEY', 'VAL');
              
-             expect(fs.writeFileSync).toHaveBeenCalledWith(
+             expect(fs.writeFile).toHaveBeenCalledWith(
                  expect.any(String),
                  expect.stringContaining('KEY=VAL')
              );
@@ -92,38 +93,43 @@ describe('EnvManager', () => {
              expect(secret1).not.toBe(secret2);
              expect(secret1.length).toBeGreaterThan(10);
         });
+
+        it('should support custom length', () => {
+            const secret = envManager.generateSecret(64);
+            expect(secret.length).toBe(128); // 64 bytes = 128 chars hex
+        });
     });
 
     describe('deleteEnvValue', () => {
-        it('should remove value if key exists', () => {
-            fs.existsSync.mockReturnValue(true);
-            fs.readFileSync.mockReturnValue('KEEP=YES\nDELETE=ME\nALSO=KEEP');
+        it('should remove value if key exists', async () => {
+            fs.access.mockResolvedValue(undefined);
+            fs.readFile.mockResolvedValue('KEEP=YES\nDELETE=ME\nALSO=KEEP');
             
-            envManager.deleteEnvValue('DELETE');
+            await envManager.deleteEnvValue('DELETE');
             
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
+            expect(fs.writeFile).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.stringContaining('KEEP=YES\nALSO=KEEP')
             );
-            expect(fs.writeFileSync).toHaveBeenCalledWith(
+            expect(fs.writeFile).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.not.stringContaining('DELETE=ME')
             );
         });
 
-        it('should do nothing if key does not exist', () => {
-             fs.existsSync.mockReturnValue(true);
-             fs.readFileSync.mockReturnValue('KEEP=YES');
+        it('should do nothing if key does not exist', async () => {
+             fs.access.mockResolvedValue(undefined);
+             fs.readFile.mockResolvedValue('KEEP=YES');
              
-             envManager.deleteEnvValue('MISSING');
+             await envManager.deleteEnvValue('MISSING');
              
-             expect(fs.writeFileSync).not.toHaveBeenCalled();
+             expect(fs.writeFile).not.toHaveBeenCalled();
         });
 
-        it('should do nothing if file missing', () => {
-             fs.existsSync.mockReturnValue(false);
-             envManager.deleteEnvValue('KEY');
-             expect(fs.writeFileSync).not.toHaveBeenCalled();
+        it('should do nothing if file missing', async () => {
+             fs.access.mockRejectedValue(new Error('ENOENT'));
+             await envManager.deleteEnvValue('KEY');
+             expect(fs.writeFile).not.toHaveBeenCalled();
         });
     });
 });
