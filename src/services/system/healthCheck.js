@@ -71,6 +71,7 @@ async function checkSource(target) {
  */
 async function checkPythonService() {
         try {
+            const ttsUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
             await axios.get(`${ttsUrl}/docs`, { 
                 timeout: 2000,
                 maxContentLength: 5000000 
