@@ -151,7 +151,7 @@ const getTTSStatus = async (config) => {
                  // TTS Logic
                  const expectedFilename = `tts_${prayer}_${event}.mp3`;
                  const audioPath = path.join(cacheDir, expectedFilename);
-                 const metaPath = path.join(__dirname, '../public/audio/cache', expectedFilename + '.json');
+                 const metaPath = path.join(__dirname, '../../public/audio/cache', expectedFilename + '.json');
                  
                  if (fs.existsSync(audioPath) && fs.existsSync(metaPath)) {
                      try {
