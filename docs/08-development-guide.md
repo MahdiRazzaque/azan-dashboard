@@ -108,6 +108,11 @@ The system uses a polymorphic **Strategy Pattern** to handle audio outputs. To a
             // Verify specific credentials (optional)
             return { success: true };
         }
+
+        async validateAsset(filePath, metadata) {
+            // Implement format validation logic (optional, defaults to valid)
+            return { valid: true, lastChecked: new Date().toISOString(), issues: [] };
+        }
     }
     
     // Auto-register
