@@ -3,7 +3,7 @@ module.exports = {
   testEnvironment: 'node',
   verbose: true,
   moduleFileExtensions: ['js', 'json', 'node'],
-  roots: ['<rootDir>/src', '<rootDir>/tests'],
+  roots: ['<rootDir>/src'],
   testMatch: ['**/*.test.js'],
   clearMocks: true,
   collectCoverage: false,
@@ -31,5 +31,5 @@ module.exports = {
     '^@middleware/(.*)$': '<rootDir>/src/middleware/$1',
     '^@routes/(.*)$': '<rootDir>/src/routes/$1'
   },
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/src/tests/setup.js'],
 };

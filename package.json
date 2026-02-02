@@ -5,9 +5,9 @@
   "main": "src/server.js",
   "scripts": {
     "test": "npm run test:src",
-    "test:src": "jest --config .config/jest.config.js --runInBand",
+    "test:src": "jest --config .config/jest.config.js --runInBand --forceExit",
     "test:client": "vitest --config .config/vitest.config.mjs run",
-    "test:src:coverage": "jest --config .config/jest.config.js --coverage --runInBand",
+    "test:src:coverage": "jest --config .config/jest.config.js --coverage --runInBand --forceExit",
     "test:client:coverage": "vitest --config .config/vitest.config.mjs run --coverage",
     "start": "node src/server.js",
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
