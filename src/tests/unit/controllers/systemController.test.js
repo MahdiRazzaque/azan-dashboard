@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const dns = require('dns');
 const systemController = require('@controllers/systemController');
 const healthCheck = require('@services/system/healthCheck');
 const schedulerService = require('@services/core/schedulerService');
@@ -25,6 +26,12 @@ jest.mock('fs', () => ({
     mkdirSync: jest.fn(),
     readdirSync: jest.fn(),
     readFileSync: jest.fn()
+}));
+
+jest.mock('dns', () => ({
+    promises: {
+        lookup: jest.fn()
+    }
 }));
 
 jest.mock('axios');
@@ -58,6 +65,8 @@ describe('SystemController', () => {
             location: { timezone: 'UTC' },
             automation: {}
         });
+        // Default DNS mock
+        dns.promises.lookup.mockResolvedValue({ address: '8.8.8.8' });
     });
 
     describe('Output Strategies', () => {

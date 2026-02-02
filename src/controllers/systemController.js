@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
+const Bottleneck = require('bottleneck');
 const { DateTime } = require('luxon');
 const healthCheck = require('@services/system/healthCheck');
 const schedulerService = require('@services/core/schedulerService');
@@ -20,6 +21,11 @@ const {
     LATITUDE_ADJUSTMENT_METHODS, 
     MIDNIGHT_MODES 
 } = require('@utils/constants');
+
+// Rate limiter for file system operations to prevent EMFILE errors and memory spikes
+const fsLimiter = new Bottleneck({
+    maxConcurrent: 50
+});
 
 /**
  * Controller for system-related operations, handling health checks, logs,
@@ -170,7 +176,7 @@ const systemController = {
             const files = await fs.readdir(audioDir);
             const mp3Files = files.filter(f => f.endsWith('.mp3'));
 
-            const results = await Promise.all(mp3Files.map(async (f) => {
+            const results = await Promise.all(mp3Files.map(f => fsLimiter.schedule(async () => {
                 const metaPath = path.join(metaDir, f + '.json');
                 
                 let metadata = {};
@@ -187,7 +193,7 @@ const systemController = {
                     url: `/public/audio/${type}/${f}`,
                     metadata: metadata
                 };
-            }));
+            })));
             
             return results.filter(file => !file.metadata.hidden);
         };
@@ -296,25 +302,54 @@ const systemController = {
 
     /**
      * Validates that an external URL is reachable via HTTP HEAD or GET.
+     * Includes SSRF protection by blocking private IP ranges.
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
      * @returns {Promise<void>} A promise that resolves when validation completes.
      */
     validateUrl: async (req, res) => {
-        const { url } = req.body;
-        if (!url) return res.status(400).json({ valid: false, error: 'URL is required' });
+        const { url: urlString } = req.body;
+        if (!urlString) return res.status(400).json({ valid: false, error: 'URL is required' });
 
         try {
-            await axios.head(url, { 
+            const url = new URL(urlString);
+            if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+                return res.json({ valid: false, error: 'Invalid protocol. Only http and https are allowed.' });
+            }
+
+            // Resolve IP to prevent SSRF
+            const dns = require('dns').promises;
+            const lookup = await dns.lookup(url.hostname);
+            const ip = lookup.address;
+
+            // Block private and loopback IP ranges
+            const isPrivate = (addr) => {
+                // IPv4
+                const ipv4Private = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.)/;
+                // IPv6
+                const ipv6Private = /^(::1$|fe80:|fc00:|fd00:)/i;
+                return ipv4Private.test(addr) || ipv6Private.test(addr);
+            };
+
+            if (isPrivate(ip)) {
+                return res.json({ valid: false, error: 'Invalid URL: Private IP ranges are not allowed.' });
+            }
+
+            await axios.head(urlString, { 
                 timeout: 5000,
                 maxContentLength: 5000000
             });
             res.json({ valid: true });
         } catch (e) {
+            // If DNS lookup failed or axios HEAD failed
+            if (e.code === 'ENOTFOUND' || e.code === 'EADDRNOTAVAIL') {
+                return res.json({ valid: false, error: `Host not found: ${urlString}` });
+            }
+
             // Attempt a GET request if the server rejects HEAD requests
             try {
-                await axios.get(url, { 
+                await axios.get(urlString, { 
                     timeout: 5000, 
                     responseType: 'stream',
                     maxContentLength: 5000000
