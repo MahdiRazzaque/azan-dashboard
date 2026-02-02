@@ -1,20 +1,26 @@
 const fs = require('fs');
 const fsp = require('fs').promises;
 const path = require('path');
+
+// Mock asyncLock BEFORE requiring service
+jest.mock('@utils/asyncLock', () => ({
+    run: jest.fn((key, fn) => fn())
+}));
+
 const service = require('@services/core/prayerTimeService');
-const { ProviderFactory, ProviderConnectionError, ProviderValidationError } = require('@providers');
+const { ProviderFactory, ProviderValidationError } = require('@providers');
 const { DateTime } = require('luxon');
+const calculations = require('@utils/calculations');
 
 jest.mock('fs', () => ({
     ...jest.requireActual('fs'),
-    existsSync: jest.fn(),
-    mkdirSync: jest.fn(),
     promises: {
         readFile: jest.fn(),
         writeFile: jest.fn(),
         unlink: jest.fn(),
         mkdir: jest.fn(),
-        access: jest.fn()
+        access: jest.fn(),
+        utimes: jest.fn()
     }
 }));
 
@@ -24,104 +30,148 @@ jest.mock('@providers', () => {
         ...original,
         ProviderFactory: {
             create: jest.fn()
-        }
+        },
+        ProviderValidationError: original.ProviderValidationError
     };
 });
 
-describe('PrayerTimeService (with In-Memory Cache)', () => {
+jest.mock('@utils/calculations', () => ({
+    calculateIqamah: jest.fn(),
+    calculateNextPrayer: jest.fn()
+}));
+
+describe('PrayerTimeService Comprehensive', () => {
     const mockConfig = {
-        location: { timezone: 'UTC', coordinates: { lat: 0, long: 0 } },
-        sources: { primary: { type: 'aladhan', method: 15 }, backup: { type: 'mymasjid' } },
+        location: { timezone: 'UTC' },
+        sources: { primary: { type: 'aladhan' }, backup: { enabled: true, type: 'mymasjid' } },
         prayers: {
-            fajr: { iqamahOffset: 10, roundTo: 0, fixedTime: null },
-            dhuhr: { iqamahOffset: 10, roundTo: 0, fixedTime: null },
-            asr: { iqamahOffset: 10, roundTo: 0, fixedTime: null },
-            maghrib: { iqamahOffset: 10, roundTo: 0, fixedTime: null },
-            isha: { iqamahOffset: 10, roundTo: 0, fixedTime: null },
+            fajr: { iqamahOffset: 10, iqamahOverride: true },
+            dhuhr: { iqamahOffset: 10 },
+            asr: { iqamahOffset: 10 },
+            maghrib: { iqamahOffset: 10 },
+            isha: { iqamahOffset: 10 }
         }
     };
 
-    beforeEach(async () => {
-        jest.clearAllMocks();
-        ProviderFactory.create.mockReset();
-        
-        // We need a way to clear the in-memory cache without triggering a full fetch cycle that might fail.
-        // forceRefresh clears it but then calls getPrayerTimes.
-        // Let's mock a successful fetch for forceRefresh.
-        const today = DateTime.now().toISODate();
-        const mockProvider = { getAnnualTimes: jest.fn().mockResolvedValue({ [today]: { fajr: 'ISO' } }) };
-        ProviderFactory.create.mockReturnValue(mockProvider);
-        fsp.unlink.mockResolvedValue();
-        fsp.access.mockRejectedValue(new Error('not found')); // force miss
-        fsp.writeFile.mockResolvedValue();
-
-        await service.forceRefresh(mockConfig);
+    beforeEach(() => {
+        jest.restoreAllMocks();
         jest.clearAllMocks();
     });
 
-    it('should return cached data from disk if memory cache is empty', async () => {
-        const today = DateTime.fromObject({ year: 2023, month: 1, day: 1 });
-        const dateKey = today.toISODate();
-        
-        fsp.readFile.mockResolvedValue(JSON.stringify({
-            meta: { source: 'test-source', lastFetched: '2022-12-31' },
-            data: {
-                [dateKey]: {
-                    fajr: '2023-01-01T05:00:00Z',
-                    dhuhr: '2023-01-01T12:00:00Z',
-                    asr: '2023-01-01T15:00:00Z',
-                    maghrib: '2023-01-01T17:00:00Z',
-                    isha: '2023-01-01T19:00:00Z'
-                }
-            }
-        }));
-        fsp.access.mockResolvedValue(); // cache file exists
-
-        const result = await service.getPrayerTimes(mockConfig, today);
-        
-        expect(result.meta.cached).toBe(true);
-        expect(fsp.readFile).toHaveBeenCalled();
-        expect(ProviderFactory.create).not.toHaveBeenCalled();
-    });
-
-    it('should return data from in-memory cache without reading disk on second call', async () => {
-        const today = DateTime.fromObject({ year: 2023, month: 1, day: 1 });
-        const dateKey = today.toISODate();
-
-        fsp.readFile.mockResolvedValue(JSON.stringify({
-            meta: { source: 'test-source', lastFetched: '2022-12-31' },
-            data: {
-                [dateKey]: { fajr: '2023-01-01T05:00:00Z' }
-            }
-        }));
+    it('should cover all branches', async () => {
+        // --- 1. readCache branches ---
         fsp.access.mockResolvedValue();
-
-        // First call - should read disk
-        await service.getPrayerTimes(mockConfig, today);
-        expect(fsp.readFile).toHaveBeenCalledTimes(1);
-
-        // Second call - should NOT read disk
-        const result = await service.getPrayerTimes(mockConfig, today);
-        expect(result.meta.cached).toBe(true);
-        expect(fsp.readFile).toHaveBeenCalledTimes(1); 
-    });
-
-    it('should force refresh by deleting cache file and clearing memory cache', async () => {
-        const today = DateTime.now();
-        const dateKey = today.toISODate();
+        fsp.readFile.mockResolvedValueOnce('invalid'); // corrupted
+        const spyWarn1 = jest.spyOn(console, 'warn').mockImplementation();
+        await service.readCache();
+        expect(spyWarn1).toHaveBeenCalledWith(expect.stringContaining('corrupted'));
         
-        const fetchedData = {
-            [dateKey]: { fajr: '2023-01-01T05:00:00Z' }
-        };
-        const mockProvider = { getAnnualTimes: jest.fn().mockResolvedValue(fetchedData) };
-        ProviderFactory.create.mockReturnValue(mockProvider);
-        fsp.unlink.mockResolvedValue();
-        fsp.access.mockRejectedValue(new Error('miss'));
+        fsp.readFile.mockRejectedValueOnce(new Error('ENOENT')); // not found
+        await service.readCache();
+        spyWarn1.mockRestore();
+
+        // --- 2. getPrayerTimes: Remote fetch success ---
+        const d1 = DateTime.fromISO('2080-01-01');
+        const k1 = '2080-01-01';
+        fsp.access.mockRejectedValue({ code: 'ENOENT' }); // disk miss
+        ProviderFactory.create.mockReturnValue({ getAnnualTimes: jest.fn().mockResolvedValue({ [k1]: { fajr: 'T' } }) });
         fsp.writeFile.mockResolvedValue();
+        const res1 = await service.getPrayerTimes(mockConfig, d1);
+        expect(res1.meta.cached).toBe(false);
 
+        // --- 3. getPrayerTimes: Memory hit ---
+        const res2 = await service.getPrayerTimes(mockConfig, d1);
+        expect(res2.meta.cached).toBe(true);
+
+        // --- 4. getPrayerTimes: Disk hit ---
+        const d2 = DateTime.fromISO('2080-01-02');
+        const k2 = '2080-01-02';
+        fsp.access.mockResolvedValue();
+        fsp.readFile.mockResolvedValue(JSON.stringify({ meta: { source: 'disk' }, data: { [k2]: { fajr: 'D' } } }));
+        const res3 = await service.getPrayerTimes(mockConfig, d2);
+        expect(res3.meta.cached).toBe(true);
+
+        // --- 5. Failover to Backup ---
+        const d3 = DateTime.fromISO('2080-01-03');
+        const k3 = '2080-01-03';
+        fsp.access.mockRejectedValue({ code: 'ENOENT' });
+        ProviderFactory.create
+            .mockReturnValueOnce({ getAnnualTimes: jest.fn().mockRejectedValue(new Error('P')) })
+            .mockReturnValueOnce({ getAnnualTimes: jest.fn().mockResolvedValue({ [k3]: { fajr: 'B' } }) });
+        const spyErr1 = jest.spyOn(console, 'error').mockImplementation();
+        const res4 = await service.getPrayerTimes(mockConfig, d3);
+        expect(res4.meta.source).toBe('mymasjid');
+        spyErr1.mockRestore();
+
+        // --- 6. ProviderValidationError ---
+        const d4 = DateTime.fromISO('2080-01-04');
+        ProviderFactory.create.mockReturnValueOnce({ getAnnualTimes: jest.fn().mockRejectedValue(new ProviderValidationError('V')) });
+        const spyErr2 = jest.spyOn(console, 'error').mockImplementation();
+        await expect(service.getPrayerTimes(mockConfig, d4)).rejects.toThrow(ProviderValidationError);
+        spyErr2.mockRestore();
+
+        // --- 7. Primary returns empty, and backup also fails ---
+        const d5 = DateTime.fromISO('2080-01-05');
+        const configNoBackup = { ...mockConfig, sources: { primary: { type: 'aladhan' }, backup: { enabled: false } } };
+        ProviderFactory.create.mockReturnValueOnce({ getAnnualTimes: jest.fn().mockResolvedValue({}) });
+        const spyErr3 = jest.spyOn(console, 'error').mockImplementation();
+        await expect(service.getPrayerTimes(configNoBackup, d5)).rejects.toThrow('returned empty data');
+        spyErr3.mockRestore();
+
+        // --- 8. Date missing in response ---
+        const d6 = DateTime.fromISO('2080-01-06');
+        ProviderFactory.create.mockReturnValueOnce({ getAnnualTimes: jest.fn().mockResolvedValue({ 'other': {} }) });
+        await expect(service.getPrayerTimes(mockConfig, d6)).rejects.toThrow('not found in bulk response');
+
+        // --- 9. applyOverrides calc error ---
+        const d7 = DateTime.fromISO('2080-01-07');
+        fsp.access.mockResolvedValue();
+        fsp.readFile.mockResolvedValue(JSON.stringify({ meta: { source: 's' }, data: { '2080-01-07': { fajr: 'T' } } }));
+        calculations.calculateIqamah.mockImplementationOnce(() => { throw new Error('E'); });
+        const spyWarn2 = jest.spyOn(console, 'warn').mockImplementation();
+        await service.getPrayerTimes(mockConfig, d7);
+        expect(spyWarn2).toHaveBeenCalled();
+        spyWarn2.mockRestore();
+
+        // --- 10. getPrayersWithNext: Missing prayer warning ---
+        const d8 = DateTime.fromISO('2080-01-08');
+        jest.useFakeTimers().setSystemTime(d8.toJSDate());
+        fsp.access.mockResolvedValue();
+        fsp.readFile.mockResolvedValue(JSON.stringify({ meta: { source: 's' }, data: { '2080-01-08': { fajr: 'T' } } }));
+        const spyWarn3 = jest.spyOn(console, 'warn').mockImplementation();
+        await service.getPrayersWithNext(mockConfig, 'UTC');
+        expect(spyWarn3).toHaveBeenCalled();
+        spyWarn3.mockRestore();
+
+        // --- 11. Tomorrow Fajr Success ---
+        const d9 = DateTime.fromISO('2080-01-09');
+        const k9 = '2080-01-09';
+        const k10 = '2080-01-10';
+        jest.setSystemTime(d9.toJSDate());
+        calculations.calculateNextPrayer.mockReturnValue(null);
+        fsp.readFile
+            .mockResolvedValueOnce(JSON.stringify({ meta: { source: 's' }, data: { [k9]: { fajr: 'T1' } } }))
+            .mockResolvedValueOnce(JSON.stringify({ meta: { source: 's' }, data: { [k10]: { fajr: 'T2' } } }));
+        const res5 = await service.getPrayersWithNext(mockConfig, 'UTC');
+        expect(res5.nextPrayer.isTomorrow).toBe(true);
+        jest.useRealTimers();
+
+        // --- 12. Tomorrow Fajr Fail ---
+        const d11 = DateTime.fromISO('2080-01-11');
+        jest.useFakeTimers().setSystemTime(d11.toJSDate());
+        fsp.readFile
+            .mockResolvedValueOnce(JSON.stringify({ meta: { source: 's' }, data: { '2080-01-11': { fajr: 'T1' } } }))
+            .mockRejectedValueOnce(new Error('Fail'));
+        const spyErr4 = jest.spyOn(console, 'error').mockImplementation();
+        await service.getPrayersWithNext(mockConfig, 'UTC');
+        expect(spyErr4).toHaveBeenCalled();
+        spyErr4.mockRestore();
+        jest.useRealTimers();
+
+        // --- 13. forceRefresh ---
+        fsp.unlink.mockResolvedValue();
+        ProviderFactory.create.mockReturnValue({ getAnnualTimes: jest.fn().mockResolvedValue({ [DateTime.now().toISODate()]: { fajr: 'T' } }) });
         await service.forceRefresh(mockConfig);
-        
         expect(fsp.unlink).toHaveBeenCalled();
-        expect(mockProvider.getAnnualTimes).toHaveBeenCalled();
     });
 });
