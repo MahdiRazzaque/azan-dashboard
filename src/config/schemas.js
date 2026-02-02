@@ -118,9 +118,23 @@ const configSchema = z.object({
 
 const envUpdateSchema = z.object({
   key: z.string().refine(val => {
-      // Allow BASE_URL or any uppercase alphanumeric key (for strategy env vars)
-      return val === 'BASE_URL' || /^[A-Z0-9_]+$/.test(val);
-  }, { message: "Invalid Environment Key" }),
+    // 1. Explicit Blacklist for critical system variables
+    const blacklist = ['PATH', 'NODE_OPTIONS', 'SHELL', 'USER', 'HOME', 'LD_PRELOAD'];
+    if (blacklist.includes(val)) return false;
+
+    // 2. Strict Whitelist Patterns
+    const allowedPatterns = [
+      /^AZAN_/,
+      /_KEY$/,
+      /_TOKEN$/,
+      /_SECRET$/,
+      /_URL$/,
+      /_ID$/,
+      /^(PORT|TZ|LOG_LEVEL)$/
+    ];
+
+    return allowedPatterns.some(pattern => pattern.test(val));
+  }, { message: "Invalid or restricted Environment Key" }),
   value: z.string()
 });
 

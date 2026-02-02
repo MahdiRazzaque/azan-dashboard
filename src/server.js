@@ -1,5 +1,6 @@
 require('module-alias/register');
 const express = require('express');
+const helmet = require('helmet');
 const path = require('path');
 const dotenv = require('dotenv');
 const ENV_FILE_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../.env');
@@ -16,6 +17,18 @@ const healthCheck = require('@services/system/healthCheck');
 const { forceRefresh } = require('@services/core/prayerTimeService');
 
 const app = express();
+
+// Security Hardening
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+            "script-src": ["'self'", "'unsafe-inline'"], // Needed for some client-side logic
+            "img-src": ["'self'", "data:", "https:"]
+        }
+    }
+}));
+
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
