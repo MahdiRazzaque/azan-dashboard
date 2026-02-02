@@ -54,7 +54,8 @@ jest.mock('@utils/audioValidator', () => ({
         format: 'mp3',
         bitrate: 128000,
         duration: 30,
-        size: 1024
+        size: 1024,
+        mimeType: 'audio/mpeg'
     }),
     validateVoiceMonkeyCompatibility: jest.fn().mockReturnValue({
         vmCompatible: true,
@@ -66,7 +67,9 @@ jest.mock('@utils/audioValidator', () => ({
 jest.mock('@services/system/healthCheck', () => ({
     refresh: jest.fn().mockResolvedValue({}),
     getHealth: jest.fn().mockReturnValue({}),
-    checkSource: jest.fn().mockResolvedValue({ healthy: true })
+    checkSource: jest.fn().mockResolvedValue({ healthy: true }),
+    init: jest.fn(),
+    runStartupChecks: jest.fn()
 }));
 jest.mock('@services/core/prayerTimeService', () => ({
     forceRefresh: jest.fn().mockResolvedValue({ meta: {} }),
@@ -119,13 +122,29 @@ describe('File Upload Validation Integration', () => {
         expect(res.body.compatibility.local.valid).toBe(true);
     });
 
+    it('POST /api/settings/upload - should return 400 for invalid magic bytes', async () => {
+        const audioValidator = require('@utils/audioValidator');
+        audioValidator.analyseAudioFile.mockResolvedValueOnce({
+            mimeType: 'text/plain'
+        });
+
+        const res = await request(app)
+            .post('/api/settings/upload')
+            .set('Cookie', [`auth_token=${adminToken}`])
+            .attach('file', testFilePath)
+            .expect(400);
+
+        expect(res.body.error).toBe('Invalid File');
+    });
+
     it('POST /api/settings/upload - should show warnings for incompatible files', async () => {
         const audioValidator = require('@utils/audioValidator');
         audioValidator.analyseAudioFile.mockResolvedValueOnce({
             format: 'wav',
             bitrate: 2000000,
             duration: 120,
-            size: 5000000
+            size: 5000000,
+            mimeType: 'audio/mpeg'
         });
 
         const res = await request(app)

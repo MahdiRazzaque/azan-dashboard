@@ -8,7 +8,7 @@ const upload = require('@middleware/fileUpload');
 
 describe('FileUpload Util', () => {
     describe('DiskStorage', () => {
-        it('should have the correct destination path', () => {
+        it('should have the correct destination path (temp)', () => {
             const req = {};
             const file = {};
             const cb = jest.fn();
@@ -16,17 +16,17 @@ describe('FileUpload Util', () => {
             // Accessing internal storage configuration
             upload.storage.getDestination(req, file, cb);
             
-            expect(cb).toHaveBeenCalledWith(null, expect.stringContaining(path.join('public', 'audio', 'custom')));
+            expect(cb).toHaveBeenCalledWith(null, expect.stringContaining(path.join('public', 'audio', 'temp')));
         });
 
-        it('should set filename as originalname', () => {
+        it('should set safe filename', () => {
             const req = {};
-            const file = { originalname: 'test.mp3' };
+            const file = { originalname: 'test with spaces.mp3' };
             const cb = jest.fn();
             
             upload.storage.getFilename(req, file, cb);
             
-            expect(cb).toHaveBeenCalledWith(null, 'test.mp3');
+            expect(cb).toHaveBeenCalledWith(null, 'test_with_spaces.mp3');
         });
     });
 

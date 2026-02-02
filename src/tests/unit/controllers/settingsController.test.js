@@ -29,12 +29,10 @@ jest.mock('fs/promises', () => ({
     unlink: jest.fn(),
     readFile: jest.fn(),
     writeFile: jest.fn(),
-    mkdir: jest.fn()
+    mkdir: jest.fn(),
+    rename: jest.fn()
 }));
 jest.mock('@utils/audioValidator');
-jest.mock('@services/core/prayerTimeService', () => ({
-    forceRefresh: jest.fn()
-}));
 jest.mock('@services/core/prayerTimeService', () => ({
     forceRefresh: jest.fn()
 }));
@@ -65,7 +63,7 @@ describe('settingsController Unit Tests', () => {
         validateConfigSource.mockResolvedValue();
         audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
         audioAssetService.enrichMetadata.mockResolvedValue({ duration: 10 });
-        audioValidator.analyseAudioFile.mockResolvedValue({ duration: 10 });
+        audioValidator.analyseAudioFile.mockResolvedValue({ duration: 10, mimeType: 'audio/mpeg' });
         systemControllerHelper._getAudioFilesWithMetadata.mockResolvedValue([]);
 
         // Default health state for mocks
@@ -327,16 +325,34 @@ describe('settingsController Unit Tests', () => {
     });
 
     describe('uploadFile', () => {
-        it('should return 400 if no file', () => {
-             settingsController.uploadFile(req, res);
+        it('should return 400 if no file', async () => {
+             await settingsController.uploadFile(req, res);
              expect(res.status).toHaveBeenCalledWith(400);
         });
 
-        it('should return 200 if file present', async () => {
-             req.file = { filename: 'test_file.mp3', originalname: 'test-file.mp3' };
-             await settingsController.uploadFile(req, res);
-             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ filename: 'test_file.mp3' }));
-        });
+        it('should return 400 if file validation fails (Magic Bytes)', async () => {
+            req.file = { filename: 'fake.mp3', path: '/tmp/fake.mp3' };
+            audioValidator.analyseAudioFile.mockResolvedValue({ mimeType: 'text/plain' });
+            
+            await settingsController.uploadFile(req, res);
+            
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Invalid File' }));
+            expect(fsAsync.unlink).toHaveBeenCalledWith('/tmp/fake.mp3');
+       });
+
+       it('should return 200 and move file if validation passes', async () => {
+            req.file = { filename: 'real.mp3', path: '/tmp/real.mp3' };
+            audioValidator.analyseAudioFile.mockResolvedValue({ mimeType: 'audio/mpeg' });
+            audioAssetService.enrichMetadata.mockResolvedValue({ duration: 120 });
+            
+            await settingsController.uploadFile(req, res);
+            
+            expect(fsAsync.rename).toHaveBeenCalledWith('/tmp/real.mp3', expect.stringContaining('real.mp3'));
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ 
+                message: 'File uploaded and analysed successfully',
+                duration: 120
+            }));
+       });
     });
 });
-

@@ -2,7 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const UPLOAD_DIR = path.join(__dirname, '../../public/audio/custom');
+const UPLOAD_DIR = path.join(__dirname, '../../public/audio/temp');
 
 // Ensure directory exists at module level to avoid repeated I/O in request path
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -11,7 +11,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 
 /**
  * Multer configuration for handling custom audio file uploads.
- * Files are saved to public/audio/custom.
+ * Files are saved to public/audio/temp for validation.
  */
 const storage = multer.diskStorage({
     /**
