@@ -59,6 +59,8 @@ async def get_voices():
 async def preview_tts(request: PreviewRequest):
     """FR-02: Generate temporary preview audio with optional deterministic filename"""
     filename = request.filename if request.filename else f"preview_{uuid.uuid4().hex}.mp3"
+    # Sanitise filename to prevent path traversal
+    filename = os.path.basename(filename)
     filepath = os.path.join(TEMP_DIR, filename)
     
     edge_tts_path = await _get_edge_tts_path()
@@ -96,7 +98,9 @@ async def preview_tts(request: PreviewRequest):
 
 @app.post("/generate-tts")
 async def generate_tts(request: TTSRequest):
-    filepath = os.path.join(CACHE_DIR, request.filename)
+    # Sanitise filename to prevent path traversal
+    filename = os.path.basename(request.filename)
+    filepath = os.path.join(CACHE_DIR, filename)
     edge_tts_path = await _get_edge_tts_path()
 
     cmd = [
@@ -124,7 +128,7 @@ async def generate_tts(request: TTSRequest):
         return {
             "status": "success", 
             "filepath": filepath,
-            "url": f"/public/audio/cache/{request.filename}"
+            "url": f"/public/audio/cache/{filename}"
         }
         
     except Exception as e:

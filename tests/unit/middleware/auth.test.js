@@ -21,12 +21,11 @@ describe('Auth Middleware', () => {
         jest.clearAllMocks();
     });
 
-    test('should return 500 if no secret configured', () => {
+    test('should return 500 if no JWT_SECRET configured', () => {
         delete process.env.JWT_SECRET;
-        delete process.env.ADMIN_PASSWORD;
+        process.env.ADMIN_PASSWORD = 'some-password-hash';
         req.cookies.auth_token = 'some-token';
 
-        // Suppress console.error for this test
         const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
         authenticateToken(req, res, next);
@@ -37,7 +36,7 @@ describe('Auth Middleware', () => {
         consoleSpy.mockRestore();
     });
     
-    test('should call next if valid token', () => {
+    test('should call next if valid token using JWT_SECRET', () => {
         process.env.JWT_SECRET = 'secret';
         const token = jwt.sign({ name: 'user' }, 'secret');
         req.cookies.auth_token = token;
@@ -46,6 +45,22 @@ describe('Auth Middleware', () => {
         
         expect(next).toHaveBeenCalled();
         expect(req.user).toBeDefined();
+    });
+
+    test('should NOT use ADMIN_PASSWORD as fallback secret', () => {
+        delete process.env.JWT_SECRET;
+        process.env.ADMIN_PASSWORD = 'fallback-secret';
+        const token = jwt.sign({ name: 'user' }, 'fallback-secret');
+        req.cookies.auth_token = token;
+
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        
+        authenticateToken(req, res, next);
+        
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(next).not.toHaveBeenCalled();
+
+        consoleSpy.mockRestore();
     });
 
     test('should return 401 if no token', () => {

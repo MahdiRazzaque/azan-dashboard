@@ -1,5 +1,6 @@
 /* tests/integration/routes/auth_lifecycle.test.js */
 const request = require('supertest');
+const { hashPassword } = require('@utils/passwordUtils');
 
 // 1. Mock EnvManager
 const mockEnvManager = {
@@ -37,8 +38,6 @@ describe('Auth Lifecycle Integration', () => {
     it('GET /api/auth/status - should report not configured', async () => {
         mockEnvManager.isConfigured.mockReturnValue(false); // Force not configured
         const res = await request(app).get('/api/auth/status').expect(200);
-        // Logic: requiresSetup = !process.env.ADMIN_PASSWORD
-        // Since we deleted env.ADMIN_PASSWORD, it should be true
         expect(res.body.requiresSetup).toBe(true);
     });
 
@@ -63,8 +62,8 @@ describe('Auth Lifecycle Integration', () => {
     });
 
     it('POST /api/auth/login - should login with correct password', async () => {
-        const { hashPassword } = require('@utils/passwordUtils');
-        process.env.ADMIN_PASSWORD = hashPassword('correctPassword');
+        process.env.ADMIN_PASSWORD = await hashPassword('correctPassword');
+        process.env.JWT_SECRET = 'test-secret';
         
         const res = await request(app)
             .post('/api/auth/login')
@@ -75,12 +74,22 @@ describe('Auth Lifecycle Integration', () => {
     });
 
     it('POST /api/auth/login - should fail with wrong password', async () => {
-        const { hashPassword } = require('@utils/passwordUtils');
-        process.env.ADMIN_PASSWORD = hashPassword('correctPassword');
+        process.env.ADMIN_PASSWORD = await hashPassword('correctPassword');
+        process.env.JWT_SECRET = 'test-secret';
         
         await request(app)
             .post('/api/auth/login')
             .send({ password: 'wrongPassword' })
             .expect(401);
+    });
+
+    it('POST /api/auth/login - should fail if JWT_SECRET is missing', async () => {
+        process.env.ADMIN_PASSWORD = await hashPassword('correctPassword');
+        // JWT_SECRET is deleted in beforeEach
+        
+        await request(app)
+            .post('/api/auth/login')
+            .send({ password: 'correctPassword' })
+            .expect(500);
     });
 });

@@ -539,7 +539,7 @@ describe('API Routes Integration', () => {
     });
 
     describe('File Upload', () => {
-        const testFileName = 'test-upload-integration.mp3';
+        const testFileName = 'test_upload_integration.mp3';
         const testFilePath = path.join(__dirname, testFileName);
         
         beforeAll(() => {

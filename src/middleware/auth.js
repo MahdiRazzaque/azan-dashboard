@@ -14,12 +14,11 @@ const authenticateToken = (req, res, next) => {
 
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
-  // Use ADMIN_PASSWORD as secret for simplicity unless JWT_SECRET is provided
-  // In a production app, we should use a dedicated secure random string for JWT_SECRET
-  const secret = process.env.JWT_SECRET || process.env.ADMIN_PASSWORD;
+  // Strictly use JWT_SECRET from environment. Fallback to ADMIN_PASSWORD is removed for security.
+  const secret = process.env.JWT_SECRET;
   
   if (!secret) {
-      console.error("JWT Secret or ADMIN_PASSWORD not configured.");
+      console.error("JWT_SECRET is not configured in environment.");
       return res.status(500).json({ error: 'Server configuration error' });
   }
 

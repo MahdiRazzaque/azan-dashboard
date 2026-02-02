@@ -43,7 +43,7 @@ describe('authController Unit Tests', () => {
             const originalPass = process.env.ADMIN_PASSWORD;
             delete process.env.ADMIN_PASSWORD;
             req.body.password = 'validpass';
-            authUtils.hashPassword.mockImplementation(() => { throw new Error('DB Error'); });
+            authUtils.hashPassword.mockRejectedValue(new Error('DB Error'));
             
             const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
             await authController.setup(req, res);
@@ -59,7 +59,7 @@ describe('authController Unit Tests', () => {
             delete process.env.JWT_SECRET;
             req.body.password = 'validpass';
             
-            authUtils.hashPassword.mockReturnValue('hash');
+            authUtils.hashPassword.mockResolvedValue('hash');
             envManager.generateSecret.mockReturnValue('newsecret');
             jwt.sign.mockReturnValue('token');
 
@@ -81,7 +81,7 @@ describe('authController Unit Tests', () => {
 
         it('should successfully change password', async () => {
              req.body.password = 'newpass';
-             authUtils.hashPassword.mockReturnValue('hashed');
+             authUtils.hashPassword.mockResolvedValue('hashed');
              await authController.changePassword(req, res);
              expect(envManager.setEnvValue).toHaveBeenCalledWith('ADMIN_PASSWORD', 'hashed');
              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
@@ -89,44 +89,63 @@ describe('authController Unit Tests', () => {
 
         it('should handle errors and return 500', async () => {
             req.body.password = 'pass';
-            authUtils.hashPassword.mockImplementation(() => { throw new Error('Fail'); });
+            authUtils.hashPassword.mockRejectedValue(new Error('Fail'));
             await authController.changePassword(req, res);
             expect(res.status).toHaveBeenCalledWith(500);
         });
     });
 
     describe('login', () => {
-         it('should return 500 if server not configured', () => {
+         it('should return 500 if server not configured', async () => {
              const originalPass = process.env.ADMIN_PASSWORD;
              delete process.env.ADMIN_PASSWORD;
-             authController.login(req, res);
+             await authController.login(req, res);
              expect(res.status).toHaveBeenCalledWith(500);
              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'SETUP_REQUIRED' }));
              process.env.ADMIN_PASSWORD = originalPass;
          });
 
-         it('should return 401 on invalid password', () => {
+         it('should return 401 on invalid password', async () => {
              process.env.ADMIN_PASSWORD = 'hash';
              req.body.password = 'wrong';
-             authUtils.verifyPassword.mockReturnValue(false);
-             authController.login(req, res);
+             authUtils.verifyPassword.mockResolvedValue(false);
+             await authController.login(req, res);
              expect(res.status).toHaveBeenCalledWith(401);
          });
          
-         it('should use adminPassword as fallback secret if JWT_SECRET missing', () => {
+         it('should fail with 500 if JWT_SECRET missing', async () => {
              const originalPass = process.env.ADMIN_PASSWORD;
              const originalSecret = process.env.JWT_SECRET;
              process.env.ADMIN_PASSWORD = 'adminpass';
              delete process.env.JWT_SECRET;
              req.body.password = 'adminpass';
-             authUtils.verifyPassword.mockReturnValue(true);
+             authUtils.verifyPassword.mockResolvedValue(true);
              
-             authController.login(req, res);
+             await authController.login(req, res);
              
-             expect(jwt.sign).toHaveBeenCalledWith(expect.anything(), 'adminpass', expect.anything());
+             expect(res.status).toHaveBeenCalledWith(500);
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('JWT Secret') }));
              
              process.env.ADMIN_PASSWORD = originalPass;
              process.env.JWT_SECRET = originalSecret;
+         });
+
+         it('should login successfully with valid password and secret', async () => {
+            const originalPass = process.env.ADMIN_PASSWORD;
+            const originalSecret = process.env.JWT_SECRET;
+            process.env.ADMIN_PASSWORD = 'hash';
+            process.env.JWT_SECRET = 'secret';
+            req.body.password = 'correct';
+            authUtils.verifyPassword.mockResolvedValue(true);
+            jwt.sign.mockReturnValue('token');
+
+            await authController.login(req, res);
+
+            expect(res.json).toHaveBeenCalledWith({ success: true });
+            expect(res.cookie).toHaveBeenCalled();
+            
+            process.env.ADMIN_PASSWORD = originalPass;
+            process.env.JWT_SECRET = originalSecret;
          });
     });
 

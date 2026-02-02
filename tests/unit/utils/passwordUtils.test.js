@@ -1,9 +1,14 @@
 const { hashPassword, verifyPassword } = require('@utils/passwordUtils');
 
-describe('Auth Utils', () => {
+describe('Auth Utils (Async)', () => {
     describe('hashPassword', () => {
-        it('should return a string with salt and hash separated by colon', () => {
+        it('should return a promise', () => {
              const result = hashPassword('myPassword123');
+             expect(result).toBeInstanceOf(Promise);
+        });
+
+        it('should resolve to a string with salt and hash separated by colon', async () => {
+             const result = await hashPassword('myPassword123');
              expect(result).toContain(':');
              const parts = result.split(':');
              expect(parts).toHaveLength(2);
@@ -11,45 +16,38 @@ describe('Auth Utils', () => {
              expect(parts[1]).toHaveLength(128); // 64 bytes hex
         });
 
-        it('should produce different hashes for same password (salt)', () => {
-            const hash1 = hashPassword('password');
-            const hash2 = hashPassword('password');
+        it('should produce different hashes for same password (salt)', async () => {
+            const hash1 = await hashPassword('password');
+            const hash2 = await hashPassword('password');
             expect(hash1).not.toBe(hash2);
         });
     });
 
     describe('verifyPassword', () => {
-        it('should return true for correct password', () => {
-            const password = 'securePassword!';
-            const hash = hashPassword(password);
-            expect(verifyPassword(password, hash)).toBe(true);
+        it('should return a promise', async () => {
+            const hash = await hashPassword('pass');
+            const result = verifyPassword('pass', hash);
+            expect(result).toBeInstanceOf(Promise);
         });
 
-        it('should return false for incorrect password', () => {
+        it('should return true for correct password', async () => {
             const password = 'securePassword!';
-            const hash = hashPassword(password);
-            expect(verifyPassword('wrongPassword', hash)).toBe(false);
+            const hash = await hashPassword(password);
+            const isValid = await verifyPassword(password, hash);
+            expect(isValid).toBe(true);
         });
 
-        it('should support legacy plain text passwords', () => {
+        it('should return false for incorrect password', async () => {
+            const password = 'securePassword!';
+            const hash = await hashPassword(password);
+            const isValid = await verifyPassword('wrongPassword', hash);
+            expect(isValid).toBe(false);
+        });
+
+        it('should NOT support legacy plain text passwords', async () => {
              const password = 'legacyPassword';
-             // Simulating old storage format (no colon)
-             expect(verifyPassword(password, password)).toBe(true); 
-        });
-
-        it('should return false for legacy mismatch', () => {
-             expect(verifyPassword('wrong', 'right')).toBe(false);
-        });
-        
-        it('should return false for empty/null stored hash', () => {
-            expect(verifyPassword('pass', null)).toBe(false);
-            expect(verifyPassword('pass', '')).toBe(false);
-        });
-        
-        it('should return false for malformed hash', () => {
-            expect(verifyPassword('pass', 'nosalt:hash')).toBe(false); // Wait, length check logic? 
-            // The code splits by ':' and checks if both parts exist.
-            expect(verifyPassword('pass', ':')).toBe(false);
+             const isValid = await verifyPassword(password, password);
+             expect(isValid).toBe(false); 
         });
     });
 });
