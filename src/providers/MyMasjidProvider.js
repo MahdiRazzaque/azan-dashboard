@@ -77,6 +77,21 @@ class MyMasjidProvider extends BaseProvider {
     }
 
     /** @override */
+    async healthCheck() {
+        try {
+            const url = 'https://time.my-masjid.com/api/TimingsInfoScreen/GetMasjidTimings?GuidId=00000000-0000-0000-0000-000000000000';
+            const response = await fetch(url);
+            // 400 is fine, it means the API is up but our ID is fake
+            if (response.status < 500) {
+                return { healthy: true, message: 'Reachable' };
+            }
+            return { healthy: false, message: `API returned ${response.status}` };
+        } catch (error) {
+            return { healthy: false, message: error.message };
+        }
+    }
+
+    /** @override */
     static getConfigSchema() {
         const { z } = require('zod');
         return z.object({

@@ -226,6 +226,7 @@ const settingsController = {
 
     /**
      * Handles custom audio file uploads and returns the stored file information.
+     * Validates file content (Magic Bytes) before moving to permanent storage.
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
@@ -234,21 +235,40 @@ const settingsController = {
     uploadFile: async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         
+        const tempPath = req.file.path;
+        const targetDir = path.join(__dirname, '../../public/audio/custom');
+        const targetPath = path.join(targetDir, req.file.filename);
+        const metaDir = path.join(__dirname, '../public/audio/custom');
+        const metaPath = path.join(metaDir, req.file.filename + '.json');
+        
         try {
-            const audioPath = path.join(__dirname, '../../public/audio/custom', req.file.filename);
-            const metaDir = path.join(__dirname, '../public/audio/custom');
-            const metaPath = path.join(metaDir, req.file.filename + '.json');
-            
+            // Ensure target and meta directories exist
+            await fsAsync.mkdir(targetDir, { recursive: true });
+            await fsAsync.mkdir(metaDir, { recursive: true });
+
+            // 1. Magic Bytes Check (via audioValidator)
+            let basicMetadata;
             try {
-                await fsAsync.access(metaDir);
-            } catch (e) {
-                await fsAsync.mkdir(metaDir, { recursive: true });
+                basicMetadata = await audioValidator.analyseAudioFile(tempPath);
+                
+                // Strict check: must be audio/mpeg for mp3 files
+                if (basicMetadata.mimeType !== 'audio/mpeg') {
+                    throw new Error('Invalid file format: Not a valid MP3 file');
+                }
+            } catch (validationError) {
+                // Cleanup temp file on validation failure
+                try { await fsAsync.unlink(tempPath); } catch (e) {}
+                return res.status(400).json({ 
+                    error: 'Invalid File', 
+                    message: validationError.message 
+                });
             }
 
-            // Generate metadata sidecar in src/public
-            const basicMetadata = await audioValidator.analyseAudioFile(audioPath);
-            const enrichedMetadata = await audioAssetService.enrichMetadata(audioPath, basicMetadata);
-            
+            // 2. Move file from temp to custom
+            await fsAsync.rename(tempPath, targetPath);
+
+            // 3. Generate metadata sidecar
+            const enrichedMetadata = await audioAssetService.enrichMetadata(targetPath, basicMetadata);
             await fsAsync.writeFile(metaPath, JSON.stringify(enrichedMetadata));
             
             res.json({
@@ -258,11 +278,12 @@ const settingsController = {
                 ...enrichedMetadata
             });
         } catch (error) {
-            console.error('[SettingsController] Upload analysis failed:', error.message);
-            res.json({
-                message: 'File uploaded, but analysis failed',
-                filename: req.file.filename,
-                path: `custom/${req.file.filename}`
+            console.error('[SettingsController] Upload processing failed:', error.message);
+            // Cleanup on error
+            try { await fsAsync.unlink(tempPath); } catch (e) {}
+            res.status(500).json({
+                error: 'Upload Failed',
+                message: error.message
             });
         }
     },

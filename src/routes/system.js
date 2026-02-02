@@ -6,7 +6,8 @@ const { operationsLimiter } = require('@middleware/rateLimiters');
 const authenticateToken = require('@middleware/auth');
 
 router.get('/health', asyncHandler(systemController.getHealth));
-router.post('/health/refresh', operationsLimiter, authenticateToken, asyncHandler(systemController.refreshHealth));
+router.post('/health/toggle', authenticateToken, asyncHandler(systemController.toggleHealthCheck));
+router.post('/health/refresh', operationsLimiter, authenticateToken, asyncHandler(systemController.forceRefreshHealth));
 router.get('/jobs', authenticateToken, asyncHandler(systemController.getJobs));
 router.get('/audio-files', authenticateToken, asyncHandler(systemController.getAudioFiles));
 router.get('/constants', authenticateToken, asyncHandler(systemController.getConstants));

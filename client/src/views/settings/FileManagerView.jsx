@@ -34,8 +34,14 @@ export default function FileManagerView() {
     const loadFiles = () => {
         fetch('/api/system/audio-files')
             .then(res => res.json())
-            .then(setFiles)
-            .catch(err => setError("Failed to load files"));
+            .then(data => {
+                // The API returns { files: [], total: 0, ... } due to pagination
+                setFiles(data.files || []);
+            })
+            .catch(err => {
+                console.error("Failed to load files:", err);
+                setError("Failed to load files");
+            });
     };
 
     useEffect(() => {
@@ -66,7 +72,7 @@ export default function FileManagerView() {
         }
 
         // Check if file already exists in custom files
-        const customFiles = files.filter(f => f.type === 'custom');
+        const customFiles = Array.isArray(files) ? files.filter(f => f.type === 'custom') : [];
         const existingFile = customFiles.find(f => f.name === file.name);
         
         if (existingFile) {
@@ -269,8 +275,8 @@ export default function FileManagerView() {
         </div>
     );
 
-    const customFiles = files.filter(f => f.type === 'custom');
-    const cacheFiles = files.filter(f => f.type === 'cache');
+    const customFiles = Array.isArray(files) ? files.filter(f => f.type === 'custom') : [];
+    const cacheFiles = Array.isArray(files) ? files.filter(f => f.type === 'cache') : [];
 
     // Grouping logic for TTS
     const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];

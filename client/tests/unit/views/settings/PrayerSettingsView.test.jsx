@@ -67,7 +67,7 @@ describe('PrayerSettingsView', () => {
     });
     
     vi.stubGlobal('fetch', vi.fn((url) => {
-        if (url.includes('audio-files')) return Promise.resolve({ ok: true, json: () => Promise.resolve(mockAudioFiles) });
+        if (url.includes('audio-files')) return Promise.resolve({ ok: true, json: () => Promise.resolve({ files: mockAudioFiles, total: mockAudioFiles.length }) });
         if (url.includes('outputs/registry')) return Promise.resolve({ ok: true, json: () => Promise.resolve(mockStrategies) });
         return Promise.reject(new Error('Unknown API'));
     }));

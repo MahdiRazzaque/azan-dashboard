@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
-import { RefreshCw, Activity, Database, LayoutGrid, Terminal, FileAudio, Settings2 } from 'lucide-react';
+import { RefreshCw, Activity, Database, LayoutGrid, Terminal, HeartPulse } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -8,6 +8,7 @@ import { twMerge } from 'tailwind-merge';
 import DiagnosticsTab from '@/components/settings/developer/DiagnosticsTab';
 import AutomationTTSTab from '@/components/settings/developer/AutomationTTSTab';
 import SystemLogsTab from '@/components/settings/developer/SystemLogsTab';
+import HealthTab from '@/components/settings/developer/HealthTab';
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
@@ -45,6 +46,7 @@ export default function DeveloperSettingsView() {
 
     const TABS = [
         { id: 'diagnostics', label: 'Diagnostics', icon: Activity },
+        { id: 'health', label: 'Health', icon: HeartPulse },
         { id: 'automation', label: 'Automation & TTS', icon: LayoutGrid },
         { id: 'logs', label: 'System Logs', icon: Terminal }
     ];
@@ -265,6 +267,15 @@ export default function DeveloperSettingsView() {
                         handleRunJob={handleRunJob}
                         jobStatuses={jobStatuses}
                         jobs={jobs}
+                    />
+                )}
+
+                {activeTab === 'health' && (
+                    <HealthTab 
+                        config={config}
+                        systemHealth={systemHealth}
+                        refreshHealth={refreshHealth}
+                        refresh={refresh}
                     />
                 )}
 

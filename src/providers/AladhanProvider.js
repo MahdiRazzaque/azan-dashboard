@@ -72,6 +72,20 @@ class AladhanProvider extends BaseProvider {
     }
 
     /** @override */
+    async healthCheck() {
+        try {
+            const url = `${API_BASE_URL}/methods`;
+            const response = await fetch(url);
+            if (response.ok) {
+                return { healthy: true, message: 'Reachable' };
+            }
+            return { healthy: false, message: `API returned ${response.status}` };
+        } catch (error) {
+            return { healthy: false, message: error.message };
+        }
+    }
+
+    /** @override */
     static getConfigSchema() {
         const { z } = require('zod');
         return z.object({

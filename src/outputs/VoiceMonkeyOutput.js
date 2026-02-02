@@ -36,7 +36,6 @@ class VoiceMonkeyOutput extends BaseOutput {
             timeoutMs: 10000,
             defaultLeadTimeMs: 2000,
             hidden: false,
-            compatibilityKey: 'vmCompatible',
             params: [
                 { key: 'token', type: 'string', label: 'API Token', sensitive: true, requiredForHealth: true },
                 { key: 'device', type: 'string', label: 'Device ID', sensitive: true, requiredForHealth: false }
@@ -61,7 +60,6 @@ class VoiceMonkeyOutput extends BaseOutput {
         if (!payload.source || !payload.source.url) return;
 
         // Verify compatibility metadata stored in the sidecar JSON.
-        // Sidecar files are strictly stored in src/public/audio/ to keep the main public/audio clean.
         if (payload.source.filePath) {
             const projectPublicRoot = path.join(__dirname, '../../public/audio');
             const srcPublicRoot = path.join(__dirname, '../public/audio');
@@ -73,10 +71,8 @@ class VoiceMonkeyOutput extends BaseOutput {
                 const metaContent = await fs.readFile(metaPath, 'utf8');
                 const meta = JSON.parse(metaContent);
                 
-                // REQ: Support both new nested compatibility block and legacy flat fields.
-                const isCompatible = meta.compatibility?.voicemonkey 
-                    ? meta.compatibility.voicemonkey.valid 
-                    : meta.vmCompatible;
+                // REQ-015: Read from nested compatibility object only
+                const isCompatible = meta.compatibility?.voicemonkey?.valid;
 
                 if (isCompatible === false) {
                     console.warn(`${prefix} Skipped: Audio incompatible with Alexa`);
@@ -166,6 +162,7 @@ class VoiceMonkeyOutput extends BaseOutput {
                 params: {
                     token: token,
                     device: deviceToCheck,
+                    text: 'Test'
                 },
                 timeout: 5000,
                 maxContentLength: 5000000
@@ -238,12 +235,11 @@ class VoiceMonkeyOutput extends BaseOutput {
         );
 
         if (file) {
-            const isCompatible = file.compatibility?.voicemonkey 
-                ? file.compatibility.voicemonkey.valid 
-                : file.vmCompatible;
+            // REQ-015: Read from nested compatibility object only
+            const isCompatible = file.compatibility?.voicemonkey?.valid;
 
             if (isCompatible === false) {
-                const issues = file.compatibility?.voicemonkey?.issues || file.vmIssues || ['Unknown issues'];
+                const issues = file.compatibility?.voicemonkey?.issues || ['Unknown issues'];
                 warnings.push(`${niceName}: Audio incompatible with Alexa (${issues.join(', ')})`);
             }
         }
@@ -253,7 +249,8 @@ class VoiceMonkeyOutput extends BaseOutput {
 
     /**
      * Internal helper to validate metadata against VoiceMonkey requirements.
-     * Alexa requires MP3 format, bitrate between 48-128kbps, and duration < 90s.
+     * Alexa requires MP3, AAC, OGG, OPUS or WAV format, bitrate <= 1411.2kbps, 
+     * sample rate <= 48kHz, file size <= 10MB, and duration <= 240s.
      * 
      * @param {Object} metadata Audio metadata.
      * @returns {string[]} List of issues found.
@@ -262,27 +259,51 @@ class VoiceMonkeyOutput extends BaseOutput {
     static _getValidationIssues(metadata) {
         const issues = [];
         
-        // 1. Format Check (Strictly MP3 for VoiceMonkey)
-        const format = (metadata.format || '').toLowerCase();
-        const codec = (metadata.codec || '').toLowerCase();
-        
-        if (!format.includes('mp3') && !codec.includes('mp3')) {
-            issues.push(`Unsupported format: ${metadata.format} / ${metadata.codec}. VoiceMonkey requires MP3.`);
-        }
+        // 1. Format Check (Alexa supports: aac, mp3, ogg, opus, wav)
+        const allowedMimeTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/opus', 'audio/aac'];
+        if (metadata.mimeType && !allowedMimeTypes.includes(metadata.mimeType)) {
+            issues.push(`Unsupported format: ${metadata.format} / ${metadata.codec} (${metadata.mimeType}). Alexa requires MP3, AAC, OGG, OPUS or WAV.`);
+        } else if (!metadata.mimeType) {
+            // Fallback to manual check if mimeType is missing (shouldn't happen with latest validator)
+            const format = (metadata.format || '').toLowerCase();
+            const codec = (metadata.codec || '').toLowerCase();
+            const isMP3 = format.includes('mp3') || codec.includes('mp3') || (format === 'mpeg' && codec.includes('3'));
+            const isWAV = format.includes('wav');
+            const isOGG = format.includes('ogg') || codec.includes('vorbis') || codec.includes('opus');
+            const isAAC = format.includes('aac') || format.includes('adts') || codec.includes('aac');
 
-        // 2. Bitrate (48kbps - 128kbps)
-        if (metadata.bitrate) {
-            const bitrateKbps = metadata.bitrate / 1000;
-            if (bitrateKbps > 128) {
-                issues.push(`Bitrate too high: ${bitrateKbps.toFixed(2)} kbps (Max 128 kbps)`);
-            } else if (bitrateKbps < 48) {
-                issues.push(`Bitrate too low: ${bitrateKbps.toFixed(2)} kbps (Min 48 kbps)`);
+            if (!isMP3 && !isWAV && !isOGG && !isAAC) {
+                issues.push(`Unsupported format: ${metadata.format} / ${metadata.codec}. Alexa requires MP3, AAC, OGG, OPUS or WAV.`);
             }
         }
 
-        // 3. Duration (Max 90s)
-        if (metadata.duration && metadata.duration > 90) {
-            issues.push(`Duration too long: ${metadata.duration.toFixed(2)}s (Max 90s)`);
+        // 2. Bitrate (Max 1411.2 kbps)
+        if (metadata.bitrate) {
+            const bitrateKbps = metadata.bitrate / 1000;
+            if (bitrateKbps > 1411.2) {
+                issues.push(`Bitrate too high: ${bitrateKbps.toFixed(2)} kbps (Max 1411.2 kbps)`);
+            }
+        }
+
+        // 3. Sample Rate (Max 48kHz)
+        if (metadata.sampleRate) {
+            const sampleRateKhz = metadata.sampleRate / 1000;
+            if (sampleRateKhz > 48) {
+                issues.push(`Sample rate too high: ${sampleRateKhz.toFixed(2)} kHz (Max 48 kHz)`);
+            }
+        }
+
+        // 4. File Size (Max 10MB)
+        if (metadata.size) {
+            const sizeMb = metadata.size / (1024 * 1024);
+            if (sizeMb > 10) {
+                issues.push(`File size too large: ${sizeMb.toFixed(2)} MB (Max 10 MB)`);
+            }
+        }
+
+        // 5. Duration (Max 240s)
+        if (metadata.duration && metadata.duration > 240) {
+            issues.push(`Duration too long: ${metadata.duration.toFixed(2)}s (Max 240s)`);
         }
 
         return issues;
@@ -302,22 +323,6 @@ class VoiceMonkeyOutput extends BaseOutput {
             valid: issues.length === 0,
             lastChecked: new Date().toISOString(),
             issues
-        };
-    }
-
-    /**
-     * Enhances audio metadata with VoiceMonkey compatibility flags.
-     * Uses internal validation logic to determine if the bit rate, format,
-     * and length are acceptable for Alexa devices.
-     *
-     * @param {Object} metadata Existing file metadata.
-     * @returns {Object} Augmented metadata with 'vmCompatible' and 'vmIssues'.
-     */
-    augmentAudioMetadata(metadata) {
-        const issues = VoiceMonkeyOutput._getValidationIssues(metadata);
-        return {
-            vmCompatible: issues.length === 0,
-            vmIssues: issues
         };
     }
 }

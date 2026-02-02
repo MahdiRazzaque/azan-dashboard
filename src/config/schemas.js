@@ -67,6 +67,18 @@ const dataSchema = z.object({
   storageLimit: z.number().min(0.1).default(1.0), // GB
 });
 
+const systemSchema = z.object({
+  healthChecks: z.record(z.string(), z.boolean()).default({
+    api: true,
+    tts: true
+  })
+}).default({
+  healthChecks: {
+    api: true,
+    tts: true
+  }
+});
+
 const configSchema = z.object({
   version: z.number().optional().default(1),
   location: z.object({
@@ -101,13 +113,29 @@ const configSchema = z.object({
   }),
   data: dataSchema,
   automation: automationSchema,
+  system: systemSchema,
 });
 
 const envUpdateSchema = z.object({
   key: z.string().refine(val => {
-      // Allow BASE_URL or any uppercase alphanumeric key (for strategy env vars)
-      return val === 'BASE_URL' || /^[A-Z0-9_]+$/.test(val);
-  }, { message: "Invalid Environment Key" }),
+    // 1. Explicit Blacklist for critical system variables
+    const blacklist = ['PATH', 'NODE_OPTIONS', 'SHELL', 'USER', 'HOME', 'LD_PRELOAD'];
+    if (blacklist.includes(val)) return false;
+
+    // 2. Strict Whitelist Patterns
+    const allowedPatterns = [
+      /^AZAN_/,
+      /_KEY$/,
+      /_TOKEN$/,
+      /_SECRET$/,
+      /_URL$/,
+      /_ID$/,
+      /_DEVICE$/,
+      /^(PORT|TZ|LOG_LEVEL)$/
+    ];
+
+    return allowedPatterns.some(pattern => pattern.test(val));
+  }, { message: "Invalid or restricted Environment Key" }),
   value: z.string()
 });
 

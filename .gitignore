@@ -192,10 +192,11 @@ repomix-output.xml
 repomixBat.bat
 COVERAGE_SUMMARY.md
 
-# Audio caches
-/public/audio/cache
-/public/audio/temp
-/src/public/audio/cache
+# Audio files
+/public/audio/
+
+# Metadata files
+src/public/audio/
 
 # App config / data
 src/config/local.json

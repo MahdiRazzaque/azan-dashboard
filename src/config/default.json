@@ -78,5 +78,11 @@
         "iqamah": { "enabled": false, "type": "tts", "template": "Time for {prayerArabic} إِقَامَة", "targets": ["local"] }
       }
     }
+  },
+  "system": {
+    "healthChecks": {
+      "api": true,
+      "tts": true
+    }
   }
 }

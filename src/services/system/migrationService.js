@@ -19,6 +19,10 @@ class MigrationService {
             newConfig = this.migrateV2toV3(newConfig);
         }
 
+        if (newConfig.version === 3) {
+            newConfig = this.migrateV3toV4(newConfig);
+        }
+
         return newConfig;
     }
 
@@ -151,6 +155,32 @@ class MigrationService {
         }
 
         return v3Config;
+    }
+
+    /**
+     * Migrates V3 config to V4.
+     * Adds system.healthChecks block.
+     * @param {Object} config - V3 configuration.
+     * @returns {Object} V4 configuration.
+     */
+    migrateV3toV4(config) {
+        const v4Config = { ...config, version: 4 };
+
+        if (!v4Config.system) {
+            v4Config.system = {
+                healthChecks: {
+                    api: true,
+                    tts: true
+                }
+            };
+        } else if (!v4Config.system.healthChecks) {
+            v4Config.system.healthChecks = {
+                api: true,
+                tts: true
+            };
+        }
+
+        return v4Config;
     }
 }
 

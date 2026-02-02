@@ -1,4 +1,5 @@
 const axios = require('axios');
+const crypto = require('crypto');
 const configService = require('@config');
 const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../../outputs');
@@ -8,13 +9,14 @@ const configUnmasker = require('@utils/configUnmasker');
 let healthCache = null;
 
 /**
- * Ensures the health cache is initialised with default values.
- * @private
+ * Initialises the health cache with default values.
+ * Exposing as a public method to allow explicit startup control.
  */
-function _ensureInitialized() {
+function init() {
     if (healthCache) return;
 
     healthCache = {
+        local: { healthy: true, message: 'Online' }, // Added local health
         tts: { healthy: false, message: 'Initialising...' },
         primarySource: { healthy: false, message: 'Initialising...' },
         backupSource: { healthy: false, message: 'Initialising...' },
@@ -39,8 +41,17 @@ function _ensureInitialized() {
 }
 
 /**
+ * Ensures the health cache is initialised with default values.
+ * @private
+ */
+function _ensureInitialized() {
+    if (!healthCache) {
+        init();
+    }
+}
+
+/**
  * Validates the connectivity and functionality of a specific prayer time source.
- * Attempts to fetch annual times to confirm the provider is responding correctly.
  * 
  * @param {'primary' | 'backup'} target The source configuration to validate.
  * @returns {Promise<{healthy: boolean, message: string}>} The status of the source.
@@ -54,10 +65,7 @@ async function checkSource(target) {
 
     try {
         const provider = ProviderFactory.create(source, config);
-        const { DateTime } = require('luxon');
-        const year = DateTime.now().setZone(config.location.timezone).year;
-        await provider.getAnnualTimes(year);
-        return { healthy: true, message: 'Online' };
+        return await provider.healthCheck();
     } catch (e) {
         return { healthy: false, message: e.message || 'Offline' };
     }
@@ -83,105 +91,169 @@ async function checkPythonService() {
 }
 
 /**
- * Orchestrates a system-wide or targeted health check refresh.
- * Updates the internal cache with new status reports for output strategies,
- * prayer time providers, and secondary microservices.
+ * Orchestrates a targeted health check refresh.
+ * Updates the internal cache with new status reports.
  * 
- * @param {string} [target='all'] The specific service or strategy ID to refresh.
+ * @param {string} target The specific service or strategy ID to refresh.
  * @param {Object} [params] Optional transient credentials to override configuration.
- * @returns {Promise<Object>} The updated health cache.
+ * @param {Object} [options] Additional options.
+ * @param {boolean} [options.force=false] Whether to force the check even if disabled.
+ * @returns {Promise<Object>} The updated health cache for that target.
+ * @private
  */
-async function refresh(target = 'all', params = null) {
-    _ensureInitialized();
-    
-    // De-duplicate simultaneous health check requests using AsyncLock
-    // We include target and params (if any) in the key to allow specific checks to run concurrently
-    // but identical ones to collapse.
-    const lockKey = `health-refresh-${target}-${params ? JSON.stringify(params) : 'default'}`;
+async function _refreshTarget(target, params = null, { force = false } = {}) {
+    const config = configService.get();
+    const healthChecks = config.system?.healthChecks || {};
 
-    return asyncLock.run(lockKey, async () => {
-        const updates = {};
-        const promises = [];
+    // Check if monitoring is enabled for this target
+    if (!force && healthChecks[target] === false) {
+        return { healthy: false, message: 'Monitoring Disabled' };
+    }
 
-        // Strategies
-        const strategies = OutputFactory.getAllStrategies();
+    if (target === 'tts') return checkPythonService();
+    if (target === 'primarySource') return checkSource('primary');
+    if (target === 'backupSource') return checkSource('backup');
 
-        const shouldCheckAll = (target === 'all');
+    // Handle Output Strategies
+    try {
+        const strategy = OutputFactory.getStrategy(target);
+        if (!strategy) return { healthy: false, message: 'Unknown Service' };
 
-        for (const meta of strategies) {
-            if (meta.hidden) continue;
-
-            if (shouldCheckAll || target.toLowerCase() === meta.id.toLowerCase()) {
-                const strategy = OutputFactory.getStrategy(meta.id);
-
-                // REQ-006: Filter params based on each strategy's metadata requirements
-                let strategyParams = null;
-                if (params && meta.params) {
-                    strategyParams = {};
-                    meta.params.forEach(p => {
-                        // Only pass parameters explicitly marked as required for health checks
-                        if (p.requiredForHealth && params[p.key] !== undefined) {
-                            strategyParams[p.key] = params[p.key];
-                        }
-                    });
-
-                    // Unmask secrets received from the UI
-                    configUnmasker.unmaskParams(meta.id, strategyParams, configService.get());
-
-                    // Pass null if no relevant parameters were found to allow internal config fallback
-                    if (Object.keys(strategyParams).length === 0) {
-                        strategyParams = null;
-                    }
+        const meta = OutputFactory.getAllStrategies().find(s => s.id === target);
+        
+        // Filter params based on each strategy's metadata requirements
+        let strategyParams = null;
+        if (params && meta?.params) {
+            strategyParams = {};
+            meta.params.forEach(p => {
+                if (p.requiredForHealth && params[p.key] !== undefined) {
+                    strategyParams[p.key] = params[p.key];
                 }
+            });
 
-                promises.push(
-                    strategy.healthCheck(strategyParams)
-                        .then(res => updates[meta.id] = res)
-                        .catch(e => updates[meta.id] = { healthy: false, message: e.message })
-                );
+            // Unmask secrets received from the UI
+            configUnmasker.unmaskParams(target, strategyParams, config);
+
+            if (Object.keys(strategyParams).length === 0) {
+                strategyParams = null;
             }
         }
 
-        // Legacy / Other services
-        if (shouldCheckAll || target === 'tts') {
-            promises.push(checkPythonService().then(res => updates.tts = res));
+        return await strategy.healthCheck(strategyParams);
+    } catch (e) {
+        return { healthy: false, message: e.message };
+    }
+}
+
+/**
+ * Refreshes health status for one or all services.
+ * 
+ * @param {string} [target='all'] The specific service or strategy ID to refresh.
+ * @param {Object} [params] Optional transient credentials.
+ * @param {Object} [options] Additional options.
+ * @param {boolean} [options.force=false] Whether to force the check.
+ * @returns {Promise<Object>} The updated health cache.
+ */
+async function refresh(target = 'all', params = null, { force = false } = {}) {
+    _ensureInitialized();
+    
+    // Use SHA-256 hash for params to avoid long keys and potential DoS via large JSON strings
+    const paramsString = params ? JSON.stringify(params) : 'default';
+    const paramsHash = crypto.createHash('sha256').update(paramsString).digest('hex');
+    const lockKey = `health-refresh-${target}-${paramsHash}-${force}`;
+
+    return asyncLock.run(lockKey, async () => {
+        const updates = {};
+        const targets = [];
+
+        if (target === 'all') {
+            targets.push('tts', 'primarySource', 'backupSource');
+            OutputFactory.getAllStrategies().forEach(s => {
+                if (!s.hidden) targets.push(s.id);
+            });
+        } else {
+            targets.push(target);
         }
 
-        if (shouldCheckAll || target === 'primarySource') {
-            promises.push(checkSource('primary').then(res => updates.primarySource = res));
-        }
-        if (shouldCheckAll || target === 'backupSource') {
-            promises.push(checkSource('backup').then(res => updates.backupSource = res));
-        }
+        const promises = targets.map(t => 
+            _refreshTarget(t, params, { force })
+                .then(res => updates[t] = res)
+        );
 
         await Promise.all(promises);
+
+        // Update cache
+        healthCache = { 
+            ...healthCache, 
+            ...updates, 
+            lastChecked: new Date().toISOString() 
+        };
 
         // Refresh ports
         try {
             const ttsUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
             const port = new URL(ttsUrl).port;
-            if (port) healthCache.ports = { ...healthCache.ports, tts: port };
+            if (port) healthCache.ports.tts = port;
         } catch(e) {}
         healthCache.ports.api = process.env.PORT || 3000;
 
-        healthCache = { ...healthCache, ...updates, lastChecked: new Date().toISOString() };
-        return healthCache;
+        return getHealth(); // Return a copy
     });
 }
 
 /**
  * Retrieves the current health status from the application's internal cache.
- * Ensures the cache is initialised if this is the first retrieval.
+ * Returns a deep copy to prevent external mutation.
  * 
- * @returns {Object} The current health cache.
+ * @returns {Object} The synchronised health state object.
  */
 function getHealth() {
     _ensureInitialized();
-    return healthCache;
+    // Return deep copy to prevent external mutation of the shared state
+    return JSON.parse(JSON.stringify(healthCache));
+}
+
+/**
+ * Toggles automated health monitoring for a specific service.
+ * 
+ * @param {string} serviceId The ID of the service to toggle.
+ * @param {boolean} enabled Whether monitoring should be enabled.
+ */
+async function toggle(serviceId, enabled) {
+    const config = configService.get();
+    const healthChecks = { ...(config.system?.healthChecks || {}) };
+    healthChecks[serviceId] = enabled;
+    await configService.update({ system: { healthChecks } });
+}
+
+/**
+ * Runs a full health check on all services that have monitoring enabled.
+ * Designed for daily maintenance routines.
+ * 
+ * @returns {Promise<Object>} The updated health cache.
+ */
+async function runDailyMaintenance() {
+    console.log('[HealthCheck] Running daily health maintenance...');
+    return refresh('all', null, { force: false });
+}
+
+/**
+ * Runs a full health check on all monitored services during server startup.
+ * 
+ * @returns {Promise<Object>} The initial system health state.
+ */
+async function runStartupChecks() {
+    console.log('[HealthCheck] Running startup health checks...');
+    // Startup checks are forced to ensure initial state is populated
+    return refresh('all', null, { force: true });
 }
 
 module.exports = {
+    init,
     refresh,
     getHealth,
-    checkSource
+    checkSource,
+    toggle,
+    runDailyMaintenance,
+    runStartupChecks
 };

@@ -128,12 +128,6 @@ const scheduleEvent = (date, prayer, event) => {
  * 
  * @returns {void}
  */
-/**
- * Schedules recurring system maintenance jobs.
- * Includes tasks for stale data checks, year boundary handling, system health monitoring, and audio asset maintenance.
- * 
- * @returns {void}
- */
 const scheduleMaintenanceJobs = () => {
     /**
      * Checks if the cached prayer time data is stale and refreshes it if necessary.
@@ -205,7 +199,7 @@ const scheduleMaintenanceJobs = () => {
     const healthAction = async () => {
         try {
             console.log('[Maintenance] Running Daily Health Check...');
-            await healthCheck.refresh('all');
+            await healthCheck.runDailyMaintenance();
         } catch (e) {
             console.error('[Maintenance] Health Check Failed:', e);
             throw e;

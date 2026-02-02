@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
+const Bottleneck = require('bottleneck');
 const { DateTime } = require('luxon');
 const healthCheck = require('@services/system/healthCheck');
 const schedulerService = require('@services/core/schedulerService');
@@ -14,12 +15,18 @@ const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../outputs');
 const workflowService = require('@services/system/configurationWorkflowService');
 const configUnmasker = require('@utils/configUnmasker');
+const { getSafeAgent } = require('@utils/networkUtils');
 const { 
     CALCULATION_METHODS, 
     ASR_JURISTIC_METHODS, 
     LATITUDE_ADJUSTMENT_METHODS, 
     MIDNIGHT_MODES 
 } = require('@utils/constants');
+
+// Rate limiter for file system operations to prevent EMFILE errors and memory spikes
+const fsLimiter = new Bottleneck({
+    maxConcurrent: 50
+});
 
 /**
  * Controller for system-related operations, handling health checks, logs,
@@ -55,6 +62,34 @@ const systemController = {
     },
 
     /**
+     * Toggles automated health monitoring for a specific service.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the toggle operation completes.
+     */
+    toggleHealthCheck: async (req, res) => {
+        const { serviceId, enabled } = req.body;
+        if (!serviceId || typeof enabled !== 'boolean') {
+            return res.status(400).json({ success: false, error: 'serviceId and enabled (boolean) are required.' });
+        }
+        await healthCheck.toggle(serviceId, enabled);
+        res.json({ success: true });
+    },
+
+    /**
+     * Forces a fresh health check for a specific target, bypassing the "Monitoring Disabled" config.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    forceRefreshHealth: async (req, res) => {
+        const { target, params } = req.body;
+        const result = await healthCheck.refresh(target || 'all', params, { force: true });
+        res.json(result);
+    },
+
+    /**
      * Initiates a fresh health check for specified system components.
      * 
      * @param {import('express').Request} req - The Express request object.
@@ -75,11 +110,18 @@ const systemController = {
      * @param {import('express').Response} res - The Express response object.
      */
     getJobs: (req, res) => {
-        if (schedulerService.getJobs) {
-            res.json(schedulerService.getJobs());
-        } else {
-            res.json({ maintenance: [], automation: [] });
-        }
+        /**
+         * Checks and returns the currently scheduled background jobs.
+         */
+        const checkJobs = () => {
+            if (schedulerService.getJobs) {
+                res.json(schedulerService.getJobs());
+            } else {
+                res.json({ maintenance: [], automation: [] });
+            }
+        };
+
+        checkJobs();
     },
 
     /**
@@ -94,30 +136,35 @@ const systemController = {
 
     /**
      * Catalogues available custom and cached audio files from the server's storage,
-     * including VoiceMonkey compatibility metadata.
+     * including compatibility metadata and pagination support.
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
      * @returns {Promise<void>} Sends a JSON response with the file listings and metadata.
      */
     getAudioFiles: async (req, res) => {
-        const files = await systemController._getAudioFilesWithMetadata();
-        res.json(files);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const result = await systemController._getAudioFilesWithMetadata(page, limit);
+        res.json(result);
     },
 
     /**
      * Internal helper to scan directories and attach metadata from sidecar files.
+     * Supports pagination by slicing the file list before I/O operations.
      * 
-     * @returns {Promise<Array<object>>} A promise that resolves to an array of audio file objects with metadata.
+     * @param {number} page - Current page number.
+     * @param {number} limit - Items per page.
+     * @returns {Promise<object>} Paginated result object.
      * @private
      */
-    _getAudioFilesWithMetadata: async () => {
+    _getAudioFilesWithMetadata: async (page = 1, limit = 50) => {
         const audioCustomDir = path.join(__dirname, '../../public/audio/custom');
         const audioCacheDir = path.join(__dirname, '../../public/audio/cache');
         const metaCustomDir = path.join(__dirname, '../public/audio/custom');
         const metaCacheDir = path.join(__dirname, '../public/audio/cache');
         
-        // Ensure necessary directories exist asynchronously
+        // Ensure necessary directories exist
         await Promise.all([
             fs.mkdir(audioCustomDir, { recursive: true }),
             fs.mkdir(audioCacheDir, { recursive: true }),
@@ -126,53 +173,81 @@ const systemController = {
         ]);
 
         /**
-         * Scans a directory for MP3 files and associates them with metadata.
+         * Internal helper to scan directories and attach metadata.
          * 
-         * @param {string} audioDir - The directory containing audio files.
-         * @param {string} metaDir - The directory containing metadata files.
-         * @param {string} type - The category of the audio files (e.g., 'custom', 'cache').
-         * @returns {Promise<Array<object>>} A promise resolving to an array of audio file objects with metadata.
+         * @param {string} audioDir - Directory to scan.
+         * @param {string} type - File type category.
+         * @returns {Promise<Object[]>} A promise that resolves to file entries.
+         * @private
          */
-        const getFiles = async (audioDir, metaDir, type) => {
-            try {
-                await fs.access(audioDir);
-            } catch (e) {
-                return [];
-            }
+        const getFileEntries = async (audioDir, type) => {
+            /**
+             * Internal local helper to retrieve file list.
+             * 
+             * @returns {Promise<Object[]>} A promise that resolves to file entries.
+             */
+            const fetchEntries = async () => {
+                const files = await fs.readdir(audioDir);
+                return files.filter(f => f.endsWith('.mp3')).map(f => ({
+                    f,
+                    type,
+                    metaDir: type === 'custom' ? metaCustomDir : metaCacheDir
+                }));
+            };
 
-            const files = await fs.readdir(audioDir);
-            const mp3Files = files.filter(f => f.endsWith('.mp3'));
-
-            const results = await Promise.all(mp3Files.map(async (f) => {
-                const metaPath = path.join(metaDir, f + '.json');
-                
-                let metadata = {};
+            /**
+             * Internal wrapper to manage result retrieval and errors.
+             * 
+             * @returns {Promise<Object[]>} The fetched or empty file list.
+             */
+            const resultHandler = async () => {
                 try {
-                    await fs.access(metaPath);
-                    const metaContent = await fs.readFile(metaPath, 'utf8');
-                    metadata = JSON.parse(metaContent);
-                } catch (e) { /* ignore missing or corrupt meta */ }
+                    return await fetchEntries();
+                } catch (e) {
+                    return [];
+                }
+            };
 
-                return { 
-                    name: f, 
-                    type, 
-                    path: `${type}/${f}`,
-                    url: `/public/audio/${type}/${f}`,
-                    vmCompatible: metadata.vmCompatible,
-                    vmIssues: metadata.vmIssues,
-                    metadata: metadata
-                };
-            }));
-            
-            return results.filter(file => !file.metadata.hidden);
+            return await resultHandler();
         };
-        
-        const [custom, cache] = await Promise.all([
-            getFiles(audioCustomDir, metaCustomDir, 'custom'),
-            getFiles(audioCacheDir, metaCacheDir, 'cache')
+
+        const [customEntries, cacheEntries] = await Promise.all([
+            getFileEntries(audioCustomDir, 'custom'),
+            getFileEntries(audioCacheDir, 'cache')
         ]);
+
+        const allEntries = [...customEntries, ...cacheEntries];
+        const total = allEntries.length;
+        const startIndex = (page - 1) * limit;
+        const paginatedEntries = allEntries.slice(startIndex, startIndex + limit);
+
+        const results = await Promise.all(paginatedEntries.map(({ f, type, metaDir }) => fsLimiter.schedule(async () => {
+            const metaPath = path.join(metaDir, f + '.json');
+            
+            let metadata = {};
+            try {
+                const metaContent = await fs.readFile(metaPath, 'utf8');
+                metadata = JSON.parse(metaContent);
+            } catch (e) { /* ignore missing or corrupt meta */ }
+
+            return { 
+                name: f, 
+                type, 
+                path: `${type}/${f}`,
+                url: `/public/audio/${type}/${f}`,
+                metadata: metadata
+            };
+        })));
         
-        return [...custom, ...cache];
+        const files = results.filter(file => !file.metadata.hidden);
+
+        return {
+            files,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        };
     },
 
     /**
@@ -271,34 +346,47 @@ const systemController = {
 
     /**
      * Validates that an external URL is reachable via HTTP HEAD or GET.
+     * Includes DNS Rebinding protection by pinning DNS resolution to an Agent lookup.
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
      * @returns {Promise<void>} A promise that resolves when validation completes.
      */
     validateUrl: async (req, res) => {
-        const { url } = req.body;
-        if (!url) return res.status(400).json({ valid: false, error: 'URL is required' });
+        const { url: urlString } = req.body;
+        if (!urlString) return res.status(400).json({ valid: false, error: 'URL is required' });
 
         try {
-            await axios.head(url, { 
-                timeout: 5000,
-                maxContentLength: 5000000
-            });
-            res.json({ valid: true });
-        } catch (e) {
-            // Attempt a GET request if the server rejects HEAD requests
-            try {
-                await axios.get(url, { 
-                    timeout: 5000, 
-                    responseType: 'stream',
-                    maxContentLength: 5000000
-                });
-                res.json({ valid: true });
-            } catch (e2) {
-                 const msg = e2.response ? `Status ${e2.response.status}` : e2.message;
-                 res.json({ valid: false, error: msg });
+            const url = new URL(urlString);
+            if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+                return res.json({ valid: false, error: 'Invalid protocol. Only http and https are allowed.' });
             }
+
+            const httpAgent = getSafeAgent('http:');
+            const httpsAgent = getSafeAgent('https:');
+
+            const axiosConfig = { 
+                timeout: 5000,
+                maxContentLength: 5000000,
+                httpAgent,
+                httpsAgent
+            };
+
+            try {
+                await axios.head(urlString, axiosConfig);
+                res.json({ valid: true });
+            } catch (e) {
+                // Attempt a GET request if the server rejects HEAD requests
+                try {
+                    await axios.get(urlString, { ...axiosConfig, responseType: 'stream' });
+                    res.json({ valid: true });
+                } catch (e2) {
+                     const msg = e2.response ? `Status ${e2.response.status}` : e2.message;
+                     res.json({ valid: false, error: msg });
+                }
+            }
+        } catch (e) {
+            res.json({ valid: false, error: e.message });
         }
     },
 
