@@ -29,7 +29,9 @@ jest.mock('fs/promises', () => ({
     readFile: jest.fn().mockResolvedValue('{}'),
     writeFile: jest.fn().mockResolvedValue(),
     mkdir: jest.fn().mockResolvedValue(),
-    rename: jest.fn().mockResolvedValue()
+    rename: jest.fn().mockResolvedValue(),
+    readdir: jest.fn().mockResolvedValue([]),
+    stat: jest.fn().mockResolvedValue({ size: 100 })
 }));
 const fsPromises = require('fs/promises');
 
@@ -104,7 +106,10 @@ const automationService = require('@services/core/automationService');
 jest.mock('@services/system/sseService', () => mockMockFactory.createMockSSEService());
 const sseService = require('@services/system/sseService');
 
-jest.mock('@services/system/audioAssetService', () => mockMockFactory.createMockAudioAssetService());
+jest.mock('@services/system/audioAssetService', () => ({
+    ...mockMockFactory.createMockAudioAssetService(),
+    enrichMetadata: jest.fn().mockResolvedValue({ duration: 10, protected: false })
+}));
 const audioAssetService = require('@services/system/audioAssetService');
 
 jest.mock('@providers', () => {
@@ -201,6 +206,19 @@ jest.mock('../../../outputs', () => {
 });
 const OutputFactory = require('../../../outputs');
 
+// Mock audioValidator
+jest.mock('@utils/audioValidator', () => ({
+    analyseAudioFile: jest.fn().mockResolvedValue({
+        format: 'mpeg',
+        codec: 'mp3',
+        bitrate: 128000,
+        sampleRate: 44100,
+        duration: 10,
+        size: 100,
+        mimeType: 'audio/mpeg'
+    }),
+    getMimeType: jest.requireActual('../../../utils/audioValidator').getMimeType
+}));
 
 // --- 2. Require App ---
 const app = require('../../../server');
@@ -231,6 +249,7 @@ describe('API Routes Integration', () => {
         fsPromises.unlink.mockResolvedValue();
         fsPromises.readFile.mockResolvedValue('{}');
         fsPromises.writeFile.mockResolvedValue();
+        fsPromises.readdir.mockResolvedValue([]);
         
         // Default fs behavior
         fs.existsSync.mockReturnValue(true);
@@ -295,13 +314,14 @@ describe('API Routes Integration', () => {
             expect(diagnosticsService.getTTSStatus).toHaveBeenCalled();
         });
 
-        it('GET /api/system/audio-files - should return lists', async () => {
-            fs.readdirSync.mockReturnValue(['file1.mp3']);
+        it('GET /api/system/audio-files - should return paginated list', async () => {
+            fsPromises.readdir.mockResolvedValue(['file1.mp3']);
             const res = await request(app)
                 .get('/api/system/audio-files')
                 .set('Cookie', [`auth_token=${adminToken}`])
                 .expect(200);
-            expect(res.body.length).toBeGreaterThan(0);
+            expect(res.body.files).toBeDefined();
+            expect(res.body.files.length).toBeGreaterThan(0);
         });
 
         it('POST /api/system/regenerate-tts - should call service', async () => {
@@ -543,8 +563,11 @@ describe('API Routes Integration', () => {
         const testFilePath = path.join(__dirname, testFileName);
         
         beforeAll(() => {
-            // Write a real file for supertest to stream
-            jest.requireActual('fs').writeFileSync(testFilePath, 'dummy mp3 content');
+            // Write a real file with valid MP3 magic bytes for supertest to stream
+            const mp3Header = Buffer.from([0xFF, 0xFB, 0x90, 0x44]);
+            const dummyContent = Buffer.alloc(100, 0);
+            const content = Buffer.concat([mp3Header, dummyContent]);
+            jest.requireActual('fs').writeFileSync(testFilePath, content);
             
             // Allow unlink to fail silently in mock
             fs.unlinkSync.mockImplementation(() => {});
@@ -558,8 +581,6 @@ describe('API Routes Integration', () => {
             }
             
             // Cleanup the uploaded destination if it wrote to disk
-            // Since we mocked some fs methods, multer might have failed or succeeded depending on implementation
-            // But verify it didn't leave trash
             const uploadedPath = path.join(__dirname, '../../../public/audio/custom', testFileName);
             if (realFs.existsSync(uploadedPath)) {
                 realFs.unlinkSync(uploadedPath);
@@ -832,4 +853,3 @@ describe('API Routes Integration', () => {
         });
     });
 });
-

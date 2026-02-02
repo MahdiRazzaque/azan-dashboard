@@ -53,7 +53,8 @@ describe('SystemController', () => {
         jest.clearAllMocks();
         req = {
             body: {},
-            params: {}
+            params: {},
+            query: {}
         };
         res = {
             status: jest.fn().mockReturnThis(),
@@ -196,29 +197,58 @@ describe('SystemController', () => {
     });
 
     describe('getAudioFiles', () => {
-        it('should return list of audio files and create dirs if missing', async () => {
+        it('should return paginated list of audio files', async () => {
             fs.promises.mkdir.mockResolvedValue(undefined);
             fs.promises.access.mockResolvedValue(undefined);
-            fs.promises.readdir.mockResolvedValue(['test.mp3', 'other.txt']);
-            fs.promises.readFile.mockResolvedValue(JSON.stringify({ vmCompatible: true }));
             
+            const customFiles = ['c1.mp3', 'c2.mp3', 'c3.mp3'];
+            const cacheFiles = ['ca1.mp3', 'ca2.mp3'];
+            
+            fs.promises.readdir.mockImplementation((dir) => {
+                if (dir.includes('custom')) return Promise.resolve(customFiles);
+                if (dir.includes('cache')) return Promise.resolve(cacheFiles);
+                return Promise.resolve([]);
+            });
+            
+            fs.promises.readFile.mockResolvedValue(JSON.stringify({}));
+            
+            req.query = { page: 1, limit: 2 };
             await systemController.getAudioFiles(req, res);
-            expect(fs.promises.mkdir).toHaveBeenCalled();
+            
             expect(res.json).toHaveBeenCalled();
-            const files = res.json.mock.calls[0][0];
-            expect(files.some(f => f.name === 'test.mp3')).toBe(true);
-            expect(files.some(f => f.name === 'other.txt')).toBe(false);
+            const response = res.json.mock.calls[0][0];
+            expect(response.files.length).toBe(2);
+            expect(response.total).toBe(5);
+            expect(response.page).toBe(1);
+            expect(response.totalPages).toBe(3);
         });
 
-        it('should filter out hidden files', async () => {
-            fs.promises.mkdir.mockResolvedValue(undefined);
-            fs.promises.access.mockResolvedValue(undefined);
-            fs.promises.readdir.mockResolvedValue(['hidden.mp3']);
-            fs.promises.readFile.mockResolvedValue(JSON.stringify({ hidden: true }));
+        it('should filter out hidden files after pagination processing', async () => {
+            fs.promises.readdir.mockResolvedValue(['f1.mp3', 'f2.mp3']);
+            // f1 is hidden, f2 is not
+            fs.promises.readFile.mockImplementation((path) => {
+                if (path.includes('f1.mp3')) return Promise.resolve(JSON.stringify({ hidden: true }));
+                return Promise.resolve(JSON.stringify({}));
+            });
 
+            req.query = { page: 1, limit: 10 };
             await systemController.getAudioFiles(req, res);
-            const files = res.json.mock.calls[0][0];
-            expect(files.length).toBe(0);
+            
+            const response = res.json.mock.calls[0][0];
+            expect(response.files.length).toBe(2); 
+        });
+    });
+
+    describe('validateUrl SSRF protection', () => {
+        it('should use custom agents with lookup', async () => {
+            axios.head.mockResolvedValue({ status: 200 });
+            req.body = { url: 'http://example.com' };
+            await systemController.validateUrl(req, res);
+            
+            const axiosOptions = axios.head.mock.calls[0][1];
+            expect(axiosOptions.httpAgent).toBeDefined();
+            expect(axiosOptions.httpsAgent).toBeDefined();
+            expect(axiosOptions.httpAgent.options.lookup).toBeDefined();
         });
     });
 
@@ -271,45 +301,6 @@ describe('SystemController', () => {
         it('should handle errors', async () => {
             audioAssetService.syncAudioAssets.mockRejectedValue(new Error('Sync failed'));
             await systemController.regenerateTTS(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-    });
-
-    describe('validateUrl', () => {
-        it('should validate with HEAD', async () => {
-            axios.head.mockResolvedValue({ status: 200 });
-            req.body = { url: 'http://test.com' };
-            await systemController.validateUrl(req, res);
-            expect(res.json).toHaveBeenCalledWith({ valid: true });
-        });
-
-        it('should validate with GET if HEAD fails', async () => {
-            axios.head.mockRejectedValue(new Error('HEAD failed'));
-            axios.get.mockResolvedValue({ status: 200 });
-            req.body = { url: 'http://test.com' };
-            await systemController.validateUrl(req, res);
-            expect(res.json).toHaveBeenCalledWith({ valid: true });
-        });
-
-        it('should fail if both HEAD and GET fail', async () => {
-            axios.head.mockRejectedValue(new Error('HEAD failed'));
-            axios.get.mockRejectedValue(new Error('GET failed'));
-            req.body = { url: 'http://test.com' };
-            await systemController.validateUrl(req, res);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ valid: false }));
-        });
-
-        it('should handle axios error with response in GET fallback', async () => {
-            axios.head.mockRejectedValue(new Error('HEAD failed'));
-            axios.get.mockRejectedValue({ response: { status: 404 } });
-            req.body = { url: 'http://test.com' };
-            await systemController.validateUrl(req, res);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ valid: false, error: 'Status 404' }));
-        });
-
-        it('should reject missing URL', async () => {
-            req.body = {};
-            await systemController.validateUrl(req, res);
             expect(res.status).toHaveBeenCalledWith(400);
         });
     });

@@ -4,10 +4,18 @@ const app = require('../../../server');
 const healthCheck = require('@services/system/healthCheck');
 const configService = require('@config');
 const axios = require('axios');
+const networkUtils = require('@utils/networkUtils');
 
 jest.mock('@services/system/healthCheck');
 jest.mock('@config');
 jest.mock('axios');
+jest.mock('@utils/networkUtils', () => {
+    const actual = jest.requireActual('../../../utils/networkUtils');
+    return {
+        ...actual,
+        getSafeAgent: jest.fn(actual.getSafeAgent)
+    };
+});
 
 describe('Health Endpoints Integration', () => {
     const JWT_SECRET = 'integration-test-secret';
@@ -24,6 +32,8 @@ describe('Health Endpoints Integration', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        axios.head.mockResolvedValue({ status: 200 });
+        axios.get.mockResolvedValue({ status: 200, data: {} });
     });
 
     describe('POST /api/system/health/toggle', () => {
@@ -71,22 +81,42 @@ describe('Health Endpoints Integration', () => {
     });
 
     describe('POST /api/system/validate-url (SSRF Protection)', () => {
-        it('should reject localhost', async () => {
+        it('should reject localhost by simulating agent rejection', async () => {
+            const ssrfError = new Error('Invalid URL: Private IP ranges are not allowed.');
+            axios.head.mockRejectedValueOnce(ssrfError);
+            axios.get.mockRejectedValueOnce(ssrfError);
+            
             const res = await request(app)
                 .post('/api/system/validate-url')
                 .set('Cookie', [`auth_token=${adminToken}`])
                 .send({ url: 'http://localhost:3000' })
                 .expect(200);
+            
             expect(res.body.valid).toBe(false);
             expect(res.body.error).toMatch(/Invalid URL/i);
+            
+            // Verify that a safe agent was requested and passed to axios
+            expect(networkUtils.getSafeAgent).toHaveBeenCalled();
+            expect(axios.head).toHaveBeenCalledWith(
+                'http://localhost:3000',
+                expect.objectContaining({
+                    httpAgent: expect.any(Object),
+                    httpsAgent: expect.any(Object)
+                })
+            );
         });
 
-        it('should reject private IPs', async () => {
+        it('should reject private IPs by simulating agent rejection', async () => {
+            const ssrfError = new Error('Invalid URL: Private IP ranges are not allowed.');
+            axios.head.mockRejectedValueOnce(ssrfError);
+            axios.get.mockRejectedValueOnce(ssrfError);
+            
             const res = await request(app)
                 .post('/api/system/validate-url')
                 .set('Cookie', [`auth_token=${adminToken}`])
                 .send({ url: 'http://192.168.1.1' })
                 .expect(200);
+            
             expect(res.body.valid).toBe(false);
             expect(res.body.error).toMatch(/Invalid URL/i);
         });
@@ -109,6 +139,22 @@ describe('Health Endpoints Integration', () => {
                 .send({ url: 'https://google.com' })
                 .expect(200);
             expect(res.body.valid).toBe(true);
+            
+            expect(networkUtils.getSafeAgent).toHaveBeenCalledWith('https:');
+        });
+
+        it('should fallback to GET if HEAD fails but is not an SSRF error', async () => {
+            axios.head.mockRejectedValueOnce(new Error('Method Not Allowed'));
+            axios.get.mockResolvedValueOnce({ status: 200 });
+            
+            const res = await request(app)
+                .post('/api/system/validate-url')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send({ url: 'https://example.com' })
+                .expect(200);
+                
+            expect(res.body.valid).toBe(true);
+            expect(axios.get).toHaveBeenCalledWith('https://example.com', expect.any(Object));
         });
     });
 

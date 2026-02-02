@@ -15,6 +15,7 @@ const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../outputs');
 const workflowService = require('@services/system/configurationWorkflowService');
 const configUnmasker = require('@utils/configUnmasker');
+const { getSafeAgent } = require('@utils/networkUtils');
 const { 
     CALCULATION_METHODS, 
     ASR_JURISTIC_METHODS, 
@@ -127,30 +128,35 @@ const systemController = {
 
     /**
      * Catalogues available custom and cached audio files from the server's storage,
-     * including compatibility metadata.
+     * including compatibility metadata and pagination support.
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
      * @returns {Promise<void>} Sends a JSON response with the file listings and metadata.
      */
     getAudioFiles: async (req, res) => {
-        const files = await systemController._getAudioFilesWithMetadata();
-        res.json(files);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const result = await systemController._getAudioFilesWithMetadata(page, limit);
+        res.json(result);
     },
 
     /**
      * Internal helper to scan directories and attach metadata from sidecar files.
+     * Supports pagination by slicing the file list before I/O operations.
      * 
-     * @returns {Promise<Array<object>>} A promise that resolves to an array of audio file objects with metadata.
+     * @param {number} page - Current page number.
+     * @param {number} limit - Items per page.
+     * @returns {Promise<object>} Paginated result object.
      * @private
      */
-    _getAudioFilesWithMetadata: async () => {
+    _getAudioFilesWithMetadata: async (page = 1, limit = 50) => {
         const audioCustomDir = path.join(__dirname, '../../public/audio/custom');
         const audioCacheDir = path.join(__dirname, '../../public/audio/cache');
         const metaCustomDir = path.join(__dirname, '../public/audio/custom');
         const metaCacheDir = path.join(__dirname, '../public/audio/cache');
         
-        // Ensure necessary directories exist asynchronously
+        // Ensure necessary directories exist
         await Promise.all([
             fs.mkdir(audioCustomDir, { recursive: true }),
             fs.mkdir(audioCacheDir, { recursive: true }),
@@ -158,52 +164,56 @@ const systemController = {
             fs.mkdir(metaCacheDir, { recursive: true })
         ]);
 
-        /**
-         * Scans a directory for MP3 files and associates them with metadata.
-         * 
-         * @param {string} audioDir - The directory containing audio files.
-         * @param {string} metaDir - The directory containing metadata files.
-         * @param {string} type - The category of the audio files (e.g., 'custom', 'cache').
-         * @returns {Promise<Array<object>>} A promise resolving to an array of audio file objects with metadata.
-         */
-        const getFiles = async (audioDir, metaDir, type) => {
+        const getFileEntries = async (audioDir, type) => {
             try {
-                await fs.access(audioDir);
+                const files = await fs.readdir(audioDir);
+                return files.filter(f => f.endsWith('.mp3')).map(f => ({
+                    f,
+                    type,
+                    metaDir: type === 'custom' ? metaCustomDir : metaCacheDir
+                }));
             } catch (e) {
                 return [];
             }
-
-            const files = await fs.readdir(audioDir);
-            const mp3Files = files.filter(f => f.endsWith('.mp3'));
-
-            const results = await Promise.all(mp3Files.map(f => fsLimiter.schedule(async () => {
-                const metaPath = path.join(metaDir, f + '.json');
-                
-                let metadata = {};
-                try {
-                    await fs.access(metaPath);
-                    const metaContent = await fs.readFile(metaPath, 'utf8');
-                    metadata = JSON.parse(metaContent);
-                } catch (e) { /* ignore missing or corrupt meta */ }
-
-                return { 
-                    name: f, 
-                    type, 
-                    path: `${type}/${f}`,
-                    url: `/public/audio/${type}/${f}`,
-                    metadata: metadata
-                };
-            })));
-            
-            return results.filter(file => !file.metadata.hidden);
         };
-        
-        const [custom, cache] = await Promise.all([
-            getFiles(audioCustomDir, metaCustomDir, 'custom'),
-            getFiles(audioCacheDir, metaCacheDir, 'cache')
+
+        const [customEntries, cacheEntries] = await Promise.all([
+            getFileEntries(audioCustomDir, 'custom'),
+            getFileEntries(audioCacheDir, 'cache')
         ]);
+
+        const allEntries = [...customEntries, ...cacheEntries];
+        const total = allEntries.length;
+        const startIndex = (page - 1) * limit;
+        const paginatedEntries = allEntries.slice(startIndex, startIndex + limit);
+
+        const results = await Promise.all(paginatedEntries.map(({ f, type, metaDir }) => fsLimiter.schedule(async () => {
+            const metaPath = path.join(metaDir, f + '.json');
+            
+            let metadata = {};
+            try {
+                const metaContent = await fs.readFile(metaPath, 'utf8');
+                metadata = JSON.parse(metaContent);
+            } catch (e) { /* ignore missing or corrupt meta */ }
+
+            return { 
+                name: f, 
+                type, 
+                path: `${type}/${f}`,
+                url: `/public/audio/${type}/${f}`,
+                metadata: metadata
+            };
+        })));
         
-        return [...custom, ...cache];
+        const files = results.filter(file => !file.metadata.hidden);
+
+        return {
+            files,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        };
     },
 
     /**
@@ -302,7 +312,7 @@ const systemController = {
 
     /**
      * Validates that an external URL is reachable via HTTP HEAD or GET.
-     * Includes SSRF protection by blocking private IP ranges.
+     * Includes DNS Rebinding protection by pinning DNS resolution to an Agent lookup.
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
@@ -318,47 +328,31 @@ const systemController = {
                 return res.json({ valid: false, error: 'Invalid protocol. Only http and https are allowed.' });
             }
 
-            // Resolve IP to prevent SSRF
-            const dns = require('dns').promises;
-            const lookup = await dns.lookup(url.hostname);
-            const ip = lookup.address;
+            const httpAgent = getSafeAgent('http:');
+            const httpsAgent = getSafeAgent('https:');
 
-            // Block private and loopback IP ranges
-            const isPrivate = (addr) => {
-                // IPv4
-                const ipv4Private = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.)/;
-                // IPv6
-                const ipv6Private = /^(::1$|fe80:|fc00:|fd00:)/i;
-                return ipv4Private.test(addr) || ipv6Private.test(addr);
+            const axiosConfig = { 
+                timeout: 5000,
+                maxContentLength: 5000000,
+                httpAgent,
+                httpsAgent
             };
 
-            if (isPrivate(ip)) {
-                return res.json({ valid: false, error: 'Invalid URL: Private IP ranges are not allowed.' });
-            }
-
-            await axios.head(urlString, { 
-                timeout: 5000,
-                maxContentLength: 5000000
-            });
-            res.json({ valid: true });
-        } catch (e) {
-            // If DNS lookup failed or axios HEAD failed
-            if (e.code === 'ENOTFOUND' || e.code === 'EADDRNOTAVAIL') {
-                return res.json({ valid: false, error: `Host not found: ${urlString}` });
-            }
-
-            // Attempt a GET request if the server rejects HEAD requests
             try {
-                await axios.get(urlString, { 
-                    timeout: 5000, 
-                    responseType: 'stream',
-                    maxContentLength: 5000000
-                });
+                await axios.head(urlString, axiosConfig);
                 res.json({ valid: true });
-            } catch (e2) {
-                 const msg = e2.response ? `Status ${e2.response.status}` : e2.message;
-                 res.json({ valid: false, error: msg });
+            } catch (e) {
+                // Attempt a GET request if the server rejects HEAD requests
+                try {
+                    await axios.get(urlString, { ...axiosConfig, responseType: 'stream' });
+                    res.json({ valid: true });
+                } catch (e2) {
+                     const msg = e2.response ? `Status ${e2.response.status}` : e2.message;
+                     res.json({ valid: false, error: msg });
+                }
             }
+        } catch (e) {
+            res.json({ valid: false, error: e.message });
         }
     },
 
