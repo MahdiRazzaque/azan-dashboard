@@ -74,7 +74,7 @@ export default function HealthTab({ config, systemHealth, refreshHealth, refresh
             
             if (res.ok) {
                 setFeedback(prev => ({ ...prev, [target]: 'Refreshed' }));
-                // Trigger context refresh to update UI with NEW health data
+                // Trigger context refresh to update UI with backend health data
                 await refreshHealth(target);
             } else {
                 setFeedback(prev => ({ ...prev, [target]: 'Failed' }));
@@ -231,11 +231,47 @@ function HealthCard({ title, icon, children }) {
 function HealthRow({ label, status, lastChecked, enabled, canToggle = true, onToggle, onRefresh, refreshing, feedback, id, systemHealth }) {
     const isMonitored = enabled && status !== 'disabled';
     
+    // Get health data from systemHealth (persisted in backend cache)
+    const healthData = systemHealth?.[id];
+    const message = healthData?.message || '';
+    
+    // Detect if a health check has been performed (not just initialised or monitoring disabled)
+    const uncheckedMessages = ['Initialising...', 'Monitoring Disabled'];
+    const hasBeenChecked = healthData && !uncheckedMessages.includes(message);
+    
     // Detect configuration warnings vs true offline status
-    const message = systemHealth?.[id]?.message || '';
     const configWarnings = ['Token Missing', 'No API Key', 'HTTPS Base URL required', 'Not Configured'];
     const isConfigIssue = message && configWarnings.some(w => message.includes(w));
-    const displayStatus = isConfigIssue ? 'config-warning' : (isMonitored ? status : (status === 'disabled' ? 'disabled' : 'not-monitored'));
+    
+    // Determine the display status - use actual health data if checked
+    let displayStatus;
+    if (status === 'disabled') {
+        displayStatus = 'disabled';
+    } else if (hasBeenChecked) {
+        // A health check has been performed - show actual result
+        displayStatus = isConfigIssue ? 'config-warning' : (healthData.healthy ? 'online' : 'offline');
+    } else if (isMonitored) {
+        displayStatus = status;
+    } else {
+        displayStatus = 'not-monitored';
+    }
+    
+    // Determine display message
+    const getDisplayMessage = () => {
+        if (status === 'disabled') return 'Output Strategy Disabled';
+        if (hasBeenChecked) {
+            // Show actual health result
+            if (isConfigIssue) return message;
+            return healthData.healthy ? 'Healthy / Online' : 'Unreachable / Offline';
+        }
+        if (isMonitored) {
+            return isConfigIssue ? message : (status === 'online' ? 'Healthy / Online' : 'Unreachable / Offline');
+        }
+        return 'Automated Monitoring Disabled';
+    };
+    
+    // Show last checked time if a check has been performed
+    const showLastChecked = lastChecked && (isMonitored || hasBeenChecked);
     
     return (
         <div className="flex items-center justify-between p-3 bg-app-card rounded border border-app-border">
@@ -244,8 +280,8 @@ function HealthRow({ label, status, lastChecked, enabled, canToggle = true, onTo
                 <div>
                     <div className="font-medium text-app-text">{label}</div>
                     <div className="text-xs text-app-dim">
-                        {status === 'disabled' ? 'Output Strategy Disabled' : (isMonitored ? (isConfigIssue ? message : (status === 'online' ? 'Healthy / Online' : 'Unreachable / Offline')) : 'Automated Monitoring Disabled')}
-                        {lastChecked && isMonitored && ` • Last Checked: ${new Date(lastChecked).toLocaleTimeString()}`}
+                        {getDisplayMessage()}
+                        {showLastChecked && ` • Last Checked: ${new Date(lastChecked).toLocaleTimeString()}`}
                     </div>
                 </div>
             </div>
