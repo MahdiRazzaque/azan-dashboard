@@ -561,13 +561,26 @@ describe('API Routes Integration', () => {
     describe('File Upload', () => {
         const testFileName = 'test_upload_integration.mp3';
         const testFilePath = path.join(__dirname, testFileName);
+        const tempDir = path.join(__dirname, '../../../public/audio/temp');
+        const customDir = path.join(__dirname, '../../../public/audio/custom');
         
         beforeAll(() => {
+            const realFs = jest.requireActual('fs');
+            
+            // Create the directories that multer and the controller need
+            // These must exist for the real file operations to succeed
+            if (!realFs.existsSync(tempDir)) {
+                realFs.mkdirSync(tempDir, { recursive: true });
+            }
+            if (!realFs.existsSync(customDir)) {
+                realFs.mkdirSync(customDir, { recursive: true });
+            }
+            
             // Write a real file with valid MP3 magic bytes for supertest to stream
             const mp3Header = Buffer.from([0xFF, 0xFB, 0x90, 0x44]);
             const dummyContent = Buffer.alloc(100, 0);
             const content = Buffer.concat([mp3Header, dummyContent]);
-            jest.requireActual('fs').writeFileSync(testFilePath, content);
+            realFs.writeFileSync(testFilePath, content);
             
             // Allow unlink to fail silently in mock
             fs.unlinkSync.mockImplementation(() => {});
@@ -581,9 +594,15 @@ describe('API Routes Integration', () => {
             }
             
             // Cleanup the uploaded destination if it wrote to disk
-            const uploadedPath = path.join(__dirname, '../../../public/audio/custom', testFileName);
+            const uploadedPath = path.join(customDir, testFileName);
             if (realFs.existsSync(uploadedPath)) {
                 realFs.unlinkSync(uploadedPath);
+            }
+            
+            // Cleanup the temp file if multer left one
+            const tempPath = path.join(tempDir, testFileName);
+            if (realFs.existsSync(tempPath)) {
+                realFs.unlinkSync(tempPath);
             }
         });
 
