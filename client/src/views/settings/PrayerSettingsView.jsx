@@ -48,8 +48,10 @@ export default function PrayerSettingsView() {
         fetch('/api/system/audio-files')
             .then(res => res.json())
             .then(data => {
+                // The API returns { files: [], total: 0, ... } due to pagination
+                const files = data.files || [];
                 // Filter out TTS/Cache files as per requirement
-                const filtered = data.filter(f => f.type !== 'cache');
+                const filtered = files.filter(f => f.type !== 'cache');
                 setAudioFiles(filtered);
             })
             .catch(err => console.error("Failed to load audio files", err));

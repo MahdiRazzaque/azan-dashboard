@@ -26,7 +26,7 @@ describe('FileManagerView Final Push Fix v2', () => {
     vi.clearAllMocks();
     useSettings.mockReturnValue({ systemHealth: {}, config: { automation: { baseUrl: 'http://base' } } });
     vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url) => {
-        if (url === '/api/system/audio-files') return mockResponse(mockFiles);
+        if (url === '/api/system/audio-files') return mockResponse({ files: mockFiles, total: mockFiles.length, page: 1, limit: 50, totalPages: 1 });
         if (url === '/api/system/outputs/registry') return mockResponse([]);
         return mockResponse({ success: true });
     }));
