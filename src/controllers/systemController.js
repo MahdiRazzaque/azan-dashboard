@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
 const { DateTime } = require('luxon');
@@ -117,11 +117,13 @@ const systemController = {
         const metaCustomDir = path.join(__dirname, '../public/audio/custom');
         const metaCacheDir = path.join(__dirname, '../public/audio/cache');
         
-        // Ensure necessary directories exist
-        if (!fs.existsSync(audioCustomDir)) fs.mkdirSync(audioCustomDir, { recursive: true });
-        if (!fs.existsSync(audioCacheDir)) fs.mkdirSync(audioCacheDir, { recursive: true });
-        if (!fs.existsSync(metaCustomDir)) fs.mkdirSync(metaCustomDir, { recursive: true });
-        if (!fs.existsSync(metaCacheDir)) fs.mkdirSync(metaCacheDir, { recursive: true });
+        // Ensure necessary directories exist asynchronously
+        await Promise.all([
+            fs.mkdir(audioCustomDir, { recursive: true }),
+            fs.mkdir(audioCacheDir, { recursive: true }),
+            fs.mkdir(metaCustomDir, { recursive: true }),
+            fs.mkdir(metaCacheDir, { recursive: true })
+        ]);
 
         /**
          * Scans a directory for MP3 files and associates them with metadata.
@@ -129,37 +131,46 @@ const systemController = {
          * @param {string} audioDir - The directory containing audio files.
          * @param {string} metaDir - The directory containing metadata files.
          * @param {string} type - The category of the audio files (e.g., 'custom', 'cache').
-         * @returns {Array<object>} An array of audio file objects with metadata.
+         * @returns {Promise<Array<object>>} A promise resolving to an array of audio file objects with metadata.
          */
-        const getFiles = (audioDir, metaDir, type) => {
-            if (!fs.existsSync(audioDir)) return [];
-            return fs.readdirSync(audioDir)
-                .filter(f => f.endsWith('.mp3'))
-                .map(f => {
-                    const metaPath = path.join(metaDir, f + '.json');
-                    
-                    let metadata = {};
-                    if (fs.existsSync(metaPath)) {
-                        try {
-                            metadata = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-                        } catch (e) { /* ignore corrupt meta */ }
-                    }
+        const getFiles = async (audioDir, metaDir, type) => {
+            try {
+                await fs.access(audioDir);
+            } catch (e) {
+                return [];
+            }
 
-                    return { 
-                        name: f, 
-                        type, 
-                        path: `${type}/${f}`,
-                        url: `/public/audio/${type}/${f}`,
-                        vmCompatible: metadata.vmCompatible,
-                        vmIssues: metadata.vmIssues,
-                        metadata: metadata
-                    };
-                })
-                .filter(file => !file.metadata.hidden);
+            const files = await fs.readdir(audioDir);
+            const mp3Files = files.filter(f => f.endsWith('.mp3'));
+
+            const results = await Promise.all(mp3Files.map(async (f) => {
+                const metaPath = path.join(metaDir, f + '.json');
+                
+                let metadata = {};
+                try {
+                    await fs.access(metaPath);
+                    const metaContent = await fs.readFile(metaPath, 'utf8');
+                    metadata = JSON.parse(metaContent);
+                } catch (e) { /* ignore missing or corrupt meta */ }
+
+                return { 
+                    name: f, 
+                    type, 
+                    path: `${type}/${f}`,
+                    url: `/public/audio/${type}/${f}`,
+                    vmCompatible: metadata.vmCompatible,
+                    vmIssues: metadata.vmIssues,
+                    metadata: metadata
+                };
+            }));
+            
+            return results.filter(file => !file.metadata.hidden);
         };
         
-        const custom = getFiles(audioCustomDir, metaCustomDir, 'custom');
-        const cache = getFiles(audioCacheDir, metaCacheDir, 'cache');
+        const [custom, cache] = await Promise.all([
+            getFiles(audioCustomDir, metaCustomDir, 'custom'),
+            getFiles(audioCacheDir, metaCacheDir, 'cache')
+        ]);
         
         return [...custom, ...cache];
     },
@@ -380,13 +391,6 @@ const systemController = {
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
      * @returns {Promise<void>} Sends a JSON response containing the available voices.
-     */
-    /**
-     * Retrieves the list of available TTS voices.
-     * 
-     * @param {import('express').Request} req - The Express request object.
-     * @param {import('express').Response} res - The Express response object.
-     * @returns {void} Sends a JSON response with the available voices.
      */
     async getVoices(req, res) {
         const voices = voiceService.getVoices();

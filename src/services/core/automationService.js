@@ -9,11 +9,11 @@ const AUDIO_DIR = path.join(__dirname, '../../../public/audio');
 
 /**
  * Resolves the audio source path and URL based on the trigger settings.
- * 
- * @param {Object} settings - The trigger settings for the specific prayer event.
+ *
+ * @param {Object} settings - The trigger settings object.
  * @param {string} prayer - The name of the prayer.
- * @param {string} event - The type of event (e.g., preAdhan, adhan).
- * @returns {Object} An object containing the absolute file path and relative URL of the audio.
+ * @param {string} event - The name of the event (e.g., 'azan', 'pre-azan').
+ * @returns {Object} An object containing the filePath and url of the audio source.
  */
 const getAudioSource = (settings, prayer, event) => {
     if (settings.type === 'tts') {
@@ -39,10 +39,11 @@ const getAudioSource = (settings, prayer, event) => {
 
 /**
  * Helper to wrap a promise with a timeout and AbortController.
- * @param {Function} task - Function that returns a promise and accepts a signal.
- * @param {number} ms - Timeout in milliseconds.
- * @param {string} errorMsg - Error message if timeout occurs.
- * @returns {Promise<any>} The result of the task.
+ *
+ * @param {Function} task - A function that returns a promise and accepts an AbortSignal.
+ * @param {number} ms - The timeout duration in milliseconds.
+ * @param {string} errorMsg - The error message to throw if the timeout is reached.
+ * @returns {Promise<any>} A promise that resolves with the task result or rejects on timeout.
  */
 const withTimeout = async (task, ms, errorMsg) => {
     const controller = new AbortController();
@@ -63,9 +64,10 @@ const withTimeout = async (task, ms, errorMsg) => {
 
 /**
  * Helper to delay execution.
- * @param {number} ms - Delay in milliseconds.
- * @param {AbortSignal} [signal] - Optional AbortSignal to cancel the delay.
- * @returns {Promise<void>}
+ *
+ * @param {number} ms - The delay duration in milliseconds.
+ * @param {AbortSignal} [signal] - An optional signal to abort the delay.
+ * @returns {Promise<void>} A promise that resolves after the delay.
  */
 const delay = (ms, signal) => {
     return new Promise((resolve, reject) => {
@@ -85,13 +87,12 @@ const delay = (ms, signal) => {
 /**
  * Validates and prepares the audio asset for an automation event.
  * Attempts to regenerate TTS files if missing or invalid.
- * 
- * @param {Object} settings - The trigger settings.
+ *
+ * @param {Object} settings - The trigger settings object.
  * @param {string} prayer - The name of the prayer.
- * @param {string} event - The type of event.
- * @param {Object} config - The system configuration.
- * @returns {Promise<{success: boolean, source?: Object}>} The validation result and source details.
- * @private
+ * @param {string} event - The name of the event.
+ * @param {Object} config - The current system configuration.
+ * @returns {Promise<Object>} A promise that resolves to an object indicating success and providing the source.
  */
 const _validateAndPrepareAudio = async (settings, prayer, event, config) => {
     const source = getAudioSource(settings, prayer, event);
@@ -116,7 +117,15 @@ const _validateAndPrepareAudio = async (settings, prayer, event, config) => {
             return { success: false };
         }
     } else if (settings.type === 'file') {
-        if (!source.filePath || !fs.existsSync(source.filePath)) {
+        let exists = false;
+        if (source.filePath) {
+            try {
+                await fs.promises.access(source.filePath);
+                exists = true;
+            } catch (e) {}
+        }
+
+        if (!exists) {
             console.error(`[Automation] Aborting ${prayer} ${event}: Custom file missing (${source.filePath})`);
             sseService.broadcast({
                 type: 'LOG',
@@ -134,11 +143,10 @@ const _validateAndPrepareAudio = async (settings, prayer, event, config) => {
 
 /**
  * Identifies active targets and calculates the master lead time for an automation event.
- * 
- * @param {Object} config - The system configuration.
- * @param {Object} settings - The trigger settings.
- * @returns {{activeTargets: Array<Object>, masterLeadTime: number}} The active targets and timing details.
- * @private
+ *
+ * @param {Object} config - The current system configuration.
+ * @param {Object} settings - The trigger settings object.
+ * @returns {Object} An object containing the active targets and the maximum lead time required.
  */
 const _getActiveTargets = (config, settings) => {
     const configuredTargets = settings.targets || [];
@@ -149,7 +157,6 @@ const _getActiveTargets = (config, settings) => {
 
     targets.forEach(targetId => {
         const outputConfig = config.automation?.outputs?.[targetId];
-        // 'browser' is implicitly enabled if not explicitly disabled
         const isEnabled = targetId === 'browser' ? (outputConfig?.enabled !== false) : outputConfig?.enabled;
         
         if (isEnabled) {
@@ -166,13 +173,12 @@ const _getActiveTargets = (config, settings) => {
 
 /**
  * Executes an automation event for a single target strategy.
- * 
- * @param {Object} target - The target details (id and lead time).
- * @param {number} masterLeadTime - The overall master lead time.
- * @param {Object} payload - The automation payload.
- * @param {Object} executionMetadata - Additional metadata for execution.
- * @returns {Promise<void>}
- * @private
+ *
+ * @param {Object} target - The target definition containing targetId and leadTime.
+ * @param {number} masterLeadTime - The maximum lead time across all active targets.
+ * @param {Object} payload - The execution payload.
+ * @param {Object} executionMetadata - Metadata for the execution (e.g., isTest).
+ * @returns {Promise<void>} A promise that resolves when the target execution is finished.
  */
 const _executeTarget = async (target, masterLeadTime, payload, executionMetadata) => {
     const { targetId, leadTime } = target;
@@ -180,15 +186,6 @@ const _executeTarget = async (target, masterLeadTime, payload, executionMetadata
         const strategy = OutputFactory.getStrategy(targetId);
         const metadata = strategy.constructor.getMetadata();
         
-        // Perform health check (except for browser)
-        if (targetId !== 'browser') {
-            const health = await strategy.healthCheck();
-            if (!health.healthy) {
-                console.warn(`[Automation] Skipping target '${targetId}': Service is unhealthy (${health.message || 'Unknown error'})`);
-                return;
-            }
-        }
-
         const waitDelay = masterLeadTime - leadTime;
         const timeoutMs = metadata.timeoutMs || 5000;
         
@@ -209,11 +206,10 @@ const _executeTarget = async (target, masterLeadTime, payload, executionMetadata
 
 /**
  * Main entry point for triggering an automated prayer event.
- * Orchestrates audio preparation and output target execution.
- * 
- * @param {string} prayer - The name of the prayer.
- * @param {string} event - The type of event.
- * @returns {Promise<void>}
+ *
+ * @param {string} prayer - The name of the prayer to trigger.
+ * @param {string} event - The name of the event to trigger.
+ * @returns {Promise<void>} A promise that resolves when all target executions have been settled.
  */
 const triggerEvent = async (prayer, event) => {
     const config = configService.get();
@@ -223,7 +219,6 @@ const triggerEvent = async (prayer, event) => {
         return;
     }
 
-    // 1. Audio Asset Validation & Preparation
     const { success, source } = await _validateAndPrepareAudio(settings, prayer, event, config);
     if (!success) return;
     
@@ -233,7 +228,6 @@ const triggerEvent = async (prayer, event) => {
         payload: { message: `Triggering ${prayer} ${event}`, timestamp: new Date().toISOString() }
     });
 
-    // 2. Target Selection and Execution Orchestration
     const { activeTargets, masterLeadTime } = _getActiveTargets(config, settings);
     
     const payload = {
@@ -245,7 +239,6 @@ const triggerEvent = async (prayer, event) => {
     
     const executionMetadata = { isTest: false };
 
-    // Execute targets in parallel (each handles its own stagger delay)
     const promises = activeTargets.map(target => 
         _executeTarget(target, masterLeadTime, payload, executionMetadata)
     );

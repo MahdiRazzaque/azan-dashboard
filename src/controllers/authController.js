@@ -39,14 +39,20 @@ const authController = {
         }
 
         try {
-            const hashed = hashPassword(password);
+            const hashed = await hashPassword(password);
             await envManager.setEnvValue('ADMIN_PASSWORD', hashed);
             
-            // Automatically generate a secret for JWT signing if one is not already present
+            // Automatically generate secrets for JWT and Encryption if not already present
             let jwtSecret = process.env.JWT_SECRET;
             if (!jwtSecret) {
                 jwtSecret = envManager.generateSecret(64);
                 await envManager.setEnvValue('JWT_SECRET', jwtSecret);
+            }
+
+            let encryptionSalt = process.env.ENCRYPTION_SALT;
+            if (!encryptionSalt) {
+                encryptionSalt = envManager.generateSecret(32);
+                await envManager.setEnvValue('ENCRYPTION_SALT', encryptionSalt);
             }
 
             // Generate an initial token for immediate login after setup
@@ -77,7 +83,7 @@ const authController = {
         if (!password) return res.status(400).json({ error: 'Missing password' });
 
         try {
-            const hashed = hashPassword(password);
+            const hashed = await hashPassword(password);
             await envManager.setEnvValue('ADMIN_PASSWORD', hashed);
             res.json({ success: true, message: 'Password updated' });
         } catch (e) {
@@ -90,9 +96,9 @@ const authController = {
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
-     * @returns {void}
+     * @returns {Promise<void>}
      */
-    login: (req, res) => {
+    login: async (req, res) => {
         const { password } = req.body;
         const adminPassword = process.env.ADMIN_PASSWORD;
 
@@ -103,9 +109,13 @@ const authController = {
             });
         }
 
-        if (verifyPassword(password, adminPassword)) {
-            // Revert to password as fallback secret if JWT_SECRET is unexpectedly missing
-            const secret = process.env.JWT_SECRET || adminPassword;
+        const isValid = await verifyPassword(password, adminPassword);
+        if (isValid) {
+            const secret = process.env.JWT_SECRET;
+            if (!secret) {
+                return res.status(500).json({ error: 'System security not fully configured (Missing JWT Secret)' });
+            }
+
             const token = jwt.sign({ role: 'admin' }, secret, { expiresIn: '24h' });
 
             res.cookie('auth_token', token, {

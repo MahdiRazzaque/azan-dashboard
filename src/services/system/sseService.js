@@ -69,7 +69,9 @@ const log = (message, level = 'info') => {
     }
 
     // [REQ-006] Write to persistent log file
-    logger.writeToFile(entry);
+    logger.writeToFile(entry).catch(err => {
+        console.error('[SSEService] Failed to write log to file:', err.message);
+    });
     
     // Broadcast wrapped in LOG type to match frontend expectations
     broadcast({ type: 'LOG', payload: entry });

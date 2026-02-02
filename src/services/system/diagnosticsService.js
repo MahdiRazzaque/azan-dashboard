@@ -1,15 +1,16 @@
 const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
 const { DateTime } = require('luxon');
 const prayerTimeService = require('@services/core/prayerTimeService');
 const { calculateIqamah } = require('@utils/calculations');
+const { resolveTemplate } = require('./audioAssetService');
 
 /**
  * Calculates the current status of all automation triggers for the given configuration.
- * Determines if triggers have passed or are upcoming based on the current time and state.
- * 
- * @param {Object} config - The application configuration object.
- * @returns {Promise<Object>} A report containing the status and details of each prayer event trigger.
+ *
+ * @param {Object} config - The system configuration object.
+ * @returns {Promise<Object>} A promise that resolves to an object representing the status of each trigger.
  */
 const getAutomationStatus = async (config) => {
     const timezone = config.location.timezone;
@@ -17,8 +18,6 @@ const getAutomationStatus = async (config) => {
     const triggers = config.automation.triggers;
     const prayerNames = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
     
-    // We need today's prayer times to calculate accurate trigger times
-    // Assuming caching is handled by prayerTimeService layers
     let prayerData;
     try {
         prayerData = await prayerTimeService.getPrayerTimes(config, now);
@@ -41,7 +40,6 @@ const getAutomationStatus = async (config) => {
 
         const start = DateTime.fromISO(startISO).setZone(timezone);
 
-        // Determine Iqamah (Same logic as Scheduler)
         let iqamah = null;
         const prayerConfig = config.prayers[prayer];
         const isOverride = prayerConfig?.iqamahOverride === true;
@@ -54,18 +52,17 @@ const getAutomationStatus = async (config) => {
         }
 
         /**
-         * Internal helper to determine the status and details of a single trigger.
-         * 
-         * @param {Object} triggerConfig - The configuration for a specific trigger.
-         * @param {import('luxon').DateTime} time - The calculated time for the trigger.
-         * @returns {Object} The status, time, and descriptive details of the trigger.
+         * Helper to determine the status of a specific trigger.
+         *
+         * @param {Object} triggerConfig - The configuration for the trigger.
+         * @param {import('luxon').DateTime} time - The calculated execution time for the trigger.
+         * @returns {Object} An object containing the status, time, and details of the trigger.
          */
         const getStatus = (triggerConfig, time) => {
             const enabled = triggerConfig?.enabled;
             if (!enabled) return { status: 'DISABLED' };
             if (!time) return { status: 'ERROR', error: 'Time calculation failed' };
             
-            // Extract Details for Hover
             const type = triggerConfig.type || 'file';
             let source = 'Unknown';
             if (type === 'file') source = triggerConfig.path ? path.basename(triggerConfig.path) : 'No File';
@@ -87,18 +84,12 @@ const getAutomationStatus = async (config) => {
             }
         };
 
-        // 1. Adhan
         result[prayer].adhan = getStatus(prayerTriggers.adhan, start);
-
-        // 2. Pre-Adhan
         const preAdhanOffset = prayerTriggers.preAdhan?.offsetMinutes || 0;
         result[prayer].preAdhan = getStatus(prayerTriggers.preAdhan, start.minus({ minutes: preAdhanOffset }));
 
-        // 3 & 4. Iqamah events (skip for sunrise)
         if (prayer !== 'sunrise') {
             result[prayer].iqamah = getStatus(prayerTriggers.iqamah, iqamah);
-
-            // 4. Pre-Iqamah
             const preIqamahOffset = prayerTriggers.preIqamah?.offsetMinutes || 0;
             result[prayer].preIqamah = getStatus(prayerTriggers.preIqamah, iqamah ? iqamah.minus({ minutes: preIqamahOffset }) : null);
         }
@@ -107,83 +98,85 @@ const getAutomationStatus = async (config) => {
     return result;
 };
 
-const { resolveTemplate } = require('./audioAssetService');
-
 /**
  * Checks the status of TTS (Text-to-Speech) assets for the given configuration.
- * Identifies if assets are configured, cached, or missing.
- * 
- * @param {Object} config - The application configuration object.
- * @returns {Promise<Object>} A report of the TTS status for all relevant prayer events.
+ *
+ * @param {Object} config - The system configuration object.
+ * @returns {Promise<Object>} A promise that resolves to an object indicating the status of TTS assets.
  */
 const getTTSStatus = async (config) => {
     const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
     const result = {};
 
     const cacheDir = path.join(process.cwd(), 'public', 'audio', 'cache');
+    const metaCacheDir = path.join(__dirname, '../../public/audio/cache');
+
+    const checkTasks = [];
 
     for (const prayer of prayers) {
         result[prayer] = {};
         const prayerTriggers = config.automation.triggers[prayer] || {};
-        
         const events = prayer === 'sunrise' ? ['preAdhan', 'adhan'] : ['preAdhan', 'adhan', 'preIqamah', 'iqamah'];
 
         for (const event of events) {
             const triggerConfig = prayerTriggers[event];
             
-            // Check if automation is enabled at all
             if (!triggerConfig || !triggerConfig.enabled) {
                 result[prayer][event] = { status: 'DISABLED' };
                 continue;
             }
 
-            const audioType = triggerConfig.type || 'file'; // Default to file if undefined
+            const audioType = triggerConfig.type || 'file';
 
             if (audioType === 'url') {
                 result[prayer][event] = { status: 'URL', detail: triggerConfig.url };
             } 
             else if (audioType === 'file') {
-                 // Custom file logic
                  const filename = triggerConfig.path ? path.basename(triggerConfig.path) : 'Unknown';
                  result[prayer][event] = { status: 'CUSTOM_FILE', detail: filename };
             } 
             else if (audioType === 'tts') {
-                 // TTS Logic
-                 const expectedFilename = `tts_${prayer}_${event}.mp3`;
-                 const audioPath = path.join(cacheDir, expectedFilename);
-                 const metaPath = path.join(__dirname, '../../public/audio/cache', expectedFilename + '.json');
-                 
-                 if (fs.existsSync(audioPath) && fs.existsSync(metaPath)) {
-                     try {
-                         const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-                         
-                         // Expectation Check
-                         const expectedText = resolveTemplate(triggerConfig.template, prayer, triggerConfig.offsetMinutes);
-                         
-                         if (meta.text === expectedText) {
-                             result[prayer][event] = { 
-                                 status: 'GENERATED', 
-                                 detail: meta.generatedAt 
-                             };
-                         } else {
-                             result[prayer][event] = { 
-                                 status: 'MISMATCH', 
-                                 detail: 'Template changed'
-                             };
-                         }
-
-                     } catch (e) {
-                         result[prayer][event] = { status: 'ERROR', detail: 'Corrupt Meta' };
-                     }
-                 } else {
-                     result[prayer][event] = { status: 'MISSING' };
-                 }
+                checkTasks.push((async () => {
+                    const expectedFilename = `tts_${prayer}_${event}.mp3`;
+                    const audioPath = path.join(cacheDir, expectedFilename);
+                    const metaPath = path.join(metaCacheDir, expectedFilename + '.json');
+                    
+                    try {
+                        await fsp.access(audioPath);
+                        await fsp.access(metaPath);
+                        
+                        const content = await fsp.readFile(metaPath, 'utf8');
+                        const meta = JSON.parse(content);
+                        
+                        const expectedText = resolveTemplate(triggerConfig.template, prayer, triggerConfig.offsetMinutes);
+                        
+                        if (meta.text === expectedText) {
+                            result[prayer][event] = { 
+                                status: 'GENERATED', 
+                                detail: meta.generatedAt 
+                            };
+                        } else {
+                            result[prayer][event] = { 
+                                status: 'MISMATCH', 
+                                detail: 'Template changed'
+                            };
+                        }
+                    } catch (e) {
+                        if (e.code === 'ENOENT') {
+                            result[prayer][event] = { status: 'MISSING' };
+                        } else {
+                            result[prayer][event] = { status: 'ERROR', detail: 'Corrupt Meta or Access Denied' };
+                        }
+                    }
+                })());
             }
             else {
                  result[prayer][event] = { status: 'UNKNOWN' };
             }
         }
     }
+
+    await Promise.all(checkTasks);
     return result;
 };
 

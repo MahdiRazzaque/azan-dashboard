@@ -5,6 +5,9 @@ const dotenv = require('dotenv');
 const ENV_FILE_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../.env');
 dotenv.config({ path: ENV_FILE_PATH });
 
+const logger = require('@utils/logger');
+logger.ensureLogDir(); // Ensure log directory exists early for the logger initializer
+
 require('@utils/loggerInitializer')(); // Initialise global logger interception
 
 const apiRoutes = require('@routes/index');
@@ -59,16 +62,21 @@ const startServer = async (port = PORT) => {
         console.log(`Health check available at http://localhost:${PORT}/api/health`);
         
         const envManager = require('@utils/envManager');
-        const logger = require('@utils/logger');
 
         // [REQ-006] Maintain persistent logs
         await logger.rotateLogs();
 
-        // [REQ-004] Ensure robust JWT_SECRET exists
+        // [REQ-004] Ensure robust security secrets exist
         if (!process.env.JWT_SECRET) {
             console.log('[Startup] JWT_SECRET missing. Generating a robust 64-byte key...');
             const secret = envManager.generateSecret(64);
             await envManager.setEnvValue('JWT_SECRET', secret);
+        }
+
+        if (!process.env.ENCRYPTION_SALT) {
+            console.log('[Startup] ENCRYPTION_SALT missing. Generating a robust 32-byte salt...');
+            const salt = envManager.generateSecret(32);
+            await envManager.setEnvValue('ENCRYPTION_SALT', salt);
         }
 
         // Initialise Config Service
@@ -131,6 +139,12 @@ const startServer = async (port = PORT) => {
         } catch (e) {
             console.error('[Startup] Failed to synchronise audio assets:', e.message);
         }
+
+        // Run Asset Migration (non-blocking)
+        const assetMigrationService = require('@services/system/assetMigrationService');
+        assetMigrationService.migrateAll().catch(e => {
+            console.error('[Startup] Asset migration failed:', e.message);
+        });
 
         // Start Scheduler
         await initScheduler();

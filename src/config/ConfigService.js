@@ -16,6 +16,17 @@ class ConfigNotInitializedError extends Error {
     }
 }
 
+class CriticalConfigurationError extends Error {
+    /**
+     * Initialises a new instance of the CriticalConfigurationError class.
+     * @param {string} message - The error message.
+     */
+    constructor(message) {
+        super(message);
+        this.name = 'CriticalConfigurationError';
+    }
+}
+
 /**
  * Service responsible for managing application configuration, including loading,
  * merging local overrides, and applying environment variable overrides.
@@ -48,7 +59,19 @@ class ConfigService {
      */
     async init() {
         if (this._isInitialized) return;
+
+        // Ensure critical environment variables are present before proceeding
+        // We do this here after reload() potentially loads them from .env
         await this.reload();
+
+        if (!process.env.JWT_SECRET) {
+            throw new CriticalConfigurationError('JWT_SECRET environment variable is required for security.');
+        }
+
+        if (!process.env.ENCRYPTION_SALT) {
+            throw new CriticalConfigurationError('ENCRYPTION_SALT environment variable is required for security.');
+        }
+
         this._isInitialized = true;
     }
 
@@ -107,7 +130,7 @@ class ConfigService {
         }
 
         // Decrypt sensitive fields loaded from local.json
-        this._processSensitiveFields(rawConfig, 'decrypt');
+        await this._processSensitiveFields(rawConfig, 'decrypt');
 
         // [Migration Hook] Ensure final configuration structure is up-to-date
         rawConfig = migrationService.migrateConfig(rawConfig);
@@ -212,7 +235,7 @@ class ConfigService {
     async _saveLocal(config) {
         // Create a deep copy to avoid mutating the original config while encrypting
         const copy = JSON.parse(JSON.stringify(config));
-        this._processSensitiveFields(copy, 'encrypt');
+        await this._processSensitiveFields(copy, 'encrypt');
 
         const tempPath = `${this._localPath}.tmp`;
         const content = JSON.stringify(copy, null, 2);
@@ -407,6 +430,11 @@ class ConfigService {
         const output = Array.isArray(target) ? [...target] : { ...target };
 
         for (const key in source) {
+            // Guard against prototype pollution
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+                continue;
+            }
+
             if (Array.isArray(source[key])) {
                 // Arrays are completely overwritten in this configuration system
                  output[key] = source[key];
@@ -529,16 +557,20 @@ class ConfigService {
      * @private
      */
     _getEncryptionKey() {
-        return process.env.JWT_SECRET || 'azan-dashboard-v2-fallback-secret-non-production';
+        if (!process.env.JWT_SECRET) {
+            throw new CriticalConfigurationError('JWT_SECRET environment variable is required for security.');
+        }
+        return process.env.JWT_SECRET;
     }
 
     /**
      * Encrypts or decrypts sensitive fields in the configuration object.
      * @param {Object} obj - The configuration object to process.
      * @param {'encrypt'|'decrypt'} action - The action to perform.
+     * @returns {Promise<void>}
      * @private
      */
-    _processSensitiveFields(obj, action = 'encrypt') {
+    async _processSensitiveFields(obj, action = 'encrypt') {
         if (!obj || typeof obj !== 'object') return;
 
         const key = this._getEncryptionKey();
@@ -562,13 +594,13 @@ class ConfigService {
                                     if (action === 'encrypt') {
                                         // Only encrypt if it's not already encrypted and not masked
                                         if (!val.includes(':') && !encryption.isMasked(val)) {
-                                            outputConfig.params[sKey] = encryption.encrypt(val, key);
+                                            outputConfig.params[sKey] = await encryption.encrypt(val, key);
                                         }
                                     } else {
                                         // Decrypt if it looks like encrypted data
                                         if (val.includes(':')) {
                                             try {
-                                                outputConfig.params[sKey] = encryption.decrypt(val, key);
+                                                outputConfig.params[sKey] = await encryption.decrypt(val, key);
                                             } catch (e) {
                                                 // Decryption failed (wrong key or corrupted), keep as is
                                             }
@@ -601,12 +633,12 @@ class ConfigService {
                                 if (val && typeof val === 'string') {
                                     if (action === 'encrypt') {
                                         if (!val.includes(':') && !encryption.isMasked(val)) {
-                                            source[sKey] = encryption.encrypt(val, key);
+                                            source[sKey] = await encryption.encrypt(val, key);
                                         }
                                     } else {
                                         if (val.includes(':')) {
                                             try {
-                                                source[sKey] = encryption.decrypt(val, key);
+                                                source[sKey] = await encryption.decrypt(val, key);
                                             } catch (e) { /* ignore */ }
                                         }
                                     }
@@ -620,4 +652,4 @@ class ConfigService {
     }
 }
 
-module.exports = { ConfigService, ConfigNotInitializedError };
+module.exports = { ConfigService, ConfigNotInitializedError, CriticalConfigurationError };

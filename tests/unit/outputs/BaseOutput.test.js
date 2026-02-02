@@ -39,6 +39,18 @@ describe('BaseOutput', () => {
         });
     });
 
+    describe('validateAsset', () => {
+        it('should return valid by default', async () => {
+            const result = await output.validateAsset('path/to/file.mp3', {});
+            expect(result).toEqual({
+                valid: true,
+                lastChecked: expect.any(String),
+                issues: []
+            });
+            expect(new Date(result.lastChecked).getTime()).not.toBeNaN();
+        });
+    });
+
     describe('getSecretRequirementKeys', () => {
         it('should return keys marked as sensitive in metadata', () => {
             const keys = output.getSecretRequirementKeys();

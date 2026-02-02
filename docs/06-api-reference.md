@@ -50,7 +50,7 @@ The API uses **HttpOnly Cookies** storing a JWT (JSON Web Token) for authenticat
 | `POST` | `/update` | Validates and saves new configuration. Triggers hot-reload. |
 | `POST` | `/env` | Securely updates environment variables (e.g. `BASE_URL`). |
 | `POST` | `/reset` | Resets configuration to factory defaults (`default.json`). |
-| `POST` | `/upload` | Uploads a custom MP3 file to `public/audio/custom`. |
+| `POST` | `/upload` | Uploads a custom MP3 file. Returns metadata and compatibility info. |
 | `DELETE`| `/files` | Deletes a custom audio file. |
 
 ### Prayers (`/api/prayers`)

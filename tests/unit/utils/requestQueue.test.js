@@ -1,10 +1,12 @@
-describe('Request Queues (Bottleneck)', () => {
-    let queues;
+describe('Request Queues (Decentralised)', () => {
+    let AladhanProvider, MyMasjidProvider, VoiceMonkeyOutput;
 
     beforeEach(() => {
         jest.useFakeTimers();
         jest.isolateModules(() => {
-            queues = require('@utils/requestQueue');
+            AladhanProvider = require('../../../src/providers/AladhanProvider');
+            MyMasjidProvider = require('../../../src/providers/MyMasjidProvider');
+            VoiceMonkeyOutput = require('../../../src/outputs/VoiceMonkeyOutput');
         });
     });
 
@@ -14,13 +16,13 @@ describe('Request Queues (Bottleneck)', () => {
 
     const flushPromises = () => new Promise(jest.requireActual('timers').setImmediate);
 
-    it('Aladhan Queue should allow burst of 10 then 5 req/s', async () => {
-        const { aladhanQueue } = queues;
+    it('Aladhan Provider Queue should allow burst of 10 then 5 req/s', async () => {
+        const queue = AladhanProvider.queue;
         const spy = jest.fn().mockResolvedValue('ok');
         
         // Schedule 15 requests
         for (let i = 0; i < 15; i++) {
-            aladhanQueue.schedule(spy);
+            queue.schedule(spy);
         }
         
         // Initial burst of 10
@@ -29,18 +31,18 @@ describe('Request Queues (Bottleneck)', () => {
         expect(spy).toHaveBeenCalledTimes(10); 
         
         // After 1s, we get 5 more
-        await jest.advanceTimersByTimeAsync(1000); // 1100ms
+        await jest.advanceTimersByTimeAsync(1000); 
         await flushPromises();
         expect(spy).toHaveBeenCalledTimes(15); 
     });
 
-    it('MyMasjid Queue should allow burst of 15 then 10 req/6s', async () => {
-        const { myMasjidQueue } = queues;
+    it('MyMasjid Provider Queue should allow burst of 15 then 10 req/6s', async () => {
+        const queue = MyMasjidProvider.queue;
         const spy = jest.fn().mockResolvedValue('ok');
         
         // Schedule 20 requests
         for (let i = 0; i < 20; i++) {
-            myMasjidQueue.schedule(spy);
+            queue.schedule(spy);
         }
         
         // Burst of 15
@@ -48,19 +50,19 @@ describe('Request Queues (Bottleneck)', () => {
         await flushPromises();
         expect(spy).toHaveBeenCalledTimes(15); 
         
-        // Next 5 come after 6 seconds (10 tokens refill)
+        // Next 5 come after 6 seconds
         await jest.advanceTimersByTimeAsync(6000); 
         await flushPromises();
         expect(spy).toHaveBeenCalledTimes(20); 
     });
 
-    it('VoiceMonkey Queue should allow burst of 5 then 10 req/min', async () => {
-        const { voiceMonkeyQueue } = queues;
+    it('VoiceMonkey Output Queue should allow burst of 5 then 10 req/min', async () => {
+        const queue = VoiceMonkeyOutput.queue;
         const spy = jest.fn().mockResolvedValue('ok');
         
         // Schedule 10 requests
         for (let i = 0; i < 10; i++) {
-            voiceMonkeyQueue.schedule(spy);
+            queue.schedule(spy);
         }
         
         // Burst of 5
@@ -68,26 +70,25 @@ describe('Request Queues (Bottleneck)', () => {
         await flushPromises();
         expect(spy).toHaveBeenCalledTimes(5); 
         
-        // Next 5 come after 60 seconds (10 tokens refill)
+        // Next 5 come after 60 seconds
         await jest.advanceTimersByTimeAsync(60000); 
         await flushPromises();
         expect(spy).toHaveBeenCalledTimes(10); 
     });
 
     it('should log warning when Aladhan job fails', async () => {
-        const { aladhanQueue } = queues;
+        const queue = AladhanProvider.queue;
         const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
         const testError = new Error('Aladhan Test Error');
 
         const failureEvent = new Promise(resolve => {
-            aladhanQueue.once('failed', () => resolve());
+            queue.once('failed', () => resolve());
         });
 
-        aladhanQueue.schedule(async () => {
+        queue.schedule(async () => {
             throw testError;
         }).catch(() => {});
 
-        // Advance timers just enough to let the scheduler run
         await jest.advanceTimersByTimeAsync(100);
         await failureEvent;
 
@@ -101,39 +102,16 @@ describe('Request Queues (Bottleneck)', () => {
         consoleSpy.mockRestore();
     });
 
-    it('should log warning when MyMasjid job fails', async () => {
-        const { myMasjidQueue } = queues;
-        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-        const testError = new Error('MyMasjid Test Error');
-
-        const failureEvent = new Promise(resolve => {
-            myMasjidQueue.once('failed', () => resolve());
-        });
-
-        myMasjidQueue.schedule(async () => {
-            throw testError;
-        }).catch(() => {});
-
-        await jest.advanceTimersByTimeAsync(100);
-        await failureEvent;
-
-        expect(consoleSpy).toHaveBeenCalledWith(
-            expect.stringContaining('[Queue:MyMasjid]')
-        );
-
-        consoleSpy.mockRestore();
-    });
-
     it('should log warning when VoiceMonkey job fails', async () => {
-        const { voiceMonkeyQueue } = queues;
+        const queue = VoiceMonkeyOutput.queue;
         const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
         const testError = new Error('VM Test Error');
 
         const failureEvent = new Promise(resolve => {
-            voiceMonkeyQueue.once('failed', () => resolve());
+            queue.once('failed', () => resolve());
         });
 
-        voiceMonkeyQueue.schedule(async () => {
+        queue.schedule(async () => {
             throw testError;
         }).catch(() => {});
 

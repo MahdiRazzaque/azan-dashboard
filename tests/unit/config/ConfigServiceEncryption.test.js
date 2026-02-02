@@ -11,8 +11,7 @@ describe('ConfigService Encryption', () => {
     const TEST_KEY = 'test-jwt-secret-64-bytes-long-random-string-placeholder-!!!!!!';
 
     beforeAll(() => {
-        // Mock providers to avoid real factory lookups if they fail in test environment
-        // Actually, they should be fine as long as they are required.
+        process.env.ENCRYPTION_SALT = 'test-salt';
     });
 
     beforeEach(async () => {
@@ -54,12 +53,12 @@ describe('ConfigService Encryption', () => {
         expect(encryptedToken).not.toBe('sensitive-token-123');
         
         // Decrypt to verify
-        const decrypted = encryption.decrypt(encryptedToken, TEST_KEY);
+        const decrypted = await encryption.decrypt(encryptedToken, TEST_KEY);
         expect(decrypted).toBe('sensitive-token-123');
     });
 
     it('should decrypt sensitive fields when loading from local.json', async () => {
-        const encryptedToken = encryption.encrypt('loaded-token-456', TEST_KEY);
+        const encryptedToken = await encryption.encrypt('loaded-token-456', TEST_KEY);
         const localData = {
             automation: {
                 outputs: {
@@ -92,5 +91,19 @@ describe('ConfigService Encryption', () => {
         await configService.update(updateData);
         const config = configService.get();
         expect(config.sources.primary.type).toBe('aladhan');
+    });
+
+    it('should throw error if JWT_SECRET is missing during init', async () => {
+        delete process.env.JWT_SECRET;
+        configService.reset();
+        await expect(configService.init()).rejects.toThrow(/JWT_SECRET.*required/);
+    });
+
+    it('should throw error if ENCRYPTION_SALT is missing during init', async () => {
+        delete process.env.ENCRYPTION_SALT;
+        configService.reset();
+        await expect(configService.init()).rejects.toThrow(/ENCRYPTION_SALT.*required/);
+        // Restore salt for other tests (though beforeEach should handle it if moved)
+        process.env.ENCRYPTION_SALT = 'test-salt';
     });
 });

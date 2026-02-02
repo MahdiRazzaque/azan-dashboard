@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 const checkDiskSpace = require('check-disk-space').default;
 const configService = require('@config');
@@ -13,31 +13,31 @@ const CACHE_DIR = path.join(AUDIO_DIR, 'cache');
 const storageService = {
     /**
      * Recursively calculates the size of a directory in bytes.
-     * Uses lstatSync to avoid following symlinks, which prevents infinite recursion.
+     * Uses fs.lstat to avoid following symlinks, which prevents infinite recursion.
      * 
      * @param {string} dirPath - The absolute path to the directory.
      * @param {Set<string>} [visitedPaths=new Set()] - A set of resolved paths already visited to prevent cycles.
-     * @returns {number} The total size of the directory in bytes.
+     * @returns {Promise<number>} A promise resolving to the total size of the directory in bytes.
      */
-    getDirSize(dirPath, visitedPaths = new Set()) {
+    async getDirSize(dirPath, visitedPaths = new Set()) {
         let size = 0;
         const realPath = path.resolve(dirPath);
         if (visitedPaths.has(realPath)) return 0;
         visitedPaths.add(realPath);
 
         try {
-            if (!fs.existsSync(dirPath)) return 0;
+            await fs.access(dirPath);
             
-            const files = fs.readdirSync(dirPath);
+            const files = await fs.readdir(dirPath);
             for (const file of files) {
                 const filePath = path.join(dirPath, file);
                 try {
-                    const stats = fs.lstatSync(filePath);
+                    const stats = await fs.lstat(filePath);
                     if (stats.isSymbolicLink()) {
                         continue; // Skip symlinks to avoid cross-device/circular issues
                     }
                     if (stats.isDirectory()) {
-                        size += this.getDirSize(filePath, visitedPaths);
+                        size += await this.getDirSize(filePath, visitedPaths);
                     } else {
                         size += stats.size;
                     }
@@ -46,7 +46,10 @@ const storageService = {
                 }
             }
         } catch (dirError) {
-            console.error(`[StorageService] Error reading directory: ${dirPath}`, dirError.message);
+            // Only log error if it's not a 'file not found' error
+            if (dirError.code !== 'ENOENT' && dirError.message !== 'ENOENT') {
+                console.error(`[StorageService] Error reading directory: ${dirPath}`, dirError.message);
+            }
         }
         return size;
     },
@@ -57,8 +60,10 @@ const storageService = {
      * @returns {Promise<{total: number, custom: number, cache: number}>} A promise resolving to usage statistics in bytes.
      */
     async getUsage() {
-        const customSize = this.getDirSize(CUSTOM_DIR);
-        const cacheSize = this.getDirSize(CACHE_DIR);
+        const [customSize, cacheSize] = await Promise.all([
+            this.getDirSize(CUSTOM_DIR),
+            this.getDirSize(CACHE_DIR)
+        ]);
         
         return {
             total: customSize + cacheSize,
@@ -69,7 +74,8 @@ const storageService = {
 
     /**
      * Get system disk stats for the audio partition.
-     * @returns {Promise<number|null>} Free space in bytes or null if failed.
+     *
+     * @returns {Promise<number|null>} A promise resolving to the free space in bytes, or null if the check failed.
      */
     async getSystemStats() {
         try {
@@ -107,8 +113,9 @@ const storageService = {
     },
 
     /**
-     * Calculate a recommended storage limit based on active triggers.
-     * @returns {number} Recommended limit in GB.
+     * Calculates a recommended storage limit based on the currently active triggers.
+     *
+     * @returns {number} The recommended storage limit in gigabytes.
      */
     calculateRecommendedLimit() {
         const config = configService.get();

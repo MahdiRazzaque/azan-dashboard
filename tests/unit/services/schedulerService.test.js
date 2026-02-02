@@ -138,10 +138,10 @@ describe('SchedulerService', () => {
     });
 
     describe('Maintenance Jobs', () => {
-        it('should run hourly health check', async () => {
+        it('should run daily health check at 00:00', async () => {
             await service.initScheduler();
             const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_HEALTH_CHECK);
-            expect(call[1]).toBe('30 2 * * *');
+            expect(call[1]).toBe('0 0 * * *');
             await call[2]();
             expect(healthCheck.refresh).toHaveBeenCalled();
         });

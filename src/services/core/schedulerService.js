@@ -261,7 +261,7 @@ const scheduleMaintenanceJobs = () => {
     maintenanceCallbacks[jobConstants.JOB_HEALTH_CHECK] = healthAction;
     maintenanceCallbacks[jobConstants.JOB_AUDIO_ASSETS] = assetAction;
     maintenanceCallbacks[jobConstants.JOB_SOURCE_HEALTH] = sourceAction;
-    maintenanceCallbacks[jobConstants.JOB_MIDNIGHT_REFRESH] = midnightAction;
+    maintenanceCallbacks[jobConstants.JOB_MIDNRESH] = midnightAction;
 
     /**
      * A higher-order function that wraps a maintenance action.
@@ -293,7 +293,7 @@ const scheduleMaintenanceJobs = () => {
         jobs.push(boundaryJob);
     }
 
-    const healthJob = schedule.scheduleJob(jobConstants.JOB_HEALTH_CHECK, '30 2 * * *', schedulerWrap(healthAction));
+    const healthJob = schedule.scheduleJob(jobConstants.JOB_HEALTH_CHECK, '0 0 * * *', schedulerWrap(healthAction));
     if (healthJob) {
         healthJob.jobName = jobConstants.JOB_HEALTH_CHECK;
         healthJob.category = 'maintenance';

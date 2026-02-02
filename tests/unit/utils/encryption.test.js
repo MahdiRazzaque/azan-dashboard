@@ -3,32 +3,52 @@ const { encrypt, decrypt, mask, isMasked } = require('@utils/encryption');
 describe('Encryption Utils', () => {
     const secretKey = 'test-secret-key-32-chars-long-!!!';
     const plaintext = 'sensitive-data-123';
+    const originalSalt = process.env.ENCRYPTION_SALT;
+
+    beforeAll(() => {
+        // Set salt for tests
+        process.env.ENCRYPTION_SALT = 'test-salt-for-unit-tests';
+    });
+
+    afterAll(() => {
+        process.env.ENCRYPTION_SALT = originalSalt;
+    });
 
     describe('encrypt/decrypt', () => {
-        it('should encrypt and decrypt back to original value', () => {
-            const ciphertext = encrypt(plaintext, secretKey);
+        it('should encrypt and decrypt back to original value', async () => {
+            const ciphertext = await encrypt(plaintext, secretKey);
             expect(ciphertext).not.toBe(plaintext);
             expect(ciphertext).toContain(':'); // Expecting iv:authTag:encrypted format
             
-            const decrypted = decrypt(ciphertext, secretKey);
+            const decrypted = await decrypt(ciphertext, secretKey);
             expect(decrypted).toBe(plaintext);
         });
 
-        it('should produce different ciphertexts for same plaintext (IV)', () => {
-            const cipher1 = encrypt(plaintext, secretKey);
-            const cipher2 = encrypt(plaintext, secretKey);
+        it('should produce different ciphertexts for same plaintext (IV)', async () => {
+            const cipher1 = await encrypt(plaintext, secretKey);
+            const cipher2 = await encrypt(plaintext, secretKey);
             expect(cipher1).not.toBe(cipher2);
         });
 
-        it('should throw error for invalid key', () => {
-            const ciphertext = encrypt(plaintext, secretKey);
-            expect(() => decrypt(ciphertext, 'wrong-key-32-chars-long-!!!!!!!')).toThrow();
+        it('should throw error for invalid key', async () => {
+            const ciphertext = await encrypt(plaintext, secretKey);
+            await expect(decrypt(ciphertext, 'wrong-key-32-chars-long-!!!!!!!')).rejects.toThrow();
         });
 
-        it('should throw error for tampered ciphertext', () => {
-            const ciphertext = encrypt(plaintext, secretKey);
+        it('should throw error for tampered ciphertext', async () => {
+            const ciphertext = await encrypt(plaintext, secretKey);
             const tampered = ciphertext.slice(0, -1) + (ciphertext.slice(-1) === 'a' ? 'b' : 'a');
-            expect(() => decrypt(tampered, secretKey)).toThrow();
+            await expect(decrypt(tampered, secretKey)).rejects.toThrow();
+        });
+
+        it('should throw error if ENCRYPTION_SALT is missing', async () => {
+            const currentSalt = process.env.ENCRYPTION_SALT;
+            delete process.env.ENCRYPTION_SALT;
+            try {
+                await expect(encrypt(plaintext, secretKey)).rejects.toThrow('ENCRYPTION_SALT environment variable is required');
+            } finally {
+                process.env.ENCRYPTION_SALT = currentSalt;
+            }
         });
     });
 
