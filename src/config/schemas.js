@@ -130,6 +130,7 @@ const envUpdateSchema = z.object({
       /_SECRET$/,
       /_URL$/,
       /_ID$/,
+      /_DEVICE$/,
       /^(PORT|TZ|LOG_LEVEL)$/
     ];
 

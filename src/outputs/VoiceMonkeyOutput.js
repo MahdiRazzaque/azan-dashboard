@@ -162,6 +162,7 @@ class VoiceMonkeyOutput extends BaseOutput {
                 params: {
                     token: token,
                     device: deviceToCheck,
+                    text: 'Test'
                 },
                 timeout: 5000,
                 maxContentLength: 5000000
