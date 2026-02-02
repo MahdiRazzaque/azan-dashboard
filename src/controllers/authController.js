@@ -42,11 +42,17 @@ const authController = {
             const hashed = await hashPassword(password);
             await envManager.setEnvValue('ADMIN_PASSWORD', hashed);
             
-            // Automatically generate a secret for JWT signing if one is not already present
+            // Automatically generate secrets for JWT and Encryption if not already present
             let jwtSecret = process.env.JWT_SECRET;
             if (!jwtSecret) {
                 jwtSecret = envManager.generateSecret(64);
                 await envManager.setEnvValue('JWT_SECRET', jwtSecret);
+            }
+
+            let encryptionSalt = process.env.ENCRYPTION_SALT;
+            if (!encryptionSalt) {
+                encryptionSalt = envManager.generateSecret(32);
+                await envManager.setEnvValue('ENCRYPTION_SALT', encryptionSalt);
             }
 
             // Generate an initial token for immediate login after setup
