@@ -88,6 +88,10 @@ const startServer = async (port = PORT) => {
             console.error('[Startup] Failed to initialise ConfigService:', e);
             process.exit(1);
         }
+        
+        // Initialise Health Cache explicitly
+        healthCheck.init();
+        
         const config = configService.get();
 
         console.log('[Config] Loaded Sources:');

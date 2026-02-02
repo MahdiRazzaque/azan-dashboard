@@ -1,4 +1,5 @@
 const axios = require('axios');
+const crypto = require('crypto');
 const configService = require('@config');
 const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../../outputs');
@@ -8,13 +9,14 @@ const configUnmasker = require('@utils/configUnmasker');
 let healthCache = null;
 
 /**
- * Ensures the health cache is initialised with default values.
- * @private
+ * Initialises the health cache with default values.
+ * Exposing as a public method to allow explicit startup control.
  */
-function _ensureInitialized() {
+function init() {
     if (healthCache) return;
 
     healthCache = {
+        local: { healthy: true, message: 'Online' }, // Added local health
         tts: { healthy: false, message: 'Initialising...' },
         primarySource: { healthy: false, message: 'Initialising...' },
         backupSource: { healthy: false, message: 'Initialising...' },
@@ -35,6 +37,16 @@ function _ensureInitialized() {
     } catch (e) {
         // Fallback for cases where OutputFactory might not be fully ready or mocked incorrectly
         console.warn('[HealthCheck] Failed to dynamically load strategies into cache:', e.message);
+    }
+}
+
+/**
+ * Ensures the health cache is initialised with default values.
+ * @private
+ */
+function _ensureInitialized() {
+    if (!healthCache) {
+        init();
     }
 }
 
@@ -145,7 +157,10 @@ async function _refreshTarget(target, params = null, { force = false } = {}) {
 async function refresh(target = 'all', params = null, { force = false } = {}) {
     _ensureInitialized();
     
-    const lockKey = `health-refresh-${target}-${params ? JSON.stringify(params) : 'default'}-${force}`;
+    // Use SHA-256 hash for params to avoid long keys and potential DoS via large JSON strings
+    const paramsString = params ? JSON.stringify(params) : 'default';
+    const paramsHash = crypto.createHash('sha256').update(paramsString).digest('hex');
+    const lockKey = `health-refresh-${target}-${paramsHash}-${force}`;
 
     return asyncLock.run(lockKey, async () => {
         const updates = {};
@@ -182,18 +197,20 @@ async function refresh(target = 'all', params = null, { force = false } = {}) {
         } catch(e) {}
         healthCache.ports.api = process.env.PORT || 3000;
 
-        return healthCache;
+        return getHealth(); // Return a copy
     });
 }
 
 /**
  * Retrieves the current health status from the application's internal cache.
+ * Returns a deep copy to prevent external mutation.
  * 
  * @returns {Object} The current health cache.
  */
 function getHealth() {
     _ensureInitialized();
-    return healthCache;
+    // Return deep copy to prevent external mutation of the shared state
+    return JSON.parse(JSON.stringify(healthCache));
 }
 
 /**
@@ -228,6 +245,7 @@ async function runStartupChecks() {
 }
 
 module.exports = {
+    init,
     refresh,
     getHealth,
     checkSource,

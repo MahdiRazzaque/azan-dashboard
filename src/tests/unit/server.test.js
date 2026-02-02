@@ -13,6 +13,7 @@ jest.mock('@config', () => ({
 }));
 
 jest.mock('@services/system/healthCheck', () => ({
+    init: jest.fn(),
     checkSystemHealth: jest.fn(),
     refresh: jest.fn(),
     runStartupChecks: jest.fn()
@@ -58,6 +59,7 @@ describe('Server Startup', () => {
             },
             location: { coordinates: { lat: 0, long: 0 } }
         });
+        healthCheck.init.mockReturnValue();
         healthCheck.runStartupChecks.mockResolvedValue();
         forceRefresh.mockResolvedValue();
         initScheduler.mockResolvedValue();
@@ -68,6 +70,7 @@ describe('Server Startup', () => {
 
         // Verify
         expect(configService.init).toHaveBeenCalled();
+        expect(healthCheck.init).toHaveBeenCalled();
         expect(healthCheck.runStartupChecks).toHaveBeenCalled();
         expect(forceRefresh).toHaveBeenCalled();
         expect(initScheduler).toHaveBeenCalled();
@@ -195,5 +198,3 @@ describe('Server Startup', () => {
         });
     });
 });
-
-
