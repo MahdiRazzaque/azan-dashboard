@@ -66,6 +66,7 @@ const systemController = {
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the toggle operation completes.
      */
     toggleHealthCheck: async (req, res) => {
         const { serviceId, enabled } = req.body;
@@ -109,11 +110,18 @@ const systemController = {
      * @param {import('express').Response} res - The Express response object.
      */
     getJobs: (req, res) => {
-        if (schedulerService.getJobs) {
-            res.json(schedulerService.getJobs());
-        } else {
-            res.json({ maintenance: [], automation: [] });
-        }
+        /**
+         * Checks and returns the currently scheduled background jobs.
+         */
+        const checkJobs = () => {
+            if (schedulerService.getJobs) {
+                res.json(schedulerService.getJobs());
+            } else {
+                res.json({ maintenance: [], automation: [] });
+            }
+        };
+
+        checkJobs();
     },
 
     /**
@@ -164,17 +172,43 @@ const systemController = {
             fs.mkdir(metaCacheDir, { recursive: true })
         ]);
 
+        /**
+         * Internal helper to scan directories and attach metadata.
+         * 
+         * @param {string} audioDir - Directory to scan.
+         * @param {string} type - File type category.
+         * @returns {Promise<Object[]>} A promise that resolves to file entries.
+         * @private
+         */
         const getFileEntries = async (audioDir, type) => {
-            try {
+            /**
+             * Internal local helper to retrieve file list.
+             * 
+             * @returns {Promise<Object[]>} A promise that resolves to file entries.
+             */
+            const fetchEntries = async () => {
                 const files = await fs.readdir(audioDir);
                 return files.filter(f => f.endsWith('.mp3')).map(f => ({
                     f,
                     type,
                     metaDir: type === 'custom' ? metaCustomDir : metaCacheDir
                 }));
-            } catch (e) {
-                return [];
-            }
+            };
+
+            /**
+             * Internal wrapper to manage result retrieval and errors.
+             * 
+             * @returns {Promise<Object[]>} The fetched or empty file list.
+             */
+            const resultHandler = async () => {
+                try {
+                    return await fetchEntries();
+                } catch (e) {
+                    return [];
+                }
+            };
+
+            return await resultHandler();
         };
 
         const [customEntries, cacheEntries] = await Promise.all([

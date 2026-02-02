@@ -12,7 +12,7 @@ import { twMerge } from 'tailwind-merge';
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 /**
- * A React component that provides a dedicated Health monitoring dashboard.
+ * A React component that provides a dedicated health monitoring dashboard.
  * Displays real-time status of system services, prayer sources, and outputs
  * with controls for automated daily checks and manual refreshes.
  *
@@ -20,6 +20,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
  * @param {Object} props.config - The application configuration object.
  * @param {Object} props.systemHealth - The current health status of system services.
  * @param {Function} props.refreshHealth - Callback to trigger a manual refresh.
+ * @param {Function} props.refresh - Callback to refresh current configuration.
  * @returns {JSX.Element} The rendered health tab.
  */
 export default function HealthTab({ config, systemHealth, refreshHealth, refresh }) {
@@ -190,6 +191,12 @@ export default function HealthTab({ config, systemHealth, refreshHealth, refresh
 
 /**
  * A card container for health items.
+ * 
+ * @param {Object} props - The component properties.
+ * @param {string} props.title - The title of the card.
+ * @param {JSX.Element} props.icon - The icon to display alongside the title.
+ * @param {React.ReactNode} props.children - The child components to render within the card.
+ * @returns {JSX.Element} The rendered health card.
  */
 function HealthCard({ title, icon, children }) {
     return (
@@ -206,6 +213,20 @@ function HealthCard({ title, icon, children }) {
 
 /**
  * A single row in the health dashboard representing one service.
+ * 
+ * @param {Object} props - The component properties.
+ * @param {string} props.label - The display name of the service.
+ * @param {string} props.status - The current operational status (e.g., 'online', 'offline').
+ * @param {string} props.lastChecked - ISO timestamp of the last successful health check.
+ * @param {boolean} props.enabled - Whether automated monitoring is active for this row.
+ * @param {boolean} [props.canToggle=true] - Whether the user can enable/disable monitoring.
+ * @param {Function} props.onToggle - Callback when the toggle switch is flipped.
+ * @param {Function} props.onRefresh - Callback when the manual refresh button is clicked.
+ * @param {boolean} props.refreshing - Whether a background refresh is currently in progress.
+ * @param {string} props.feedback - Transient message to display after an action.
+ * @param {string} props.id - Unique identifier for the service.
+ * @param {Object} props.systemHealth - The full system health state object.
+ * @returns {JSX.Element} The rendered health row.
  */
 function HealthRow({ label, status, lastChecked, enabled, canToggle = true, onToggle, onRefresh, refreshing, feedback, id, systemHealth }) {
     const isMonitored = enabled && status !== 'disabled';
@@ -259,6 +280,10 @@ function HealthRow({ label, status, lastChecked, enabled, canToggle = true, onTo
 
 /**
  * Visual indicator for service status.
+ * 
+ * @param {Object} props - The component properties.
+ * @param {string} props.status - The status key to determine which icon to render.
+ * @returns {JSX.Element} The status icon component.
  */
 function StatusIndicator({ status }) {
     switch (status) {
@@ -273,6 +298,11 @@ function StatusIndicator({ status }) {
 
 /**
  * A reusable toggle switch component.
+ * 
+ * @param {Object} props - The component properties.
+ * @param {boolean} props.checked - Whether the toggle is currently in the 'on' state.
+ * @param {Function} props.onChange - Callback triggered when the toggle is clicked.
+ * @returns {JSX.Element} The rendered toggle switch.
  */
 function Toggle({ checked, onChange }) {
     return (

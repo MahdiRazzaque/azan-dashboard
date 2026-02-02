@@ -19,6 +19,12 @@ const ssrfSafeLookup = (hostname, options, callback) => {
     dns.lookup(hostname, options, (err, address, family) => {
         if (err) return callback(err);
         
+        /**
+         * Checks if an IP address belongs to a private or restricted range.
+         * 
+         * @param {string} addr - The IP address to validate.
+         * @returns {boolean} True if the address is private, false otherwise.
+         */
         const isPrivate = (addr) => {
             // IPv4 Private ranges: 127.0.0.0/8, 10.0.0.0/8, 192.168.0.0/16, 172.16.0.0/12, 169.254.0.0/16
             const ipv4Private = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.)/;
@@ -39,7 +45,7 @@ const ssrfSafeLookup = (hostname, options, callback) => {
  * 
  * @param {string} protocol - 'http:' or 'https:'
  * @param {object} options - Additional agent options
- * @returns {http.Agent|https.Agent}
+ * @returns {http.Agent|https.Agent} A configured Node.js HTTP(S) agent.
  */
 const getSafeAgent = (protocol, options = {}) => {
     const agentOptions = { 

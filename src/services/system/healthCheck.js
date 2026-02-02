@@ -205,7 +205,7 @@ async function refresh(target = 'all', params = null, { force = false } = {}) {
  * Retrieves the current health status from the application's internal cache.
  * Returns a deep copy to prevent external mutation.
  * 
- * @returns {Object} The current health cache.
+ * @returns {Object} The synchronised health state object.
  */
 function getHealth() {
     _ensureInitialized();
@@ -229,6 +229,8 @@ async function toggle(serviceId, enabled) {
 /**
  * Runs a full health check on all services that have monitoring enabled.
  * Designed for daily maintenance routines.
+ * 
+ * @returns {Promise<Object>} The updated health cache.
  */
 async function runDailyMaintenance() {
     console.log('[HealthCheck] Running daily health maintenance...');
@@ -237,6 +239,8 @@ async function runDailyMaintenance() {
 
 /**
  * Runs a full health check on all monitored services during server startup.
+ * 
+ * @returns {Promise<Object>} The initial system health state.
  */
 async function runStartupChecks() {
     console.log('[HealthCheck] Running startup health checks...');

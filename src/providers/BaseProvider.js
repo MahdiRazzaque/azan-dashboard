@@ -1,8 +1,11 @@
 /**
- * Base class for prayer time providers.
+ * Base abstract class for all prayer time providers.
+ * Provides shared logic for configuration handling and request deduplication.
  */
 class BaseProvider {
     /**
+     * Initialises the provider with specific and global configurations.
+     * 
      * @param {Object} sourceConfig - Strategy-specific configuration for this source.
      * @param {Object} globalConfig - The full application configuration.
      */
@@ -26,7 +29,7 @@ class BaseProvider {
     /**
      * Performs a health check on the provider.
      * Must be implemented by subclasses.
-     * @returns {Promise<{healthy: boolean, message: string}>}
+     * @returns {Promise<{healthy: boolean, message: string}>} A status object indicating health state and details.
      * @throws {Error} If not implemented by subclass.
      */
     async healthCheck() {
