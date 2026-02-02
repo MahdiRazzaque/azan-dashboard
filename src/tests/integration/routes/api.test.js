@@ -12,8 +12,21 @@ jest.mock('fs', () => {
     const originalFs = jest.requireActual('fs');
     return {
         ...originalFs,
-        existsSync: jest.fn(() => true),
-        mkdirSync: jest.fn(),
+        existsSync: jest.fn((p) => {
+            // Allow real filesystem check for upload directories so multer can create them
+            if (p && (p.includes('audio/temp') || p.includes('audio\\temp') || 
+                      p.includes('audio/custom') || p.includes('audio\\custom'))) {
+                return originalFs.existsSync(p);
+            }
+            return true;
+        }),
+        mkdirSync: jest.fn((p, opts) => {
+            // Allow real directory creation for upload directories
+            if (p && (p.includes('audio/temp') || p.includes('audio\\temp') ||
+                      p.includes('audio/custom') || p.includes('audio\\custom'))) {
+                return originalFs.mkdirSync(p, opts);
+            }
+        }),
         readdirSync: jest.fn(() => []),
         readFileSync: jest.fn(),
         unlinkSync: jest.fn(),
