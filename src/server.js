@@ -5,6 +5,9 @@ const dotenv = require('dotenv');
 const ENV_FILE_PATH = process.env.ENV_FILE_PATH || path.join(__dirname, '../.env');
 dotenv.config({ path: ENV_FILE_PATH });
 
+const logger = require('@utils/logger');
+logger.ensureLogDir(); // Ensure log directory exists early for the logger initializer
+
 require('@utils/loggerInitializer')(); // Initialise global logger interception
 
 const apiRoutes = require('@routes/index');
@@ -59,7 +62,6 @@ const startServer = async (port = PORT) => {
         console.log(`Health check available at http://localhost:${PORT}/api/health`);
         
         const envManager = require('@utils/envManager');
-        const logger = require('@utils/logger');
 
         // [REQ-006] Maintain persistent logs
         await logger.rotateLogs();
@@ -131,6 +133,12 @@ const startServer = async (port = PORT) => {
         } catch (e) {
             console.error('[Startup] Failed to synchronise audio assets:', e.message);
         }
+
+        // Run Asset Migration (non-blocking)
+        const assetMigrationService = require('@services/system/assetMigrationService');
+        assetMigrationService.migrateAll().catch(e => {
+            console.error('[Startup] Asset migration failed:', e.message);
+        });
 
         // Start Scheduler
         await initScheduler();
