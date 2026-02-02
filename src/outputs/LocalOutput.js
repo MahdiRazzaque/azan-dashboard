@@ -7,6 +7,9 @@ const path = require('path');
 const AUDIO_ROOT = path.resolve(__dirname, '../../public/audio');
 const ALLOWED_AUDIO_PLAYERS = ['mpg123', 'omxplayer', 'aplay', 'mplayer', 'cvlc'];
 
+/**
+ * Strategy for playing audio locally on the server host.
+ */
 class LocalOutput extends BaseOutput {
     /**
      * Retrieves the metadata for the local audio output strategy.
@@ -205,7 +208,7 @@ class LocalOutput extends BaseOutput {
      * 
      * @param {string} filePath - Path to the audio file.
      * @param {Object} metadata - Audio metadata.
-     * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>}
+     * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>} A promise that resolves to the validation result.
      */
     async validateAsset(filePath, metadata) {
         return {

@@ -16,6 +16,8 @@ let inMemoryCache = null;
 
 /**
  * Ensures the data directory exists.
+ *
+ * @returns {Promise<void>} A promise that resolves when the directory is ready.
  */
 async function ensureDataDir() {
   const dataDir = path.dirname(CACHE_FILE);
@@ -155,6 +157,12 @@ async function getPrayerTimes(config, date = DateTime.now()) {
     let newDataMap = null;
     let sourceUsed = null;
 
+    /**
+     * Internal helper to attempt fetching prayer times from a specific source.
+     *
+     * @param {Object} sourceConfig - The configuration for the prayer time source.
+     * @returns {Promise<Object|null>} A promise resolving to the fetched prayer times or null.
+     */
     const tryFetch = async (sourceConfig) => {
       if (!sourceConfig || !sourceConfig.type) return null;
       console.log(`[PrayerService] Attempting fetch from source: ${sourceConfig.type}`);
@@ -232,6 +240,7 @@ async function getPrayerTimes(config, date = DateTime.now()) {
 
 /**
  * Reads the prayer times cache from the file system and populates in-memory cache.
+ *
  * @returns {Promise<Object>} The cached data object.
  */
 async function readCache() {
@@ -255,7 +264,9 @@ async function readCache() {
 
 /**
  * Writes the prayer times cache to the file system and updates in-memory cache.
- * @param {Object} data The cache object to be written.
+ *
+ * @param {Object} data - The cache object to be written.
+ * @returns {Promise<void>} A promise that resolves when the cache is written.
  */
 async function writeCache(data) {
   try {
@@ -269,6 +280,10 @@ async function writeCache(data) {
 
 /**
  * Applies locally configured iqamah overrides.
+ *
+ * @param {Object} prayers - The prayer times object.
+ * @param {Object} config - The system configuration.
+ * @returns {Object} The prayer times object with overrides applied.
  */
 function applyOverrides(prayers, config) {
     if (!prayers) return prayers;
@@ -293,7 +308,8 @@ function applyOverrides(prayers, config) {
 
 /**
  * Forces a refresh of the prayer times by deleting the cache and re-fetching.
- * @param {Object} config The global application configuration.
+ *
+ * @param {Object} config - The global application configuration.
  * @returns {Promise<Object>} A promise resolving to the refreshed prayer times for today.
  */
 async function forceRefresh(config) {

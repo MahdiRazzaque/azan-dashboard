@@ -8,6 +8,9 @@ const { resolveTemplate } = require('./audioAssetService');
 
 /**
  * Calculates the current status of all automation triggers for the given configuration.
+ *
+ * @param {Object} config - The system configuration object.
+ * @returns {Promise<Object>} A promise that resolves to an object representing the status of each trigger.
  */
 const getAutomationStatus = async (config) => {
     const timezone = config.location.timezone;
@@ -48,6 +51,13 @@ const getAutomationStatus = async (config) => {
              iqamah = DateTime.fromISO(calculatedIso).setZone(timezone);
         }
 
+        /**
+         * Helper to determine the status of a specific trigger.
+         *
+         * @param {Object} triggerConfig - The configuration for the trigger.
+         * @param {import('luxon').DateTime} time - The calculated execution time for the trigger.
+         * @returns {Object} An object containing the status, time, and details of the trigger.
+         */
         const getStatus = (triggerConfig, time) => {
             const enabled = triggerConfig?.enabled;
             if (!enabled) return { status: 'DISABLED' };
@@ -90,6 +100,9 @@ const getAutomationStatus = async (config) => {
 
 /**
  * Checks the status of TTS (Text-to-Speech) assets for the given configuration.
+ *
+ * @param {Object} config - The system configuration object.
+ * @returns {Promise<Object>} A promise that resolves to an object indicating the status of TTS assets.
  */
 const getTTSStatus = async (config) => {
     const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];

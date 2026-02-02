@@ -5,6 +5,9 @@ const path = require('path');
 const Bottleneck = require('bottleneck');
 const ConfigService = require('../config');
 
+/**
+ * Strategy for triggering audio playback via the VoiceMonkey API (Alexa).
+ */
 class VoiceMonkeyOutput extends BaseOutput {
     /**
      * Rate limiter for VoiceMonkey API to prevent bans.
@@ -49,7 +52,7 @@ class VoiceMonkeyOutput extends BaseOutput {
      * @param {Object} payload The announcement data including source URL and parameters.
      * @param {import('./BaseOutput').ExecutionMetadata} metadata Execution context flags.
      * @param {AbortSignal} [signal] Optional signal to abort the network request.
-     * @returns {Promise<void>}
+     * @returns {Promise<void>} A promise that resolves when the announcement is triggered.
      */
     async execute(payload, metadata, signal) {
         const isTest = metadata?.isTest;
@@ -136,7 +139,7 @@ class VoiceMonkeyOutput extends BaseOutput {
      * Uses a dummy device ID to ensure the check remains silent and doesn't wake actual devices.
      *
      * @param {Object} [requestedParams] Optional credentials to test instead of config.
-     * @returns {Promise<{healthy: boolean, message: string}>} status report.
+     * @returns {Promise<{healthy: boolean, message: string}>} The health status result.
      */
     async healthCheck(requestedParams) {
         console.log('[Output: VoiceMonkey] Starting health check');
@@ -290,7 +293,7 @@ class VoiceMonkeyOutput extends BaseOutput {
      * 
      * @param {string} filePath - Path to the audio file.
      * @param {Object} metadata - Audio metadata.
-     * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>}
+     * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>} A promise that resolves to the validation result.
      */
     async validateAsset(filePath, metadata) {
         const issues = VoiceMonkeyOutput._getValidationIssues(metadata);

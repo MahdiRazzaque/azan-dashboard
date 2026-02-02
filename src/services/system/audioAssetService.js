@@ -32,6 +32,9 @@ const PRAYER_NAMES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 /**
  * Helper to ensure a single directory exists.
+ *
+ * @param {string} dir - The directory path to ensure.
+ * @returns {Promise<void>} A promise that resolves when the directory is ready.
  */
 async function ensureDir(dir) {
     try {
@@ -43,6 +46,8 @@ async function ensureDir(dir) {
 
 /**
  * Ensures that necessary directories exist.
+ *
+ * @returns {Promise<void>} A promise that resolves when all directories are ready.
  */
 const ensureDirs = async () => {
     const dirs = [AUDIO_CACHE_DIR, AUDIO_TEMP_DIR, AUDIO_CUSTOM_DIR, META_CACHE_DIR, META_CUSTOM_DIR];
@@ -51,6 +56,10 @@ const ensureDirs = async () => {
 
 /**
  * Internal helper to build full metadata including compatibility blocks.
+ *
+ * @param {string} audioPath - The path to the audio file.
+ * @param {Object} basicMetadata - The basic audio metadata extracted from the file.
+ * @returns {Promise<Object>} A promise that resolves to the enriched metadata object.
  */
 const enrichMetadata = async (audioPath, basicMetadata) => {
     const compatibility = {};
@@ -77,6 +86,8 @@ const enrichMetadata = async (audioPath, basicMetadata) => {
 
 /**
  * Cleans up old audio files from the cache directory.
+ *
+ * @returns {Promise<void>} A promise that resolves when the cleanup is complete.
  */
 const cleanupCache = async () => {
     await ensureDirs();
@@ -108,6 +119,9 @@ const cleanupCache = async () => {
 
 /**
  * Cleans up temporary preview audio files.
+ *
+ * @param {boolean} [force=false] - Whether to force deletion of all temp files regardless of age.
+ * @returns {Promise<void>} A promise that resolves when the cleanup is complete.
  */
 const cleanupTempAudio = async (force = false) => {
     console.log(`[AudioService] Cleaning up temporary audio files (force: ${force})...`);
@@ -141,6 +155,11 @@ const cleanupTempAudio = async (force = false) => {
 
 /**
  * Resolves placeholders within a message template string.
+ *
+ * @param {string} template - The message template string containing placeholders.
+ * @param {string} prayerKey - The key identifying the prayer.
+ * @param {number} [offsetMinutes] - Optional offset minutes for placeholders.
+ * @returns {string} The resolved message string.
  */
 const resolveTemplate = (template, prayerKey, offsetMinutes) => {
     let result = template;
@@ -155,6 +174,12 @@ const resolveTemplate = (template, prayerKey, offsetMinutes) => {
 
 /**
  * Generates an audio file using the external Text-to-Speech service.
+ *
+ * @param {string} filename - The name of the file to be generated.
+ * @param {string} text - The text to convert to speech.
+ * @param {string} serviceUrl - The URL of the TTS service.
+ * @param {string} voice - The voice to use for generation.
+ * @returns {Promise<void>} A promise that resolves when the audio is generated.
  */
 const generateTTS = async (filename, text, serviceUrl, voice) => {
     const url = `${serviceUrl}/generate-tts`;
@@ -171,6 +196,12 @@ const generateTTS = async (filename, text, serviceUrl, voice) => {
 
 /**
  * Ensures a TTS file exists and is valid based on current configuration.
+ *
+ * @param {string} prayer - The name of the prayer.
+ * @param {string} event - The name of the event.
+ * @param {Object} settings - Trigger settings for the event.
+ * @param {Object} config - The system configuration.
+ * @returns {Promise<Object>} A promise resolving to a result object indicating success or failure.
  */
 const ensureTTSFile = async (prayer, event, settings, config) => {
     const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
@@ -240,6 +271,9 @@ const ensureTTSFile = async (prayer, event, settings, config) => {
 
 /**
  * Synchronises audio assets with the current configuration.
+ *
+ * @param {boolean} [forceClean=false] - Whether to delete all existing cached assets first.
+ * @returns {Promise<Object>} A promise resolving to an object containing any warnings encountered.
  */
 const syncAudioAssets = async (forceClean = false) => {
     console.log('[AudioService] Synchronising audio assets...');
@@ -291,6 +325,8 @@ const syncAudioAssets = async (forceClean = false) => {
 
 /**
  * Ensures that a "test.mp3" file exists.
+ *
+ * @returns {Promise<void>} A promise that resolves when the test audio is ready.
  */
 const ensureTestAudio = async () => {
     await ensureDirs();
@@ -349,6 +385,12 @@ const ensureTestAudio = async () => {
 
 /**
  * Generates a temporary TTS preview.
+ *
+ * @param {string} template - The message template string.
+ * @param {string} prayerKey - The key identifying the prayer.
+ * @param {number} offsetMinutes - The offset minutes for the template.
+ * @param {string} voice - The voice to use for the preview.
+ * @returns {Promise<Object>} A promise resolving to an object containing the preview URL.
  */
 const previewTTS = async (template, prayerKey, offsetMinutes, voice) => {
     const text = resolveTemplate(template, prayerKey.toLowerCase(), offsetMinutes);
@@ -383,6 +425,8 @@ const previewTTS = async (template, prayerKey, offsetMinutes, voice) => {
 
 /**
  * Generates metadata sidecar files for any existing audio files.
+ *
+ * @returns {Promise<void>} A promise that resolves when the metadata generation is complete.
  */
 const generateMetadataForExistingFiles = async () => {
     await ensureDirs();

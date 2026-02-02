@@ -74,7 +74,8 @@ const storageService = {
 
     /**
      * Get system disk stats for the audio partition.
-     * @returns {Promise<number|null>} Free space in bytes or null if failed.
+     *
+     * @returns {Promise<number|null>} A promise resolving to the free space in bytes, or null if the check failed.
      */
     async getSystemStats() {
         try {
@@ -112,8 +113,9 @@ const storageService = {
     },
 
     /**
-     * Calculate a recommended storage limit based on active triggers.
-     * @returns {number} Recommended limit in GB.
+     * Calculates a recommended storage limit based on the currently active triggers.
+     *
+     * @returns {number} The recommended storage limit in gigabytes.
      */
     calculateRecommendedLimit() {
         const config = configService.get();

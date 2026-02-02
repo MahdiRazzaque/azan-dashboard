@@ -17,6 +17,7 @@ let lastFetched = null;
  * Checks if the cache is still valid based on its age.
  * 
  * @returns {boolean} True if the cache is within the allowed duration, otherwise false.
+ * @private
  */
 const _isCacheValid = () => {
     if (!lastFetched) return false;
@@ -28,6 +29,7 @@ const _isCacheValid = () => {
  * Loads voices from the persistent disk cache using async I/O.
  * 
  * @returns {Promise<Array|null>} The list of voices from cache, or null if loading fails or cache is invalid.
+ * @private
  */
 const _loadFromCache = async () => {
     try {
@@ -56,8 +58,10 @@ const _loadFromCache = async () => {
 
 /**
  * Saves the current voice list to the persistent disk cache using async I/O.
+ * 
  * @param {Array} newVoices - The voices list to save.
- * @returns {Promise<void>}
+ * @returns {Promise<void>} A promise that resolves when the save operation is complete.
+ * @private
  */
 const _saveToCache = async (newVoices) => {
     try {
@@ -80,7 +84,8 @@ const _saveToCache = async (newVoices) => {
 
 /**
  * Fetches the latest voice list from the Python microservice if cache is invalid.
- * @returns {Promise<Array>} The list of voices.
+ * 
+ * @returns {Promise<Array>} A promise resolving to the list of voices.
  */
 const refreshVoices = async () => {
     if (isFetching) return voices;
@@ -131,7 +136,8 @@ const refreshVoices = async () => {
 
 /**
  * Initialises the voice cache by fetching from the Python service.
- * @returns {Promise<void>}
+ * 
+ * @returns {Promise<void>} A promise that resolves when the initialisation is complete.
  */
 const init = async () => {
     await refreshVoices();
