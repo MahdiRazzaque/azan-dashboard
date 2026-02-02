@@ -1,26 +1,22 @@
 /**
- * Abstract base class for all prayer data providers.
- * Provides common functionality like request deduplication.
+ * Base class for prayer time providers.
  */
 class BaseProvider {
     /**
-     * Initialises the base provider with necessary configurations and state.
-     * @param {Object} sourceConfig - Source-specific configuration.
-     * @param {Object} globalConfig - Global application configuration.
+     * @param {Object} sourceConfig - Strategy-specific configuration for this source.
+     * @param {Object} globalConfig - The full application configuration.
      */
     constructor(sourceConfig, globalConfig) {
         this.sourceConfig = sourceConfig;
         this.globalConfig = globalConfig;
-        /** @type {Map<string, Promise>} */
-        this.activeFetches = new Map();
+        this.activeRequests = new Map();
     }
 
     /**
-     * Fetches annual prayer times for a given year.
+     * Retrieves annual prayer times for a given year.
      * Must be implemented by subclasses.
-     * 
-     * @param {number} year - The year to fetch prayer times for.
-     * @returns {Promise<Object>} A map of ISO dates to prayer time data.
+     * @param {number} year - The year to fetch times for.
+     * @returns {Promise<Object>} The prayer times for the year.
      * @throws {Error} If not implemented by subclass.
      */
     async getAnnualTimes(year) {
@@ -28,46 +24,34 @@ class BaseProvider {
     }
 
     /**
-     * Returns the metadata schema for the provider.
+     * Performs a health check on the provider.
      * Must be implemented by subclasses.
-     * 
-     * @returns {Object} The provider metadata.
+     * @returns {Promise<{healthy: boolean, message: string}>}
      * @throws {Error} If not implemented by subclass.
      */
-    static getMetadata() {
-        throw new Error('Method getMetadata() must be implemented');
+    async healthCheck() {
+        throw new Error('Method healthCheck() must be implemented');
     }
 
     /**
-     * Returns a Zod schema for validating the provider's configuration.
-     * 
-     * @returns {import('zod').ZodObject} The Zod schema.
+     * Helper to deduplicate concurrent requests for the same key.
+     * @param {string} key - A unique key for the request (e.g., source-year).
+     * @param {Function} fetchFn - The actual function that performs the fetch.
+     * @returns {Promise<Object>} The result of the fetch.
      */
-    static getConfigSchema() {
-        const { z } = require('zod');
-        return z.object({
-            type: z.string()
-        }).passthrough();
-    }
-
-    /**
-     * Deduplicates concurrent requests to the same resource.
-     * 
-     * @param {string} key - Unique key for the request.
-     * @param {Function} fetchFn - Async function that performs the actual fetch.
-     * @returns {Promise} The promise for the request.
-     */
-    deduplicateRequest(key, fetchFn) {
-        if (this.activeFetches.has(key)) {
-            return this.activeFetches.get(key);
+    async deduplicateRequest(key, fetchFn) {
+        if (this.activeRequests.has(key)) {
+            return this.activeRequests.get(key);
         }
 
-        const promise = fetchFn().finally(() => {
-            this.activeFetches.delete(key);
-        });
+        const requestPromise = fetchFn();
+        this.activeRequests.set(key, requestPromise);
 
-        this.activeFetches.set(key, promise);
-        return promise;
+        try {
+            return await requestPromise;
+        } finally {
+            this.activeRequests.delete(key);
+        }
     }
 }
 

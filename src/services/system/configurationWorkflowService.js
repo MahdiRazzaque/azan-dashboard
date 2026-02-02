@@ -33,41 +33,24 @@ class ConfigurationWorkflowService {
         const locationChanged = JSON.stringify(previousConfig.location) !== JSON.stringify(newConfig.location);
         const requiresRefresh = sourcesChanged || locationChanged;
 
-        // 2. Identify services in use to perform targeted health checks
-        const usedServices = this._getUsedServices(newConfig);
-
-        // 3. Perform targeted health checks
-        if (usedServices.size > 0) {
-            sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Checking Service Health...' } });
-            await Promise.all(Array.from(usedServices).map(service => healthCheck.refresh(service)));
-        }
-
-        // 4. Validate the incoming configuration source
+        // 2. Validate the incoming configuration source
         if (requiresRefresh) {
             sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Validating Configuration...' } });
             await validateConfigSource(newConfig);
         }
 
-        // 5. Save to Disk
+        // 3. Save to Disk
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Saving to Disk...' } });
         await configService.update(newConfig);
 
-        // Refresh prayer source health after save so healthCheck reads the NEW config
-        if (requiresRefresh) {
-            await healthCheck.refresh('primarySource');
-            if (newConfig.sources?.backup && newConfig.sources.backup.enabled !== false) {
-                await healthCheck.refresh('backupSource');
-            }
-        }
-        
-        // 6. Refresh Cache ONLY if source or location has changed
+        // 4. Refresh Cache ONLY if source or location has changed
         let result = { meta: { skip: true } };
         if (requiresRefresh) {
             sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Refreshing Prayer Data...' } });
             result = await forceRefresh(configService.get());
         }
         
-        // 7. Synchronise audio assets
+        // 5. Synchronise audio assets
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Generating Audio Assets...' } });
         let syncResult;
         try {
@@ -78,28 +61,22 @@ class ConfigurationWorkflowService {
             throw new Error(`Sync Failed: ${err.message}. Configuration has been rolled back.`);
         }
 
-        // 8. Re-initialise the scheduler
+        // 6. Re-initialise the scheduler
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Restarting Scheduler...' } });
         await schedulerService.initScheduler(); 
 
-        // 9. Generate warnings
+        // 7. Generate warnings
+        // REQ-002: Use cached health status only to avoid network calls during save
         const warnings = await this._collectWarnings(syncResult, healthCheck.getHealth(), configService.get());
 
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Configuration Saved' } });
         
-                return {
-        
-                    message: 'Settings validated, updated, and cache refreshed.',
-        
-                    meta: result.meta,
-        
-                    warnings: warnings
-        
-                };
-        
-            }
-        
-        
+        return {
+            message: 'Settings updated successfully.',
+            meta: result.meta,
+            warnings: warnings
+        };
+    }
         
     /**
      * Identifies which services are active based on the given configuration.
@@ -138,10 +115,6 @@ class ConfigurationWorkflowService {
         const strategies = OutputFactory.getAllStrategies();
         
         // For polymorphic validation, we need audio file metadata
-        // We'll lazy load systemController helper if needed, or better, 
-        // rely on a service. For now, we'll assume an empty list if not easily accessible
-        // to maintain decouple. 
-        // TODO: Move audio metadata scanning to a dedicated service.
         const audioFiles = []; 
 
         if (finalConfig.automation && finalConfig.automation.triggers) {

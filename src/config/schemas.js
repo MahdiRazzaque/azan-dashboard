@@ -67,6 +67,18 @@ const dataSchema = z.object({
   storageLimit: z.number().min(0.1).default(1.0), // GB
 });
 
+const systemSchema = z.object({
+  healthChecks: z.record(z.string(), z.boolean()).default({
+    api: true,
+    tts: true
+  })
+}).default({
+  healthChecks: {
+    api: true,
+    tts: true
+  }
+});
+
 const configSchema = z.object({
   version: z.number().optional().default(1),
   location: z.object({
@@ -101,6 +113,7 @@ const configSchema = z.object({
   }),
   data: dataSchema,
   automation: automationSchema,
+  system: systemSchema,
 });
 
 const envUpdateSchema = z.object({

@@ -55,6 +55,33 @@ const systemController = {
     },
 
     /**
+     * Toggles automated health monitoring for a specific service.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    toggleHealthCheck: async (req, res) => {
+        const { serviceId, enabled } = req.body;
+        if (!serviceId || typeof enabled !== 'boolean') {
+            return res.status(400).json({ success: false, error: 'serviceId and enabled (boolean) are required.' });
+        }
+        await healthCheck.toggle(serviceId, enabled);
+        res.json({ success: true });
+    },
+
+    /**
+     * Forces a fresh health check for a specific target, bypassing the "Monitoring Disabled" config.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    forceRefreshHealth: async (req, res) => {
+        const { target, params } = req.body;
+        const result = await healthCheck.refresh(target || 'all', params, { force: true });
+        res.json(result);
+    },
+
+    /**
      * Initiates a fresh health check for specified system components.
      * 
      * @param {import('express').Request} req - The Express request object.
@@ -94,7 +121,7 @@ const systemController = {
 
     /**
      * Catalogues available custom and cached audio files from the server's storage,
-     * including VoiceMonkey compatibility metadata.
+     * including compatibility metadata.
      * 
      * @param {import('express').Request} req - The Express request object.
      * @param {import('express').Response} res - The Express response object.
@@ -158,8 +185,6 @@ const systemController = {
                     type, 
                     path: `${type}/${f}`,
                     url: `/public/audio/${type}/${f}`,
-                    vmCompatible: metadata.vmCompatible,
-                    vmIssues: metadata.vmIssues,
                     metadata: metadata
                 };
             }));
