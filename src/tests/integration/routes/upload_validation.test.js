@@ -48,21 +48,6 @@ jest.mock('@config', () => ({
     init: jest.fn().mockResolvedValue()
 }));
 
-// Mock audioValidator
-jest.mock('@utils/audioValidator', () => ({
-    analyseAudioFile: jest.fn().mockResolvedValue({
-        format: 'mp3',
-        bitrate: 128000,
-        duration: 30,
-        size: 1024,
-        mimeType: 'audio/mpeg'
-    }),
-    validateVoiceMonkeyCompatibility: jest.fn().mockReturnValue({
-        vmCompatible: true,
-        vmIssues: []
-    })
-}));
-
 // Mock some other services to avoid startup failures
 jest.mock('@services/system/healthCheck', () => ({
     refresh: jest.fn().mockResolvedValue({}),

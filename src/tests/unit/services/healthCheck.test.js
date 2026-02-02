@@ -39,7 +39,7 @@ describe('HealthCheck Service', () => {
         configService.get.mockReturnValue({
             sources: { primary: { type: 'aladhan' }, backup: { type: 'mymasjid', enabled: false } },
             location: { timezone: 'UTC' },
-            system: { healthChecks: {} }
+            system: { healthChecks: { local: true, voicemonkey: true, primarySource: true, backupSource: true } }
         });
         
         ProviderFactory.create.mockReturnValue({
