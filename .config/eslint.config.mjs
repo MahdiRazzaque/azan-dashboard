@@ -7,7 +7,7 @@ import globals from "globals";
 export default [
   // 1. Global Ignores
   {
-    ignores: ["node_modules/", "dist/", "client/dist/", "coverage/", "client/coverage/"],
+    ignores: ["node_modules/", "dist/", "client/dist/", "coverage/", "client/coverage/", "src/tests/", "client/tests/"],
   },
 
   // =========================================================
