@@ -65,6 +65,19 @@ jest.mock('@services/core/schedulerService', () => ({
     stopAll: jest.fn().mockResolvedValue()
 }));
 
+jest.mock('@utils/audioValidator', () => ({
+    analyseAudioFile: jest.fn().mockResolvedValue({
+        format: 'mpeg',
+        codec: 'mp3',
+        bitrate: 128000,
+        sampleRate: 44100,
+        duration: 10,
+        size: 1000,
+        mimeType: 'audio/mpeg'
+    }),
+    getMimeType: jest.fn()
+}));
+
 // Mock app
 const app = require('../../../server');
 
