@@ -275,6 +275,7 @@ export default function DeveloperSettingsView() {
                         config={config}
                         systemHealth={systemHealth}
                         refreshHealth={refreshHealth}
+                        refresh={refresh}
                     />
                 )}
 

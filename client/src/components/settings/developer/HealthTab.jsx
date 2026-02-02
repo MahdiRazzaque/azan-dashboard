@@ -22,7 +22,7 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
  * @param {Function} props.refreshHealth - Callback to trigger a manual refresh.
  * @returns {JSX.Element} The rendered health tab.
  */
-export default function HealthTab({ config, systemHealth, refreshHealth }) {
+export default function HealthTab({ config, systemHealth, refreshHealth, refresh }) {
     const [outputs, setOutputs] = useState([]);
     const [refreshing, setRefreshing] = useState(null);
     const [feedback, setFeedback] = useState({});
@@ -49,10 +49,8 @@ export default function HealthTab({ config, systemHealth, refreshHealth }) {
                 body: JSON.stringify({ serviceId, enabled })
             });
             if (res.ok) {
-                // Trigger a config reload in the parent context
-                // Most effective way in this architecture is to rely on background polling
-                // or a manual refresh if we had a reload trigger.
-                // For now, we assume the server state is updated.
+                // Re-fetch config to update healthChecks in the UI
+                if (refresh) await refresh();
             }
         } catch (e) {
             console.error("[HealthTab] Toggle failed", e);
@@ -88,6 +86,8 @@ export default function HealthTab({ config, systemHealth, refreshHealth }) {
         }
     };
 
+    if (!config) return null;
+
     const healthChecks = config.system?.healthChecks || {};
 
     return (
@@ -102,22 +102,26 @@ export default function HealthTab({ config, systemHealth, refreshHealth }) {
                     label="API Server" 
                     status="online" // API is always online if we can see this
                     lastChecked={systemHealth.lastChecked}
-                    canToggle={false}
-                    enabled={true}
+                    canToggle={true}
+                    enabled={healthChecks.api === true}
+                    onToggle={(val) => handleToggle('api', val)}
                     onRefresh={() => handleForceRefresh('api')}
                     refreshing={refreshing === 'api'}
                     feedback={feedback.api}
+                    systemHealth={systemHealth}
                 />
                 <HealthRow 
                     id="tts"
                     label="TTS Service" 
                     status={systemHealth.tts?.healthy ? 'online' : 'offline'}
                     lastChecked={systemHealth.lastChecked}
-                    canToggle={false}
-                    enabled={true}
+                    canToggle={true}
+                    enabled={healthChecks.tts === true}
+                    onToggle={(val) => handleToggle('tts', val)}
                     onRefresh={() => handleForceRefresh('tts')}
                     refreshing={refreshing === 'tts'}
                     feedback={feedback.tts}
+                    systemHealth={systemHealth}
                 />
             </HealthCard>
 
@@ -131,11 +135,12 @@ export default function HealthTab({ config, systemHealth, refreshHealth }) {
                     label={`Primary: ${config.sources.primary?.type || 'Not Set'}`}
                     status={systemHealth.primarySource?.healthy ? 'online' : 'offline'}
                     lastChecked={systemHealth.lastChecked}
-                    enabled={healthChecks.primarySource !== false}
+                    enabled={healthChecks.primarySource === true}
                     onToggle={(val) => handleToggle('primarySource', val)}
                     onRefresh={() => handleForceRefresh('primarySource')}
                     refreshing={refreshing === 'primarySource'}
                     feedback={feedback.primarySource}
+                    systemHealth={systemHealth}
                 />
                 {config.sources.backup && (
                     <HealthRow 
@@ -143,11 +148,12 @@ export default function HealthTab({ config, systemHealth, refreshHealth }) {
                         label={`Backup: ${config.sources.backup?.type}`}
                         status={config.sources.backup.enabled === false ? 'disabled' : (systemHealth.backupSource?.healthy ? 'online' : 'offline')}
                         lastChecked={systemHealth.lastChecked}
-                        enabled={healthChecks.backupSource !== false}
+                        enabled={healthChecks.backupSource === true}
                         onToggle={(val) => handleToggle('backupSource', val)}
                         onRefresh={() => handleForceRefresh('backupSource')}
                         refreshing={refreshing === 'backupSource'}
                         feedback={feedback.backupSource}
+                        systemHealth={systemHealth}
                     />
                 )}
             </HealthCard>
@@ -164,11 +170,12 @@ export default function HealthTab({ config, systemHealth, refreshHealth }) {
                         label={output.label}
                         status={config.automation?.outputs?.[output.id]?.enabled === false ? 'disabled' : (systemHealth[output.id]?.healthy ? 'online' : 'offline')}
                         lastChecked={systemHealth.lastChecked}
-                        enabled={healthChecks[output.id] !== false}
+                        enabled={healthChecks[output.id] === true}
                         onToggle={(val) => handleToggle(output.id, val)}
                         onRefresh={() => handleForceRefresh(output.id)}
                         refreshing={refreshing === output.id}
                         feedback={feedback[output.id]}
+                        systemHealth={systemHealth}
                     />
                 ))}
                 {outputs.length === 0 && (
@@ -200,17 +207,23 @@ function HealthCard({ title, icon, children }) {
 /**
  * A single row in the health dashboard representing one service.
  */
-function HealthRow({ label, status, lastChecked, enabled, canToggle = true, onToggle, onRefresh, refreshing, feedback }) {
+function HealthRow({ label, status, lastChecked, enabled, canToggle = true, onToggle, onRefresh, refreshing, feedback, id, systemHealth }) {
     const isMonitored = enabled && status !== 'disabled';
+    
+    // Detect configuration warnings vs true offline status
+    const message = systemHealth?.[id]?.message || '';
+    const configWarnings = ['Token Missing', 'No API Key', 'HTTPS Base URL required', 'Not Configured'];
+    const isConfigIssue = message && configWarnings.some(w => message.includes(w));
+    const displayStatus = isConfigIssue ? 'config-warning' : (isMonitored ? status : (status === 'disabled' ? 'disabled' : 'not-monitored'));
     
     return (
         <div className="flex items-center justify-between p-3 bg-app-card rounded border border-app-border">
             <div className="flex items-center gap-4">
-                <StatusIndicator status={isMonitored ? status : (status === 'disabled' ? 'disabled' : 'not-monitored')} />
+                <StatusIndicator status={displayStatus} />
                 <div>
                     <div className="font-medium text-app-text">{label}</div>
                     <div className="text-xs text-app-dim">
-                        {status === 'disabled' ? 'Output Strategy Disabled' : (isMonitored ? (status === 'online' ? 'Healthy / Online' : 'Unreachable / Offline') : 'Automated Monitoring Disabled')}
+                        {status === 'disabled' ? 'Output Strategy Disabled' : (isMonitored ? (isConfigIssue ? message : (status === 'online' ? 'Healthy / Online' : 'Unreachable / Offline')) : 'Automated Monitoring Disabled')}
                         {lastChecked && isMonitored && ` • Last Checked: ${new Date(lastChecked).toLocaleTimeString()}`}
                     </div>
                 </div>
@@ -251,7 +264,8 @@ function StatusIndicator({ status }) {
     switch (status) {
         case 'online': return <CheckCircle className="w-5 h-5 text-emerald-500" />;
         case 'offline': return <XCircle className="w-5 h-5 text-red-500" />;
-        case 'disabled': return <ShieldAlert className="w-5 h-5 text-amber-500" />;
+        case 'config-warning': return <ShieldAlert className="w-5 h-5 text-amber-500" />;
+        case 'disabled': return <ShieldAlert className="w-5 h-5 text-amber-500 opacity-50" />;
         case 'not-monitored':
         default: return <Circle className="w-5 h-5 text-app-dim" />;
     }
