@@ -35,6 +35,9 @@ jest.mock('@utils/audioValidator');
 jest.mock('@services/core/prayerTimeService', () => ({
     forceRefresh: jest.fn()
 }));
+jest.mock('@services/core/prayerTimeService', () => ({
+    forceRefresh: jest.fn()
+}));
 jest.mock('@services/core/validationService', () => ({
     validateConfigSource: jest.fn(),
     validateConfig: jest.fn()
@@ -61,8 +64,8 @@ describe('settingsController Unit Tests', () => {
         validateConfig.mockReturnValue({ value: {} });
         validateConfigSource.mockResolvedValue();
         audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
+        audioAssetService.enrichMetadata.mockResolvedValue({ duration: 10 });
         audioValidator.analyseAudioFile.mockResolvedValue({ duration: 10 });
-        audioValidator.validateVoiceMonkeyCompatibility.mockReturnValue({ vmCompatible: true });
         systemControllerHelper._getAudioFilesWithMetadata.mockResolvedValue([]);
 
         // Default health state for mocks
@@ -330,9 +333,9 @@ describe('settingsController Unit Tests', () => {
         });
 
         it('should return 200 if file present', async () => {
-             req.file = { originalname: 'test.mp3' };
+             req.file = { filename: 'test_file.mp3', originalname: 'test-file.mp3' };
              await settingsController.uploadFile(req, res);
-             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ filename: 'test.mp3' }));
+             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ filename: 'test_file.mp3' }));
         });
     });
 });

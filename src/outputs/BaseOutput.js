@@ -43,6 +43,20 @@ class BaseOutput {
     }
 
     /**
+     * Validates an audio asset for compatibility with this output strategy.
+     * @param {string} filePath - Path to the audio file.
+     * @param {Object} metadata - Audio metadata (format, bitrate, duration, etc).
+     * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>} Validation result.
+     */
+    async validateAsset(filePath, metadata) {
+        return {
+            valid: true,
+            lastChecked: new Date().toISOString(),
+            issues: []
+        };
+    }
+
+    /**
      * Augments audio metadata with strategy-specific properties (e.g. VoiceMonkey compatibility).
      * @param {Object} metadata - Basic audio metadata (format, bitrate, etc).
      * @returns {Object} Augmented properties.

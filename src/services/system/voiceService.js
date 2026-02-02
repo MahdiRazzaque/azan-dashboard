@@ -1,4 +1,5 @@
 const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
 const axios = require('axios');
 const configService = require('@config');
@@ -24,23 +25,28 @@ const _isCacheValid = () => {
 };
 
 /**
- * Loads voices from the persistent disk cache.
+ * Loads voices from the persistent disk cache using async I/O.
  * 
- * @returns {Array|null} The list of voices from cache, or null if loading fails or cache is invalid.
+ * @returns {Promise<Array|null>} The list of voices from cache, or null if loading fails or cache is invalid.
  */
-const _loadFromCache = () => {
+const _loadFromCache = async () => {
     try {
-        if (fs.existsSync(CACHE_FILE)) {
-            const data = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
-            lastFetched = new Date(data.timestamp);
-            
-            if (_isCacheValid()) {
-                voices = data.voices;
-                console.log(`[VoiceService] Loaded ${voices.length} voices from disk cache (Last updated: ${lastFetched.toISOString()}).`);
-                return voices;
-            } else {
-                console.log('[VoiceService] Disk cache is older than 24h, will refresh.');
-            }
+        try {
+            await fsp.access(CACHE_FILE);
+        } catch (e) {
+            return null;
+        }
+
+        const content = await fsp.readFile(CACHE_FILE, 'utf8');
+        const data = JSON.parse(content);
+        lastFetched = new Date(data.timestamp);
+        
+        if (_isCacheValid()) {
+            voices = data.voices;
+            console.log(`[VoiceService] Loaded ${voices.length} voices from disk cache (Last updated: ${lastFetched.toISOString()}).`);
+            return voices;
+        } else {
+            console.log('[VoiceService] Disk cache is older than 24h, will refresh.');
         }
     } catch (error) {
         console.error('[VoiceService] Failed to read disk cache:', error.message);
@@ -49,19 +55,23 @@ const _loadFromCache = () => {
 };
 
 /**
- * Saves the current voice list to the persistent disk cache.
+ * Saves the current voice list to the persistent disk cache using async I/O.
  * @param {Array} newVoices - The voices list to save.
+ * @returns {Promise<void>}
  */
-const _saveToCache = (newVoices) => {
+const _saveToCache = async (newVoices) => {
     try {
-        if (!fs.existsSync(CACHE_DIR)) {
-            fs.mkdirSync(CACHE_DIR, { recursive: true });
+        try {
+            await fsp.access(CACHE_DIR);
+        } catch (e) {
+            await fsp.mkdir(CACHE_DIR, { recursive: true });
         }
+
         const data = {
             timestamp: new Date().toISOString(),
             voices: newVoices
         };
-        fs.writeFileSync(CACHE_FILE, JSON.stringify(data, null, 2));
+        await fsp.writeFile(CACHE_FILE, JSON.stringify(data, null, 2));
         console.log('[VoiceService] Saved voices to disk cache.');
     } catch (error) {
         console.error('[VoiceService] Failed to save disk cache:', error.message);
@@ -82,7 +92,7 @@ const refreshVoices = async () => {
     }
 
     // 2. Try to load from disk cache if memory is empty or invalid
-    const diskCache = _loadFromCache();
+    const diskCache = await _loadFromCache();
     if (diskCache) {
         console.log("[VoiceService] Using voices from disk cache.");
         return diskCache;
@@ -105,7 +115,7 @@ const refreshVoices = async () => {
             lastFetched = new Date();
             
             // 4. Update disk cache
-            _saveToCache(voices);
+            await _saveToCache(voices);
             
             console.log(`[VoiceService] Successfully cached ${voices.length} voices.`);
         }

@@ -1,7 +1,7 @@
 const BaseOutput = require('./BaseOutput');
 const player = require('play-sound')({});
 const { execFile } = require('child_process');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 
 const AUDIO_ROOT = path.resolve(__dirname, '../../public/audio');
@@ -149,16 +149,24 @@ class LocalOutput extends BaseOutput {
 
             // Linux-specific check for audio hardware access, particularly relevant in Docker environments.
             if (process.platform === 'linux') {
-                if (!fs.existsSync('/dev/snd')) {
+                let hasSnd = true;
+                try {
+                    await fs.access('/dev/snd');
+                } catch (e) {
+                    hasSnd = false;
+                }
+
+                if (!hasSnd) {
                     // Detect if the application is running inside a Docker container.
                     let isDocker = false;
                     try {
-                         if (fs.existsSync('/.dockerenv')) {
-                             isDocker = true;
-                         } else {
-                             const cgroup = fs.readFileSync('/proc/1/cgroup', 'utf8');
-                             if (cgroup.includes('docker')) isDocker = true;
-                         }
+                        try {
+                            await fs.access('/.dockerenv');
+                            isDocker = true;
+                        } catch (e) {
+                            const cgroup = await fs.readFile('/proc/1/cgroup', 'utf8');
+                            if (cgroup.includes('docker')) isDocker = true;
+                        }
                     } catch (e) { }
 
                     if (isDocker) {
@@ -189,6 +197,22 @@ class LocalOutput extends BaseOutput {
         console.log('[Output: Local] Verifying credentials');
         console.log('[Output: Local] Verification: OK');
         return { success: true };
+    }
+
+    /**
+     * Validates an audio asset for compatibility with local playback.
+     * Local playback is generally considered compatible with all audio formats supported by the installed player.
+     * 
+     * @param {string} filePath - Path to the audio file.
+     * @param {Object} metadata - Audio metadata.
+     * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>}
+     */
+    async validateAsset(filePath, metadata) {
+        return {
+            valid: true,
+            lastChecked: new Date().toISOString(),
+            issues: []
+        };
     }
 }
 

@@ -6,8 +6,18 @@ const configService = require('@config');
 
 describe('Test Helpers', () => {
     describe('fsHelper', () => {
+        beforeAll(() => {
+            process.env.JWT_SECRET = 'test-jwt-secret';
+            process.env.ENCRYPTION_SALT = 'test-encryption-salt';
+        });
+
         afterEach(async () => {
             await fsHelper.cleanupTempConfig();
+        });
+
+        afterAll(() => {
+            delete process.env.JWT_SECRET;
+            delete process.env.ENCRYPTION_SALT;
         });
 
         it('should create a temp config and inject it into ConfigService', async () => {

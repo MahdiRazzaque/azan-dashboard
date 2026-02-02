@@ -8,7 +8,6 @@ const MAX_FILES = 10;
 
 /**
  * Ensures the log directory exists.
- * Synchronous to be safe during early startup or logging calls.
  */
 const ensureLogDir = () => {
     if (!fs.existsSync(LOG_DIR)) {
@@ -74,20 +73,17 @@ const rotateLogs = async () => {
  * Includes timestamp and log level.
  * 
  * @param {Object} entry - The log entry object { timestamp, level, message }.
- * @returns {void}
+ * @returns {Promise<void>}
  */
-const writeToFile = (entry) => {
+const writeToFile = async (entry) => {
     try {
-        ensureLogDir();
+        // [REF] Removed ensureLogDir() from hot path.
+        // It is now called once during startup.
         const filePath = getLogFilePath();
         const formatted = `[${entry.timestamp}] [${entry.level.toUpperCase()}] ${entry.message}\n`;
         
-        // Append to file asynchronously
-        fs.appendFile(filePath, formatted, (err) => {
-            if (err) {
-                // Can't use console.error here as it might be intercepted
-            }
-        });
+        // Append to file using promises API for non-blocking I/O
+        await fsAsync.appendFile(filePath, formatted);
     } catch (e) {
         // Fail silently
     }
@@ -96,5 +92,6 @@ const writeToFile = (entry) => {
 module.exports = {
     writeToFile,
     rotateLogs,
+    ensureLogDir,
     LOG_DIR
 };

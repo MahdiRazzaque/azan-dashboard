@@ -1,4 +1,5 @@
 const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
@@ -30,35 +31,72 @@ const ARABIC_NAMES = {
 const PRAYER_NAMES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 /**
+ * Helper to ensure a single directory exists.
+ */
+async function ensureDir(dir) {
+    try {
+        await fsp.access(dir);
+    } catch (e) {
+        await fsp.mkdir(dir, { recursive: true });
+    }
+}
+
+/**
  * Ensures that necessary directories exist.
  */
-const ensureDirs = () => {
-    [AUDIO_CACHE_DIR, AUDIO_TEMP_DIR, AUDIO_CUSTOM_DIR, META_CACHE_DIR, META_CUSTOM_DIR].forEach(dir => {
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
+const ensureDirs = async () => {
+    const dirs = [AUDIO_CACHE_DIR, AUDIO_TEMP_DIR, AUDIO_CUSTOM_DIR, META_CACHE_DIR, META_CUSTOM_DIR];
+    await Promise.all(dirs.map(ensureDir));
+};
+
+/**
+ * Internal helper to build full metadata including compatibility blocks.
+ */
+const enrichMetadata = async (audioPath, basicMetadata) => {
+    const compatibility = {};
+    const strategyInstances = OutputFactory.getAllStrategyInstances();
+    
+    for (const instance of strategyInstances) {
+        const metadata = instance.constructor.getMetadata();
+        compatibility[metadata.id] = await instance.validateAsset(audioPath, basicMetadata);
+    }
+    
+    // Legacy support: aggregate flat fields (e.g. vmCompatible)
+    const legacyAugmentedData = {};
+    strategyInstances.forEach(instance => {
+        Object.assign(legacyAugmentedData, instance.augmentAudioMetadata(basicMetadata));
     });
+
+    return {
+        ...basicMetadata,
+        ...legacyAugmentedData,
+        compatibility,
+        updatedAt: new Date().toISOString()
+    };
 };
 
 /**
  * Cleans up old audio files from the cache directory.
  */
 const cleanupCache = async () => {
-    ensureDirs();
+    await ensureDirs();
     const now = Date.now();
     const MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
 
     try {
-        const files = fs.readdirSync(AUDIO_CACHE_DIR);
+        const files = await fsp.readdir(AUDIO_CACHE_DIR);
         for (const file of files) {
             const filePath = path.join(AUDIO_CACHE_DIR, file);
-            const stats = fs.statSync(filePath);
+            const stats = await fsp.stat(filePath);
             if (now - stats.mtimeMs > MAX_AGE) {
-                fs.unlinkSync(filePath);
+                await fsp.unlink(filePath);
                 
                 // Cleanup metadata as well
                 const metaPath = path.join(META_CACHE_DIR, file + '.json');
-                if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath);
+                try {
+                    await fsp.access(metaPath);
+                    await fsp.unlink(metaPath);
+                } catch (e) { /* ignore */ }
                 
                 console.log(`[AudioService] Deleted old cache file and meta: ${file}`);
             }
@@ -70,26 +108,28 @@ const cleanupCache = async () => {
 
 /**
  * Cleans up temporary preview audio files.
- * 
- * @param {boolean} [force=false] - If true, deletes all files regardless of age.
- * @returns {Promise<void>} Resolves when cleanup is complete.
  */
 const cleanupTempAudio = async (force = false) => {
     console.log(`[AudioService] Cleaning up temporary audio files (force: ${force})...`);
-    if (!fs.existsSync(AUDIO_TEMP_DIR)) return;
+    try {
+        await fsp.access(AUDIO_TEMP_DIR);
+    } catch (e) {
+        return;
+    }
 
     const now = Date.now();
     const MAX_AGE = 1 * 60 * 60 * 1000; // 1 hour
 
     try {
-        const files = fs.readdirSync(AUDIO_TEMP_DIR);
+        const files = await fsp.readdir(AUDIO_TEMP_DIR);
         let deletedCount = 0;
         for (const file of files) {
             if (!file.endsWith('.mp3')) continue;
             const filePath = path.join(AUDIO_TEMP_DIR, file);
+            const stats = await fsp.stat(filePath);
             
-            if (force || (now - fs.statSync(filePath).mtimeMs > MAX_AGE)) {
-                fs.unlinkSync(filePath);
+            if (force || (now - stats.mtimeMs > MAX_AGE)) {
+                await fsp.unlink(filePath);
                 deletedCount++;
             }
         }
@@ -101,11 +141,6 @@ const cleanupTempAudio = async (force = false) => {
 
 /**
  * Resolves placeholders within a message template string.
- * 
- * @param {string} template - The template string containing placeholders like {minutes}.
- * @param {string} prayerKey - The identifier of the prayer (e.g., 'fajr').
- * @param {number} [offsetMinutes] - The time offset in minutes to be converted to words.
- * @returns {string} The resolved message string.
  */
 const resolveTemplate = (template, prayerKey, offsetMinutes) => {
     let result = template;
@@ -120,12 +155,6 @@ const resolveTemplate = (template, prayerKey, offsetMinutes) => {
 
 /**
  * Generates an audio file using the external Text-to-Speech service.
- * 
- * @param {string} filename - The target filename for the generated audio.
- * @param {string} text - The text to be converted to speech.
- * @param {string} serviceUrl - The base URL of the TTS service.
- * @param {string} voice - The voice profile to be used for the speech generation.
- * @returns {Promise<void>} Resolves when the TTS generation is triggered successfully.
  */
 const generateTTS = async (filename, text, serviceUrl, voice) => {
     const url = `${serviceUrl}/generate-tts`;
@@ -142,13 +171,6 @@ const generateTTS = async (filename, text, serviceUrl, voice) => {
 
 /**
  * Ensures a TTS file exists and is valid based on current configuration.
- * Regenerates the file if it's missing or if the template/voice has changed.
- * 
- * @param {string} prayer - The prayer identifier.
- * @param {string} event - The event identifier.
- * @param {Object} settings - The trigger settings for this event.
- * @param {Object} config - The full application configuration.
- * @returns {Promise<{success: boolean, message: string, generated: boolean}>} Object containing success status, message, and generation flag.
  */
 const ensureTTSFile = async (prayer, event, settings, config) => {
     const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
@@ -159,17 +181,19 @@ const ensureTTSFile = async (prayer, event, settings, config) => {
     const effectiveVoice = settings.voice || config.automation?.defaultVoice || 'ar-SA-HamedNeural';
 
     let shouldGenerate = true;
-    if (fs.existsSync(audioPath) && fs.existsSync(metaPath)) {
-        try {
-            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-            if (meta.text === text && meta.voice === effectiveVoice) {
-                const now = new Date();
-                fs.utimesSync(audioPath, now, now);
-                fs.utimesSync(metaPath, now, now);
-                shouldGenerate = false;
-            }
-        } catch (e) { /* corrupted */ }
-    }
+    try {
+        await fsp.access(audioPath);
+        await fsp.access(metaPath);
+        
+        const content = await fsp.readFile(metaPath, 'utf8');
+        const meta = JSON.parse(content);
+        if (meta.text === text && meta.voice === effectiveVoice) {
+            const now = new Date();
+            await fsp.utimes(audioPath, now, now);
+            await fsp.utimes(metaPath, now, now);
+            shouldGenerate = false;
+        }
+    } catch (e) { /* missing or corrupted */ }
 
     if (!shouldGenerate) {
         return { success: true, message: 'Valid file exists', generated: false };
@@ -177,7 +201,7 @@ const ensureTTSFile = async (prayer, event, settings, config) => {
 
     // Check TTS Health before generating
     const healthCheck = require('./healthCheck');
-    const ttsHealth = await healthCheck.refresh('tts');
+    const ttsHealth = await healthCheck.refresh('all');
     if (!ttsHealth.tts?.healthy) {
         return { 
             success: false, 
@@ -198,20 +222,14 @@ const ensureTTSFile = async (prayer, event, settings, config) => {
     try {
         await generateTTS(filename, text, pythonServiceUrl, effectiveVoice);
         
-        const metadata = await audioValidator.analyseAudioFile(audioPath);
+        const basicMetadata = await audioValidator.analyseAudioFile(audioPath);
+        const enrichedMetadata = await enrichMetadata(audioPath, basicMetadata);
         
-        // Polymorphically augment metadata from all strategies
-        const augmentedData = {};
-        OutputFactory.getAllStrategyInstances().forEach(instance => {
-            Object.assign(augmentedData, instance.augmentAudioMetadata(metadata));
-        });
-        
-        fs.writeFileSync(metaPath, JSON.stringify({ 
+        await fsp.writeFile(metaPath, JSON.stringify({ 
             text, 
             voice: effectiveVoice,
             generatedAt: new Date().toISOString(),
-            ...metadata,
-            ...augmentedData
+            ...enrichedMetadata
         }));
         return { success: true, message: 'Successfully generated', generated: true };
     } catch (e) {
@@ -221,14 +239,11 @@ const ensureTTSFile = async (prayer, event, settings, config) => {
 };
 
 /**
- * Synchronises audio assets with the current configuration, generating missing TTS files.
- * 
- * @param {boolean} [forceClean=false] - If true, clears the cache before synchronising.
- * @returns {Promise<object>} An object containing any synchronization warnings.
+ * Synchronises audio assets with the current configuration.
  */
 const syncAudioAssets = async (forceClean = false) => {
     console.log('[AudioService] Synchronising audio assets...');
-    ensureDirs();
+    await ensureDirs();
     
     const config = configService.get();
     const triggers = config.automation?.triggers;
@@ -236,11 +251,14 @@ const syncAudioAssets = async (forceClean = false) => {
 
     if (forceClean) {
         console.log('[AudioService] Force cleaning all cached assets...');
-        [AUDIO_CACHE_DIR, META_CACHE_DIR].forEach(dir => {
-            if (fs.existsSync(dir)) {
-                fs.readdirSync(dir).forEach(f => fs.unlinkSync(path.join(dir, f)));
-            }
-        });
+        const dirs = [AUDIO_CACHE_DIR, META_CACHE_DIR];
+        for (const dir of dirs) {
+            try {
+                await fsp.access(dir);
+                const files = await fsp.readdir(dir);
+                await Promise.all(files.map(f => fsp.unlink(path.join(dir, f))));
+            } catch (e) { /* ignore */ }
+        }
     }
 
     if (!triggers) return { warnings: [] };
@@ -260,7 +278,7 @@ const syncAudioAssets = async (forceClean = false) => {
                 }
             } catch (err) {
                 console.error(`[AudioService] Asset sync failed for ${prayer} ${event}:`, err.message);
-                throw err; // Quota issues should still be fatal
+                throw err;
             }
         }
     }
@@ -272,18 +290,19 @@ const syncAudioAssets = async (forceClean = false) => {
 };
 
 /**
- * Ensures that a "test.mp3" file exists in the custom audio directory.
- * If it doesn't exist, it generates one using the TTS service and moves it to custom.
- * 
- * @returns {Promise<void>} Resolves when the test audio is ensured.
+ * Ensures that a "test.mp3" file exists.
  */
 const ensureTestAudio = async () => {
-    ensureDirs();
+    await ensureDirs();
     const testAudioPath = path.join(AUDIO_CUSTOM_DIR, 'test.mp3');
     const testMetaPath = path.join(META_CUSTOM_DIR, 'test.mp3.json');
 
-    if (fs.existsSync(testAudioPath) && fs.existsSync(testMetaPath)) {
+    try {
+        await fsp.access(testAudioPath);
+        await fsp.access(testMetaPath);
         return;
+    } catch (e) {
+        // Continue to generation
     }
 
     console.log('[AudioService] Generating "test.mp3" for output testing...');
@@ -294,39 +313,34 @@ const ensureTestAudio = async () => {
     const filename = 'test.mp3';
 
     try {
-        // Generate into cache first (default behavior of TTS service)
         await generateTTS(filename, text, pythonServiceUrl, voice);
         
         const cacheAudioPath = path.join(AUDIO_CACHE_DIR, filename);
 
-        // Move to custom (Use copy + unlink to handle cross-device moves in Docker)
-        if (fs.existsSync(cacheAudioPath)) {
+        try {
+            await fsp.access(cacheAudioPath);
             try {
-                fs.copyFileSync(cacheAudioPath, testAudioPath);
-                fs.unlinkSync(cacheAudioPath);
+                await fsp.copyFile(cacheAudioPath, testAudioPath);
+                await fsp.unlink(cacheAudioPath);
             } catch (moveError) {
-                // Fallback for extreme cases if copy fails
                 console.error(`[AudioService] Move failed, attempting rename fallback:`, moveError.message);
-                fs.renameSync(cacheAudioPath, testAudioPath);
+                await fsp.rename(cacheAudioPath, testAudioPath);
             }
             
-            // Generate metadata for the custom file
-            const metadata = await audioValidator.analyseAudioFile(testAudioPath);
-            const augmentedData = {};
-            OutputFactory.getAllStrategyInstances().forEach(instance => {
-                Object.assign(augmentedData, instance.augmentAudioMetadata(metadata));
-            });
+            const basicMetadata = await audioValidator.analyseAudioFile(testAudioPath);
+            const enrichedMetadata = await enrichMetadata(testAudioPath, basicMetadata);
 
-            fs.writeFileSync(testMetaPath, JSON.stringify({
+            await fsp.writeFile(testMetaPath, JSON.stringify({
                 text,
                 voice,
                 generatedAt: new Date().toISOString(),
                 hidden: true,
-                ...metadata,
-                ...augmentedData
+                ...enrichedMetadata
             }));
             
             console.log('[AudioService] "test.mp3" generated and moved to custom.');
+        } catch (e) {
+             console.error(`[AudioService] Cache file missing after generation: ${cacheAudioPath}`);
         }
     } catch (error) {
         console.error('[AudioService] Failed to generate test audio:', error.message);
@@ -334,13 +348,7 @@ const ensureTestAudio = async () => {
 };
 
 /**
- * Generates a temporary TTS preview for the given template and voice settings.
- * 
- * @param {string} template - The message template to preview.
- * @param {string} prayerKey - The prayer identifier.
- * @param {number} offsetMinutes - The time offset in minutes.
- * @param {string} voice - The voice identifier to use for the preview.
- * @returns {Promise<object>} An object containing the URL of the generated preview audio.
+ * Generates a temporary TTS preview.
  */
 const previewTTS = async (template, prayerKey, offsetMinutes, voice) => {
     const text = resolveTemplate(template, prayerKey.toLowerCase(), offsetMinutes);
@@ -351,13 +359,15 @@ const previewTTS = async (template, prayerKey, offsetMinutes, voice) => {
     const filename = `preview_${hash}.mp3`;
     const audioPath = path.join(AUDIO_TEMP_DIR, filename);
 
-    if (fs.existsSync(audioPath)) {
-        if (Date.now() - fs.statSync(audioPath).mtimeMs < 1 * 60 * 60 * 1000) {
+    try {
+        await fsp.access(audioPath);
+        const stats = await fsp.stat(audioPath);
+        if (Date.now() - stats.mtimeMs < 1 * 60 * 60 * 1000) {
             const now = new Date();
-            fs.utimesSync(audioPath, now, now);
+            await fsp.utimes(audioPath, now, now);
             return { url: `/public/audio/temp/${filename}` };
         }
-    }
+    } catch (e) { /* doesn't exist */ }
 
     try {
         const response = await axios.post(`${pythonUrl}/preview-tts`, 
@@ -372,21 +382,21 @@ const previewTTS = async (template, prayerKey, offsetMinutes, voice) => {
 };
 
 /**
- * Generates metadata sidecar files for any existing audio files that lack them.
- * 
- * @returns {Promise<void>} Resolves when all files have been processed.
+ * Generates metadata sidecar files for any existing audio files.
  */
 const generateMetadataForExistingFiles = async () => {
-    ensureDirs();
+    await ensureDirs();
     const directories = [
         { audio: AUDIO_CUSTOM_DIR, meta: META_CUSTOM_DIR },
         { audio: AUDIO_CACHE_DIR, meta: META_CACHE_DIR }
     ];
     
     for (const dirSet of directories) {
-        if (!fs.existsSync(dirSet.audio)) continue;
+        try {
+            await fsp.access(dirSet.audio);
+        } catch (e) { continue; }
         
-        const files = fs.readdirSync(dirSet.audio).filter(f => f.endsWith('.mp3'));
+        const files = (await fsp.readdir(dirSet.audio)).filter(f => f.endsWith('.mp3'));
         for (const file of files) {
             const audioPath = path.join(dirSet.audio, file);
             const metaPath = path.join(dirSet.meta, file + '.json');
@@ -394,39 +404,37 @@ const generateMetadataForExistingFiles = async () => {
             const legacyMetaPath = audioPath + '.json';
             const redundantMetaPath = audioPath + '.meta.json';
             
-            if (!fs.existsSync(metaPath)) {
+            try {
+                await fsp.access(metaPath);
+                // Already exists
+            } catch (e) {
                 try {
                     console.log(`[AudioService] Generating metadata for ${file}...`);
-                    const metadata = await audioValidator.analyseAudioFile(audioPath);
-                    
-                    // Polymorphically augment metadata from all strategies
-                    const augmentedData = {};
-                    OutputFactory.getAllStrategyInstances().forEach(instance => {
-                        Object.assign(augmentedData, instance.augmentAudioMetadata(metadata));
-                    });
+                    const basicMetadata = await audioValidator.analyseAudioFile(audioPath);
+                    const enrichedMetadata = await enrichMetadata(audioPath, basicMetadata);
                     
                     let existingData = {};
-                    if (fs.existsSync(legacyMetaPath)) {
-                        try { existingData = JSON.parse(fs.readFileSync(legacyMetaPath, 'utf8')); } catch (e) {}
-                    } else if (fs.existsSync(redundantMetaPath)) {
-                        try { existingData = JSON.parse(fs.readFileSync(redundantMetaPath, 'utf8')); } catch (e) {}
+                    try {
+                        await fsp.access(legacyMetaPath);
+                        existingData = JSON.parse(await fsp.readFile(legacyMetaPath, 'utf8'));
+                    } catch (err1) {
+                        try {
+                            await fsp.access(redundantMetaPath);
+                            existingData = JSON.parse(await fsp.readFile(redundantMetaPath, 'utf8'));
+                        } catch (err2) {}
                     }
                     
-                    // REQ: azan.mp3 should be protected
                     if (file === 'azan.mp3') {
                         existingData.protected = true;
                     }
                     
-                    fs.writeFileSync(metaPath, JSON.stringify({
+                    await fsp.writeFile(metaPath, JSON.stringify({
                         ...existingData,
-                        ...metadata,
-                        ...augmentedData,
-                        updatedAt: new Date().toISOString()
+                        ...enrichedMetadata
                     }));
 
-                    // Cleanup redundant ones in root public
-                    if (fs.existsSync(legacyMetaPath)) fs.unlinkSync(legacyMetaPath);
-                    if (fs.existsSync(redundantMetaPath)) fs.unlinkSync(redundantMetaPath);
+                    try { await fsp.unlink(legacyMetaPath); } catch (e) {}
+                    try { await fsp.unlink(redundantMetaPath); } catch (e) {}
                     
                 } catch (error) {
                     console.error(`[AudioService] Metadata generation failed for ${file}:`, error.message);
@@ -444,5 +452,6 @@ module.exports = {
     cleanupTempAudio,
     resolveTemplate,
     previewTTS,
-    generateMetadataForExistingFiles
+    generateMetadataForExistingFiles,
+    enrichMetadata
 };

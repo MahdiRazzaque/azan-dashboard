@@ -1,8 +1,8 @@
 const { DateTime } = require('luxon');
 const { z } = require('zod');
+const Bottleneck = require('bottleneck');
 const BaseProvider = require('./BaseProvider');
 const { ProviderConnectionError, ProviderValidationError } = require('./errors');
-const { aladhanQueue } = require('@utils/requestQueue');
 
 const AladhanDaySchema = z.object({
   timings: z.object({
@@ -52,10 +52,23 @@ const {
  * Provider for the Aladhan.com Prayer Times API.
  */
 class AladhanProvider extends BaseProvider {
+    /**
+     * Rate limiter for Aladhan API.
+     * Observed Limit: ~536 RPM | Safe Limit: 300 RPM (5 req/s)
+     * Burst: ~15 | Safe Burst: 10
+     */
+    static queue = new Bottleneck({
+        minTime: 0,
+        maxConcurrent: 5,
+        reservoir: 10,
+        reservoirRefreshAmount: 5,
+        reservoirRefreshInterval: 1000 // 5 req/s = 300 RPM
+    });
+
     /** @override */
     async getAnnualTimes(year) {
         const key = `aladhan-${this.globalConfig.location.coordinates.lat}-${this.globalConfig.location.coordinates.long}-${year}`;
-        return this.deduplicateRequest(key, () => aladhanQueue.schedule(() => this._doFetch(year)));
+        return this.deduplicateRequest(key, () => AladhanProvider.queue.schedule(() => this._doFetch(year)));
     }
 
     /** @override */
@@ -306,5 +319,10 @@ class AladhanProvider extends BaseProvider {
         return 0;
     }
 }
+
+// Log queue status if needed for debugging
+AladhanProvider.queue.on('failed', (error, jobInfo) => {
+    console.warn(`[Queue:Aladhan] Job ${jobInfo.options.id} failed: ${error.message}`);
+});
 
 module.exports = AladhanProvider;

@@ -116,70 +116,24 @@ const settingsController = {
     },
 
     /**
-     * Internal helper to mask sensitive fields in a configuration object.
-     * @param {Object} obj - The configuration object to mask.
-     * @private
+     * Updates application settings, validates them, and synchronises dependent services.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} A promise that resolves when the update completes.
      */
-    _maskSecrets: (obj) => {
-        const encryption = require('../utils/encryption');
-        const { ProviderFactory } = require('../providers');
-
-        if (obj.automation?.outputs) {
-            for (const [id, outputConfig] of Object.entries(obj.automation.outputs)) {
-                try {
-                    const strategy = OutputFactory.getStrategy(id);
-                    const metadata = strategy.constructor.getMetadata();
-                    const sensitiveKeys = metadata.params?.filter(p => p.sensitive).map(p => p.key) || [];
-                    if (outputConfig.params) {
-                        for (const sKey of sensitiveKeys) {
-                            if (outputConfig.params[sKey]) {
-                                outputConfig.params[sKey] = encryption.mask();
-                            }
-                        }
-                    }
-                } catch (e) {}
-            }
+    updateSettings: async (req, res) => {
+        try {
+            const result = await workflowService.executeUpdate(req.body);
+            res.json(result);
+        } catch (error) {
+            console.error('[SettingsController] updateSettings FATAL ERROR:', error);
+            const status = error.message.includes('Validation Failed') ? 400 : 500;
+            res.status(status).json({ error: 'Update Failed', message: error.message });
         }
+    },
 
-        if (obj.sources) {
-            for (const role of ['primary', 'backup']) {
-                const source = obj.sources[role];
-                if (source && source.type) {
-                    try {
-                        const providerClass = ProviderFactory.getProviderClass(source.type);
-                        const metadata = providerClass.getMetadata();
-                        const sensitiveKeys = metadata.parameters?.filter(p => p.sensitive).map(p => p.key) || [];
-                        for (const sKey of sensitiveKeys) {
-                            if (source[sKey]) {
-                                source[sKey] = encryption.mask();
-                            }
-                        }
-                    } catch (e) {}
-                }
-            }
-                }
-            },
-        
-            /**
-             * Updates application settings, validates them, and synchronises dependent services.
-        
-         * 
-         * @param {import('express').Request} req - The Express request object.
-         * @param {import('express').Response} res - The Express response object.
-         * @returns {Promise<void>} A promise that resolves when the update completes.
-         */
-        updateSettings: async (req, res) => {
-            try {
-                const result = await workflowService.executeUpdate(req.body);
-                res.json(result);
-            } catch (error) {
-                console.error('[SettingsController] updateSettings FATAL ERROR:', error);
-                // Handle specific error types if needed, otherwise generic 400/500
-                const status = error.message.includes('Validation Failed') ? 400 : 500;
-                res.status(status).json({ error: 'Update Failed', message: error.message });
-            }
-        },
-        /**
+    /**
      * Resets settings to factory defaults by removing the local configuration file.
      * 
      * @param {import('express').Request} req - The Express request object.
@@ -205,9 +159,9 @@ const settingsController = {
             syncWarnings = syncRes.warnings || [];
         } catch (e) { 
             console.error('[SettingsController] Reset sync failed:', e.message);
-            return res.status(400).json({ 
-                error: 'Sync Failed', 
-                message: `Settings reset, but audio synchronisation failed: ${e.message}` 
+            return res.status(400).json({
+                error: 'Sync Failed',
+                message: `Settings reset, but audio synchronisation failed: ${e.message}`
             });
         }
 
@@ -235,8 +189,8 @@ const settingsController = {
         }
 
         if (!primaryHealth.healthy && !backupHealth.healthy) {
-            return res.status(503).json({ 
-                error: 'System is relying on cache. Cannot reload cache until at least one Prayer API is online.' 
+            return res.status(503).json({
+                error: 'System is relying on cache. Cannot reload cache until at least one Prayer API is online.'
             });
         }
 
@@ -256,14 +210,14 @@ const settingsController = {
             if (syncRes.warnings) warnings.push(...syncRes.warnings);
         } catch (e) {
             console.error('[SettingsController] Audio asset synchronisation failed:', e.message);
-            return res.status(400).json({ 
-                error: 'Sync Failed', 
-                message: `Cache refreshed, but audio synchronisation failed: ${e.message}` 
+            return res.status(400).json({
+                error: 'Sync Failed',
+                message: `Cache refreshed, but audio synchronisation failed: ${e.message}`
             });
         }
         await schedulerService.initScheduler(); 
         
-        res.json({ 
+        res.json({
             message: 'Cache refreshed and scheduler reloaded',
             meta: result.meta,
             warnings
@@ -281,9 +235,9 @@ const settingsController = {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         
         try {
-            const audioPath = path.join(__dirname, '../../public/audio/custom', req.file.originalname);
+            const audioPath = path.join(__dirname, '../../public/audio/custom', req.file.filename);
             const metaDir = path.join(__dirname, '../public/audio/custom');
-            const metaPath = path.join(metaDir, req.file.originalname + '.json');
+            const metaPath = path.join(metaDir, req.file.filename + '.json');
             
             try {
                 await fsAsync.access(metaDir);
@@ -292,35 +246,23 @@ const settingsController = {
             }
 
             // Generate metadata sidecar in src/public
-            const metadata = await audioValidator.analyseAudioFile(audioPath);
+            const basicMetadata = await audioValidator.analyseAudioFile(audioPath);
+            const enrichedMetadata = await audioAssetService.enrichMetadata(audioPath, basicMetadata);
             
-            // Polymorphically augment metadata from all strategies
-            const augmentedData = {};
-            OutputFactory.getAllStrategyInstances().forEach(instance => {
-                const augmentation = instance.augmentAudioMetadata(metadata);
-                Object.assign(augmentedData, augmentation);
-            });
+            await fsAsync.writeFile(metaPath, JSON.stringify(enrichedMetadata));
             
-            const finalMetadata = {
-                ...metadata,
-                ...augmentedData,
-                updatedAt: new Date().toISOString()
-            };
-
-            await fsAsync.writeFile(metaPath, JSON.stringify(finalMetadata));
-            
-            res.json({ 
-                message: 'File uploaded and analysed successfully', 
-                filename: req.file.originalname, 
-                path: `custom/${req.file.originalname}`,
-                ...augmentedData
+            res.json({
+                message: 'File uploaded and analysed successfully',
+                filename: req.file.filename,
+                path: `custom/${req.file.filename}`,
+                ...enrichedMetadata
             });
         } catch (error) {
             console.error('[SettingsController] Upload analysis failed:', error.message);
-            res.json({ 
-                message: 'File uploaded, but analysis failed', 
-                filename: req.file.originalname, 
-                path: `custom/${req.file.originalname}`
+            res.json({
+                message: 'File uploaded, but analysis failed',
+                filename: req.file.filename,
+                path: `custom/${req.file.filename}`
             });
         }
     },
@@ -340,7 +282,7 @@ const settingsController = {
         const metaPath = path.join(__dirname, '../public/audio/custom', filename + '.json');
         
         // Prevent directory traversal attacks
-        if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+        if (filename.includes('..') || /[\/]/.test(filename)) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 

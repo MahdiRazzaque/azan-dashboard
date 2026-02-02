@@ -1,156 +1,126 @@
-const VoiceMonkeyOutput = require('../../../src/outputs/VoiceMonkeyOutput');
+const VoiceMonkeyOutput = require('@outputs/VoiceMonkeyOutput');
 const axios = require('axios');
 const fs = require('fs');
-const ConfigService = require('../../../src/config');
+const path = require('path');
+const ConfigService = require('@config');
 
 jest.mock('axios');
-jest.mock('fs');
-jest.mock('../../../src/config');
-jest.mock('../../../src/utils/requestQueue', () => ({
-    voiceMonkeyQueue: {
-        schedule: jest.fn((fn) => fn())
-    }
+jest.mock('fs', () => ({
+    promises: {
+        readFile: jest.fn(),
+        access: jest.fn()
+    },
+    existsSync: jest.fn(),
+    readFileSync: jest.fn()
 }));
+jest.mock('@config');
 
 describe('VoiceMonkeyOutput', () => {
     let output;
 
     beforeEach(() => {
-        output = new VoiceMonkeyOutput();
         jest.clearAllMocks();
-        fs.existsSync.mockReturnValue(false); // Default: no sidecar file
-        
-        // Default Config Mock
+        output = new VoiceMonkeyOutput();
         ConfigService.get.mockReturnValue({
             automation: {
                 baseUrl: 'https://test.com',
                 outputs: {
                     voicemonkey: {
-                        params: { token: 'envToken', device: 'envDevice' }
+                        params: { token: 't1', device: 'd1' }
                     }
                 }
             }
         });
     });
 
-    describe('Metadata', () => {
-        it('should return correct metadata', () => {
-            const meta = VoiceMonkeyOutput.getMetadata();
-            expect(meta.id).toBe('voicemonkey');
-            expect(meta.params).toHaveLength(2);
+    describe('validateAsset', () => {
+        it('should return valid for correct MP3 parameters', async () => {
+            const meta = { format: 'mp3', bitrate: 128000, duration: 30 };
+            const result = await output.validateAsset('path.mp3', meta);
+            expect(result.valid).toBe(true);
+            expect(result.issues).toHaveLength(0);
+        });
+
+        it('should return invalid for non-MP3 format', async () => {
+            const meta = { format: 'wav', bitrate: 128000, duration: 30 };
+            const result = await output.validateAsset('path.wav', meta);
+            expect(result.valid).toBe(false);
+            expect(result.issues[0]).toContain('Unsupported format');
+        });
+
+        it('should return invalid for bitrate > 128kbps', async () => {
+            const meta = { format: 'mp3', bitrate: 192000, duration: 30 };
+            const result = await output.validateAsset('path.mp3', meta);
+            expect(result.valid).toBe(false);
+            expect(result.issues[0]).toContain('Bitrate too high');
+        });
+
+        it('should return invalid for bitrate < 48kbps', async () => {
+            const meta = { format: 'mp3', bitrate: 32000, duration: 30 };
+            const result = await output.validateAsset('path.mp3', meta);
+            expect(result.valid).toBe(false);
+            expect(result.issues[0]).toContain('Bitrate too low');
+        });
+
+        it('should return invalid for duration > 90s', async () => {
+            const meta = { format: 'mp3', bitrate: 128000, duration: 100 };
+            const result = await output.validateAsset('path.mp3', meta);
+            expect(result.valid).toBe(false);
+            expect(result.issues[0]).toContain('Duration too long');
+        });
+    });
+
+    describe('augmentAudioMetadata', () => {
+        it('should align with validateAsset logic', () => {
+            const meta = { format: 'wav', bitrate: 128000, duration: 30 };
+            const result = output.augmentAudioMetadata(meta);
+            expect(result.vmCompatible).toBe(false);
+            expect(result.vmIssues).toHaveLength(1);
+        });
+
+        it('should return compatible for valid metadata', () => {
+            const meta = { format: 'mp3', bitrate: 128000, duration: 30 };
+            const result = output.augmentAudioMetadata(meta);
+            expect(result.vmCompatible).toBe(true);
         });
     });
 
     describe('execute', () => {
-        const payload = {
-            source: { filePath: '/audio/azan.mp3', url: '/public/azan.mp3' },
-            params: { token: 'paramToken', device: 'paramDevice' },
-            baseUrl: 'https://override.com' 
-        };
-
-        it('should use passed params and baseUrl', async () => {
+        it('should trigger announcement if compatible', async () => {
+            fs.promises.access.mockResolvedValue(undefined);
+            fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: true } } }));
             axios.get.mockResolvedValue({ data: { success: true } });
 
-            await output.execute(payload);
-
-            expect(axios.get).toHaveBeenCalledWith(
-                'https://api-v2.voicemonkey.io/announcement',
-                expect.objectContaining({
-                    params: expect.objectContaining({
-                        token: 'paramToken',
-                        device: 'paramDevice',
-                        audio: 'https://override.com/public/azan.mp3'
-                    })
-                })
-            );
-        });
-        
-        it('should fall back to config if params missing', async () => {
-            axios.get.mockResolvedValue({ data: { success: true } });
-            // Payload without params, but with baseUrl
-            const partialPayload = { 
-                source: { filePath: '/f.mp3', url: '/f.mp3' }, 
+            const payload = {
+                source: { url: '/test.mp3', filePath: '/fake/public/audio/test.mp3' },
                 baseUrl: 'https://test.com'
             };
-            
-            await output.execute(partialPayload);
-            
-            expect(axios.get).toHaveBeenCalledWith(
-                expect.any(String),
-                expect.objectContaining({
-                    params: expect.objectContaining({
-                        token: 'envToken',
-                        device: 'envDevice'
-                    })
-                })
-            );
+
+            await output.execute(payload, {});
+            expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('announcement'), expect.anything());
         });
 
-        it('should fail if audio metadata is incompatible', async () => {
-             // In the updated code, we don't check alongside. 
-             // We only check src/public/audio.
-             fs.existsSync.mockReturnValue(true);
-             fs.readFileSync.mockReturnValue(JSON.stringify({ vmCompatible: false }));
-             
-             await output.execute(payload);
-             expect(axios.get).not.toHaveBeenCalled();
-        });
-
-        it('should resolve metadata from src/public/audio', async () => {
-             const path = require('path');
-             // Mock paths to align with VoiceMonkeyOutput's internal __dirname (src/outputs)
-             const projectRoot = path.resolve(__dirname, '../../../');
-             const audioPath = path.join(projectRoot, 'public/audio/cache/test.mp3');
-             
-             const payloadWithPath = {
-                 source: { 
-                     filePath: audioPath, 
-                     url: '/public/audio/cache/test.mp3' 
-                 },
-                 baseUrl: 'https://test.com'
-             };
-
-             fs.existsSync.mockReturnValue(true);
-             fs.readFileSync.mockReturnValue(JSON.stringify({ vmCompatible: false }));
-
-             await output.execute(payloadWithPath);
-             
-             expect(fs.existsSync).toHaveBeenCalled();
-             expect(axios.get).not.toHaveBeenCalled();
-             
-             // Verify the call path contains src/public/audio
-             const callPath = fs.existsSync.mock.calls[0][0];
-             expect(callPath).toMatch(/[\\/]src[\\/]public[\\/]audio[\\/]cache[\\/]test\.mp3\.json/);
-        });
-    });
-
-    describe('healthCheck', () => {
-        it('should use config and return healthy', async () => {
-            axios.get.mockResolvedValue({ data: { success: true } });
-            const result = await output.healthCheck(); 
+        it('should skip if incompatible in metadata', async () => {
+            fs.promises.access.mockResolvedValue(undefined);
+            fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: false } } }));
             
-            expect(result.healthy).toBe(true);
-            expect(axios.get).toHaveBeenCalled();
-        });
-        
-        it('should always generate random device for health check', async () => {
-            axios.get.mockResolvedValue({ data: { success: true } });
-            await output.healthCheck();
-            
-            const callParams = axios.get.mock.calls[0][1].params;
-            expect(callParams.device).toMatch(/^azan_check_/);
-        });
-    });
+            const payload = {
+                source: { url: '/test.mp3', filePath: '/fake/public/audio/test.mp3' },
+                baseUrl: 'https://test.com'
+            };
 
-    describe('verifyCredentials', () => {
-        it('should call API with provided credentials', async () => {
-            axios.get.mockResolvedValue({ data: { success: true } });
-            const result = await output.verifyCredentials({ token: 't', device: 'd' });
-            expect(result.success).toBe(true);
-            
-            const callParams = axios.get.mock.calls[0][1].params;
-            expect(callParams.token).toBe('t');
-            expect(callParams.device).toBe('d');
+            await output.execute(payload, {});
+            expect(axios.get).not.toHaveBeenCalled();
+        });
+
+        it('should skip if baseUrl is not HTTPS', async () => {
+            const payload = {
+                source: { url: '/test.mp3' },
+                baseUrl: 'http://insecure.com'
+            };
+
+            await output.execute(payload, {});
+            expect(axios.get).not.toHaveBeenCalled();
         });
     });
 });

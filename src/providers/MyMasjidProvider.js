@@ -1,8 +1,8 @@
 const { DateTime } = require('luxon');
 const { z } = require('zod');
+const Bottleneck = require('bottleneck');
 const BaseProvider = require('./BaseProvider');
 const { ProviderConnectionError, ProviderValidationError } = require('./errors');
-const { myMasjidQueue } = require('@utils/requestQueue');
 
 // 1. Nested/Array Format (Standard/Web)
 const MyMasjidSalahEntrySchema = z.object({
@@ -57,10 +57,23 @@ const MyMasjidBulkResponseSchema = z.object({
  * Provider for the MyMasjid API.
  */
 class MyMasjidProvider extends BaseProvider {
+    /**
+     * Rate limiter for MyMasjid API.
+     * Observed Limit: ~120 RPM | Safe Limit: 100 RPM
+     * Burst: ~20 | Safe Burst: 15
+     */
+    static queue = new Bottleneck({
+        minTime: 0,
+        maxConcurrent: 5,
+        reservoir: 15,
+        reservoirRefreshAmount: 10,
+        reservoirRefreshInterval: 6000 // 10 req / 6s = 100 RPM
+    });
+
     /** @override */
     async getAnnualTimes(year) {
         const key = `mymasjid-${this.sourceConfig.masjidId}`;
-        return this.deduplicateRequest(key, () => myMasjidQueue.schedule(() => this._doFetch(year)));
+        return this.deduplicateRequest(key, () => MyMasjidProvider.queue.schedule(() => this._doFetch(year)));
     }
 
     /** @override */
@@ -237,5 +250,10 @@ class MyMasjidProvider extends BaseProvider {
         return resultMap;
     }
 }
+
+// Log queue status if needed for debugging
+MyMasjidProvider.queue.on('failed', (error, jobInfo) => {
+    console.warn(`[Queue:MyMasjid] Job ${jobInfo.options.id} failed: ${error.message}`);
+});
 
 module.exports = MyMasjidProvider;

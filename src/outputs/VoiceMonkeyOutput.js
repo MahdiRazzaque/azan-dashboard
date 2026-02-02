@@ -1,12 +1,24 @@
-﻿const BaseOutput = require('./BaseOutput');
+const BaseOutput = require('./BaseOutput');
 const axios = require('axios');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
+const Bottleneck = require('bottleneck');
 const ConfigService = require('../config');
-const { voiceMonkeyQueue } = require('../utils/requestQueue');
-const audioValidator = require('../utils/audioValidator');
 
 class VoiceMonkeyOutput extends BaseOutput {
+    /**
+     * Rate limiter for VoiceMonkey API to prevent bans.
+     * Observed Limit: Blocked after 170 reqs (15 min ban).
+     * Safe Limit: 150 req / 15 min = 10 RPM.
+     */
+    static queue = new Bottleneck({
+        minTime: 0,
+        maxConcurrent: 5,
+        reservoir: 5,
+        reservoirRefreshAmount: 10,
+        reservoirRefreshInterval: 60000 // 10 req / min
+    });
+
     /**
      * Retrieves the metadata definition for the VoiceMonkey output strategy.
      * Defines the requirements for Alexa-compatible announcements, including
@@ -53,16 +65,22 @@ class VoiceMonkeyOutput extends BaseOutput {
             const relativePath = path.relative(projectPublicRoot, payload.source.filePath);
             const metaPath = path.join(srcPublicRoot, relativePath + '.json');
 
-            if (fs.existsSync(metaPath)) {
-                try {
-                    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-                    if (meta.vmCompatible === false) {
-                        console.warn(`${prefix} Skipped: Audio incompatible with Alexa`);
-                        return; // Skip
-                    }
-                } catch(e) {
-                    // Silently ignore corrupted or missing metadata
+            try {
+                await fs.access(metaPath);
+                const metaContent = await fs.readFile(metaPath, 'utf8');
+                const meta = JSON.parse(metaContent);
+                
+                // REQ: Support both new nested compatibility block and legacy flat fields.
+                const isCompatible = meta.compatibility?.voicemonkey 
+                    ? meta.compatibility.voicemonkey.valid 
+                    : meta.vmCompatible;
+
+                if (isCompatible === false) {
+                    console.warn(`${prefix} Skipped: Audio incompatible with Alexa`);
+                    return; // Skip
                 }
+            } catch(e) {
+                // Silently ignore corrupted or missing metadata
             }
         }
 
@@ -93,7 +111,7 @@ class VoiceMonkeyOutput extends BaseOutput {
 
         try {
             // Use the request queue to prevent rate-limiting by the VoiceMonkey API.
-            await voiceMonkeyQueue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
+            await VoiceMonkeyOutput.queue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
                 params: {
                     token: token,
                     device: device,
@@ -141,7 +159,7 @@ class VoiceMonkeyOutput extends BaseOutput {
         const deviceToCheck = `azan_check_${Date.now()}`;
 
         try {
-            const response = await voiceMonkeyQueue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
+            const response = await VoiceMonkeyOutput.queue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
                 params: {
                     token: token,
                     device: deviceToCheck,
@@ -178,7 +196,7 @@ class VoiceMonkeyOutput extends BaseOutput {
         }
 
         try {
-            const response = await voiceMonkeyQueue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
+            const response = await VoiceMonkeyOutput.queue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
                 params: {
                     token: credentials.token,
                     device: credentials.device,
@@ -216,28 +234,94 @@ class VoiceMonkeyOutput extends BaseOutput {
             (trigger.type === 'tts' && f.name === `tts_${prayer}_${triggerType}.mp3`)
         );
 
-        if (file && file.vmCompatible === false) {
-            warnings.push(`${niceName}: Audio incompatible with Alexa (${file.vmIssues?.join(', ') || 'Unknown issues'})`);
+        if (file) {
+            const isCompatible = file.compatibility?.voicemonkey 
+                ? file.compatibility.voicemonkey.valid 
+                : file.vmCompatible;
+
+            if (isCompatible === false) {
+                const issues = file.compatibility?.voicemonkey?.issues || file.vmIssues || ['Unknown issues'];
+                warnings.push(`${niceName}: Audio incompatible with Alexa (${issues.join(', ')})`);
+            }
         }
 
         return warnings;
     }
 
     /**
+     * Internal helper to validate metadata against VoiceMonkey requirements.
+     * Alexa requires MP3 format, bitrate between 48-128kbps, and duration < 90s.
+     * 
+     * @param {Object} metadata Audio metadata.
+     * @returns {string[]} List of issues found.
+     * @private
+     */
+    static _getValidationIssues(metadata) {
+        const issues = [];
+        
+        // 1. Format Check (Strictly MP3 for VoiceMonkey)
+        const format = (metadata.format || '').toLowerCase();
+        const codec = (metadata.codec || '').toLowerCase();
+        
+        if (!format.includes('mp3') && !codec.includes('mp3')) {
+            issues.push(`Unsupported format: ${metadata.format} / ${metadata.codec}. VoiceMonkey requires MP3.`);
+        }
+
+        // 2. Bitrate (48kbps - 128kbps)
+        if (metadata.bitrate) {
+            const bitrateKbps = metadata.bitrate / 1000;
+            if (bitrateKbps > 128) {
+                issues.push(`Bitrate too high: ${bitrateKbps.toFixed(2)} kbps (Max 128 kbps)`);
+            } else if (bitrateKbps < 48) {
+                issues.push(`Bitrate too low: ${bitrateKbps.toFixed(2)} kbps (Min 48 kbps)`);
+            }
+        }
+
+        // 3. Duration (Max 90s)
+        if (metadata.duration && metadata.duration > 90) {
+            issues.push(`Duration too long: ${metadata.duration.toFixed(2)}s (Max 90s)`);
+        }
+
+        return issues;
+    }
+
+    /**
+     * Validates an audio asset for compatibility with VoiceMonkey/Alexa.
+     * 
+     * @param {string} filePath - Path to the audio file.
+     * @param {Object} metadata - Audio metadata.
+     * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>}
+     */
+    async validateAsset(filePath, metadata) {
+        const issues = VoiceMonkeyOutput._getValidationIssues(metadata);
+
+        return {
+            valid: issues.length === 0,
+            lastChecked: new Date().toISOString(),
+            issues
+        };
+    }
+
+    /**
      * Enhances audio metadata with VoiceMonkey compatibility flags.
-     * Uses the audio validator to determine if the bit rate, format,
+     * Uses internal validation logic to determine if the bit rate, format,
      * and length are acceptable for Alexa devices.
      *
      * @param {Object} metadata Existing file metadata.
      * @returns {Object} Augmented metadata with 'vmCompatible' and 'vmIssues'.
      */
     augmentAudioMetadata(metadata) {
-        const status = audioValidator.validateVoiceMonkeyCompatibility(metadata);
+        const issues = VoiceMonkeyOutput._getValidationIssues(metadata);
         return {
-            vmCompatible: status.vmCompatible,
-            vmIssues: status.vmIssues
+            vmCompatible: issues.length === 0,
+            vmIssues: issues
         };
     }
 }
+
+// Log queue status if needed for debugging
+VoiceMonkeyOutput.queue.on('failed', (error, jobInfo) => {
+    console.warn(`[Queue:VoiceMonkey] Job ${jobInfo.options.id} failed: ${error.message}`);
+});
 
 module.exports = VoiceMonkeyOutput;

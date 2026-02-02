@@ -1,4 +1,5 @@
 const fs = require('fs');
+const fsp = require('fs').promises;
 const path = require('path');
 const { ProviderFactory, ProviderConnectionError, ProviderValidationError } = require('@providers');
 const { DateTime } = require('luxon');
@@ -7,15 +8,26 @@ const asyncLock = require('@utils/asyncLock');
 
 const CACHE_FILE = path.join(process.cwd(), 'data', 'cache.json');
 
-// Ensure data directory exists
-const dataDir = path.dirname(CACHE_FILE);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+/**
+ * In-memory cache to reduce disk I/O for prayer time lookups.
+ * @type {Object|null}
+ */
+let inMemoryCache = null;
+
+/**
+ * Ensures the data directory exists.
+ */
+async function ensureDataDir() {
+  const dataDir = path.dirname(CACHE_FILE);
+  try {
+    await fsp.access(dataDir);
+  } catch (e) {
+    await fsp.mkdir(dataDir, { recursive: true });
+  }
 }
 
 /**
  * Gets prayer times for a date with next prayer calculation.
- * Encapsulates the logic previously in the /api/prayers route.
  * 
  * @param {Object} config - Application configuration.
  * @param {string} timezone - Timezone string.
@@ -40,7 +52,7 @@ async function getPrayersWithNext(config, timezone) {
     
     let iqamahISO = null;
     if (name !== 'sunrise') {
-        // Use explicit Iqamah from source if available (FR-05)
+        // Use explicit Iqamah from source if available
         if (rawData.prayers.iqamah && rawData.prayers.iqamah[name]) {
             iqamahISO = rawData.prayers.iqamah[name];
         } else {
@@ -108,12 +120,24 @@ async function getPrayerTimes(config, date = DateTime.now()) {
   const lockKey = `fetch-${config.sources.primary.type}-${year}`;
 
   return asyncLock.run(lockKey, async () => {
-    // 1. Read Cache
-    let cache = readCache();
+    // 1. Check In-Memory Cache first
+    if (inMemoryCache && inMemoryCache.data && inMemoryCache.data[dateKey]) {
+      return {
+        meta: {
+          date: dateKey,
+          source: inMemoryCache.meta.source,
+          lastFetched: inMemoryCache.meta.lastFetched,
+          cached: true
+        },
+        prayers: applyOverrides(inMemoryCache.data[dateKey], config)
+      };
+    }
+
+    // 2. Fallback to Disk Cache
+    let cache = await readCache();
     
     // Check hit
     if (cache.data && cache.data[dateKey]) {
-      // console.log(`Cache HIT for ${dateKey}`);
       return {
         meta: {
           date: dateKey,
@@ -127,15 +151,10 @@ async function getPrayerTimes(config, date = DateTime.now()) {
 
     console.log(`Cache MISS for ${dateKey}, triggering bulk fetch.`);
 
-    // 2. Fetch
+    // 3. Remote Fetch
     let newDataMap = null;
     let sourceUsed = null;
 
-    /**
-     * Internal helper to attempt a fetch from a specific source.
-     * @param {Object} sourceConfig The configuration for the source.
-     * @returns {Promise<Object|null>} A promise resolving to the fetched data map or null.
-     */
     const tryFetch = async (sourceConfig) => {
       if (!sourceConfig || !sourceConfig.type) return null;
       console.log(`[PrayerService] Attempting fetch from source: ${sourceConfig.type}`);
@@ -172,8 +191,6 @@ async function getPrayerTimes(config, date = DateTime.now()) {
           } catch (backupError) {
             console.error(`Backup source (${config.sources.backup.type}) failed: ${backupError.message}`);
           }
-        } else {
-          console.log(`[PrayerService] Backup source configured but disabled. Skipping.`);
         }
       }
       
@@ -193,7 +210,7 @@ async function getPrayerTimes(config, date = DateTime.now()) {
       }
     };
 
-    writeCache(updatedCache);
+    await writeCache(updatedCache);
 
     const resultForDate = updatedCache.data[dateKey];
     
@@ -214,33 +231,37 @@ async function getPrayerTimes(config, date = DateTime.now()) {
 }
 
 /**
- * Reads the prayer times cache from the file system.
- * @returns {Object} The cached data object or an empty object if not found or corrupted.
+ * Reads the prayer times cache from the file system and populates in-memory cache.
+ * @returns {Promise<Object>} The cached data object.
  */
-function readCache() {
+async function readCache() {
   try {
-    if (fs.existsSync(CACHE_FILE)) {
-      const content = fs.readFileSync(CACHE_FILE, 'utf-8');
-      try {
-        return JSON.parse(content);
-      } catch (e) {
-        console.warn('Cache file corrupted, resetting.');
-        return {};
-      }
+    await fsp.access(CACHE_FILE);
+    const content = await fsp.readFile(CACHE_FILE, 'utf-8');
+    try {
+      inMemoryCache = JSON.parse(content);
+      return inMemoryCache;
+    } catch (e) {
+      console.warn('Cache file corrupted, resetting.');
+      inMemoryCache = {};
+      return inMemoryCache;
     }
   } catch (e) {
-    console.error(`Error reading cache file: ${e.message}`);
+    // File not found or other access error
+    inMemoryCache = {};
+    return inMemoryCache;
   }
-  return {};
 }
 
 /**
- * Writes the prayer times cache to the file system.
+ * Writes the prayer times cache to the file system and updates in-memory cache.
  * @param {Object} data The cache object to be written.
  */
-function writeCache(data) {
+async function writeCache(data) {
   try {
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(data, null, 2));
+    await ensureDataDir();
+    await fsp.writeFile(CACHE_FILE, JSON.stringify(data, null, 2));
+    inMemoryCache = data;
   } catch (e) {
     console.error(`Error writing cache file: ${e.message}`);
   }
@@ -248,9 +269,6 @@ function writeCache(data) {
 
 /**
  * Applies locally configured iqamah overrides.
- * @param {Object} prayers The original prayer times object.
- * @param {Object} config The global application configuration.
- * @returns {Object} The prayer times object with overrides applied.
  */
 function applyOverrides(prayers, config) {
     if (!prayers) return prayers;
@@ -279,14 +297,13 @@ function applyOverrides(prayers, config) {
  * @returns {Promise<Object>} A promise resolving to the refreshed prayer times for today.
  */
 async function forceRefresh(config) {
-    if (fs.existsSync(CACHE_FILE)) {
-        try {
-            fs.unlinkSync(CACHE_FILE);
-        } catch (e) {
-             // ignore
-        }
+    inMemoryCache = null;
+    try {
+        await fsp.unlink(CACHE_FILE);
+    } catch (e) {
+         // ignore
     }
-    return getPrayerTimes(config, DateTime.now());
+    return module.exports.getPrayerTimes(config, DateTime.now());
 }
 
 module.exports = {

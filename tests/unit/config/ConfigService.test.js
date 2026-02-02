@@ -8,6 +8,11 @@ jest.mock('dotenv'); // Prevent loading real .env files
 describe('ConfigService', () => {
     let tempDir;
 
+    beforeAll(() => {
+        process.env.JWT_SECRET = 'test-jwt-secret';
+        process.env.ENCRYPTION_SALT = 'test-encryption-salt';
+    });
+
     beforeEach(async () => {
         tempDir = await fsHelper.createTempConfig();
         await configService.init();
@@ -15,6 +20,11 @@ describe('ConfigService', () => {
 
     afterEach(async () => {
         await fsHelper.cleanupTempConfig();
+    });
+
+    afterAll(() => {
+        delete process.env.JWT_SECRET;
+        delete process.env.ENCRYPTION_SALT;
     });
 
     it('should load default configuration', () => {
