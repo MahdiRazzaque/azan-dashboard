@@ -70,15 +70,8 @@ const enrichMetadata = async (audioPath, basicMetadata) => {
         compatibility[metadata.id] = await instance.validateAsset(audioPath, basicMetadata);
     }
     
-    // Legacy support: aggregate flat fields (e.g. vmCompatible)
-    const legacyAugmentedData = {};
-    strategyInstances.forEach(instance => {
-        Object.assign(legacyAugmentedData, instance.augmentAudioMetadata(basicMetadata));
-    });
-
     return {
         ...basicMetadata,
-        ...legacyAugmentedData,
         compatibility,
         updatedAt: new Date().toISOString()
     };
