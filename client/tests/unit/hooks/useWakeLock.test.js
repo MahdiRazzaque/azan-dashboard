@@ -125,7 +125,7 @@ describe('useWakeLock', () => {
 
   it('should attempt re-acquisition on visibility change', async () => {
     const addEventListenerSpy = vi.spyOn(document, 'addEventListener');
-    const { result } = renderHook(() => useWakeLock());
+    renderHook(() => useWakeLock());
     
     // Capture the visibilitychange handler
     const visibilityHandler = addEventListenerSpy.mock.calls.find(call => call[0] === 'visibilitychange')[1];
