@@ -6,14 +6,12 @@ const { DateTime } = require('luxon');
 const healthCheck = require('@services/system/healthCheck');
 const schedulerService = require('@services/core/schedulerService');
 const sseService = require('@services/system/sseService');
-const automationService = require('@services/core/automationService');
 const audioAssetService = require('@services/system/audioAssetService');
 const diagnosticsService = require('@services/system/diagnosticsService');
 const configService = require('@config');
 const voiceService = require('@services/system/voiceService');
 const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../outputs');
-const workflowService = require('@services/system/configurationWorkflowService');
 const configUnmasker = require('@utils/configUnmasker');
 const { getSafeAgent } = require('@utils/networkUtils');
 const { 
@@ -203,6 +201,12 @@ const systemController = {
             fs.mkdir(metaCacheDir, { recursive: true })
         ]);
 
+        /**
+         * Retrieves file entries from a specified audio directory.
+         * @param {string} audioDir - The directory path to scan for audio files.
+         * @param {string} type - The category of the audio files (e.g., 'custom' or 'cache').
+         * @returns {Promise<Array<{f: string, type: string, metaDir: string}>>} A list of file entry objects.
+         */
         const getFileEntries = async (audioDir, type) => {
             try {
                 const files = await fs.readdir(audioDir);
@@ -211,7 +215,7 @@ const systemController = {
                     type,
                     metaDir: type === 'custom' ? metaCustomDir : metaCacheDir
                 }));
-            } catch (e) {
+            } catch {
                 return [];
             }
         };
@@ -232,7 +236,7 @@ const systemController = {
             try {
                 const metaContent = await fs.readFile(metaPath, 'utf8');
                 metadata = JSON.parse(metaContent);
-            } catch (e) { /* ignore missing or corrupt meta */ }
+            } catch { /* ignore missing or corrupt meta */ }
 
             return { 
                 name: f, 
@@ -389,7 +393,7 @@ const systemController = {
             try {
                 await axios.head(urlString, axiosConfig);
                 res.json({ valid: true });
-            } catch (e) {
+            } catch {
                 // Attempt a GET request if the server rejects HEAD requests
                 try {
                     await axios.get(urlString, { ...axiosConfig, responseType: 'stream' });
@@ -429,7 +433,6 @@ const systemController = {
             return res.status(400).json({ success: false, error: 'Backup source is currently disabled.' });
         }
 
-        const type = targetSource.type;
         const healthKey = target === 'primary' ? 'primarySource' : 'backupSource';
 
         try {

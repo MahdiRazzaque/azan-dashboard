@@ -31,7 +31,7 @@ const configUnmasker = {
                     }
                 }
             }
-        } catch (e) {
+        } catch {
             // Strategy not found or metadata missing, skip unmasking
         }
     },
@@ -42,7 +42,6 @@ const configUnmasker = {
      * @param {Object} currentConfig - The reference configuration.
      */
     unmaskSecrets: (newConfig, currentConfig) => {
-        const OutputFactory = require('../outputs');
         const { ProviderFactory } = require('../providers');
 
         // 1. Unmask Outputs
@@ -72,7 +71,7 @@ const configUnmasker = {
                                 }
                             }
                         }
-                    } catch (e) {}
+                    } catch { /* ignore */ }
                 }
             }
         }

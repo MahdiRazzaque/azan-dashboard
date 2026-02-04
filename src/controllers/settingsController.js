@@ -1,14 +1,10 @@
-const fs = require('fs');
 const fsAsync = require('fs/promises');
 const path = require('path');
 const configService = require('@config');
-const envManager = require('@utils/envManager');
-const sseService = require('@services/system/sseService');
 const { forceRefresh } = require('@services/core/prayerTimeService');
 const schedulerService = require('@services/core/schedulerService');
 const audioAssetService = require('@services/system/audioAssetService');
 const healthCheck = require('@services/system/healthCheck');
-const { validateConfigSource } = require('@services/core/validationService');
 const audioValidator = require('@utils/audioValidator');
 const systemControllerHelper = require('./systemController');
 const OutputFactory = require('../outputs');
@@ -56,7 +52,9 @@ const settingsController = {
                             }
                         }
                     }
-                } catch (e) {}
+                } catch {
+                    // Ignore errors
+                }
             }
         }
 
@@ -73,7 +71,9 @@ const settingsController = {
                                 source[sKey] = encryption.mask();
                             }
                         }
-                    } catch (e) {}
+                    } catch {
+                        // Ignore errors
+                    }
                 }
             }
         }
@@ -146,7 +146,7 @@ const settingsController = {
             await fsAsync.access(localPath);
             await fsAsync.unlink(localPath);
             console.log('[SettingsController] local.json deleted. Reverting to default.');
-        } catch (e) {
+        } catch {
             // Ignore if file doesn't exist
         }
 
@@ -251,7 +251,7 @@ const settingsController = {
             const mp3Files = existingFiles.filter(f => f.endsWith('.mp3'));
             if (mp3Files.length >= 500) {
                 // Cleanup temp file
-                try { await fsAsync.unlink(tempPath); } catch (e) {}
+                try { await fsAsync.unlink(tempPath); } catch { /* ignore */ }
                 return res.status(400).json({ 
                     error: 'Limit Reached', 
                     message: 'Maximum of 500 custom audio files allowed. Please delete some files before uploading more.' 
@@ -269,7 +269,7 @@ const settingsController = {
                 }
             } catch (validationError) {
                 // Cleanup temp file on validation failure
-                try { await fsAsync.unlink(tempPath); } catch (e) {}
+                try { await fsAsync.unlink(tempPath); } catch { /* ignore */ }
                 return res.status(400).json({ 
                     error: 'Invalid File', 
                     message: validationError.message 
@@ -297,7 +297,7 @@ const settingsController = {
         } catch (error) {
             console.error('[SettingsController] Upload processing failed:', error.message);
             // Cleanup on error
-            try { await fsAsync.unlink(tempPath); } catch (e) {}
+            try { await fsAsync.unlink(tempPath); } catch { /* ignore */ }
             res.status(500).json({
                 error: 'Upload Failed',
                 message: error.message
@@ -332,19 +332,19 @@ const settingsController = {
             if (metadata.protected) {
                 return res.status(403).json({ error: 'Forbidden: File is protected and cannot be deleted' });
             }
-        } catch (e) { /* ignore if meta missing or corrupt */ }
+        } catch { /* ignore if meta missing or corrupt */ }
 
         let deleted = false;
         try {
             let audioExists = false;
-            try { await fsAsync.access(audioPath); audioExists = true; } catch (e) {}
+            try { await fsAsync.access(audioPath); audioExists = true; } catch { /* ignore */ }
             if (audioExists) {
                 await fsAsync.unlink(audioPath);
                 deleted = true;
             }
 
             let metaExists = false;
-            try { await fsAsync.access(metaPath); metaExists = true; } catch (e) {}
+            try { await fsAsync.access(metaPath); metaExists = true; } catch { /* ignore */ }
             if (metaExists) {
                 await fsAsync.unlink(metaPath);
                 deleted = true;

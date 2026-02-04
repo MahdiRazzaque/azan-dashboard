@@ -34,7 +34,7 @@ class AssetMigrationService {
             for (const dirSet of directories) {
                 try {
                     await fs.access(dirSet.audio);
-                } catch (e) {
+                } catch {
                     continue;
                 }
 
@@ -78,7 +78,7 @@ class AssetMigrationService {
         try {
             try {
                 await fs.access(metaPath);
-            } catch (e) {
+            } catch {
                 // generateMetadataForExistingFiles in audioAssetService will handle creation of missing sidecars
                 return false;
             }
@@ -87,7 +87,7 @@ class AssetMigrationService {
             let metadata;
             try {
                 metadata = JSON.parse(content);
-            } catch (e) {
+            } catch {
                 console.warn(`[Migration] Corrupted metadata for ${file}, skipping.`);
                 return false;
             }

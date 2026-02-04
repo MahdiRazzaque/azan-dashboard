@@ -133,11 +133,11 @@ class MyMasjidProvider extends BaseProvider {
 
     /**
      * Fetches prayer times from the MyMasjid API and validates the response.
-     * @param {number|string} year The calendar year for which to retrieve prayer calculations.
+     * @param {number|string} _year The calendar year for which to retrieve prayer calculations.
      * @returns {Promise<Object>} A promise resolving to a normalised map of prayer times.
      * @private
      */
-    async _doFetch(year) {
+    async _doFetch(_year) {
         const { masjidId } = this.sourceConfig;
         const { timezone } = this.globalConfig.location;
 

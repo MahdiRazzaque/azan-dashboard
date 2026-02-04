@@ -310,4 +310,115 @@ describe('ConfigService', () => {
         const config = configService.get();
         expect(config.automation.outputs.local.params.audioPlayer).toBe('mpg123');
     });
+
+    it('should throw error if JWT_SECRET is missing during init', async () => {
+        configService.reset();
+        const originalSecret = process.env.JWT_SECRET;
+        delete process.env.JWT_SECRET;
+        try {
+            await expect(configService.init()).rejects.toThrow('JWT_SECRET environment variable is required');
+        } finally {
+            process.env.JWT_SECRET = originalSecret;
+        }
+    });
+
+    it('should throw error if ENCRYPTION_SALT is missing during init', async () => {
+        configService.reset();
+        const originalSalt = process.env.ENCRYPTION_SALT;
+        delete process.env.ENCRYPTION_SALT;
+        try {
+            await expect(configService.init()).rejects.toThrow('ENCRYPTION_SALT environment variable is required');
+        } finally {
+            process.env.ENCRYPTION_SALT = originalSalt;
+        }
+    });
+
+    it('should format ZodError in reload', async () => {
+        const invalidLocal = { location: { timezone: 123 } };
+        await fs.writeFile(configService._localPath, JSON.stringify(invalidLocal));
+        await expect(configService.reload()).rejects.toThrow('Configuration Validation Failed: location.timezone:');
+    });
+
+    it('should handle atomic save failure cleanup', async () => {
+        jest.spyOn(fs, 'rename').mockRejectedValue(new Error('Rename Fail'));
+        const spyUnlink = jest.spyOn(fs, 'unlink').mockResolvedValue();
+        
+        await expect(configService.update({ data: { staleCheckDays: 1 } })).rejects.toThrow('Atomic configuration save failed');
+        expect(spyUnlink).toHaveBeenCalled();
+        
+        fs.rename.mockRestore();
+        spyUnlink.mockRestore();
+    });
+
+    it('should validate source-specific configuration', async () => {
+        const invalidSource = { sources: { primary: { type: 'aladhan', method: 'invalid' } } };
+        await expect(configService.update(invalidSource)).rejects.toThrow('[PRIMARY Source] method:');
+    });
+
+    it('should clean source data when type changes', async () => {
+        const initial = { sources: { primary: { type: 'aladhan', method: 10 } } };
+        await configService.update(initial);
+        
+        const update = { sources: { primary: { type: 'mymasjid', masjidId: '00000000-0000-0000-0000-000000000000' } } };
+        await configService.update(update);
+        
+        const config = configService.get();
+        expect(config.sources.primary.method).toBeUndefined();
+        expect(config.sources.primary.masjidId).toBeDefined();
+    });
+
+    it('should apply provider secrets from env', async () => {
+        // We need a provider with a sensitive parameter.
+        // Let's mock ProviderFactory to return one.
+        const { ProviderFactory } = require('../../../providers');
+        jest.spyOn(ProviderFactory, 'getRegisteredProviders').mockReturnValue([{
+            id: 'test-prov',
+            parameters: [{ key: 'apiKey', sensitive: true }]
+        }]);
+
+        process.env.APIKEY = 'env-api-key';
+        const config = { sources: { primary: { type: 'test-prov' } } };
+        configService._applyEnvOverrides(config);
+        expect(config.sources.primary.apiKey).toBe('env-api-key');
+        
+        delete process.env.APIKEY;
+        ProviderFactory.getRegisteredProviders.mockRestore();
+    });
+
+    it('should strip secrets before saving', async () => {
+        process.env.VOICEMONKEY_TOKEN = 'env-token';
+        const config = { 
+            automation: { 
+                outputs: { 
+                    voicemonkey: { params: { token: 'should-be-stripped' } } 
+                } 
+            } 
+        };
+        configService._stripSecrets(config);
+        expect(config.automation.outputs.voicemonkey.params.token).toBeUndefined();
+        delete process.env.VOICEMONKEY_TOKEN;
+    });
+
+    it('should process sensitive fields for sources', async () => {
+        const { ProviderFactory } = require('../../../providers');
+        const mockProviderClass = {
+            getMetadata: () => ({
+                parameters: [{ key: 'apiKey', sensitive: true }]
+            })
+        };
+        jest.spyOn(ProviderFactory, 'getProviderClass').mockReturnValue(mockProviderClass);
+
+        const config = { 
+            sources: { 
+                primary: { type: 'test-prov', apiKey: 'real-key' } 
+            } 
+        };
+        await configService._processSensitiveFields(config, 'encrypt');
+        expect(config.sources.primary.apiKey).toContain(':');
+        
+        await configService._processSensitiveFields(config, 'decrypt');
+        expect(config.sources.primary.apiKey).toBe('real-key');
+        
+        ProviderFactory.getProviderClass.mockRestore();
+    });
 });

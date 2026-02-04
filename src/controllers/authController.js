@@ -98,7 +98,7 @@ const authController = {
             });
 
             res.json({ success: true, message: 'Password updated' });
-        } catch (e) {
+        } catch {
             res.status(500).json({ error: 'Failed to update password' });
         }
     },

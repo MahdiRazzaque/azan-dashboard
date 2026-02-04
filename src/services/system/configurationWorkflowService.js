@@ -6,8 +6,6 @@ const audioAssetService = require('@services/system/audioAssetService');
 const healthCheck = require('@services/system/healthCheck');
 const { validateConfigSource } = require('@services/core/validationService');
 const OutputFactory = require('../../outputs');
-const encryption = require('@utils/encryption');
-const { ProviderFactory } = require('@providers');
 const configUnmasker = require('@utils/configUnmasker');
 
 /**
@@ -150,7 +148,7 @@ class ConfigurationWorkflowService {
                                 niceName
                             });
                             warnings.push(...strategyWarnings);
-                        } catch (e) {}
+                        } catch { /* ignore */ }
                     });
                 });
             });

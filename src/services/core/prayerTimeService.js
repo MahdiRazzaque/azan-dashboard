@@ -1,7 +1,6 @@
-const fs = require('fs');
 const fsp = require('fs').promises;
 const path = require('path');
-const { ProviderFactory, ProviderConnectionError, ProviderValidationError } = require('@providers');
+const { ProviderFactory, ProviderValidationError } = require('@providers');
 const { DateTime } = require('luxon');
 const { calculateIqamah, calculateNextPrayer } = require('@utils/calculations');
 const asyncLock = require('@utils/asyncLock');
@@ -23,7 +22,7 @@ async function ensureDataDir() {
   const dataDir = path.dirname(CACHE_FILE);
   try {
     await fsp.access(dataDir);
-  } catch (e) {
+  } catch {
     await fsp.mkdir(dataDir, { recursive: true });
   }
 }
@@ -136,7 +135,7 @@ async function getPrayerTimes(config, date = DateTime.now()) {
     }
 
     // 2. Fallback to Disk Cache
-    let cache = await readCache();
+    const cache = await readCache();
     
     // Check hit
     if (cache.data && cache.data[dateKey]) {
@@ -250,12 +249,12 @@ async function readCache() {
     try {
       inMemoryCache = JSON.parse(content);
       return inMemoryCache;
-    } catch (e) {
+    } catch {
       console.warn('Cache file corrupted, resetting.');
       inMemoryCache = {};
       return inMemoryCache;
     }
-  } catch (e) {
+  } catch {
     // File not found or other access error
     inMemoryCache = {};
     return inMemoryCache;
@@ -316,7 +315,7 @@ async function forceRefresh(config) {
     inMemoryCache = null;
     try {
         await fsp.unlink(CACHE_FILE);
-    } catch (e) {
+    } catch {
          // ignore
     }
     return module.exports.getPrayerTimes(config, DateTime.now());

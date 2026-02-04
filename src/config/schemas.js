@@ -92,7 +92,7 @@ const configSchema = z.object({
       try {
         Intl.DateTimeFormat(undefined, { timeZone: val });
         return true;
-      } catch (e) {
+      } catch {
         return false;
       }
     }, { message: "Invalid IANA timezone" }),

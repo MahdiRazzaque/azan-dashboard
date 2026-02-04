@@ -51,23 +51,41 @@ describe('BaseOutput', () => {
         });
     });
 
+    describe('augmentAudioMetadata', () => {
+        it('should return empty object by default', () => {
+            expect(output.augmentAudioMetadata({})).toEqual({});
+        });
+    });
+
     describe('getSecretRequirementKeys', () => {
         it('should return keys marked as sensitive in metadata', () => {
             const keys = output.getSecretRequirementKeys();
             expect(keys).toEqual(['token']);
         });
 
+        it('should return empty array if no params in metadata', () => {
+            class NoParamsOutput extends BaseOutput {
+                static getMetadata() { return { id: 'noparams' }; }
+            }
+            const noParams = new NoParamsOutput();
+            expect(noParams.getSecretRequirementKeys()).toEqual([]);
+        });
+
         it('should throw if getMetadata is not implemented in subclass', () => {
              const incomplete = new IncompleteOutput();
-             // Assuming base getMetadata throws or returns undefined causing error
              expect(() => incomplete.getSecretRequirementKeys()).toThrow();
         });
     });
-    
+
+    describe('validateTrigger', () => {
+        it('should return empty array by default', () => {
+            expect(output.validateTrigger({}, {})).toEqual([]);
+        });
+    });
+
     describe('static getMetadata', () => {
         it('should throw "Not implemented" by default', () => {
             expect(() => BaseOutput.getMetadata()).toThrow('Not implemented');
         });
     });
 });
-

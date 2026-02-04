@@ -18,11 +18,11 @@ class BaseProvider {
     /**
      * Retrieves annual prayer times for a given year.
      * Must be implemented by subclasses.
-     * @param {number} year - The year to fetch times for.
+     * @param {number} _year - The year to fetch times for.
      * @returns {Promise<Object>} The prayer times for the year.
      * @throws {Error} If not implemented by subclass.
      */
-    async getAnnualTimes(year) {
+    async getAnnualTimes(_year) {
         throw new Error('Method getAnnualTimes() must be implemented');
     }
 

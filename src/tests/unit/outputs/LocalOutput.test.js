@@ -157,4 +157,165 @@ describe('LocalOutput', () => {
             expect(result.success).toBe(true);
         });
     });
+
+    describe('_isWSL', () => {
+        it('should return false if not linux', async () => {
+            const originalPlatform = process.platform;
+            Object.defineProperty(process, 'platform', { value: 'darwin' });
+            expect(await output._isWSL()).toBe(false);
+            Object.defineProperty(process, 'platform', { value: originalPlatform });
+        });
+
+        it('should return true if /proc/version contains microsoft', async () => {
+            const originalPlatform = process.platform;
+            Object.defineProperty(process, 'platform', { value: 'linux' });
+            fs.promises.readFile.mockResolvedValue('Linux version 5.10.16.3-microsoft-standard-WSL2');
+            expect(await output._isWSL()).toBe(true);
+            Object.defineProperty(process, 'platform', { value: originalPlatform });
+        });
+
+        it('should return false if readFile fails', async () => {
+            const originalPlatform = process.platform;
+            Object.defineProperty(process, 'platform', { value: 'linux' });
+            fs.promises.readFile.mockRejectedValue(new Error('Fail'));
+            expect(await output._isWSL()).toBe(false);
+            Object.defineProperty(process, 'platform', { value: originalPlatform });
+        });
+    });
+
+    describe('execute path resolution', () => {
+        it('should resolve path from payload.source.path', async () => {
+            const payload = {
+                source: { path: 'custom/test.mp3' }
+            };
+            await output.execute(payload, {});
+            expect(mockPlay).toHaveBeenCalledWith(expect.stringContaining('public/audio/custom/test.mp3'), expect.anything(), expect.any(Function));
+        });
+
+        it('should resolve path from payload.type and filename', async () => {
+            const payload = {
+                source: {},
+                type: 'azan',
+                filename: 'fajr.mp3'
+            };
+            await output.execute(payload, {});
+            expect(mockPlay).toHaveBeenCalledWith(expect.stringContaining('public/audio/azan/fajr.mp3'), expect.anything(), expect.any(Function));
+        });
+    });
+
+    describe('execute WSL and Abort', () => {
+        it('should inject pulse output on WSL with mpg123', async () => {
+            const originalPlatform = process.platform;
+            Object.defineProperty(process, 'platform', { value: 'linux' });
+            fs.promises.readFile.mockResolvedValue('microsoft');
+            
+            const testFile = path.join(AUDIO_ROOT, 'custom/test.mp3');
+            const payload = { source: { filePath: testFile }, params: { audioPlayer: 'mpg123' } };
+
+            await output.execute(payload, {});
+            expect(mockPlay).toHaveBeenCalledWith(testFile, expect.objectContaining({ mpg123: ['-o', 'pulse'] }), expect.any(Function));
+            
+            Object.defineProperty(process, 'platform', { value: originalPlatform });
+        });
+
+        it('should handle abort signal', async () => {
+            const controller = new AbortController();
+            const mockProcess = { kill: jest.fn() };
+            // Don't call callback immediately
+            mockPlay.mockReturnValue(mockProcess);
+
+            const testFile = path.join(AUDIO_ROOT, 'custom/test.mp3');
+            const payload = { source: { filePath: testFile } };
+
+            const promise = output.execute(payload, {}, controller.signal);
+            
+            // Trigger abort in next tick to ensure listener is attached
+            setImmediate(() => controller.abort());
+
+            await expect(promise).rejects.toThrow('Playback aborted');
+            expect(mockProcess.kill).toHaveBeenCalled();
+        });
+
+        it('should handle already aborted signal', async () => {
+            const controller = new AbortController();
+            controller.abort();
+            const mockProcess = { kill: jest.fn() };
+            mockPlay.mockReturnValue(mockProcess);
+
+            const testFile = path.join(AUDIO_ROOT, 'custom/test.mp3');
+            const payload = { source: { filePath: testFile } };
+
+            await expect(output.execute(payload, {}, controller.signal)).rejects.toThrow('Playback aborted');
+            expect(mockProcess.kill).toHaveBeenCalled();
+        });
+
+        it('should handle killed error', async () => {
+            const err = new Error('Killed');
+            err.killed = true;
+            mockPlay.mockImplementationOnce((file, opts, cb) => cb(err));
+
+            const testFile = path.join(AUDIO_ROOT, 'custom/test.mp3');
+            const payload = { source: { filePath: testFile } };
+
+            await expect(output.execute(payload, {})).rejects.toThrow('Killed');
+        });
+    });
+
+    describe('validateAsset', () => {
+        it('should return valid', async () => {
+            const result = await output.validateAsset('test.mp3', {});
+            expect(result.valid).toBe(true);
+        });
+    });
+
+    describe('healthCheck extra', () => {
+        it('should return unhealthy for invalid player', async () => {
+            const result = await output.healthCheck({ audioPlayer: 'invalid' });
+            expect(result.healthy).toBe(false);
+            expect(result.message).toBe('Invalid Audio Player');
+        });
+
+        it('should bypass /dev/snd check on WSL', async () => {
+            execFile.mockImplementation((file, args, cb) => cb(null));
+            const originalPlatform = process.platform;
+            Object.defineProperty(process, 'platform', { value: 'linux' });
+            fs.promises.readFile.mockResolvedValue('microsoft');
+
+            const result = await output.healthCheck();
+            expect(result.healthy).toBe(true);
+            expect(result.message).toBe('Ready');
+
+            Object.defineProperty(process, 'platform', { value: originalPlatform });
+        });
+
+        it('should detect Docker via cgroup', async () => {
+            execFile.mockImplementation((file, args, cb) => cb(null));
+            const originalPlatform = process.platform;
+            Object.defineProperty(process, 'platform', { value: 'linux' });
+            
+            fs.promises.access.mockRejectedValue(new Error('ENOENT')); // /dev/snd and /.dockerenv missing
+            fs.promises.readFile.mockResolvedValue('...docker...'); // /proc/1/cgroup contains docker
+
+            const result = await output.healthCheck();
+            expect(result.healthy).toBe(false);
+            expect(result.message).toBe('Docker: No Audio HW');
+
+            Object.defineProperty(process, 'platform', { value: originalPlatform });
+        });
+
+        it('should return No Audio Device if not Docker and no /dev/snd', async () => {
+            execFile.mockImplementation((file, args, cb) => cb(null));
+            const originalPlatform = process.platform;
+            Object.defineProperty(process, 'platform', { value: 'linux' });
+            
+            fs.promises.access.mockRejectedValue(new Error('ENOENT'));
+            fs.promises.readFile.mockResolvedValue('...normal...');
+
+            const result = await output.healthCheck();
+            expect(result.healthy).toBe(false);
+            expect(result.message).toBe('No Audio Device');
+
+            Object.defineProperty(process, 'platform', { value: originalPlatform });
+        });
+    });
 });

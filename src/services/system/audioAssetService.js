@@ -45,7 +45,7 @@ const PRAYER_NAMES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 async function ensureDir(dir) {
     try {
         await fsp.access(dir);
-    } catch (e) {
+    } catch {
         await fsp.mkdir(dir, { recursive: true });
     }
 }
@@ -106,7 +106,7 @@ const cleanupCache = async () => {
                 try {
                     await fsp.access(metaPath);
                     await fsp.unlink(metaPath);
-                } catch (e) { /* ignore */ }
+                } catch { /* ignore */ }
                 
                 console.log(`[AudioService] Deleted old cache file and meta: ${file}`);
             }
@@ -126,7 +126,7 @@ const cleanupTempAudio = async (force = false) => {
     console.log(`[AudioService] Cleaning up temporary audio files (force: ${force})...`);
     try {
         await fsp.access(AUDIO_TEMP_DIR);
-    } catch (e) {
+    } catch {
         return;
     }
 
@@ -223,7 +223,7 @@ const ensureTTSFile = async (prayer, event, settings, config) => {
             await fsp.utimes(metaPath, now, now);
             shouldGenerate = false;
         }
-    } catch (e) { /* missing or corrupted */ }
+    } catch { /* missing or corrupted */ }
 
     if (!shouldGenerate) {
         return { success: true, message: 'Valid file exists', generated: false };
@@ -290,7 +290,7 @@ const syncAudioAssets = async (forceClean = false) => {
                 await fsp.access(dir);
                 const files = await fsp.readdir(dir);
                 await Promise.all(files.map(f => fsp.unlink(path.join(dir, f))));
-            } catch (e) { /* ignore */ }
+            } catch { /* ignore */ }
         }
     }
 
@@ -344,7 +344,7 @@ const ensureTestAudio = async () => {
         await fsp.access(testAudioPath);
         await fsp.access(testMetaPath);
         return;
-    } catch (e) {
+    } catch {
         // Continue to generation
     }
 
@@ -382,7 +382,7 @@ const ensureTestAudio = async () => {
             }));
             
             console.log('[AudioService] "test.mp3" generated and moved to custom.');
-        } catch (e) {
+        } catch {
              console.error(`[AudioService] Cache file missing after generation: ${cacheAudioPath}`);
         }
     } catch (error) {
@@ -416,7 +416,7 @@ const previewTTS = async (template, prayerKey, offsetMinutes, voice) => {
             await fsp.utimes(audioPath, now, now);
             return { url: `/public/audio/temp/${filename}` };
         }
-    } catch (e) { /* doesn't exist */ }
+    } catch { /* doesn't exist */ }
 
     try {
         const response = await axios.post(`${pythonUrl}/preview-tts`, 
@@ -445,7 +445,7 @@ const generateMetadataForExistingFiles = async () => {
     for (const dirSet of directories) {
         try {
             await fsp.access(dirSet.audio);
-        } catch (e) { continue; }
+        } catch { continue; }
         
         const files = (await fsp.readdir(dirSet.audio)).filter(f => f.endsWith('.mp3'));
         for (const file of files) {
@@ -458,7 +458,7 @@ const generateMetadataForExistingFiles = async () => {
             try {
                 await fsp.access(metaPath);
                 // Already exists
-            } catch (e) {
+            } catch {
                 try {
                     console.log(`[AudioService] Generating metadata for ${file}...`);
                     const basicMetadata = await audioValidator.analyseAudioFile(audioPath);
@@ -468,11 +468,11 @@ const generateMetadataForExistingFiles = async () => {
                     try {
                         await fsp.access(legacyMetaPath);
                         existingData = JSON.parse(await fsp.readFile(legacyMetaPath, 'utf8'));
-                    } catch (err1) {
+                    } catch {
                         try {
                             await fsp.access(redundantMetaPath);
                             existingData = JSON.parse(await fsp.readFile(redundantMetaPath, 'utf8'));
-                        } catch (err2) {}
+                        } catch { /* ignore */ }
                     }
                     
                     if (file === 'azan.mp3') {
@@ -484,8 +484,8 @@ const generateMetadataForExistingFiles = async () => {
                         ...enrichedMetadata
                     }));
 
-                    try { await fsp.unlink(legacyMetaPath); } catch (e) {}
-                    try { await fsp.unlink(redundantMetaPath); } catch (e) {}
+                    try { await fsp.unlink(legacyMetaPath); } catch { /* ignore */ }
+                    try { await fsp.unlink(redundantMetaPath); } catch { /* ignore */ }
                     
                 } catch (error) {
                     console.error(`[AudioService] Metadata generation failed for ${file}:`, error.message);

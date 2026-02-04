@@ -267,7 +267,7 @@ const scheduleMaintenanceJobs = () => {
     const schedulerWrap = (action) => async () => {
         try { 
             await action(); 
-        } catch (e) { 
+        } catch { 
             /* logged in action */ 
         }
     };

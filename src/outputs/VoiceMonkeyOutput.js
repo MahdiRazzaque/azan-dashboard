@@ -74,14 +74,14 @@ class VoiceMonkeyOutput extends BaseOutput {
                 // REQ-015: Read from nested compatibility object only
                 const isCompatible = meta.compatibility?.voicemonkey?.valid;
 
-                if (isCompatible === false) {
-                    console.warn(`${prefix} Skipped: Audio incompatible with Alexa`);
-                    return; // Skip
+                    if (isCompatible === false) {
+                        console.warn(`${prefix} Skipped: Audio incompatible with Alexa`);
+                        return; // Skip
+                    }
+                } catch {
+                    // Silently ignore corrupted or missing metadata
                 }
-            } catch(e) {
-                // Silently ignore corrupted or missing metadata
             }
-        }
 
         const config = ConfigService.get();
         // Prefer parameters provided in the trigger payload, then fall back to global config.
