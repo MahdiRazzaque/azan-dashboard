@@ -34,6 +34,7 @@ const createMockConfig = (overrides = {}) => ({
             }
         }
     },
+    security: { tokenVersion: 1 },
     ...overrides
 });
 

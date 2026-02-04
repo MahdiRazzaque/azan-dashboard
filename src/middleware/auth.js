@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const configService = require('@config');
 
 /**
  * Middleware to authenticate requests using a JWT from cookies.
@@ -24,6 +25,13 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, secret, (err, user) => {
     if (err) return res.status(403).json({ error: 'Forbidden' });
+
+    // Verify token version against current server configuration
+    const currentVersion = configService.get().security.tokenVersion;
+    if (user.tokenVersion !== currentVersion) {
+        return res.status(401).json({ error: 'Session expired. Please login again.' });
+    }
+
     req.user = user;
     next();
   });

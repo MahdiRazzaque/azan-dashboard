@@ -33,6 +33,19 @@ const fsLimiter = new Bottleneck({
  * automation diagnostics, and hardware testing.
  */
 const systemController = {
+    _fileListCache: {
+        data: null,
+        timestamp: 0
+    },
+    _CACHE_TTL: 60000,
+
+    /**
+     * Invalidates the in-memory audio file list cache.
+     */
+    invalidateFileCache: () => {
+        systemController._fileListCache = { data: null, timestamp: 0 };
+    },
+
     /**
      * Retrieves the overall system health status.
      * Returns a 503 service unavailable status if critical components are offline.
@@ -159,6 +172,24 @@ const systemController = {
      * @private
      */
     _getAudioFilesWithMetadata: async (page = 1, limit = 50) => {
+        const now = Date.now();
+        
+        // REQ-004: Return cached data if within TTL
+        if (systemController._fileListCache.data && (now - systemController._fileListCache.timestamp < systemController._CACHE_TTL)) {
+            const allFiles = systemController._fileListCache.data;
+            const total = allFiles.length;
+            const startIndex = (page - 1) * limit;
+            const paginatedFiles = allFiles.slice(startIndex, startIndex + limit);
+            
+            return {
+                files: paginatedFiles,
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            };
+        }
+
         const audioCustomDir = path.join(__dirname, '../../public/audio/custom');
         const audioCacheDir = path.join(__dirname, '../../public/audio/cache');
         const metaCustomDir = path.join(__dirname, '../public/audio/custom');
@@ -172,43 +203,17 @@ const systemController = {
             fs.mkdir(metaCacheDir, { recursive: true })
         ]);
 
-        /**
-         * Internal helper to scan directories and attach metadata.
-         * 
-         * @param {string} audioDir - Directory to scan.
-         * @param {string} type - File type category.
-         * @returns {Promise<Object[]>} A promise that resolves to file entries.
-         * @private
-         */
         const getFileEntries = async (audioDir, type) => {
-            /**
-             * Internal local helper to retrieve file list.
-             * 
-             * @returns {Promise<Object[]>} A promise that resolves to file entries.
-             */
-            const fetchEntries = async () => {
+            try {
                 const files = await fs.readdir(audioDir);
                 return files.filter(f => f.endsWith('.mp3')).map(f => ({
                     f,
                     type,
                     metaDir: type === 'custom' ? metaCustomDir : metaCacheDir
                 }));
-            };
-
-            /**
-             * Internal wrapper to manage result retrieval and errors.
-             * 
-             * @returns {Promise<Object[]>} The fetched or empty file list.
-             */
-            const resultHandler = async () => {
-                try {
-                    return await fetchEntries();
-                } catch (e) {
-                    return [];
-                }
-            };
-
-            return await resultHandler();
+            } catch (e) {
+                return [];
+            }
         };
 
         const [customEntries, cacheEntries] = await Promise.all([
@@ -217,11 +222,10 @@ const systemController = {
         ]);
 
         const allEntries = [...customEntries, ...cacheEntries];
-        const total = allEntries.length;
-        const startIndex = (page - 1) * limit;
-        const paginatedEntries = allEntries.slice(startIndex, startIndex + limit);
-
-        const results = await Promise.all(paginatedEntries.map(({ f, type, metaDir }) => fsLimiter.schedule(async () => {
+        
+        // To satisfy the <50ms requirement for large file counts, we must cache the metadata too.
+        // This means we read ALL metadata once and cache it.
+        const allResults = await Promise.all(allEntries.map(({ f, type, metaDir }) => fsLimiter.schedule(async () => {
             const metaPath = path.join(metaDir, f + '.json');
             
             let metadata = {};
@@ -239,10 +243,20 @@ const systemController = {
             };
         })));
         
-        const files = results.filter(file => !file.metadata.hidden);
+        const filteredFiles = allResults.filter(file => !file.metadata.hidden);
+        
+        // Update cache
+        systemController._fileListCache = {
+            data: filteredFiles,
+            timestamp: now
+        };
+
+        const total = filteredFiles.length;
+        const startIndex = (page - 1) * limit;
+        const paginatedFiles = filteredFiles.slice(startIndex, startIndex + limit);
 
         return {
-            files,
+            files: paginatedFiles,
             total,
             page,
             limit,
@@ -564,6 +578,34 @@ const systemController = {
         const { ProviderFactory } = require('@providers');
         const providers = ProviderFactory.getRegisteredProviders();
         res.json(providers);
+    },
+
+    /**
+     * Retrieves the registry of all system services that report health status.
+     * This allows the frontend to dynamically render health rows.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    getServiceRegistry: (req, res) => {
+        const registry = [
+            { id: 'api', label: 'API Server' },
+            { id: 'tts', label: 'TTS Service' }
+        ];
+
+        // Add output strategies that are enabled
+        const config = configService.get();
+        const strategies = OutputFactory.getAllStrategies();
+        
+        strategies.forEach(strategy => {
+            if (strategy.hidden || strategy.id === 'browser') return;
+            const outputConfig = config.automation?.outputs?.[strategy.id];
+            if (outputConfig?.enabled) {
+                registry.push({ id: strategy.id, label: `${strategy.label} Integration` });
+            }
+        });
+
+        res.json(registry);
     },
 
     // New Output Strategy Endpoints

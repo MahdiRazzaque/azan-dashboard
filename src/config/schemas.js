@@ -79,6 +79,12 @@ const systemSchema = z.object({
   }
 });
 
+const securitySchema = z.object({
+  tokenVersion: z.number().int().default(1),
+}).default({
+  tokenVersion: 1
+});
+
 const configSchema = z.object({
   version: z.number().optional().default(1),
   location: z.object({
@@ -114,6 +120,7 @@ const configSchema = z.object({
   data: dataSchema,
   automation: automationSchema,
   system: systemSchema,
+  security: securitySchema,
 });
 
 const envUpdateSchema = z.object({
@@ -146,5 +153,6 @@ module.exports = {
   sunriseTriggersSchema,
   triggerEventSchema,
   prayerSettingSchema,
-  envUpdateSchema
+  envUpdateSchema,
+  securitySchema
 };

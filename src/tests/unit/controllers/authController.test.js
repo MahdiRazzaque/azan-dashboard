@@ -2,10 +2,17 @@ const authController = require('@controllers/authController');
 const envManager = require('@utils/envManager');
 const authUtils = require('@utils/passwordUtils');
 const jwt = require('jsonwebtoken');
+const configService = require('@config');
 
 jest.mock('@utils/envManager');
 jest.mock('@utils/passwordUtils');
 jest.mock('jsonwebtoken');
+jest.mock('@config', () => ({
+    get: jest.fn(() => ({
+        security: { tokenVersion: 1 }
+    })),
+    update: jest.fn().mockResolvedValue()
+}));
 
 describe('authController Unit Tests', () => {
     let req, res;
@@ -79,11 +86,14 @@ describe('authController Unit Tests', () => {
              expect(res.status).toHaveBeenCalledWith(400);
         });
 
-        it('should successfully change password', async () => {
+        it('should successfully change password and increment token version', async () => {
              req.body.password = 'newpass';
              authUtils.hashPassword.mockResolvedValue('hashed');
              await authController.changePassword(req, res);
              expect(envManager.setEnvValue).toHaveBeenCalledWith('ADMIN_PASSWORD', 'hashed');
+             expect(configService.update).toHaveBeenCalledWith({
+                 security: { tokenVersion: 2 }
+             });
              expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
         });
 

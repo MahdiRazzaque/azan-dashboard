@@ -24,8 +24,13 @@ describe('Health Endpoints Integration', () => {
     beforeAll(() => {
         process.env.JWT_SECRET = JWT_SECRET;
         process.env.ADMIN_PASSWORD = 'configured';
-        adminToken = jwt.sign({ role: 'admin' }, JWT_SECRET);
+        adminToken = jwt.sign({ role: 'admin', tokenVersion: 1 }, JWT_SECRET);
         
+        configService.get.mockReturnValue({
+            security: { tokenVersion: 1 },
+            sources: { backup: { enabled: true } }
+        });
+
         jest.spyOn(console, 'log').mockImplementation(() => {});
         jest.spyOn(console, 'error').mockImplementation(() => {});
     });

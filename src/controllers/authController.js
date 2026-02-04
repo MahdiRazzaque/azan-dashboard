@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const envManager = require('@utils/envManager');
 const { hashPassword, verifyPassword } = require('@utils/passwordUtils');
+const configService = require('@config');
 
 /**
  * Controller for authentication-related operations, managing login sessions,
@@ -56,7 +57,8 @@ const authController = {
             }
 
             // Generate an initial token for immediate login after setup
-            const token = jwt.sign({ role: 'admin' }, jwtSecret, { expiresIn: '24h' });
+            const tokenVersion = configService.get().security.tokenVersion;
+            const token = jwt.sign({ role: 'admin', tokenVersion }, jwtSecret, { expiresIn: '24h' });
             res.cookie('auth_token', token, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
@@ -85,6 +87,16 @@ const authController = {
         try {
             const hashed = await hashPassword(password);
             await envManager.setEnvValue('ADMIN_PASSWORD', hashed);
+
+            // Increment tokenVersion to invalidate all existing sessions
+            const currentConfig = configService.get();
+            const newVersion = (currentConfig.security?.tokenVersion || 0) + 1;
+            await configService.update({
+                security: {
+                    tokenVersion: newVersion
+                }
+            });
+
             res.json({ success: true, message: 'Password updated' });
         } catch (e) {
             res.status(500).json({ error: 'Failed to update password' });
@@ -116,7 +128,8 @@ const authController = {
                 return res.status(500).json({ error: 'System security not fully configured (Missing JWT Secret)' });
             }
 
-            const token = jwt.sign({ role: 'admin' }, secret, { expiresIn: '24h' });
+            const tokenVersion = configService.get().security.tokenVersion;
+            const token = jwt.sign({ role: 'admin', tokenVersion }, secret, { expiresIn: '24h' });
 
             res.cookie('auth_token', token, {
                 httpOnly: true,

@@ -2,7 +2,7 @@ const migrationService = require('../../../services/system/migrationService');
 
 describe('migrationService', () => {
     describe('migrateConfig', () => {
-        it('should migrate V1 config with VoiceMonkey to V4', () => {
+        it('should migrate V1 config with VoiceMonkey to V5', () => {
             const v1Config = {
                 automation: {
                     voiceMonkey: {
@@ -15,7 +15,7 @@ describe('migrationService', () => {
 
             const result = migrationService.migrateConfig(v1Config);
 
-            expect(result.version).toBe(4);
+            expect(result.version).toBe(5);
             expect(result.automation.voiceMonkey).toBeUndefined();
             expect(result.automation.outputs.voicemonkey).toEqual({
                 enabled: true,
@@ -26,6 +26,7 @@ describe('migrationService', () => {
                 }
             });
             expect(result.system.healthChecks).toBeDefined();
+            expect(result.security.tokenVersion).toBe(1);
         });
 
         it('should handle V1 config without VoiceMonkey', () => {
@@ -37,11 +38,12 @@ describe('migrationService', () => {
 
             const result = migrationService.migrateConfig(v1Config);
 
-            expect(result.version).toBe(4);
+            expect(result.version).toBe(5);
             expect(result.automation.outputs).toEqual({});
+            expect(result.security.tokenVersion).toBe(1);
         });
 
-        it('should preserve existing V3 config and migrate to V4', () => {
+        it('should preserve existing V3 config and migrate to V5', () => {
             const v3Config = {
                 version: 3,
                 sources: {
@@ -51,12 +53,13 @@ describe('migrationService', () => {
 
             const result = migrationService.migrateConfig(v3Config);
 
-            expect(result.version).toBe(4);
+            expect(result.version).toBe(5);
             expect(result.sources.primary.method).toBe(2);
             expect(result.system.healthChecks).toBeDefined();
+            expect(result.security.tokenVersion).toBe(1);
         });
 
-        it('should migrate V2 config (global calculation) to V4', () => {
+        it('should migrate V2 config (global calculation) to V5', () => {
             const v2Config = {
                 version: 2,
                 calculation: {
@@ -72,13 +75,14 @@ describe('migrationService', () => {
 
             const result = migrationService.migrateConfig(v2Config);
 
-            expect(result.version).toBe(4);
+            expect(result.version).toBe(5);
             expect(result.calculation).toBeUndefined();
             expect(result.sources.primary.method).toBe(2);
             expect(result.system.healthChecks).toBeDefined();
+            expect(result.security.tokenVersion).toBe(1);
         });
         
-        it('should migrate V3 config to V4 by adding system.healthChecks', () => {
+        it('should migrate V3 config to V5 by adding system.healthChecks and security', () => {
             const v3Config = {
                 version: 3,
                 automation: { outputs: {} }
@@ -86,11 +90,12 @@ describe('migrationService', () => {
 
             const result = migrationService.migrateConfig(v3Config);
 
-            expect(result.version).toBe(4);
+            expect(result.version).toBe(5);
             expect(result.system.healthChecks).toEqual({
                 api: true,
                 tts: true
             });
+            expect(result.security.tokenVersion).toBe(1);
         });
 
         it('should not mutate original object', () => {

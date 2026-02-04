@@ -54,11 +54,13 @@ describe('ConfigurationWorkflowService', () => {
         expect(prayerTimeService.forceRefresh).not.toHaveBeenCalled();
     });
 
-    it('should handle sync failure and rollback', async () => {
+    it('should handle sync failure as soft-fail (REQ-002)', async () => {
         audioAssetService.syncAudioAssets.mockRejectedValue(new Error('Disk Full'));
         
-        await expect(workflowService.executeUpdate(mockConfig)).rejects.toThrow('rolled back');
-        expect(configService.update).toHaveBeenCalledWith(mockConfig); // Reverted to previous
+        const result = await workflowService.executeUpdate(mockConfig);
+        expect(result.message).toBe('Settings updated successfully.');
+        expect(result.warnings).toContain('Audio Synchronisation Warning: Disk Full');
+        expect(configService.update).toHaveBeenCalledWith(mockConfig);
     });
 
     it('should identify active services', () => {

@@ -252,7 +252,7 @@ describe('API Routes Integration', () => {
     });
 
     beforeEach(() => {
-        adminToken = jwt.sign({ role: 'admin' }, JWT_SECRET);
+        adminToken = jwt.sign({ role: 'admin', tokenVersion: 1 }, JWT_SECRET);
         jest.clearAllMocks();
         healthCheck.checkSource.mockResolvedValue({ healthy: true });
         mockConfigService.get.mockReturnValue(mockConfig);

@@ -14,7 +14,7 @@ jest.mock('@utils/envManager', () => mockEnvManager);
 // 2. Mock others
 jest.mock('@config', () => ({
     init: jest.fn(),
-    get: jest.fn(() => ({ sources: {}, location: { coordinates: {} } })),
+    get: jest.fn(() => ({ sources: {}, location: { coordinates: {} }, security: { tokenVersion: 1 } })),
     update: jest.fn()
 }));
 jest.mock('@services/core/schedulerService', () => ({ initScheduler: jest.fn() }));

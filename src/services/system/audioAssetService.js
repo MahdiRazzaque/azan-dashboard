@@ -3,7 +3,13 @@ const fsp = fs.promises;
 const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
+const Bottleneck = require('bottleneck');
 const numberToWords = require('number-to-words');
+
+const limiter = new Bottleneck({
+    maxConcurrent: 3
+});
+
 const configService = require('@config'); // Singleton
 const audioValidator = require('@utils/audioValidator');
 const OutputFactory = require('../../outputs');
@@ -290,6 +296,7 @@ const syncAudioAssets = async (forceClean = false) => {
 
     if (!triggers) return { warnings: [] };
 
+    const tasks = [];
     for (const prayer of PRAYER_NAMES) {
         const prayerTriggers = triggers[prayer];
         if (!prayerTriggers) continue;
@@ -297,18 +304,25 @@ const syncAudioAssets = async (forceClean = false) => {
         for (const [event, settings] of Object.entries(prayerTriggers)) {
             if (!settings.enabled || settings.type !== 'tts' || !settings.template) continue;
 
-            try {
-                const result = await ensureTTSFile(prayer, event, settings, config);
-                if (!result.success) {
-                    const niceName = `${prayer.charAt(0).toUpperCase() + prayer.slice(1)} ${event.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
-                    warnings.push(`${niceName}: ${result.message}`);
-                }
-            } catch (err) {
-                console.error(`[AudioService] Asset sync failed for ${prayer} ${event}:`, err.message);
-                throw err;
-            }
+            tasks.push({ prayer, event, settings });
         }
     }
+
+    const results = await Promise.allSettled(tasks.map(task => 
+        limiter.schedule(() => ensureTTSFile(task.prayer, task.event, task.settings, config))
+    ));
+
+    results.forEach((result, index) => {
+        const task = tasks[index];
+        const niceName = `${task.prayer.charAt(0).toUpperCase() + task.prayer.slice(1)} ${task.event.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
+        
+        if (result.status === 'rejected') {
+            console.error(`[AudioService] Asset sync failed for ${task.prayer} ${task.event}:`, result.reason.message);
+            warnings.push(`${niceName}: ${result.reason.message}`);
+        } else if (!result.value.success) {
+            warnings.push(`${niceName}: ${result.value.message}`);
+        }
+    });
     
     await cleanupCache();
     await cleanupTempAudio();

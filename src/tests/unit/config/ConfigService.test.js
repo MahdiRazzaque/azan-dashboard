@@ -245,7 +245,7 @@ describe('ConfigService', () => {
         const localContent = await fs.readFile(configService._localPath, 'utf-8');
         const localConfig = JSON.parse(localContent);
         
-        expect(localConfig.version).toBe(4);
+        expect(localConfig.version).toBe(5);
         expect(localConfig.automation.voiceMonkey).toBeUndefined();
         expect(localConfig.automation.outputs.voicemonkey).toBeDefined();
         // Encrypted in file

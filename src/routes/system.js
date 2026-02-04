@@ -23,6 +23,7 @@ router.post('/validate-url', operationsLimiter, authenticateToken, asyncHandler(
 router.post('/source/test', operationsLimiter, authenticateToken, asyncHandler(systemController.testSource));
 router.post('/cleanup-temp-tts', operationsLimiter, authenticateToken, asyncHandler(systemController.cleanupTempTTS));
 router.get('/providers', authenticateToken, asyncHandler(systemController.getProviders));
+router.get('/services/registry', authenticateToken, asyncHandler(systemController.getServiceRegistry));
 
 // Output Strategy Endpoints
 router.get('/outputs/registry', authenticateToken, asyncHandler(systemController.getOutputRegistry));

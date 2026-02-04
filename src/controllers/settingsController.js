@@ -246,6 +246,18 @@ const settingsController = {
             await fsAsync.mkdir(targetDir, { recursive: true });
             await fsAsync.mkdir(metaDir, { recursive: true });
 
+            // REQ-005: File Count Hard Limit
+            const existingFiles = await fsAsync.readdir(targetDir).catch(() => []);
+            const mp3Files = existingFiles.filter(f => f.endsWith('.mp3'));
+            if (mp3Files.length >= 500) {
+                // Cleanup temp file
+                try { await fsAsync.unlink(tempPath); } catch (e) {}
+                return res.status(400).json({ 
+                    error: 'Limit Reached', 
+                    message: 'Maximum of 500 custom audio files allowed. Please delete some files before uploading more.' 
+                });
+            }
+
             // 1. Magic Bytes Check (via audioValidator)
             let basicMetadata;
             try {
@@ -271,6 +283,11 @@ const settingsController = {
             const enrichedMetadata = await audioAssetService.enrichMetadata(targetPath, basicMetadata);
             await fsAsync.writeFile(metaPath, JSON.stringify(enrichedMetadata));
             
+            // REQ-004: Invalidate file listing cache
+            if (systemControllerHelper.invalidateFileCache) {
+                systemControllerHelper.invalidateFileCache();
+            }
+
             res.json({
                 message: 'File uploaded and analysed successfully',
                 filename: req.file.filename,
@@ -338,6 +355,10 @@ const settingsController = {
         }
 
         if (deleted) {
+            // REQ-004: Invalidate file listing cache
+            if (systemControllerHelper.invalidateFileCache) {
+                systemControllerHelper.invalidateFileCache();
+            }
             res.json({ success: true, message: 'File and metadata deleted' });
         } else {
             res.status(404).json({ error: 'File not found' });

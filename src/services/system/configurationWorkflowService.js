@@ -52,13 +52,12 @@ class ConfigurationWorkflowService {
         
         // 5. Synchronise audio assets
         sseService.broadcast({ type: 'PROCESS_UPDATE', payload: { label: 'Generating Audio Assets...' } });
-        let syncResult;
+        let syncResult = { warnings: [] };
         try {
             syncResult = await audioAssetService.syncAudioAssets();
         } catch (err) {
-            // Revert configuration if audio synchronisation fails
-            await configService.update(previousConfig);
-            throw new Error(`Sync Failed: ${err.message}. Configuration has been rolled back.`);
+            // REQ-002: Soft-fail. Do not roll back config if sync fails.
+            syncResult.warnings.push(`Audio Synchronisation Warning: ${err.message}`);
         }
 
         // 6. Re-initialise the scheduler

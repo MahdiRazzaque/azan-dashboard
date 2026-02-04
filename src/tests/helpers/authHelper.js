@@ -9,7 +9,7 @@ const authHelper = {
     getAuthToken(secret = process.env.JWT_SECRET) {
         // Fallback if env not set (though setup.js should set it)
         const s = secret || 'test-secret';
-        const token = jwt.sign({ role: 'admin' }, s, { expiresIn: '1h' });
+        const token = jwt.sign({ role: 'admin', tokenVersion: 1 }, s, { expiresIn: '1h' });
         return `auth_token=${token}`;
     }
 };

@@ -27,7 +27,8 @@ jest.mock('fs/promises', () => ({
     readFile: jest.fn().mockResolvedValue('{}'),
     writeFile: jest.fn().mockResolvedValue(),
     mkdir: jest.fn().mockResolvedValue(),
-    rename: jest.fn().mockResolvedValue()
+    rename: jest.fn().mockResolvedValue(),
+    readdir: jest.fn().mockResolvedValue([])
 }));
 
 // Mock Config
@@ -42,7 +43,8 @@ jest.mock('@config', () => ({
             triggers: {}
         },
         sources: {},
-        prayers: {}
+        prayers: {},
+        security: { tokenVersion: 1 }
     }),
     reload: jest.fn(),
     init: jest.fn().mockResolvedValue()
@@ -90,7 +92,7 @@ describe('File Upload Validation Integration', () => {
     beforeAll(() => {
         process.env.JWT_SECRET = JWT_SECRET;
         process.env.ADMIN_PASSWORD = 'hashed';
-        adminToken = jwt.sign({ role: 'admin' }, JWT_SECRET);
+        adminToken = jwt.sign({ role: 'admin', tokenVersion: 1 }, JWT_SECRET);
         
         // Create dummy file for upload
         jest.requireActual('fs').writeFileSync(testFilePath, 'dummy content');

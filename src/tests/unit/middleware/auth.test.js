@@ -1,5 +1,12 @@
 const authenticateToken = require('@middleware/auth');
 const jwt = require('jsonwebtoken');
+const configService = require('@config');
+
+jest.mock('@config', () => ({
+    get: jest.fn(() => ({
+        security: { tokenVersion: 1 }
+    }))
+}));
 
 describe('Auth Middleware', () => {
     let req, res, next;
@@ -38,13 +45,24 @@ describe('Auth Middleware', () => {
     
     test('should call next if valid token using JWT_SECRET', () => {
         process.env.JWT_SECRET = 'secret';
-        const token = jwt.sign({ name: 'user' }, 'secret');
+        const token = jwt.sign({ name: 'user', tokenVersion: 1 }, 'secret');
         req.cookies.auth_token = token;
         
         authenticateToken(req, res, next);
         
         expect(next).toHaveBeenCalled();
         expect(req.user).toBeDefined();
+    });
+
+    test('should return 401 if token version mismatch', () => {
+        process.env.JWT_SECRET = 'secret';
+        const token = jwt.sign({ name: 'user', tokenVersion: 0 }, 'secret');
+        req.cookies.auth_token = token;
+        
+        authenticateToken(req, res, next);
+        
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(res.json).toHaveBeenCalledWith({ error: 'Session expired. Please login again.' });
     });
 
     test('should NOT use ADMIN_PASSWORD as fallback secret', () => {

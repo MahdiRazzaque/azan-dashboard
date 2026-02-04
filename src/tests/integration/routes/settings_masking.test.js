@@ -20,7 +20,8 @@ const mockConfig = {
     },
     location: { timezone: 'UTC', coordinates: { lat: 0, long: 0 } },
     prayers: {},
-    data: {}
+    data: {},
+    security: { tokenVersion: 1 }
 };
 
 const mockConfigService = {
@@ -68,7 +69,7 @@ describe('Settings Masking Integration', () => {
     beforeAll(() => {
         process.env.JWT_SECRET = JWT_SECRET;
         process.env.ADMIN_PASSWORD = 'hashed_password';
-        adminToken = jwt.sign({ role: 'admin' }, JWT_SECRET);
+        adminToken = jwt.sign({ role: 'admin', tokenVersion: 1 }, JWT_SECRET);
         jest.spyOn(console, 'log').mockImplementation(() => {});
         jest.spyOn(console, 'error').mockImplementation(() => {});
     });
