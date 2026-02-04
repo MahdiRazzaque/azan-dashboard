@@ -11,11 +11,20 @@ const ALLOWED_AUDIO_PLAYERS = ['mpg123', 'omxplayer', 'aplay', 'mplayer', 'cvlc'
  * Strategy for playing audio locally on the server host.
  */
 class LocalOutput extends BaseOutput {
+
     /**
-     * Retrieves the metadata for the local audio output strategy.
-     *
-     * @returns {Object} The strategy metadata including ID, label, and parameters.
+     * Helper to detect if running in WSL (Windows Subsystem for Linux)
      */
+    async _isWSL() {
+        if (process.platform !== 'linux') return false;
+        try {
+            const version = await fs.readFile('/proc/version', 'utf8');
+            return version.toLowerCase().includes('microsoft') || version.toLowerCase().includes('wsl');
+        } catch (e) {
+            return false;
+        }
+    }
+
     static getMetadata() {
         return {
             id: 'local',
@@ -50,51 +59,56 @@ class LocalOutput extends BaseOutput {
         const isTest = metadata?.isTest;
         const prefix = isTest ? '[Test Output: Local]' : '[Output: Local]';
 
-        if (!payload.source) {
-            return;
-        }
+        if (!payload.source) return;
 
         let filePath = payload.source.filePath;
 
-        // Path resolution for tests or File Manager previews.
+        // Path resolution logic
         if (!filePath) {
             if (payload.source.path) {
-                // Construct the absolute path based on the relative path provided in the source.
                 filePath = path.resolve(__dirname, '../../public/audio', payload.source.path);
             } else if (payload.type && payload.filename) {
-                // Fallback to constructing the path from type and filename if an explicit path is missing.
                 filePath = path.join(__dirname, `../../public/audio/${payload.type}/${payload.filename}`);
             }
         }
 
         if (!filePath) {
-            console.warn(`${prefix} Playback skipped: No filePath provided and could not resolve from metadata`);
+            console.warn(`${prefix} Playback skipped: No filePath provided`);
             return;
         }
 
         // Security: Path traversal protection
         const normalizedPath = path.resolve(filePath);
         if (!normalizedPath.startsWith(AUDIO_ROOT)) {
-            console.error(`${prefix} SECURITY WARNING: Path traversal attempt blocked: ${payload.source?.path || filePath}`);
+            console.error(`${prefix} SECURITY WARNING: Path traversal attempt blocked`);
             throw new Error('Invalid audio path: Access denied');
         }
         filePath = normalizedPath;
 
         const audioPlayer = (payload.params && payload.params.audioPlayer) || 'mpg123';
 
-        // Security: Audio player allowlist validation
         if (!ALLOWED_AUDIO_PLAYERS.includes(audioPlayer)) {
-            console.error(`${prefix} SECURITY WARNING: Invalid audio player rejected: ${audioPlayer}`);
             throw new Error('Invalid audio player');
         }
 
         console.log(`${prefix} Starting playback: ${path.basename(filePath)}`);
 
+        // Detect WSL and inject the PulseAudio flag if using mpg123
+        const isWsl = await this._isWSL();
+        const playOptions = { player: audioPlayer };
+
+        if (isWsl && audioPlayer === 'mpg123') {
+            // "play-sound" library allows passing player-specific args using the player name as the key
+            playOptions.mpg123 = ['-o', 'pulse'];
+            console.log(`${prefix} WSL detected: Forcing mpg123 pulse output`);
+        }
+        // --- WSL FIX END ---
+
         return new Promise((resolve, reject) => {
-            const audioProcess = player.play(filePath, { player: audioPlayer }, (err) => {
+            const audioProcess = player.play(filePath, playOptions, (err) => {
                 if (err) {
                     if (err.killed) {
-                        console.warn(`${prefix} Playback killed due to timeout or manual abort`);
+                        console.warn(`${prefix} Playback killed`);
                     } else {
                         console.error(`${prefix} Playback failed: ${err.message}`);
                     }
@@ -131,18 +145,16 @@ class LocalOutput extends BaseOutput {
         const ConfigService = require('../config');
         const config = ConfigService.get();
 
-        // Use requested params (from UI test) or saved config or default
         const audioPlayer = (requestedParams && requestedParams.audioPlayer) ||
                            config.automation?.outputs?.local?.params?.audioPlayer ||
                            'mpg123';
 
-        // Security: Audio player allowlist validation
         if (!ALLOWED_AUDIO_PLAYERS.includes(audioPlayer)) {
-            console.warn(`[Output: Local] Health: Offline (Invalid Audio Player: ${audioPlayer})`);
             return { healthy: false, message: 'Invalid Audio Player' };
         }
 
         try {
+            // 1. Check if player binary exists
             await new Promise((resolve, reject) => {
                 execFile(audioPlayer, ['--version'], (error) => {
                     if (error) reject(error);
@@ -150,34 +162,44 @@ class LocalOutput extends BaseOutput {
                 });
             });
 
-            // Linux-specific check for audio hardware access, particularly relevant in Docker environments.
+            // 2. Hardware Access Check (Modified for WSL)
             if (process.platform === 'linux') {
-                let hasSnd = true;
-                try {
-                    await fs.access('/dev/snd');
-                } catch (e) {
-                    hasSnd = false;
-                }
-
-                if (!hasSnd) {
-                    // Detect if the application is running inside a Docker container.
-                    let isDocker = false;
+                const isWsl = await this._isWSL();
+                
+                if (isWsl) {
+                    // --- WSL FIX ---
+                    console.log('[Output: Local] WSL Environment detected - Bypassing /dev/snd check');
+                } else {
+                    // Standard Linux Check
+                    console.log('[Output: Local] Checking for audio hardware access');
+                    let hasSnd = true;
                     try {
+                        await fs.access('/dev/snd');
+                    } catch (e) {
+                        hasSnd = false;
+                    }
+
+                    if (!hasSnd) {
+                        // Docker check logic...
+                        let isDocker = false;
                         try {
                             await fs.access('/.dockerenv');
                             isDocker = true;
                         } catch (e) {
-                            const cgroup = await fs.readFile('/proc/1/cgroup', 'utf8');
-                            if (cgroup.includes('docker')) isDocker = true;
+                            try {
+                                const cgroup = await fs.readFile('/proc/1/cgroup', 'utf8');
+                                if (cgroup.includes('docker')) isDocker = true;
+                            } catch (err) {}
                         }
-                    } catch (e) { }
 
-                    if (isDocker) {
-                        console.log('[Output: Local] Health: Offline (Docker: No Audio HW)');
-                        return { healthy: false, message: 'Docker: No Audio HW' };
+                        if (isDocker) {
+                            console.log('[Output: Local] Health: Offline (Docker: No Audio HW)');
+                            return { healthy: false, message: 'Docker: No Audio HW' };
+                        }
+                        
+                        console.log('[Output: Local] Health: Offline (No Audio Device)');
+                        return { healthy: false, message: 'No Audio Device' };
                     }
-                    console.log('[Output: Local] Health: Offline (No Audio Device)');
-                    return { healthy: false, message: 'No Audio Device' };
                 }
             }
 
@@ -197,8 +219,6 @@ class LocalOutput extends BaseOutput {
      * @returns {Promise<Object>} The verification result.
      */
     async verifyCredentials(credentials) {
-        console.log('[Output: Local] Verifying credentials');
-        console.log('[Output: Local] Verification: OK');
         return { success: true };
     }
 
