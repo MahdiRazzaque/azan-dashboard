@@ -401,6 +401,13 @@ describe('SystemController', () => {
             expect(res.status).toHaveBeenCalledWith(400);
         });
 
+        it('should return 400 if template exceeds 50 characters', async () => {
+            req.body = { template: 'A'.repeat(51), prayerKey: 'fajr', voice: 'v1' };
+            await systemController.previewTTS(req, res);
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith({ error: 'TTS template must be 50 characters or less' });
+        });
+
         it('should return data from audioAssetService', async () => {
             req.body = { template: 'test', prayerKey: 'fajr', voice: 'v1' };
             audioAssetService.previewTTS.mockResolvedValue({ url: 'test.mp3' });

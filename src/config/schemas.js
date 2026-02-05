@@ -13,7 +13,7 @@ const triggerEventSchema = z.object({
   enabled: z.boolean(),
   offsetMinutes: z.number().min(0).max(60).optional(),
   type: triggerActionSchema,
-  template: z.string().optional(),
+  template: z.string().max(50, 'TTS template must be 50 characters or less').optional(),
   path: z.string().optional(),
   url: z.string().optional(),
   voice: z.string().optional(),
