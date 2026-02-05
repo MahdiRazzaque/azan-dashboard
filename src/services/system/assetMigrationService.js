@@ -34,11 +34,12 @@ class AssetMigrationService {
             for (const dirSet of directories) {
                 try {
                     await fs.access(dirSet.audio);
-                } catch (e) {
+                } catch {
                     continue;
                 }
 
-                const files = (await fs.readdir(dirSet.audio)).filter(f => f.endsWith('.mp3'));
+                const audioExtensions = ['.mp3', '.wav', '.aac', '.ogg', '.opus', '.flac', '.m4a'];
+                const files = (await fs.readdir(dirSet.audio)).filter(f => audioExtensions.includes(path.extname(f).toLowerCase()));
                 
                 // Process in batches of 50
                 const BATCH_SIZE = 50;
@@ -78,7 +79,7 @@ class AssetMigrationService {
         try {
             try {
                 await fs.access(metaPath);
-            } catch (e) {
+            } catch {
                 // generateMetadataForExistingFiles in audioAssetService will handle creation of missing sidecars
                 return false;
             }
@@ -87,7 +88,7 @@ class AssetMigrationService {
             let metadata;
             try {
                 metadata = JSON.parse(content);
-            } catch (e) {
+            } catch {
                 console.warn(`[Migration] Corrupted metadata for ${file}, skipping.`);
                 return false;
             }

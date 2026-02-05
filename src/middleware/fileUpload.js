@@ -53,10 +53,14 @@ const upload = multer({
      * @returns {void}
      */
     fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'audio/mpeg' || file.originalname.endsWith('.mp3')) {
+        const audioExtensions = ['.mp3', '.wav', '.aac', '.ogg', '.opus', '.flac', '.m4a'];
+        const isAudioMime = file.mimetype.startsWith('audio/');
+        const isSupportedExt = audioExtensions.includes(path.extname(file.originalname).toLowerCase());
+
+        if (isAudioMime || isSupportedExt) {
             cb(null, true);
         } else {
-            cb(new Error('Only mp3 files allowed'));
+            cb(new Error('Only audio files are allowed'));
         }
     }
 });

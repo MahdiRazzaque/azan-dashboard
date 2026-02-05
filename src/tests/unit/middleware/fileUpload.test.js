@@ -59,7 +59,7 @@ describe('FileUpload Util', () => {
             upload.fileFilter(req, file, cb);
             
             expect(cb).toHaveBeenCalledWith(expect.any(Error));
-            expect(cb.mock.calls[0][0].message).toBe('Only mp3 files allowed');
+            expect(cb.mock.calls[0][0].message).toBe('Only audio files are allowed');
         });
     });
 });

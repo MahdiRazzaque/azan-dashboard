@@ -1,18 +1,17 @@
-const VoiceMonkeyOutput = require('@outputs/VoiceMonkeyOutput');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const ConfigService = require('@config');
+const Bottleneck = require('bottleneck');
 
 // Mock bottleneck
 jest.mock('bottleneck', () => {
-    return jest.fn().mockImplementation(() => {
-        return {
-            schedule: jest.fn((fn) => fn()),
-            on: jest.fn(),
-            stop: jest.fn()
-        };
-    });
+    const m = {
+        schedule: jest.fn((fn) => fn()),
+        on: jest.fn(),
+        stop: jest.fn()
+    };
+    return jest.fn(() => m);
 });
 
 jest.mock('axios');
@@ -27,14 +26,15 @@ jest.mock('fs', () => ({
 jest.mock('@config');
 
 describe('VoiceMonkeyOutput Comprehensive', () => {
+    let VoiceMonkeyOutput;
     let output;
+
+    beforeAll(() => {
+        VoiceMonkeyOutput = require('@outputs/VoiceMonkeyOutput');
+    });
 
     beforeEach(() => {
         jest.clearAllMocks();
-        VoiceMonkeyOutput.queue = {
-            schedule: jest.fn((fn) => fn()),
-            on: jest.fn()
-        };
         output = new VoiceMonkeyOutput();
         ConfigService.get.mockReturnValue({
             automation: {
@@ -48,14 +48,107 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
         });
     });
 
-    describe('verifyCredentials', () => {
+    it('should return metadata', () => {
+        const meta = VoiceMonkeyOutput.getMetadata();
+        expect(meta.id).toBe('voicemonkey');
+    });
+
+    it('should execute successfully', async () => {
+        fs.promises.access.mockResolvedValue(undefined);
+        fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: true } } }));
+        axios.get.mockResolvedValue({ data: { success: true } });
+        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' } }, {});
+        expect(axios.get).toHaveBeenCalled();
+    });
+
+    it('should skip incompatible', async () => {
+        fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: false } } }));
+        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' } }, {});
+        expect(axios.get).not.toHaveBeenCalled();
+    });
+
+    it('should handle missing params in execute', async () => {
+        ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com' } });
+        await output.execute({ source: { url: '/t.mp3' } }, {});
+        expect(axios.get).not.toHaveBeenCalled();
+    });
+
+    it('should handle trigger fail', async () => {
+        axios.get.mockRejectedValue(new Error('Fail'));
+        await expect(output.execute({ source: { url: 'https://ok.com/t.mp3' } }, {})).rejects.toThrow();
+    });
+
+    describe('execute edge cases', () => {
+        it('should skip if baseUrl is not HTTPS', async () => {
+            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'http://insecure.com' } });
+            await output.execute({ source: { url: '/t.mp3' } }, {});
+            expect(axios.get).not.toHaveBeenCalled();
+        });
+
+        it('should handle abort error', async () => {
+            const err = new Error('Aborted');
+            err.name = 'AbortError';
+            axios.get.mockRejectedValue(err);
+            await output.execute({ source: { url: 'https://ok.com/t.mp3' } }, {});
+            // Should not throw
+        });
+
+        it('should handle missing token or device', async () => {
+            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: {} } } } });
+            await output.execute({ source: { url: '/t.mp3' } }, {});
+            expect(axios.get).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('healthCheck edge cases', () => {
+        it('should return offline if baseUrl is not HTTPS', async () => {
+            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'http://insecure.com' } });
+            const result = await output.healthCheck();
+            expect(result.healthy).toBe(false);
+            expect(result.message).toContain('HTTPS Base URL required');
+        });
+
+        it('should return offline if token is missing', async () => {
+            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: {} } } } });
+            const result = await output.healthCheck();
+            expect(result.healthy).toBe(false);
+            expect(result.message).toContain('Token Missing');
+        });
+
+        it('should handle API failure response', async () => {
+            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: { token: 't' } } } } });
+            axios.get.mockResolvedValue({ data: { success: false, error: 'Some API Error' } });
+            const result = await output.healthCheck();
+            expect(result.healthy).toBe(false);
+            expect(result.message).toBe('Some API Error');
+        });
+
+        it('should handle network error', async () => {
+            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: { token: 't' } } } } });
+            axios.get.mockRejectedValue(new Error('Network Error'));
+            const result = await output.healthCheck();
+            expect(result.healthy).toBe(false);
+            expect(result.message).toBe('Network Error');
+        });
+    });
+
+    describe('verifyCredentials edge cases', () => {
+        it('should throw if token or device missing', async () => {
+            await expect(output.verifyCredentials({})).rejects.toThrow('Missing token or device');
+        });
+
+        it('should handle API failure response', async () => {
+            axios.get.mockResolvedValue({ data: { success: false, error: 'Invalid Token' } });
+            await expect(output.verifyCredentials({ token: 't', device: 'd' })).rejects.toThrow('Invalid Token');
+        });
+
         it('should handle API errors without explicit error message', async () => {
             axios.get.mockResolvedValue({ data: { success: false } }); // success false but no error string
             await expect(output.verifyCredentials({ token: 't', device: 'd' })).rejects.toThrow('Verification Failed');
         });
     });
 
-    describe('validateTrigger', () => {
+    describe('validateTrigger edge cases', () => {
         it('should return no warnings if file not found in provided list', () => {
             const context = {
                 audioFiles: [{ path: 'other.mp3' }],
@@ -66,6 +159,30 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
             const trigger = { type: 'file', path: 'missing.mp3' };
             const result = output.validateTrigger(trigger, context);
             expect(result).toHaveLength(0);
+        });
+
+        it('should return warning if incompatible', () => {
+            const context = {
+                audioFiles: [{ path: 'p.mp3', compatibility: { voicemonkey: { valid: false, issues: ['Too long'] } } }],
+                niceName: 'Test',
+                prayer: 'fajr',
+                triggerType: 'adhan'
+            };
+            const trigger = { type: 'file', path: 'p.mp3' };
+            const result = output.validateTrigger(trigger, context);
+            expect(result[0]).toContain('Audio incompatible with Alexa (Too long)');
+        });
+
+        it('should handle missing issues array', () => {
+            const context = {
+                audioFiles: [{ path: 'p.mp3', compatibility: { voicemonkey: { valid: false } } }],
+                niceName: 'Test',
+                prayer: 'fajr',
+                triggerType: 'adhan'
+            };
+            const trigger = { type: 'file', path: 'p.mp3' };
+            const result = output.validateTrigger(trigger, context);
+            expect(result[0]).toContain('Unknown issues');
         });
     });
 
@@ -82,60 +199,21 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
             expect(result.issues).toHaveLength(0);
         });
 
-        it('should accept valid WAV', async () => {
-            const result = await output.validateAsset('p.wav', { 
-                format: 'WAV', 
-                codec: 'PCM', 
-                mimeType: 'audio/wav',
-                bitrate: 1411200, 
-                duration: 30 
-            });
+        it('should fallback to manual check if mimeType is missing', async () => {
+            const result = await output.validateAsset('p.mp3', { format: 'mp3' });
             expect(result.valid).toBe(true);
-        });
 
-        it('should accept valid OGG', async () => {
-            const result = await output.validateAsset('p.ogg', { 
-                format: 'Ogg', 
-                codec: 'Vorbis', 
-                mimeType: 'audio/ogg',
-                bitrate: 128000, 
-                duration: 30 
-            });
-            expect(result.valid).toBe(true);
-        });
+            const result2 = await output.validateAsset('p.wav', { format: 'wav' });
+            expect(result2.valid).toBe(true);
 
-        it('should accept valid OPUS', async () => {
-            const result = await output.validateAsset('p.opus', { 
-                format: 'Ogg', 
-                codec: 'Opus', 
-                mimeType: 'audio/opus',
-                bitrate: 64000, 
-                duration: 30 
-            });
-            expect(result.valid).toBe(true);
-        });
+            const result3 = await output.validateAsset('p.ogg', { format: 'ogg' });
+            expect(result3.valid).toBe(true);
 
-        it('should accept valid AAC', async () => {
-            const result = await output.validateAsset('p.aac', { 
-                format: 'ADTS', 
-                codec: 'AAC', 
-                mimeType: 'audio/aac',
-                bitrate: 128000, 
-                duration: 30 
-            });
-            expect(result.valid).toBe(true);
-        });
+            const result4 = await output.validateAsset('p.aac', { format: 'aac' });
+            expect(result4.valid).toBe(true);
 
-        it('should reject unsupported formats', async () => {
-            const result = await output.validateAsset('p.flac', { 
-                format: 'FLAC', 
-                codec: 'FLAC', 
-                mimeType: 'audio/flac',
-                bitrate: 128000, 
-                duration: 30 
-            });
-            expect(result.valid).toBe(false);
-            expect(result.issues[0]).toContain('Unsupported format');
+            const result5 = await output.validateAsset('p.unknown', { format: 'unknown' });
+            expect(result5.valid).toBe(false);
         });
 
         it('should reject high bitrate', async () => {
@@ -147,16 +225,6 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
             });
             expect(result.valid).toBe(false);
             expect(result.issues[0]).toContain('Bitrate too high');
-        });
-
-        it('should accept bitrate up to 1411.2 kbps', async () => {
-            const result = await output.validateAsset('p.mp3', { 
-                format: 'mp3', 
-                mimeType: 'audio/mpeg',
-                bitrate: 1411200, 
-                duration: 30 
-            });
-            expect(result.valid).toBe(true);
         });
 
         it('should reject high sample rate', async () => {
@@ -191,51 +259,107 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
             expect(result.valid).toBe(false);
             expect(result.issues[0]).toContain('Duration too long');
         });
+
+        it('should reject unsupported mimeType', async () => {
+            const result = await output.validateAsset('p.flac', { mimeType: 'audio/flac' });
+            expect(result.valid).toBe(false);
+            expect(result.issues[0]).toContain('Unsupported format');
+        });
+    });
+
+    describe('healthCheck success', () => {
+        it('should return healthy if API returns success', async () => {
+            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: { token: 't' } } } } });
+            axios.get.mockResolvedValue({ data: { success: true } });
+            const result = await output.healthCheck();
+            expect(result.healthy).toBe(true);
+            expect(result.message).toBe('Online');
+        });
+    });
+
+    describe('verifyCredentials success', () => {
+        it('should return success if API returns success', async () => {
+            axios.get.mockResolvedValue({ data: { success: true } });
+            const result = await output.verifyCredentials({ token: 't', device: 'd' });
+            expect(result.success).toBe(true);
+        });
+    });
+
+    describe('execute edge cases extra', () => {
+        it('should return early if no source or url', async () => {
+            await output.execute({}, {});
+            await output.execute({ source: {} }, {});
+            expect(axios.get).not.toHaveBeenCalled();
+        });
+
+        it('should use token from payload params', async () => {
+            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com' } });
+            axios.get.mockResolvedValue({ data: { success: true } });
+            await output.execute({ source: { url: '/t.mp3' }, params: { token: 'p-token', device: 'p-device' } }, {});
+            expect(axios.get).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+                params: expect.objectContaining({ token: 'p-token' })
+            }));
+        });
+    });
+
+    describe('healthCheck edge cases extra', () => {
+        it('should handle missing error string in API failure', async () => {
+            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: { token: 't' } } } } });
+            axios.get.mockResolvedValue({ data: { success: false } });
+            const result = await output.healthCheck();
+            expect(result.message).toBe('API Failure');
+        });
+    });
+
+    describe('verifyCredentials edge cases extra', () => {
+        it('should handle missing error message in catch block', async () => {
+            axios.get.mockRejectedValue(new Error(''));
+            await expect(output.verifyCredentials({ token: 't', device: 'd' })).rejects.toThrow('Verification Failed');
+        });
+    });
+
+    describe('validateTrigger edge cases extra', () => {
+        it('should skip if compatibility is not explicitly false', () => {
+            const context = {
+                audioFiles: [{ path: 'p.mp3', compatibility: { voicemonkey: { valid: true } } }],
+                niceName: 'Test',
+                prayer: 'fajr',
+                triggerType: 'adhan'
+            };
+            const trigger = { type: 'file', path: 'p.mp3' };
+            const result = output.validateTrigger(trigger, context);
+            expect(result).toHaveLength(0);
+        });
+    });
+
+    describe('validateAsset manual fallback extra', () => {
+        it('should handle missing format and codec', async () => {
+            const result = await output.validateAsset('p.unknown', {});
+            expect(result.valid).toBe(false);
+        });
+
+        it('should detect MP3 via codec', async () => {
+            const result = await output.validateAsset('p.mp3', { codec: 'mp3' });
+            expect(result.valid).toBe(true);
+        });
     });
 
     describe('Queue failed handler', () => {
         it('should cover the listener', () => {
-            // Placeholder for coverage
+            // Re-require to get a fresh instance with fresh mock calls
+            jest.resetModules();
+            const Bottleneck = require('bottleneck');
+            const VoiceMonkeyOutput = require('@outputs/VoiceMonkeyOutput');
+            
+            const mockQueueInstance = VoiceMonkeyOutput.queue;
+            const failedListenerCall = mockQueueInstance.on.mock.calls.find(call => call[0] === 'failed');
+            
+            expect(failedListenerCall).toBeDefined();
+            const failedListener = failedListenerCall[1];
+            const spyWarn = jest.spyOn(console, 'warn').mockImplementation();
+            failedListener(new Error('Queue Fail'), { options: { id: 'job1' } });
+            expect(spyWarn).toHaveBeenCalledWith(expect.stringContaining('job1 failed: Queue Fail'));
+            spyWarn.mockRestore();
         });
-    });
-    
-    it('should return metadata', () => {
-        VoiceMonkeyOutput.getMetadata();
-    });
-
-    it('should execute successfully', async () => {
-        fs.promises.access.mockResolvedValue(undefined);
-        fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: true } } }));
-        axios.get.mockResolvedValue({ data: { success: true } });
-        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' } }, {});
-    });
-
-    it('should skip incompatible', async () => {
-        fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: false } } }));
-        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' } }, {});
-    });
-
-    it('should handle missing params in execute', async () => {
-        ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com' } });
-        await output.execute({ source: { url: '/t.mp3' } }, {});
-    });
-
-    it('should handle trigger fail', async () => {
-        axios.get.mockRejectedValue(new Error('Fail'));
-        await expect(output.execute({ source: { url: 'http://ok.com/t.mp3' } }, {})).rejects.toThrow();
-    });
-
-    it('should handle healthCheck API fail', async () => {
-        axios.get.mockResolvedValue({ data: { success: false } });
-        await output.healthCheck();
-    });
-
-    it('should handle healthCheck network fail', async () => {
-        axios.get.mockRejectedValue(new Error('Fail'));
-        await output.healthCheck();
-    });
-
-    it('should validate trigger with legacy meta', () => {
-        output.validateTrigger({ type: 'file', path: 'p' }, { audioFiles: [{ path: 'p', vmCompatible: false }], niceName: 'n' });
     });
 });

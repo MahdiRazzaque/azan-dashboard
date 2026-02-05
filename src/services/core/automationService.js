@@ -122,7 +122,7 @@ const _validateAndPrepareAudio = async (settings, prayer, event, config) => {
             try {
                 await fs.promises.access(source.filePath);
                 exists = true;
-            } catch (e) {}
+            } catch { /* ignore */ }
         }
 
         if (!exists) {

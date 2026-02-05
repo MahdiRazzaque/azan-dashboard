@@ -41,6 +41,22 @@ describe('Encryption Utils', () => {
             await expect(decrypt(tampered, secretKey)).rejects.toThrow();
         });
 
+        it('should return plaintext if empty or null', async () => {
+            expect(await encrypt('', secretKey)).toBe('');
+            expect(await encrypt(null, secretKey)).toBe(null);
+        });
+
+        it('should return ciphertext if empty or does not contain colon', async () => {
+            expect(await decrypt('', secretKey)).toBe('');
+            expect(await decrypt('not-encrypted', secretKey)).toBe('not-encrypted');
+            expect(await decrypt(null, secretKey)).toBe(null);
+        });
+
+        it('should throw error for invalid ciphertext format (wrong number of parts)', async () => {
+            await expect(decrypt('part1:part2', secretKey)).rejects.toThrow('Invalid ciphertext format');
+            await expect(decrypt('part1:part2:part3:part4', secretKey)).rejects.toThrow('Invalid ciphertext format');
+        });
+
         it('should throw error if ENCRYPTION_SALT is missing', async () => {
             const currentSalt = process.env.ENCRYPTION_SALT;
             delete process.env.ENCRYPTION_SALT;

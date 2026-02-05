@@ -246,6 +246,7 @@ export default function DeveloperSettingsView() {
                         <button 
                             onClick={() => setMessage(null)}
                             className="text-app-dim hover:text-app-text transition-colors"
+                            aria-label="Close message"
                         >
                             <LayoutGrid className="w-4 h-4 rotate-45" />
                         </button>

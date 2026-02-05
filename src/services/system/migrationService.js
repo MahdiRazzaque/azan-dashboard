@@ -23,6 +23,10 @@ class MigrationService {
             newConfig = this.migrateV3toV4(newConfig);
         }
 
+        if (newConfig.version === 4) {
+            newConfig = this.migrateV4toV5(newConfig);
+        }
+
         return newConfig;
     }
 
@@ -181,6 +185,26 @@ class MigrationService {
         }
 
         return v4Config;
+    }
+
+    /**
+     * Migrates V4 config to V5.
+     * Adds security.tokenVersion block.
+     * @param {Object} config - V4 configuration.
+     * @returns {Object} V5 configuration.
+     */
+    migrateV4toV5(config) {
+        const v5Config = { ...config, version: 5 };
+
+        if (!v5Config.security) {
+            v5Config.security = {
+                tokenVersion: 1
+            };
+        } else if (v5Config.security.tokenVersion === undefined) {
+            v5Config.security.tokenVersion = 1;
+        }
+
+        return v5Config;
     }
 }
 

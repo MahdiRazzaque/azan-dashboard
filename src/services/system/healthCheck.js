@@ -34,9 +34,9 @@ function init() {
                 }
             });
         }
-    } catch (e) {
+    } catch {
         // Fallback for cases where OutputFactory might not be fully ready or mocked incorrectly
-        console.warn('[HealthCheck] Failed to dynamically load strategies into cache:', e.message);
+        console.warn('[HealthCheck] Failed to dynamically load strategies into cache');
     }
 }
 
@@ -85,7 +85,7 @@ async function checkPythonService() {
                 maxContentLength: 5000000 
             });
             return { healthy: true, message: 'Online' };
-    } catch (e) {
+    } catch {
         return { healthy: false, message: 'Service Unreachable' };
     }
 }
@@ -194,7 +194,7 @@ async function refresh(target = 'all', params = null, { force = false } = {}) {
             const ttsUrl = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
             const port = new URL(ttsUrl).port;
             if (port) healthCache.ports.tts = port;
-        } catch(e) {}
+        } catch { /* ignore */ }
         healthCache.ports.api = process.env.PORT || 3000;
 
         return getHealth(); // Return a copy

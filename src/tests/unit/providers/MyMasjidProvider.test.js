@@ -1,11 +1,17 @@
 const MyMasjidProvider = require('../../../providers/MyMasjidProvider');
 const { ProviderConnectionError, ProviderValidationError } = require('../../../providers/errors');
 const { DateTime } = require('luxon');
+const Bottleneck = require('bottleneck');
 
-// Mock requestQueue
-jest.mock('@utils/requestQueue', () => ({
-    myMasjidQueue: { schedule: (fn) => fn() }
-}));
+// Mock bottleneck
+jest.mock('bottleneck', () => {
+    const m = {
+        schedule: jest.fn((fn) => fn()),
+        on: jest.fn(),
+        stop: jest.fn()
+    };
+    return jest.fn(() => m);
+});
 
 describe('MyMasjidProvider', () => {
     let provider;
@@ -18,6 +24,7 @@ describe('MyMasjidProvider', () => {
     };
 
     beforeEach(() => {
+        jest.clearAllMocks();
         provider = new MyMasjidProvider(sourceConfig, globalConfig);
         global.fetch = jest.fn();
         jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -115,6 +122,104 @@ describe('MyMasjidProvider', () => {
             const result = await provider.healthCheck();
             expect(result.healthy).toBe(false);
             expect(result.message).toContain('Network error');
+        });
+    });
+
+    describe('_doFetch edge cases', () => {
+        it('should throw if masjidId is missing', async () => {
+            const p = new MyMasjidProvider({ type: 'mymasjid' }, globalConfig);
+            await expect(p.getAnnualTimes(2024)).rejects.toThrow('Masjid ID is required');
+        });
+
+        it('should handle 404 error', async () => {
+            global.fetch.mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' });
+            await expect(provider.getAnnualTimes(2024)).rejects.toThrow('Masjid ID not found');
+        });
+
+        it('should handle other non-ok status', async () => {
+            global.fetch.mockResolvedValue({ ok: false, status: 403, statusText: 'Forbidden' });
+            await expect(provider.getAnnualTimes(2024)).rejects.toThrow('MyMasjid API Error: Forbidden');
+        });
+
+        it('should handle schema validation failure', async () => {
+            global.fetch.mockResolvedValue({
+                ok: true,
+                json: () => Promise.resolve({ model: { salahTimings: [{ day: 'invalid' }] } })
+            });
+            await expect(provider.getAnnualTimes(2024)).rejects.toThrow('MyMasjid Schema Validation Failed');
+        });
+
+        it('should handle invalid date in response', async () => {
+            const mockData = {
+                model: {
+                    salahTimings: [{
+                        day: 32, month: 1, // Invalid day
+                        fajr: '05:00', zuhr: '12:00', asr: '15:00', maghrib: '18:00', isha: '20:00', shouruq: '07:00'
+                    }]
+                }
+            };
+            global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(mockData) });
+            const result = await provider.getAnnualTimes(2024);
+            expect(Object.keys(result)).toHaveLength(0);
+        });
+
+        it('should handle missing time strings in nested format', async () => {
+            const mockData = {
+                model: {
+                    salahTimings: [{
+                        day: 1, month: 1,
+                        fajr: [{ salahName: 'Fajr', salahTime: '', iqamahTime: '' }],
+                        zuhr: [], asr: [], maghrib: [], isha: [], shouruq: []
+                    }]
+                }
+            };
+            global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(mockData) });
+            const result = await provider.getAnnualTimes(2024);
+            const currentYear = DateTime.now().setZone('Europe/London').year;
+            expect(result[`${currentYear}-01-01`].fajr).toBeNull();
+        });
+
+        it('should handle missing time strings in flat format', async () => {
+            const mockData = {
+                model: {
+                    salahTimings: [{
+                        day: 1, month: 1,
+                        fajr: '', zuhr: '', asr: '', maghrib: '', isha: '', shouruq: '',
+                        iqamah_Fajr: null
+                    }]
+                }
+            };
+            global.fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(mockData) });
+            const result = await provider.getAnnualTimes(2024);
+            const currentYear = DateTime.now().setZone('Europe/London').year;
+            expect(result[`${currentYear}-01-01`].fajr).toBeNull();
+        });
+    });
+
+    describe('Static methods', () => {
+        it('should return config schema', () => {
+            expect(MyMasjidProvider.getConfigSchema()).toBeDefined();
+        });
+
+        it('should return metadata', () => {
+            const meta = MyMasjidProvider.getMetadata();
+            expect(meta.id).toBe('mymasjid');
+        });
+    });
+
+    describe('Queue failed handler', () => {
+        it('should cover the listener', () => {
+            jest.resetModules();
+            const MyMasjidProvider = require('@providers/MyMasjidProvider');
+            const mockQueueInstance = MyMasjidProvider.queue;
+            const failedListenerCall = mockQueueInstance.on.mock.calls.find(call => call[0] === 'failed');
+            if (failedListenerCall) {
+                const failedListener = failedListenerCall[1];
+                const spyWarn = jest.spyOn(console, 'warn').mockImplementation();
+                failedListener(new Error('Queue Fail'), { options: { id: 'job1' } });
+                expect(spyWarn).toHaveBeenCalledWith(expect.stringContaining('job1 failed: Queue Fail'));
+                spyWarn.mockRestore();
+            }
         });
     });
 });

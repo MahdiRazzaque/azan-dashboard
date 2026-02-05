@@ -44,11 +44,8 @@ describe('AutomationService Comprehensive', () => {
         // 2. waitDelay > 0 and delay abort
         audioAssetService.ensureTTSFile.mockResolvedValue({ success: true });
         const mockStrategy = {
-            execute: jest.fn().mockImplementation((p, m, signal) => new Promise((resolve, reject) => {
-                const err = new Error('Abort'); err.name = 'AbortError';
-                signal.addEventListener('abort', () => reject(err));
-            })),
-            constructor: { getMetadata: () => ({ id: 'voicemonkey', timeoutMs: 1 }) }
+            execute: jest.fn().mockResolvedValue(),
+            constructor: { getMetadata: () => ({ id: 'voicemonkey', timeoutMs: -5000 }) }
         };
         OutputFactory.getStrategy.mockReturnValue(mockStrategy);
         
@@ -56,10 +53,6 @@ describe('AutomationService Comprehensive', () => {
         await service.triggerEvent('fajr', 'adhan');
         expect(spyErr).toHaveBeenCalled();
         spyErr.mockRestore();
-
-        // 3. delay with immediate abort
-        // This is internal but we can try to trigger it by passing an already aborted signal if we could.
-        // But delay is not exported.
     });
     
     it('should hit waitDelay = 0 branch', async () => {
@@ -77,5 +70,77 @@ describe('AutomationService Comprehensive', () => {
         OutputFactory.getStrategy.mockReturnValue(mockStrategy);
         await service.triggerEvent('fajr', 'adhan');
         expect(mockStrategy.execute).toHaveBeenCalled();
+    });
+
+    describe('getAudioSource', () => {
+        it('should handle file type', () => {
+            const settings = { type: 'file', path: 'custom.mp3' };
+            const result = service.getAudioSource(settings, 'fajr', 'adhan');
+            expect(result.filePath).toContain('custom.mp3');
+            expect(result.url).toBe('/public/audio/custom.mp3');
+        });
+
+        it('should handle unknown type', () => {
+            const result = service.getAudioSource({ type: 'unknown' }, 'fajr', 'adhan');
+            expect(result).toEqual({ filePath: null, url: null });
+        });
+    });
+
+    describe('triggerEvent Error Paths', () => {
+        it('should handle TTS generation failure', async () => {
+            audioAssetService.ensureTTSFile.mockResolvedValue({ success: false, message: 'Quota exceeded' });
+            await service.triggerEvent('fajr', 'adhan');
+            expect(sseService.broadcast).toHaveBeenCalledWith(expect.objectContaining({
+                payload: expect.objectContaining({ message: expect.stringContaining('TTS Service Offline') })
+            }));
+        });
+
+        it('should handle TTS critical error', async () => {
+            audioAssetService.ensureTTSFile.mockRejectedValue(new Error('Fatal'));
+            await service.triggerEvent('fajr', 'adhan');
+            // Should catch and log error
+        });
+
+        it('should handle missing custom file', async () => {
+            configService.get.mockReturnValue({
+                automation: {
+                    triggers: { fajr: { adhan: { enabled: true, type: 'file', path: 'missing.mp3' } } }
+                }
+            });
+            fs.promises.access.mockRejectedValue(new Error('ENOENT'));
+            await service.triggerEvent('fajr', 'adhan');
+            expect(sseService.broadcast).toHaveBeenCalledWith(expect.objectContaining({
+                payload: expect.objectContaining({ message: expect.stringContaining('Custom file missing') })
+            }));
+        });
+
+        it('should handle generic error in withTimeout', async () => {
+            audioAssetService.ensureTTSFile.mockResolvedValue({ success: true });
+            const mockStrategy = {
+                execute: jest.fn().mockRejectedValue(new Error('Execution failed')),
+                constructor: { getMetadata: () => ({ id: 'voicemonkey' }) }
+            };
+            OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+            
+            const spyErr = jest.spyOn(console, 'error').mockImplementation();
+            await service.triggerEvent('fajr', 'adhan');
+            expect(spyErr).toHaveBeenCalledWith(expect.stringContaining('Error executing target'), 'Execution failed');
+            spyErr.mockRestore();
+        });
+        it('should handle successful custom file access', async () => {
+            configService.get.mockReturnValue({
+                automation: {
+                    triggers: { fajr: { adhan: { enabled: true, type: 'file', path: 'exists.mp3' } } }
+                }
+            });
+            fs.promises.access.mockResolvedValue();
+            const mockStrategy = {
+                execute: jest.fn().mockResolvedValue(),
+                constructor: { getMetadata: () => ({ id: 'voicemonkey' }) }
+            };
+            OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+            await service.triggerEvent('fajr', 'adhan');
+            expect(fs.promises.access).toHaveBeenCalled();
+        });
     });
 });

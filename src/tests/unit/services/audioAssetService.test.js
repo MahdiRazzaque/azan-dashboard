@@ -249,7 +249,7 @@ describe('AudioAssetService', () => {
              expect(result.warnings.length).toBeGreaterThan(0);
         });
 
-        it('should throw on unexpected errors', async () => {
+        it('should collect warnings on unexpected errors (REQ-003)', async () => {
              configService.get.mockReturnValue({
                  automation: {
                      triggers: {
@@ -259,7 +259,9 @@ describe('AudioAssetService', () => {
              });
             mockStorageService.checkQuota.mockRejectedValue(new Error('Fatal'));
             fsp.access.mockRejectedValue({ code: 'ENOENT' });
-            await expect(service.syncAudioAssets()).rejects.toThrow('Fatal');
+            
+            const result = await service.syncAudioAssets();
+            expect(result.warnings).toContain('Fajr Adhan: Fatal');
         });
     });
 

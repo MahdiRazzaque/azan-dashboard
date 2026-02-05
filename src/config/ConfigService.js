@@ -1,6 +1,5 @@
 const fs = require('fs/promises');
 const path = require('path');
-const { z } = require('zod');
 const dotenv = require('dotenv');
 const { configSchema } = require('./schemas');
 const migrationService = require('../services/system/migrationService');
@@ -189,7 +188,7 @@ class ConfigService {
         
         // Lazy load OutputFactory
         let OutputFactory;
-        try { OutputFactory = require('../outputs'); } catch(e) { return; }
+        try { OutputFactory = require('../outputs'); } catch { return; }
 
         for (const [id, outputConfig] of Object.entries(config.automation.outputs)) {
             try {
@@ -220,7 +219,7 @@ class ConfigService {
                         outputConfig.params.audioPlayer = 'mpg123';
                     }
                 }
-            } catch (e) {
+            } catch {
                 // Strategy not found or error, ignore
             }
         }
@@ -252,7 +251,7 @@ class ConfigService {
             await fs.rename(tempPath, this._localPath);
         } catch (error) {
             // Clean up the temp file if it exists
-            try { await fs.unlink(tempPath); } catch (e) { /* ignore */ }
+            try { await fs.unlink(tempPath); } catch { /* ignore */ }
             throw new Error(`Atomic configuration save failed: ${error.message}`);
         }
     }
@@ -467,12 +466,13 @@ class ConfigService {
         if (process.env.PYTHON_SERVICE_URL) config.automation.pythonServiceUrl = process.env.PYTHON_SERVICE_URL;
         
         // [Dynamic Output Secrets]
-        const OutputFactory = require('../outputs');        const secrets = OutputFactory.getSecretRequirementKeys();
+        const OutputFactory = require('../outputs');
+        const secrets = OutputFactory.getSecretRequirementKeys();
 
         secrets.forEach(({ strategyId, key }) => {
             // e.g. VOICEMONKEY_TOKEN
             // Special case mapping if needed, but standard is ID_KEY
-            let envKey = `${strategyId.toUpperCase()}_${key.toUpperCase()}`;
+            const envKey = `${strategyId.toUpperCase()}_${key.toUpperCase()}`;
             
             if (process.env[envKey]) {
                 if (!config.automation.outputs) config.automation.outputs = {};
@@ -578,7 +578,7 @@ class ConfigService {
         // 1. Process Outputs
         if (obj.automation?.outputs) {
             let OutputFactory;
-            try { OutputFactory = require('../outputs'); } catch(e) {}
+            try { OutputFactory = require('../outputs'); } catch {}
             
             if (OutputFactory) {
                 for (const [id, outputConfig] of Object.entries(obj.automation.outputs)) {
@@ -601,7 +601,7 @@ class ConfigService {
                                         if (val.includes(':')) {
                                             try {
                                                 outputConfig.params[sKey] = await encryption.decrypt(val, key);
-                                            } catch (e) {
+                                            } catch {
                                                 // Decryption failed (wrong key or corrupted), keep as is
                                             }
                                         }
@@ -609,7 +609,7 @@ class ConfigService {
                                 }
                             }
                         }
-                    } catch (e) { /* strategy not found */ }
+                    } catch { /* strategy not found */ }
                 }
             }
         }
@@ -617,7 +617,7 @@ class ConfigService {
         // 2. Process Sources
         if (obj.sources) {
             let ProviderFactory;
-            try { ProviderFactory = require('../providers').ProviderFactory; } catch(e) {}
+            try { ProviderFactory = require('../providers').ProviderFactory; } catch {}
             
             if (ProviderFactory) {
                 for (const role of ['primary', 'backup']) {
@@ -639,12 +639,12 @@ class ConfigService {
                                         if (val.includes(':')) {
                                             try {
                                                 source[sKey] = await encryption.decrypt(val, key);
-                                            } catch (e) { /* ignore */ }
+                                            } catch { /* ignore */ }
                                         }
                                     }
                                 }
                             }
-                        } catch (e) { /* provider not found */ }
+                        } catch { /* provider not found */ }
                     }
                 }
             }

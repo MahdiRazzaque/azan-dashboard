@@ -50,24 +50,22 @@ describe('SystemController', () => {
     let req, res;
 
     beforeEach(() => {
-        jest.clearAllMocks();
-        req = {
-            body: {},
-            params: {},
-            query: {}
-        };
+        req = { body: {}, query: {}, params: {} };
         res = {
-            status: jest.fn().mockReturnThis(),
             json: jest.fn().mockReturnThis(),
-            send: jest.fn().mockReturnThis()
+            status: jest.fn().mockReturnThis(),
+            setHeader: jest.fn().mockReturnThis()
         };
-        configService.get.mockReturnValue({
-            sources: { primary: { type: 'aladhan' }, backup: { type: 'mymasjid', enabled: true } },
-            location: { timezone: 'UTC' },
-            automation: {}
-        });
+        jest.clearAllMocks();
+        systemController.invalidateFileCache();
         // Default DNS mock
         dns.promises.lookup.mockResolvedValue({ address: '8.8.8.8' });
+        // Default Config mock
+        configService.get.mockReturnValue({
+            sources: { primary: { type: 'aladhan' }, backup: { enabled: true } },
+            location: { timezone: 'UTC' },
+            security: { tokenVersion: 1 }
+        });
     });
 
     describe('Output Strategies', () => {

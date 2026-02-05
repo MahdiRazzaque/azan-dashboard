@@ -24,7 +24,7 @@ const parseEnv = async () => {
             }
         });
         return result;
-    } catch (e) {
+    } catch {
         return {};
     }
 };
@@ -42,7 +42,7 @@ const setEnvValue = async (key, value) => {
     try {
         await fs.access(ENV_PATH);
         content = await fs.readFile(ENV_PATH, 'utf-8');
-    } catch (e) {
+    } catch {
         // File doesn't exist, start with empty content
     }
 
@@ -88,7 +88,7 @@ const deleteEnvValue = async (key) => {
             await fs.writeFile(ENV_PATH, newLines.join('\n'));
             delete process.env[key];
         }
-    } catch (e) {
+    } catch {
         // File doesn't exist, nothing to delete
     }
 };

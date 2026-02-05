@@ -24,11 +24,25 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
  * @returns {JSX.Element} The rendered health tab.
  */
 export default function HealthTab({ config, systemHealth, refreshHealth, refresh }) {
+    const [systemServices, setSystemServices] = useState([]);
     const [outputs, setOutputs] = useState([]);
     const [refreshing, setRefreshing] = useState(null);
     const [feedback, setFeedback] = useState({});
 
     useEffect(() => {
+        // Fetch system services registry to dynamically build System section
+        fetch('/api/system/services/registry')
+            .then(res => res.json())
+            .then(data => setSystemServices(data))
+            .catch(err => {
+                console.error("Failed to fetch system services registry", err);
+                // Fallback to hardcoded list if registry unavailable
+                setSystemServices([
+                    { id: 'api', label: 'API Server' },
+                    { id: 'tts', label: 'TTS Service' }
+                ]);
+            });
+
         // Fetch output registry to dynamically build Output section
         fetch('/api/system/outputs/registry')
             .then(res => res.json())
@@ -98,32 +112,22 @@ export default function HealthTab({ config, systemHealth, refreshHealth, refresh
                 title="System Services" 
                 icon={<Activity className="w-5 h-5 text-blue-500" />}
             >
-                <HealthRow 
-                    id="api"
-                    label="API Server" 
-                    status="online" // API is always online if we can see this
-                    lastChecked={systemHealth.lastChecked}
-                    canToggle={true}
-                    enabled={healthChecks.api === true}
-                    onToggle={(val) => handleToggle('api', val)}
-                    onRefresh={() => handleForceRefresh('api')}
-                    refreshing={refreshing === 'api'}
-                    feedback={feedback.api}
-                    systemHealth={systemHealth}
-                />
-                <HealthRow 
-                    id="tts"
-                    label="TTS Service" 
-                    status={systemHealth.tts?.healthy ? 'online' : 'offline'}
-                    lastChecked={systemHealth.lastChecked}
-                    canToggle={true}
-                    enabled={healthChecks.tts === true}
-                    onToggle={(val) => handleToggle('tts', val)}
-                    onRefresh={() => handleForceRefresh('tts')}
-                    refreshing={refreshing === 'tts'}
-                    feedback={feedback.tts}
-                    systemHealth={systemHealth}
-                />
+                {systemServices.map(service => (
+                    <HealthRow 
+                        key={service.id}
+                        id={service.id}
+                        label={service.label}
+                        status={service.id === 'api' ? 'online' : (systemHealth[service.id]?.healthy ? 'online' : 'offline')}
+                        lastChecked={systemHealth.lastChecked}
+                        canToggle={true}
+                        enabled={healthChecks[service.id] === true}
+                        onToggle={(val) => handleToggle(service.id, val)}
+                        onRefresh={() => handleForceRefresh(service.id)}
+                        refreshing={refreshing === service.id}
+                        feedback={feedback[service.id]}
+                        systemHealth={systemHealth}
+                    />
+                ))}
             </HealthCard>
 
             {/* Prayer Sources Section */}

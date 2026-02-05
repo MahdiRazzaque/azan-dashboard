@@ -13,18 +13,23 @@ const ALLOWED_AUDIO_PLAYERS = ['mpg123', 'omxplayer', 'aplay', 'mplayer', 'cvlc'
 class LocalOutput extends BaseOutput {
 
     /**
-     * Helper to detect if running in WSL (Windows Subsystem for Linux)
+     * Helper to detect if running in WSL (Windows Subsystem for Linux).
+     * @returns {Promise<boolean>} A promise that resolves to true if running in WSL, false otherwise.
      */
     async _isWSL() {
         if (process.platform !== 'linux') return false;
         try {
             const version = await fs.readFile('/proc/version', 'utf8');
             return version.toLowerCase().includes('microsoft') || version.toLowerCase().includes('wsl');
-        } catch (e) {
+        } catch {
             return false;
         }
     }
 
+    /**
+     * Retrieves the metadata for the local audio output strategy.
+     * @returns {Object} The metadata object containing configuration details.
+     */
     static getMetadata() {
         return {
             id: 'local',
@@ -175,7 +180,7 @@ class LocalOutput extends BaseOutput {
                     let hasSnd = true;
                     try {
                         await fs.access('/dev/snd');
-                    } catch (e) {
+                    } catch {
                         hasSnd = false;
                     }
 
@@ -185,11 +190,11 @@ class LocalOutput extends BaseOutput {
                         try {
                             await fs.access('/.dockerenv');
                             isDocker = true;
-                        } catch (e) {
+                        } catch {
                             try {
                                 const cgroup = await fs.readFile('/proc/1/cgroup', 'utf8');
                                 if (cgroup.includes('docker')) isDocker = true;
-                            } catch (err) {}
+                            } catch { /* ignore */ }
                         }
 
                         if (isDocker) {
@@ -205,7 +210,7 @@ class LocalOutput extends BaseOutput {
 
             console.log('[Output: Local] Health: Ready');
             return { healthy: true, message: 'Ready' };
-        } catch (e) {
+        } catch {
             console.log(`[Output: Local] Health: Offline (${audioPlayer} Not Found)`);
             return { healthy: false, message: `${audioPlayer} Not Found` };
         }
@@ -215,10 +220,10 @@ class LocalOutput extends BaseOutput {
      * Verifies the credentials for the local audio output strategy. 
      * As no credentials are typically required, this always returns a successful result.
      *
-     * @param {Object} credentials - The credentials to verify.
+     * @param {Object} _credentials - The credentials to verify.
      * @returns {Promise<Object>} The verification result.
      */
-    async verifyCredentials(credentials) {
+    async verifyCredentials(_credentials) {
         return { success: true };
     }
 
@@ -226,11 +231,11 @@ class LocalOutput extends BaseOutput {
      * Validates an audio asset for compatibility with local playback.
      * Local playback is generally considered compatible with all audio formats supported by the installed player.
      * 
-     * @param {string} filePath - Path to the audio file.
-     * @param {Object} metadata - Audio metadata.
+     * @param {string} _filePath - Path to the audio file.
+     * @param {Object} _metadata - Audio metadata.
      * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>} A promise that resolves to the validation result.
      */
-    async validateAsset(filePath, metadata) {
+    async validateAsset(_filePath, _metadata) {
         return {
             valid: true,
             lastChecked: new Date().toISOString(),

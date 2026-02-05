@@ -6,14 +6,12 @@ const { DateTime } = require('luxon');
 const healthCheck = require('@services/system/healthCheck');
 const schedulerService = require('@services/core/schedulerService');
 const sseService = require('@services/system/sseService');
-const automationService = require('@services/core/automationService');
 const audioAssetService = require('@services/system/audioAssetService');
 const diagnosticsService = require('@services/system/diagnosticsService');
 const configService = require('@config');
 const voiceService = require('@services/system/voiceService');
 const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../outputs');
-const workflowService = require('@services/system/configurationWorkflowService');
 const configUnmasker = require('@utils/configUnmasker');
 const { getSafeAgent } = require('@utils/networkUtils');
 const { 
@@ -33,6 +31,19 @@ const fsLimiter = new Bottleneck({
  * automation diagnostics, and hardware testing.
  */
 const systemController = {
+    _fileListCache: {
+        data: null,
+        timestamp: 0
+    },
+    _CACHE_TTL: 60000,
+
+    /**
+     * Invalidates the in-memory audio file list cache.
+     */
+    invalidateFileCache: () => {
+        systemController._fileListCache = { data: null, timestamp: 0 };
+    },
+
     /**
      * Retrieves the overall system health status.
      * Returns a 503 service unavailable status if critical components are offline.
@@ -159,6 +170,24 @@ const systemController = {
      * @private
      */
     _getAudioFilesWithMetadata: async (page = 1, limit = 50) => {
+        const now = Date.now();
+        
+        // REQ-004: Return cached data if within TTL
+        if (systemController._fileListCache.data && (now - systemController._fileListCache.timestamp < systemController._CACHE_TTL)) {
+            const allFiles = systemController._fileListCache.data;
+            const total = allFiles.length;
+            const startIndex = (page - 1) * limit;
+            const paginatedFiles = allFiles.slice(startIndex, startIndex + limit);
+            
+            return {
+                files: paginatedFiles,
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            };
+        }
+
         const audioCustomDir = path.join(__dirname, '../../public/audio/custom');
         const audioCacheDir = path.join(__dirname, '../../public/audio/cache');
         const metaCustomDir = path.join(__dirname, '../public/audio/custom');
@@ -173,42 +202,26 @@ const systemController = {
         ]);
 
         /**
-         * Internal helper to scan directories and attach metadata.
-         * 
-         * @param {string} audioDir - Directory to scan.
-         * @param {string} type - File type category.
-         * @returns {Promise<Object[]>} A promise that resolves to file entries.
-         * @private
+         * Retrieves file entries from a specified audio directory.
+         * @param {string} audioDir - The directory path to scan for audio files.
+         * @param {string} type - The category of the audio files (e.g., 'custom' or 'cache').
+         * @returns {Promise<Array<{f: string, type: string, metaDir: string}>>} A list of file entry objects.
          */
         const getFileEntries = async (audioDir, type) => {
-            /**
-             * Internal local helper to retrieve file list.
-             * 
-             * @returns {Promise<Object[]>} A promise that resolves to file entries.
-             */
-            const fetchEntries = async () => {
+            try {
                 const files = await fs.readdir(audioDir);
-                return files.filter(f => f.endsWith('.mp3')).map(f => ({
-                    f,
-                    type,
-                    metaDir: type === 'custom' ? metaCustomDir : metaCacheDir
-                }));
-            };
-
-            /**
-             * Internal wrapper to manage result retrieval and errors.
-             * 
-             * @returns {Promise<Object[]>} The fetched or empty file list.
-             */
-            const resultHandler = async () => {
-                try {
-                    return await fetchEntries();
-                } catch (e) {
-                    return [];
-                }
-            };
-
-            return await resultHandler();
+                // Allow common audio formats
+                const audioExtensions = ['.mp3', '.wav', '.aac', '.ogg', '.opus', '.flac', '.m4a'];
+                return files
+                    .filter(f => audioExtensions.includes(path.extname(f).toLowerCase()))
+                    .map(f => ({
+                        f,
+                        type,
+                        metaDir: type === 'custom' ? metaCustomDir : metaCacheDir
+                    }));
+            } catch {
+                return [];
+            }
         };
 
         const [customEntries, cacheEntries] = await Promise.all([
@@ -217,18 +230,17 @@ const systemController = {
         ]);
 
         const allEntries = [...customEntries, ...cacheEntries];
-        const total = allEntries.length;
-        const startIndex = (page - 1) * limit;
-        const paginatedEntries = allEntries.slice(startIndex, startIndex + limit);
-
-        const results = await Promise.all(paginatedEntries.map(({ f, type, metaDir }) => fsLimiter.schedule(async () => {
+        
+        // To satisfy the <50ms requirement for large file counts, we must cache the metadata too.
+        // This means we read ALL metadata once and cache it.
+        const allResults = await Promise.all(allEntries.map(({ f, type, metaDir }) => fsLimiter.schedule(async () => {
             const metaPath = path.join(metaDir, f + '.json');
             
             let metadata = {};
             try {
                 const metaContent = await fs.readFile(metaPath, 'utf8');
                 metadata = JSON.parse(metaContent);
-            } catch (e) { /* ignore missing or corrupt meta */ }
+            } catch { /* ignore missing or corrupt meta */ }
 
             return { 
                 name: f, 
@@ -239,10 +251,20 @@ const systemController = {
             };
         })));
         
-        const files = results.filter(file => !file.metadata.hidden);
+        const filteredFiles = allResults.filter(file => !file.metadata.hidden);
+        
+        // Update cache
+        systemController._fileListCache = {
+            data: filteredFiles,
+            timestamp: now
+        };
+
+        const total = filteredFiles.length;
+        const startIndex = (page - 1) * limit;
+        const paginatedFiles = filteredFiles.slice(startIndex, startIndex + limit);
 
         return {
-            files,
+            files: paginatedFiles,
             total,
             page,
             limit,
@@ -375,7 +397,7 @@ const systemController = {
             try {
                 await axios.head(urlString, axiosConfig);
                 res.json({ valid: true });
-            } catch (e) {
+            } catch {
                 // Attempt a GET request if the server rejects HEAD requests
                 try {
                     await axios.get(urlString, { ...axiosConfig, responseType: 'stream' });
@@ -415,7 +437,6 @@ const systemController = {
             return res.status(400).json({ success: false, error: 'Backup source is currently disabled.' });
         }
 
-        const type = targetSource.type;
         const healthKey = target === 'primary' ? 'primarySource' : 'backupSource';
 
         try {
@@ -564,6 +585,22 @@ const systemController = {
         const { ProviderFactory } = require('@providers');
         const providers = ProviderFactory.getRegisteredProviders();
         res.json(providers);
+    },
+
+    /**
+     * Retrieves the registry of all system services that report health status.
+     * This allows the frontend to dynamically render health rows.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     */
+    getServiceRegistry: (req, res) => {
+        const registry = [
+            { id: 'api', label: 'API Server' },
+            { id: 'tts', label: 'TTS Service' }
+        ];
+
+        res.json(registry);
     },
 
     // New Output Strategy Endpoints

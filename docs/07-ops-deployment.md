@@ -86,8 +86,12 @@ server {
 
 ### 1. Authentication
 *   **JWT:** Tokens are signed with a persistent secret stored in `.env`.
+*   **Token Versioning:** Each token contains a `tokenVersion`. This version is checked against the server configuration on every request. If the Admin password is changed, the server's `tokenVersion` is incremented, immediately invalidating all existing sessions across all devices.
 *   **Cookies:** `HttpOnly` and `SameSite=Strict` flags are enforced to prevent Cross-Site Scripting (XSS) and Cross-Site Request Forgery (CSRF).
-*   **Password Hashing:** The admin password is hashed using `scrypt` with a random salt before storage.
+*   **Password Hashing:** The admin password is hashed using `scrypt` (N=16384, r=8, p=1) with a random salt before storage.
+
+> [!NOTE]
+> **Upgrade Notice:** Implementing Token Versioning will cause a one-time logout for all active users upon deployment, as existing tokens lack the version field.
 
 ### 2. Rate Limiting
 To prevent abuse, the API implements tiered rate limiting:

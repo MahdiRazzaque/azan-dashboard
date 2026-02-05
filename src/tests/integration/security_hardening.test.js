@@ -8,7 +8,8 @@ jest.mock('@config', () => ({
         location: { timezone: 'Europe/London', coordinates: { lat: 51.5, long: -0.1 } },
         automation: { outputs: {} },
         sources: {},
-        prayers: {}
+        prayers: {},
+        security: { tokenVersion: 1 }
     }),
     reload: jest.fn(),
     init: jest.fn().mockResolvedValue()
@@ -40,7 +41,7 @@ describe('Security Hardening Integration', () => {
 
     beforeAll(() => {
         process.env.JWT_SECRET = JWT_SECRET;
-        adminToken = jwt.sign({ role: 'admin' }, JWT_SECRET);
+        adminToken = jwt.sign({ role: 'admin', tokenVersion: 1 }, JWT_SECRET);
         jest.spyOn(console, 'log').mockImplementation(() => {});
         jest.spyOn(console, 'error').mockImplementation(() => {});
     });

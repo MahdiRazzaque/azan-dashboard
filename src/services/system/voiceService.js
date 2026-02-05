@@ -35,7 +35,7 @@ const _loadFromCache = async () => {
     try {
         try {
             await fsp.access(CACHE_FILE);
-        } catch (e) {
+        } catch {
             return null;
         }
 
@@ -67,7 +67,7 @@ const _saveToCache = async (newVoices) => {
     try {
         try {
             await fsp.access(CACHE_DIR);
-        } catch (e) {
+        } catch {
             await fsp.mkdir(CACHE_DIR, { recursive: true });
         }
 

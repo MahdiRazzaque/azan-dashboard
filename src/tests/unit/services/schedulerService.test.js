@@ -187,22 +187,6 @@ describe('SchedulerService', () => {
             expect(audioAssetService.syncAudioAssets).toHaveBeenCalledWith(false);
         });
 
-        it('should run source health check daily', async () => {
-            await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_SOURCE_HEALTH);
-            expect(call[1]).toBe('0 2 * * *');
-            await call[2]();
-            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource');
-        });
-
-        it('should handle source health check failure', async () => {
-            healthCheck.refresh.mockRejectedValue(new Error('Source Health Error'));
-            await service.initScheduler();
-            const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_SOURCE_HEALTH);
-            await call[2]();
-            expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Source Health Check Failed'), expect.anything());
-        });
-
         it('should run midnight refresh', async () => {
             await service.initScheduler();
             const call = schedule.scheduleJob.mock.calls.find(c => c[0] === jobConstants.JOB_MIDNIGHT_REFRESH);
@@ -464,28 +448,27 @@ describe('SchedulerService', () => {
         });
 
         it('should handle missing triggers in config', async () => {
-             const config = configService.get();
-             const originalTriggers = config.automation.triggers;
+             const config = JSON.parse(JSON.stringify(mockConfig));
              config.automation.triggers = null;
+             configService.get.mockReturnValue(config);
              
              await service.initScheduler();
-             // Should return early after maintenance jobs
-             expect(schedule.scheduleJob).toHaveBeenCalledTimes(6); 
-             
-             config.automation.triggers = originalTriggers;
+             // Should return early after maintenance jobs (we have 5 now)
+             expect(schedule.scheduleJob).toHaveBeenCalledTimes(5); 
         });
 
         it('should skip prayer if triggers for it are missing', async () => {
-             const config = configService.get();
+             const config = JSON.parse(JSON.stringify(mockConfig));
              delete config.automation.triggers.fajr;
+             configService.get.mockReturnValue(config);
              
              await service.initScheduler();
              expect(schedule.scheduleJob).toHaveBeenCalled();
-             
-             config.automation.triggers.fajr = { adhan: { enabled: true } };
         });
 
         it('should skip prayer if no time found', async () => {
+             const config = JSON.parse(JSON.stringify(mockConfig));
+             configService.get.mockReturnValue(config);
              prayerTimeService.getPrayerTimes.mockResolvedValueOnce({
                  prayers: {
                      fajr: null,
@@ -516,6 +499,8 @@ describe('SchedulerService', () => {
         });
 
         it('should handle missing iqamah object in prayer data', async () => {
+            const config = JSON.parse(JSON.stringify(mockConfig));
+            configService.get.mockReturnValue(config);
             prayerTimeService.getPrayerTimes.mockResolvedValue({
                 prayers: { fajr: '2099-01-01T05:00:00Z' } // No iqamah property
             });

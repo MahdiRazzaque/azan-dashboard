@@ -44,7 +44,7 @@ const rotateLogs = async () => {
                 try {
                     const stats = await fsAsync.stat(filePath);
                     logFiles.push({ name: file, path: filePath, mtime: stats.mtimeMs });
-                } catch (e) {
+                } catch {
                     // Skip if file disappeared or error
                 }
             }
@@ -58,12 +58,12 @@ const rotateLogs = async () => {
             for (const file of toDelete) {
                 try {
                     await fsAsync.unlink(file.path);
-                } catch (e) {
+                } catch {
                     // Ignore errors during deletion
                 }
             }
         }
-    } catch (e) {
+    } catch {
         // Fail silently to avoid breaking the application due to logging issues
     }
 };
@@ -84,7 +84,7 @@ const writeToFile = async (entry) => {
         
         // Append to file using promises API for non-blocking I/O
         await fsAsync.appendFile(filePath, formatted);
-    } catch (e) {
+    } catch {
         // Fail silently
     }
 };

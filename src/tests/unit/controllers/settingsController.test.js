@@ -30,7 +30,8 @@ jest.mock('fs/promises', () => ({
     readFile: jest.fn(),
     writeFile: jest.fn(),
     mkdir: jest.fn(),
-    rename: jest.fn()
+    rename: jest.fn(),
+    readdir: jest.fn()
 }));
 jest.mock('@utils/audioValidator');
 jest.mock('@services/core/prayerTimeService', () => ({
@@ -65,6 +66,11 @@ describe('settingsController Unit Tests', () => {
         audioAssetService.enrichMetadata.mockResolvedValue({ duration: 10 });
         audioValidator.analyseAudioFile.mockResolvedValue({ duration: 10, mimeType: 'audio/mpeg' });
         systemControllerHelper._getAudioFilesWithMetadata.mockResolvedValue([]);
+        fsAsync.mkdir.mockResolvedValue();
+        fsAsync.readdir.mockResolvedValue([]);
+        fsAsync.rename.mockResolvedValue();
+        fsAsync.unlink.mockResolvedValue();
+        fsAsync.writeFile.mockResolvedValue();
 
         // Default health state for mocks
         let currentHealth = {

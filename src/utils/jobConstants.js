@@ -7,6 +7,5 @@ module.exports = {
     JOB_YEAR_BOUNDARY: 'Maintenance: Year Boundary',
     JOB_HEALTH_CHECK: 'Maintenance: Health Check',
     JOB_AUDIO_ASSETS: 'Maintenance: Audio Assets',
-    JOB_SOURCE_HEALTH: 'Maintenance: Source Health',
     JOB_MIDNIGHT_REFRESH: 'System: Midnight Refresh'
 };
