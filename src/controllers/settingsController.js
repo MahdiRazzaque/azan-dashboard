@@ -319,7 +319,7 @@ const settingsController = {
         const metaPath = path.join(__dirname, '../public/audio/custom', filename + '.json');
         
         // Prevent directory traversal attacks
-        if (filename.includes('..') || /[\/]/.test(filename)) {
+        if (filename.includes('..') || /[\\/]/.test(filename)) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
@@ -379,7 +379,7 @@ const settingsController = {
         }
 
         // Prevent directory traversal attacks
-        if (filename.includes('..') || /[\/]/.test(filename)) {
+        if (filename.includes('..') || /[\\/]/.test(filename)) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 

@@ -17,7 +17,7 @@ router.post('/update', authenticateToken, asyncHandler(settingsController.update
 router.post('/reset', authenticateToken, asyncHandler(settingsController.resetSettings));
 router.post('/refresh-cache', operationsLimiter, authenticateToken, asyncHandler(settingsController.refreshCache));
 router.post('/upload', operationsLimiter, authenticateToken, storageCheck, upload.single('file'), asyncHandler(settingsController.uploadFile));
-router.post('/files/revalidate', authenticateToken, asyncHandler(settingsController.revalidateFile));
+router.post('/files/revalidate', operationsLimiter, authenticateToken, asyncHandler(settingsController.revalidateFile));
 router.delete('/files', authenticateToken, asyncHandler(settingsController.deleteFile));
 
 module.exports = router;

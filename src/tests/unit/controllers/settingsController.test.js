@@ -253,6 +253,12 @@ describe('settingsController Unit Tests', () => {
             expect(res.status).toHaveBeenCalledWith(400);
         });
 
+        it('should return 400 on backslash (traversal)', async () => {
+            req.body.filename = 'subdir\\test.mp3';
+            await settingsController.deleteFile(req, res);
+            expect(res.status).toHaveBeenCalledWith(400);
+        });
+
         it('should return 404 if file not found', async () => {
             req.body.filename = 'test.mp3';
             fsAsync.access.mockRejectedValue(new Error('ENOENT'));
@@ -347,18 +353,47 @@ describe('settingsController Unit Tests', () => {
             expect(fsAsync.unlink).toHaveBeenCalledWith('/tmp/fake.mp3');
        });
 
-       it('should return 200 and move file if validation passes', async () => {
-            req.file = { filename: 'real.mp3', path: '/tmp/real.mp3' };
-            audioValidator.analyseAudioFile.mockResolvedValue({ mimeType: 'audio/mpeg' });
-            audioAssetService.enrichMetadata.mockResolvedValue({ duration: 120 });
-            
-            await settingsController.uploadFile(req, res);
-            
-            expect(fsAsync.rename).toHaveBeenCalledWith('/tmp/real.mp3', expect.stringContaining('real.mp3'));
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ 
-                message: 'File uploaded and analysed successfully',
-                duration: 120
-            }));
-       });
+        it('should return 400 if upload fails during analysis', async () => {
+             req.file = { filename: 'real.mp3', path: '/tmp/real.mp3' };
+             audioValidator.analyseAudioFile.mockRejectedValue(new Error('Upload fail'));
+             await settingsController.uploadFile(req, res);
+             expect(res.status).toHaveBeenCalledWith(400);
+        });
+    });
+
+    describe('revalidateFile', () => {
+        it('should return 400 if filename or type missing', async () => {
+            req.body = { filename: 'test.mp3' };
+            await settingsController.revalidateFile(req, res);
+            expect(res.status).toHaveBeenCalledWith(400);
+        });
+
+        it('should return 400 on forward slash (traversal)', async () => {
+            req.body = { filename: 'subdir/test.mp3', type: 'custom' };
+            await settingsController.revalidateFile(req, res);
+            expect(res.status).toHaveBeenCalledWith(400);
+        });
+
+        it('should return 400 on backslash (traversal)', async () => {
+            req.body = { filename: 'subdir\\test.mp3', type: 'custom' };
+            await settingsController.revalidateFile(req, res);
+            expect(res.status).toHaveBeenCalledWith(400);
+        });
+
+        it('should return 404 if file not found', async () => {
+            req.body = { filename: 'missing.mp3', type: 'custom' };
+            fsAsync.access.mockRejectedValue({ code: 'ENOENT' });
+            await settingsController.revalidateFile(req, res);
+            expect(res.status).toHaveBeenCalledWith(404);
+        });
+
+        it('should return 200 and metadata on success', async () => {
+            req.body = { filename: 'valid.mp3', type: 'custom' };
+            fsAsync.access.mockResolvedValue();
+            const mockMeta = { duration: 5 };
+            audioAssetService.analyzeFile.mockResolvedValue(mockMeta);
+            await settingsController.revalidateFile(req, res);
+            expect(res.json).toHaveBeenCalledWith(mockMeta);
+        });
     });
 });
