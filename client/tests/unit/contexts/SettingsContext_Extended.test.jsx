@@ -227,7 +227,20 @@ describe('SettingsContext Extended Coverage', () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
     await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
-    fetch.mockImplementationOnce(async () => mockResponse({ success: true, message: 'Saved', warnings: ['W1'] }));
+    
+    // Replace the entire mock implementation with URL-specific routing
+    fetch.mockImplementation(async (url) => {
+      if (url.includes('/api/settings/update')) {
+        return mockResponse({ success: true, message: 'Saved', warnings: ['W1'] });
+      }
+      // Fallback for other endpoints
+      if (url.includes('/api/settings')) return mockResponse(baseConfig);
+      if (url.includes('/api/system/health')) return mockResponse({});
+      if (url.includes('/api/system/voices')) return mockResponse([]);
+      if (url.includes('/api/system/providers')) return mockResponse([]);
+      return mockResponse({});
+    });
+    
     const result = await context.saveSettings();
     expect(result.success).toBe(true);
     expect(result.warning).toBe(true);

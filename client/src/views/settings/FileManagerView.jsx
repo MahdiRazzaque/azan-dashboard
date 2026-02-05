@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, ChevronRight, AlertTriangle, Info, CheckCircle, RefreshCw } from 'lucide-react';
+import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, ChevronRight, Info, CheckCircle, RefreshCw, XCircle } from 'lucide-react';
 import AudioTestModal from '@/components/common/AudioTestModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { useSettings } from '@/hooks/useSettings';
