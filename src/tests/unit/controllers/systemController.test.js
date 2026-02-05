@@ -325,21 +325,19 @@ describe('SystemController', () => {
         });
 
         it('should test aladhan successfully', async () => {
-            const mockProvider = { getAnnualTimes: jest.fn().mockResolvedValue({ '01-01': {} }) };
-            ProviderFactory.create.mockReturnValue(mockProvider);
+            healthCheck.refresh.mockResolvedValue({ primarySource: { healthy: true, message: 'OK' } });
             req.body = { target: 'primary' };
             await systemController.testSource(req, res);
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource');
+            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource', null, { force: true });
         });
 
         it('should test mymasjid successfully', async () => {
-            const mockProvider = { getAnnualTimes: jest.fn().mockResolvedValue({ '01-01': {} }) };
-            ProviderFactory.create.mockReturnValue(mockProvider);
+            healthCheck.refresh.mockResolvedValue({ backupSource: { healthy: true, message: 'OK' } });
             req.body = { target: 'backup' };
             await systemController.testSource(req, res);
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-            expect(healthCheck.refresh).toHaveBeenCalledWith('backupSource');
+            expect(healthCheck.refresh).toHaveBeenCalledWith('backupSource', null, { force: true });
         });
 
         it('should fail on unsupported source type', async () => {
@@ -349,22 +347,13 @@ describe('SystemController', () => {
             expect(res.status).toHaveBeenCalledWith(400);
         });
 
-        it('should handle fetch errors and refresh health anyway', async () => {
-            const mockProvider = { getAnnualTimes: jest.fn().mockRejectedValue(new Error('Fetch error')) };
-            ProviderFactory.create.mockReturnValue(mockProvider);
+        it('should handle failed testSource', async () => {
+            healthCheck.refresh.mockResolvedValue({ primarySource: { healthy: false, message: 'Fetch error' } });
             req.body = { target: 'primary' };
             
-            await expect(systemController.testSource(req, res)).rejects.toThrow('Fetch error');
-            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource');
-        });
-
-        it('should handle health refresh failure catch block', async () => {
-            const mockProvider = { getAnnualTimes: jest.fn().mockRejectedValue(new Error('Fetch error')) };
-            ProviderFactory.create.mockReturnValue(mockProvider);
-            healthCheck.refresh.mockRejectedValue(new Error('Health refresh failed'));
-            req.body = { target: 'primary' };
-            
-            await expect(systemController.testSource(req, res)).rejects.toThrow('Fetch error');
+            await systemController.testSource(req, res);
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: 'Fetch error' }));
         });
     });
 
