@@ -71,6 +71,22 @@ class BrowserOutput extends BaseOutput {
         console.log('[Output: Browser] Verification: OK');
         return { success: true };
     }
+
+    /**
+     * Validates an audio asset for compatibility with the browser output strategy.
+     * Browser output is considered compatible with all valid audio files.
+     *
+     * @param {string} _filePath - Path to the audio file.
+     * @param {Object} _metadata - Audio metadata.
+     * @returns {Promise<Object>} The validation result.
+     */
+    async validateAsset(_filePath, _metadata) {
+        return {
+            valid: true,
+            lastChecked: new Date().toISOString(),
+            issues: []
+        };
+    }
 }
 
 module.exports = BrowserOutput;

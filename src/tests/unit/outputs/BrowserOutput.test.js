@@ -59,6 +59,15 @@ describe('BrowserOutput', () => {
             expect(result.success).toBe(true);
         });
     });
+
+    describe('validateAsset', () => {
+        it('should always return valid=true', async () => {
+            const result = await output.validateAsset('test.mp3', {});
+            expect(result.valid).toBe(true);
+            expect(result.issues).toEqual([]);
+            expect(result.lastChecked).toBeDefined();
+        });
+    });
 });
 
 
