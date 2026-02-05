@@ -1,4 +1,5 @@
 const { configSchema, triggerEventSchema } = require('@config/schemas');
+const { TTS_TEMPLATE_MAX_LENGTH } = require('@utils/constants');
 
 describe('Config Schemas', () => {
     describe('configSchema', () => {
@@ -106,15 +107,15 @@ describe('Config Schemas', () => {
     });
 
     describe('triggerEventSchema', () => {
-        it('should accept template under 50 chars', () => {
+        it(`should accept template under ${TTS_TEMPLATE_MAX_LENGTH} chars`, () => {
             const result = triggerEventSchema.safeParse({
-                enabled: true, type: 'tts', template: 'Hello world', targets: []
+                enabled: true, type: 'tts', template: 'A'.repeat(TTS_TEMPLATE_MAX_LENGTH), targets: []
             });
             expect(result.success).toBe(true);
         });
 
-        it('should reject template over 50 chars', () => {
-            const longTemplate = 'A'.repeat(51);
+        it(`should reject template over ${TTS_TEMPLATE_MAX_LENGTH} chars`, () => {
+            const longTemplate = 'A'.repeat(TTS_TEMPLATE_MAX_LENGTH + 1);
             const result = triggerEventSchema.safeParse({
                 enabled: true, type: 'tts', template: longTemplate, targets: []
             });

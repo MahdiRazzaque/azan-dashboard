@@ -49,11 +49,24 @@ const IQAMAH_PRAYERS = ["fajr", "zuhr", "asr", "maghrib", "isha"];
 
 const API_BASE_URL = "http://api.aladhan.com/v1";
 
+const TTS_TEMPLATE_MAX_LENGTH = 50;
+
+const AUDIO_PATHS = {
+    CUSTOM_DIR: 'public/audio/custom',
+    CACHE_DIR: 'public/audio/cache',
+    TEMP_DIR: 'public/audio/temp'
+};
+
+const TTS_FILENAME_PATTERN = 'tts_{prayer}_{event}.mp3';
+
 module.exports = {
     CALCULATION_METHODS,
     ASR_JURISTIC_METHODS,
     LATITUDE_ADJUSTMENT_METHODS,
     MIDNIGHT_MODES,
     IQAMAH_PRAYERS,
-    API_BASE_URL
+    API_BASE_URL,
+    TTS_TEMPLATE_MAX_LENGTH,
+    AUDIO_PATHS,
+    TTS_FILENAME_PATTERN
 };

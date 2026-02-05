@@ -1,4 +1,5 @@
 const { z } = require('zod');
+const { TTS_TEMPLATE_MAX_LENGTH } = require('@utils/constants');
 
 const prayerSettingSchema = z.object({
   iqamahOffset: z.number(),
@@ -13,7 +14,7 @@ const triggerEventSchema = z.object({
   enabled: z.boolean(),
   offsetMinutes: z.number().min(0).max(60).optional(),
   type: triggerActionSchema,
-  template: z.string().max(50, 'TTS template must be 50 characters or less').optional(),
+  template: z.string().max(TTS_TEMPLATE_MAX_LENGTH, `TTS template must be ${TTS_TEMPLATE_MAX_LENGTH} characters or less`).optional(),
   path: z.string().optional(),
   url: z.string().optional(),
   voice: z.string().optional(),
