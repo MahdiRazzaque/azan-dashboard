@@ -223,22 +223,6 @@ const scheduleMaintenanceJobs = () => {
     };
 
     /**
-     * Checks the health of both primary and backup prayer time data sources.
-     *
-     * @returns {Promise<void>}
-     */
-    const sourceAction = async () => {
-        try {
-            console.log('[Maintenance] Running Source Health Check...');
-            await healthCheck.refresh('primarySource');
-            await healthCheck.refresh('backupSource');
-        } catch (e) {
-            console.error('[Maintenance] Source Health Check Failed:', e);
-            throw e;
-        }
-    };
-
-    /**
      * Reloads the configuration and re-initialises the scheduler at midnight.
      *
      * @returns {Promise<void>}
@@ -254,8 +238,7 @@ const scheduleMaintenanceJobs = () => {
     maintenanceCallbacks[jobConstants.JOB_YEAR_BOUNDARY] = boundaryAction;
     maintenanceCallbacks[jobConstants.JOB_HEALTH_CHECK] = healthAction;
     maintenanceCallbacks[jobConstants.JOB_AUDIO_ASSETS] = assetAction;
-    maintenanceCallbacks[jobConstants.JOB_SOURCE_HEALTH] = sourceAction;
-    maintenanceCallbacks[jobConstants.JOB_MIDNRESH] = midnightAction;
+    maintenanceCallbacks[jobConstants.JOB_MIDNIGHT_REFRESH] = midnightAction;
 
     /**
      * A higher-order function that wraps a maintenance action.
@@ -299,13 +282,6 @@ const scheduleMaintenanceJobs = () => {
         assetMaintenanceJob.jobName = jobConstants.JOB_AUDIO_ASSETS;
         assetMaintenanceJob.category = 'maintenance';
         jobs.push(assetMaintenanceJob);
-    }
-
-    const sourceHealthJob = schedule.scheduleJob(jobConstants.JOB_SOURCE_HEALTH, '0 2 * * *', schedulerWrap(sourceAction));
-    if (sourceHealthJob) {
-        sourceHealthJob.jobName = jobConstants.JOB_SOURCE_HEALTH;
-        sourceHealthJob.category = 'maintenance';
-        jobs.push(sourceHealthJob);
     }
 
     const midnightJob = schedule.scheduleJob(jobConstants.JOB_MIDNIGHT_REFRESH, '0 0 * * *', schedulerWrap(midnightAction));
