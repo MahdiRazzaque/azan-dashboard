@@ -153,6 +153,7 @@ export default function FileManagerView() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ filename: file.name, type: file.type })
             });
+            if (res.status === 429) throw new Error('Revalidation failed: Too many requests');
             if (!res.ok) throw new Error('Revalidation failed');
             const updatedMetadata = await res.json();
             
