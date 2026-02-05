@@ -71,6 +71,15 @@ describe('FileManagerView Final Push Fix v2', () => {
       fetch.mockImplementationOnce(async () => ({ ok: false, status: 413, json: () => Promise.reject() }));
       fireEvent.change(input, { target: { files: [new File([''], 'err.mp3', { type: 'audio/mpeg' })] } });
 
+      // 7. Info Panel & Revalidate
+      const infoBtn = screen.getAllByTitle('View Compatibility')[0];
+      fireEvent.click(infoBtn);
+      expect(screen.getByText('Compatibility Analysis')).toBeDefined();
+      
+      const revalidateBtn = screen.getByText('Revalidate');
+      await act(async () => { fireEvent.click(revalidateBtn); });
+      expect(fetch).toHaveBeenCalledWith('/api/settings/files/revalidate', expect.any(Object));
+
       consoleSpy.mockRestore();
   });
 });

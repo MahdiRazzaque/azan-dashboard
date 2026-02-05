@@ -84,6 +84,38 @@ const enrichMetadata = async (audioPath, basicMetadata) => {
 };
 
 /**
+ * Performs a full analysis of an audio file, updating its metadata sidecar.
+ *
+ * @param {string} audioPath - The path to the audio file.
+ * @returns {Promise<Object>} A promise that resolves to the updated metadata.
+ */
+const analyzeFile = async (audioPath) => {
+    const basicMetadata = await audioValidator.analyseAudioFile(audioPath);
+    const enrichedMetadata = await enrichMetadata(audioPath, basicMetadata);
+    
+    // Determine meta path based on audio path
+    const filename = path.basename(audioPath);
+    const isCache = audioPath.includes('cache');
+    const metaDir = isCache ? META_CACHE_DIR : META_CUSTOM_DIR;
+    const metaPath = path.join(metaDir, filename + '.json');
+    
+    // Read existing metadata to preserve fields like 'text', 'voice', 'protected'
+    let existingData = {};
+    try {
+        const content = await fsp.readFile(metaPath, 'utf8');
+        existingData = JSON.parse(content);
+    } catch { /* ignore */ }
+
+    const finalMetadata = {
+        ...existingData,
+        ...enrichedMetadata
+    };
+
+    await fsp.writeFile(metaPath, JSON.stringify(finalMetadata));
+    return finalMetadata;
+};
+
+/**
  * Cleans up old audio files from the cache directory.
  *
  * @returns {Promise<void>} A promise that resolves when the cleanup is complete.
@@ -506,5 +538,6 @@ module.exports = {
     resolveTemplate,
     previewTTS,
     generateMetadataForExistingFiles,
-    enrichMetadata
+    enrichMetadata,
+    analyzeFile
 };
