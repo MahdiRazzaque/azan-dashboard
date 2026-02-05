@@ -50,7 +50,7 @@ describe('SettingsLayout', () => {
   it('should render correctly', () => {
     render(<MemoryRouter><SettingsLayout /></MemoryRouter>);
     expect(screen.getByText('Azan Dashboard')).toBeDefined();
-    expect(refreshHealth).toHaveBeenCalledWith('all');
+    // expect(refreshHealth).toHaveBeenCalledWith('all'); // Removed on-load refresh
   });
 
   it('should handle sidebar toggle on mobile', () => {

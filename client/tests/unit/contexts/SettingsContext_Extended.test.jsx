@@ -63,13 +63,15 @@ describe('SettingsContext Extended Coverage', () => {
     await waitFor(() => expect(fetch).toHaveBeenCalled());
   });
 
-  it('should handle rate limit in fetchHealth', async () => {
-    fetch.mockImplementation(async (url) => {
-        if (url.includes('/api/system/health')) return mockResponse({}, false, 429);
-        return mockResponse(baseConfig);
-    });
-    render(<SettingsProvider><TestComponent /></SettingsProvider>);
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/system/health'), expect.anything()));
+  it('should handle rate limit in refreshHealth (via manual call)', async () => {
+    // Note: fetchHealth is no longer called on page load, so we test refreshHealth instead
+    let context;
+    render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
+    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    fetch.mockImplementationOnce(async () => mockResponse({ message: 'Rate limited' }, false, 429));
+    const result = await context.refreshHealth();
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Rate limited');
   });
 
   it('should handle fetchVoices failure', async () => {
@@ -95,6 +97,10 @@ describe('SettingsContext Extended Coverage', () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
     await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    // Must modify config first, otherwise saveSettings returns early with "No configuration to save"
+    act(() => {
+      context.updateSetting('id', 'modified');
+    });
     fetch.mockImplementationOnce(async () => mockResponse({ message: 'Rate limited' }, false, 429, { 'Retry-After': '30' }));
     const result = await context.saveSettings();
     expect(result.error).toBe('Rate limited');
@@ -104,6 +110,10 @@ describe('SettingsContext Extended Coverage', () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
     await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    // Must modify config first, otherwise saveSettings returns early with "No configuration to save"
+    act(() => {
+      context.updateSetting('id', 'modified');
+    });
     fetch.mockImplementationOnce(async () => mockResponse({ error: 'Save failed' }, false, 400));
     const result = await context.saveSettings();
     expect(result.error).toBe('Save failed');
@@ -287,13 +297,18 @@ describe('SettingsContext Extended Coverage', () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/settings'), expect.anything()));
   });
 
-  it('should handle fetchHealth error', async () => {
-    fetch.mockImplementation(async (url) => {
-        if (url.includes('/api/system/health')) throw new Error('Health Error');
-        return mockResponse(baseConfig);
-    });
-    render(<SettingsProvider><TestComponent /></SettingsProvider>);
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/system/health'), expect.anything()));
+  it('should handle refreshHealth error (via manual call)', async () => {
+    // Note: fetchHealth is no longer called on page load, so we test refreshHealth instead
+    let context;
+    render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
+    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    
+    // Mock the next fetch to throw an error
+    fetch.mockImplementationOnce(async () => { throw new Error('Health Error'); });
+    
+    // This should gracefully handle the error and not throw
+    const result = await context.refreshHealth();
+    expect(result).toBeUndefined(); // Error is caught and logged, returns undefined
   });
 
   it('should cover getSectionHealth with offline output (final attempt v4)', async () => {
