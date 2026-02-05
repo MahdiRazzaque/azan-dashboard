@@ -252,7 +252,7 @@ export default function FileManagerView() {
         const compatibility = file.metadata?.compatibility || {};
 
         return (
-            <div className="divide-y divide-app-border/30">
+            <div className="divide-y divide-app-border">
                 <div className="p-3 flex items-center justify-between hover:bg-app-card-hover transition-colors group">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded bg-app-bg flex items-center justify-center text-emerald-500">
@@ -334,7 +334,7 @@ export default function FileManagerView() {
                                         <th className="px-3 py-2 font-bold text-right">Last Checked</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-app-border/30">
+                                <tbody className="divide-y divide-app-border">
                                     {[...strategies].sort((a, b) => a.label.localeCompare(b.label)).map(strategy => {
                                         const status = compatibility[strategy.id];
                                         return (
@@ -489,7 +489,7 @@ export default function FileManagerView() {
                     })}
 
                     {cacheFiles.length === 0 && (
-                        <div className="p-8 text-center text-app-dim text-sm bg-app-card/20 border border-app-border/30 rounded-xl border-dashed">
+                        <div className="p-8 text-center text-app-dim text-sm bg-app-card/20 border border-app-border rounded-xl border-dashed">
                             No cached speech files found
                         </div>
                     )}

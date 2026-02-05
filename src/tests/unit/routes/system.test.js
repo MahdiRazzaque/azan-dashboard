@@ -119,6 +119,7 @@ describe('System Routes', () => {
                 sources: { primary: { type: 'aladhan' } },
                 location: { timezone: 'Europe/London', coordinates: { lat: 0, long: 0 } }
             });
+            healthCheck.refresh.mockResolvedValue({ primarySource: { healthy: true } });
 
             const res = await request(app)
                 .post('/system/source/test')
@@ -126,8 +127,7 @@ describe('System Routes', () => {
 
             expect(res.status).toBe(200);
             expect(res.body.success).toBe(true);
-            expect(ProviderFactory.create).toHaveBeenCalled();
-            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource');
+            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource', null, { force: true });
         });
 
         it('should test mymasjid successfully', async () => {
@@ -135,6 +135,7 @@ describe('System Routes', () => {
                 sources: { primary: { type: 'mymasjid' } },
                 location: { timezone: 'Europe/London' }
             });
+            healthCheck.refresh.mockResolvedValue({ primarySource: { healthy: true } });
 
             const res = await request(app)
                 .post('/system/source/test')
@@ -142,13 +143,13 @@ describe('System Routes', () => {
 
             expect(res.status).toBe(200);
             expect(res.body.success).toBe(true);
-            expect(ProviderFactory.create).toHaveBeenCalled();
         });
 
         it('should return 400 for unsupported source type', async () => {
             configService.get.mockReturnValue({
                 sources: { primary: { type: 'unsupported' } }
             });
+            healthCheck.refresh.mockResolvedValue({ primarySource: { healthy: false, message: 'Unknown provider type' } });
 
             const res = await request(app)
                 .post('/system/source/test')
@@ -158,24 +159,21 @@ describe('System Routes', () => {
             expect(res.body.error).toContain('Unknown provider type');
         });
 
-        it('should handle fetch errors and refresh health anyway', async () => {
+        it('should handle fetch errors and return 400', async () => {
             configService.get.mockReturnValue({
                 sources: { primary: { type: 'aladhan' } },
                 location: { timezone: 'Europe/London' }
             });
             
-            ProviderFactory.create.mockReturnValueOnce({
-                getAnnualTimes: jest.fn().mockRejectedValue(new Error('API Failure'))
-            });
+            healthCheck.refresh.mockResolvedValue({ primarySource: { healthy: false, message: 'API Failure' } });
 
             const res = await request(app)
                 .post('/system/source/test')
                 .send({ target: 'primary' });
 
-            expect(res.status).toBe(500);
+            expect(res.status).toBe(400);
             expect(res.body.success).toBe(false);
             expect(res.body.error).toBe('API Failure');
-            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource');
         });
         
         it('should handle fetch errors when healthCheck.refresh also fails', async () => {

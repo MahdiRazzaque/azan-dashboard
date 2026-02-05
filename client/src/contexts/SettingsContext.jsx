@@ -22,7 +22,6 @@ export const SettingsProvider = ({ children }) => {
   
   // Ref to hold the latest config for stable callbacks
   const configRef = useRef(config);
-  const initialLoadDone = useRef(false);
 
   const { isAuthenticated } = useAuth();
 
@@ -115,15 +114,14 @@ export const SettingsProvider = ({ children }) => {
 
   useEffect(() => {
     if (!pausedPolling) {
-      // 1. Initial Load of Global Data (Settings & Health)
+      // 1. Initial Load of Global Data (Settings)
       // We always fetch settings when authentication state changes to ensure
       // we have the correct level of detail (public vs admin/secrets).
+      // Note: Health checks are NOT triggered on page load. They only occur:
+      //   - At server startup (runStartupChecks)
+      //   - Daily at midnight for services with health monitoring enabled
+      //   - On manual refresh via the UI
       fetchSettings();
-      
-      if (!initialLoadDone.current) {
-        fetchHealth();
-        initialLoadDone.current = true;
-      }
       
       // 2. Load Authenticated-only Data (Voices & Providers)
       if (isAuthenticated) {
@@ -131,7 +129,7 @@ export const SettingsProvider = ({ children }) => {
         fetchProviders();
       }
     }
-  }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth, fetchVoices, fetchProviders]);
+  }, [isAuthenticated, pausedPolling, fetchSettings, fetchVoices, fetchProviders]);
 
 
   const refreshHealth = useCallback(async (target = 'all', mode = 'silent') => {

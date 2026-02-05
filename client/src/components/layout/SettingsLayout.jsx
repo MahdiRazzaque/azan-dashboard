@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/hooks/useSettings';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
@@ -52,20 +52,10 @@ export default function SettingsLayout({ logs, processStatus }) {
     getSectionHealth,
     resetDraft,
     saving,
-    validateBeforeSave,
-    refreshHealth
+    validateBeforeSave
   } = useSettings();
 
   const location = useLocation();
-  const initialRefreshDone = useRef(false);
-
-  useEffect(() => {
-    // Refresh all system health when entering admin panel
-    if (!initialRefreshDone.current) {
-        refreshHealth('all');
-        initialRefreshDone.current = true;
-    }
-  }, [refreshHealth]);
 
   useEffect(() => {
     return () => {

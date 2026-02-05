@@ -2,7 +2,6 @@ const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
 const Bottleneck = require('bottleneck');
-const { DateTime } = require('luxon');
 const healthCheck = require('@services/system/healthCheck');
 const schedulerService = require('@services/core/schedulerService');
 const sseService = require('@services/system/sseService');
@@ -439,32 +438,21 @@ const systemController = {
 
         const healthKey = target === 'primary' ? 'primarySource' : 'backupSource';
 
-        try {
-            const provider = ProviderFactory.create(targetSource, config);
-            const year = DateTime.now().setZone(config.location.timezone).year;
-            const result = await provider.getAnnualTimes(year);
+        // Use the health check system to test the source - it already calls checkSource()
+        // which validates the provider. Force=true to bypass any monitoring disabled config.
+        const result = await healthCheck.refresh(healthKey, null, { force: true });
+        const sourceHealth = result[healthKey];
 
-            const daysCount = Object.keys(result).length;
-
-            // Mark source as healthy in the cache after a successful manual test
-            await healthCheck.refresh(healthKey);
-
+        if (sourceHealth?.healthy) {
             res.json({
                 success: true,
-                message: `Source responded with ${daysCount} days of data.`
+                message: sourceHealth.message || 'Source is online and responding.'
             });
-        } catch (error) {
-            if (error.message.includes('Unknown provider type')) {
-                return res.status(400).json({ success: false, error: error.message });
-            }
-
-            // Update health status to reflected failure even if data retrieval fails
-            try {
-                await healthCheck.refresh(healthKey);
-            } catch (healthError) {
-                console.error(`[SystemController] Failed to refresh health after test failure:`, healthError.message);
-            }
-            throw error;
+        } else {
+            res.status(400).json({
+                success: false,
+                error: sourceHealth?.message || 'Source test failed.'
+            });
         }
     },
 
