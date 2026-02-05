@@ -144,7 +144,7 @@ describe('DeveloperSettingsView Extended Coverage', () => {
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
     fireEvent.click(screen.getByText('Call Other Action'));
     await screen.findByText('Success');
-    const closeBtn = screen.getAllByRole('button').find(b => b.querySelector('.lucide-layout-grid'));
+    const closeBtn = screen.getByLabelText('Close message');
     await act(async () => {
         fireEvent.click(closeBtn);
     });
