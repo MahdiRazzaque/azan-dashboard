@@ -13,14 +13,17 @@ const limiter = new Bottleneck({
 const configService = require('@config'); // Singleton
 const audioValidator = require('@utils/audioValidator');
 const OutputFactory = require('../../outputs');
+const { AUDIO_PATHS, TTS_FILENAME_PATTERN } = require('@utils/constants');
 
 // AUDIO ROOT: public/audio (for mp3 files)
-const AUDIO_ROOT = path.join(__dirname, '../../../public/audio');
-const AUDIO_CACHE_DIR = path.join(AUDIO_ROOT, 'cache');
-const AUDIO_TEMP_DIR = path.join(AUDIO_ROOT, 'temp');
-const AUDIO_CUSTOM_DIR = path.join(AUDIO_ROOT, 'custom');
+const AUDIO_ROOT = path.join(__dirname, '../../../', AUDIO_PATHS.CUSTOM_DIR, '../');
+const AUDIO_CACHE_DIR = path.join(__dirname, '../../../', AUDIO_PATHS.CACHE_DIR);
+const AUDIO_TEMP_DIR = path.join(__dirname, '../../../', AUDIO_PATHS.TEMP_DIR);
+const AUDIO_CUSTOM_DIR = path.join(__dirname, '../../../', AUDIO_PATHS.CUSTOM_DIR);
 
 // METADATA ROOT: src/public/audio (for .mp3.json files)
+// Note: Metadata is stored in src/public/audio to be included in the build/dist if needed, 
+// while audio files are in public/audio.
 const META_ROOT = path.join(__dirname, '../../public/audio');
 const META_CACHE_DIR = path.join(META_ROOT, 'cache');
 const META_CUSTOM_DIR = path.join(META_ROOT, 'custom');
@@ -238,7 +241,9 @@ const generateTTS = async (filename, text, serviceUrl, voice) => {
 const ensureTTSFile = async (prayer, event, settings, config) => {
     const pythonServiceUrl = config.automation?.pythonServiceUrl || 'http://localhost:8000';
     const text = resolveTemplate(settings.template, prayer, settings.offsetMinutes);
-    const filename = `tts_${prayer}_${event}.mp3`;
+    const filename = TTS_FILENAME_PATTERN
+        .replace('{prayer}', prayer)
+        .replace('{event}', event);
     const audioPath = path.join(AUDIO_CACHE_DIR, filename);
     const metaPath = path.join(META_CACHE_DIR, filename + '.json');
     const effectiveVoice = settings.voice || config.automation?.defaultVoice || 'ar-SA-HamedNeural';
