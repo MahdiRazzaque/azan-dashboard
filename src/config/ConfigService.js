@@ -466,7 +466,8 @@ class ConfigService {
         if (process.env.PYTHON_SERVICE_URL) config.automation.pythonServiceUrl = process.env.PYTHON_SERVICE_URL;
         
         // [Dynamic Output Secrets]
-        const OutputFactory = require('../outputs');        const secrets = OutputFactory.getSecretRequirementKeys();
+        const OutputFactory = require('../outputs');
+        const secrets = OutputFactory.getSecretRequirementKeys();
 
         secrets.forEach(({ strategyId, key }) => {
             // e.g. VOICEMONKEY_TOKEN

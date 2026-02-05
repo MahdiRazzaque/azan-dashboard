@@ -368,21 +368,28 @@ describe('ConfigService', () => {
     });
 
     it('should apply provider secrets from env', async () => {
-        // We need a provider with a sensitive parameter.
-        // Let's mock ProviderFactory to return one.
-        const { ProviderFactory } = require('../../../providers');
-        jest.spyOn(ProviderFactory, 'getRegisteredProviders').mockReturnValue([{
-            id: 'test-prov',
-            parameters: [{ key: 'apiKey', sensitive: true }]
-        }]);
+        const { ProviderFactory } = require('@providers');
+        
+        class TestProvider {
+            static getMetadata() {
+                return {
+                    id: 'test-prov',
+                    parameters: [{ key: 'apiKey', sensitive: true }]
+                };
+            }
+        }
+        ProviderFactory.register('test-prov', TestProvider);
 
         process.env.APIKEY = 'env-api-key';
-        const config = { sources: { primary: { type: 'test-prov' } } };
-        configService._applyEnvOverrides(config);
+        const config = { sources: { primary: { type: 'test-prov' } }, automation: {} };
+        
+        const { ConfigService } = require('../../../config/ConfigService');
+        const myConfigService = new ConfigService();
+        myConfigService._applyEnvOverrides(config);
+        
         expect(config.sources.primary.apiKey).toBe('env-api-key');
         
         delete process.env.APIKEY;
-        ProviderFactory.getRegisteredProviders.mockRestore();
     });
 
     it('should strip secrets before saving', async () => {
