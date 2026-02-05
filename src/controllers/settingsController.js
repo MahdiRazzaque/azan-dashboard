@@ -319,7 +319,7 @@ const settingsController = {
         const metaPath = path.join(__dirname, '../public/audio/custom', filename + '.json');
         
         // Prevent directory traversal attacks
-        if (filename.includes('..') || /[\/]/.test(filename)) {
+        if (filename.includes('..') || /[\\/]/.test(filename)) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
@@ -361,6 +361,53 @@ const settingsController = {
             res.json({ success: true, message: 'File and metadata deleted' });
         } else {
             res.status(404).json({ error: 'File not found' });
+        }
+    },
+
+    /**
+     * Re-analyses an audio file and updates its metadata sidecar.
+     * 
+     * @param {import('express').Request} req - The Express request object.
+     * @param {import('express').Response} res - The Express response object.
+     * @returns {Promise<void>} Sends a JSON response with the updated metadata.
+     */
+    revalidateFile: async (req, res) => {
+        const { filename, type } = req.body;
+        
+        if (!filename || !type) {
+            return res.status(400).json({ error: 'Filename and type are required' });
+        }
+
+        // Prevent directory traversal attacks
+        if (filename.includes('..') || /[\\/]/.test(filename)) {
+            return res.status(400).json({ error: 'Invalid filename' });
+        }
+
+        const audioDir = type === 'cache' 
+            ? path.join(__dirname, '../../public/audio/cache')
+            : path.join(__dirname, '../../public/audio/custom');
+        
+        const filePath = path.join(audioDir, filename);
+
+        try {
+            await fsAsync.access(filePath);
+            
+            // Call audioAssetService.analyzeFile for fresh validation
+            // Note: analyzeFile is the internal method that performs the full scan
+            const metadata = await audioAssetService.analyzeFile(filePath);
+            
+            // Invalidate file listing cache to ensure UI sees new metadata
+            if (systemControllerHelper.invalidateFileCache) {
+                systemControllerHelper.invalidateFileCache();
+            }
+
+            res.json(metadata);
+        } catch (error) {
+            console.error('[SettingsController] Revalidation failed:', error.message);
+            res.status(error.code === 'ENOENT' ? 404 : 500).json({ 
+                error: 'Revalidation Failed', 
+                message: error.message 
+            });
         }
     }
 };

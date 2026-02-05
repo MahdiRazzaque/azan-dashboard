@@ -180,6 +180,10 @@ export const SettingsProvider = ({ children }) => {
 
       configToSave = JSON.parse(JSON.stringify(configToSave));
 
+      if (!configToSave) {
+          return { success: false, error: 'No configuration to save' };
+      }
+
       if (configToSave.location) {
           const { lat, long } = configToSave.location.coordinates || {};
           const latNum = parseFloat(lat);

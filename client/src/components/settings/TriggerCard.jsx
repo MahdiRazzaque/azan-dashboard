@@ -4,6 +4,8 @@ import { twMerge } from 'tailwind-merge';
 import { useSettings } from '@/hooks/useSettings';
 import SearchableSelect from '@/components/common/SearchableSelect';
 
+const TTS_TEMPLATE_MAX_LENGTH = 50;
+
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
  *
@@ -273,9 +275,17 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                         
                         {trigger.type === 'tts' && (
                             <div className="space-y-1">
-                                <span className="text-xs text-app-dim">
-                                    Variables: <code className="text-app-dim">{"{prayerEnglish}"}</code>, <code className="text-app-dim">{"{prayerArabic}"}</code>, <code className="text-app-dim">{"{minutes}"}</code>
-                                </span>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-app-dim">
+                                        Variables: <code className="text-app-dim">{"{prayerEnglish}"}</code>, <code className="text-app-dim">{"{prayerArabic}"}</code>, <code className="text-app-dim">{"{minutes}"}</code>
+                                    </span>
+                                    <span className={cn(
+                                        "text-[10px] font-mono",
+                                        (trigger.template?.length || 0) > (TTS_TEMPLATE_MAX_LENGTH * 0.8) ? "text-amber-500" : "text-app-dim"
+                                    )}>
+                                        {trigger.template?.length || 0}/{TTS_TEMPLATE_MAX_LENGTH}
+                                    </span>
+                                </div>
                                 <input 
                                     placeholder="TTS Template String (e.g. It is time for {prayerEnglish})"
                                     className={cn(
@@ -283,6 +293,7 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                                         error ? "border-red-500 focus:border-red-500" : ""
                                     )}
                                     value={trigger.template || ''}
+                                    maxLength={TTS_TEMPLATE_MAX_LENGTH}
                                     onChange={e => update('template', e.target.value)}
                                 />
                             </div>

@@ -520,6 +520,11 @@ const systemController = {
             return res.status(400).json({ error: 'Template, prayerKey, and voice are required' });
         }
 
+        // REQ-004: Enforce 50-character limit on TTS templates
+        if (template.length > 50) {
+            return res.status(400).json({ error: 'TTS template must be 50 characters or less' });
+        }
+
         try {
             const data = await audioAssetService.previewTTS(template, prayerKey, offsetMinutes, voice);
             res.json(data);

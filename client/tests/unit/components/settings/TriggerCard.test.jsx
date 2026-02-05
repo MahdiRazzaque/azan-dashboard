@@ -150,4 +150,17 @@ describe('TriggerCard', () => {
     fireEvent.change(input, { target: { value: 'abc' } });
     expect(onChange).toHaveBeenCalledWith({ ...defaultProps.trigger, offsetMinutes: 15 });
   });
+
+  it('should display character counter for TTS input', () => {
+    const props = { ...defaultProps, trigger: { enabled: true, type: 'tts', template: 'Hello' } };
+    render(<TriggerCard {...props} />);
+    expect(screen.getByText('5/50')).toBeDefined();
+  });
+
+  it('should enforce maxLength on TTS input', () => {
+    const props = { ...defaultProps, trigger: { enabled: true, type: 'tts', template: '' } };
+    render(<TriggerCard {...props} />);
+    const input = screen.getByPlaceholderText(/TTS Template String/);
+    expect(input.maxLength).toBe(50);
+  });
 });

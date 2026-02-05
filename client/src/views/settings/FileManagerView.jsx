@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Play, Trash2, Upload, Server, StopCircle, Volume2, ChevronDown, ChevronRight, Info, CheckCircle, RefreshCw, XCircle } from 'lucide-react';
 import AudioTestModal from '@/components/common/AudioTestModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { useSettings } from '@/hooks/useSettings';
@@ -27,6 +27,10 @@ export default function FileManagerView() {
     // Overwrite confirmation state
     const [pendingUpload, setPendingUpload] = useState(null);
     const [deleteConfirmFile, setDeleteConfirmFile] = useState(null);
+    
+    // REQ-001 & REQ-002: Compatibility Detail View
+    const [expandedFile, setExpandedFile] = useState(null);
+    const [revalidating, setRevalidating] = useState(null);
     
     // Audio ref for browser playback
     const audioRef = useRef(new Audio());
@@ -141,6 +145,29 @@ export default function FileManagerView() {
         setDeleteConfirmFile(filename);
     };
 
+    const handleRevalidate = async (file) => {
+        setRevalidating(file.path);
+        try {
+            const res = await fetch('/api/settings/files/revalidate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: file.name, type: file.type })
+            });
+            if (res.status === 429) throw new Error('Revalidation failed: Too many requests');
+            if (!res.ok) throw new Error('Revalidation failed');
+            const updatedMetadata = await res.json();
+            
+            // Update local state with new metadata
+            setFiles(prev => prev.map(f => 
+                f.path === file.path ? { ...f, metadata: updatedMetadata } : f
+            ));
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setRevalidating(null);
+        }
+    };
+
     const confirmDelete = async () => {
         const filename = deleteConfirmFile;
         setDeleteConfirmFile(null);
@@ -219,6 +246,135 @@ export default function FileManagerView() {
         }));
     };
 
+    const FileRow = ({ file, type }) => {
+        const isExpanded = expandedFile === file.path;
+        const isRevalidating = revalidating === file.path;
+        const compatibility = file.metadata?.compatibility || {};
+
+        return (
+            <div className="divide-y divide-app-border/30">
+                <div className="p-3 flex items-center justify-between hover:bg-app-card-hover transition-colors group">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded bg-app-bg flex items-center justify-center text-emerald-500">
+                            <Volume2 className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-app-text">{file.name}</span>
+                            {file.metadata?.duration && (
+                                <span className="text-[10px] text-app-dim font-mono">
+                                    {Math.round(file.metadata.duration)}s • {file.metadata.codec?.toUpperCase()} • {Math.round(file.metadata.bitrate / 1000)}kbps
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                        {/* Info Button */}
+                        <button 
+                            onClick={() => setExpandedFile(isExpanded ? null : file.path)}
+                            className={`p-1.5 rounded transition-colors ${isExpanded ? 'bg-emerald-500/20 text-emerald-400' : 'hover:bg-app-card-hover text-app-dim hover:text-app-text'}`}
+                            title="View Compatibility"
+                        >
+                            <Info className="w-4 h-4" />
+                        </button>
+
+                        {/* Browser Play */}
+                        <button 
+                            onClick={() => handleBrowserPlay(file)}
+                            className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
+                            title="Preview in Browser"
+                        >
+                            {playingFile === file.name ? <StopCircle className="w-4 h-4 text-emerald-400" /> : <Play className="w-4 h-4" />}
+                        </button>
+                        
+                        {/* Server Play - Opens Modal */}
+                        <button 
+                            onClick={() => setTestModalFile(file)}
+                            className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
+                            title="Test on Speakers"
+                        >
+                            <Server className={`w-4 h-4 ${serverPlaying === file.name ? 'text-emerald-400 animate-pulse' : ''}`} />
+                        </button>
+
+                        {/* Delete (Custom only) */}
+                        {type === 'custom' && !file.metadata?.protected && (
+                            <button 
+                                onClick={() => handleDelete(file.name)}
+                                className="p-1.5 hover:bg-red-900/20 rounded text-app-dim hover:text-red-400"
+                                title="Delete File"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Compatibility Panel */}
+                {isExpanded && (
+                    <div className="bg-app-bg/40 p-4 animate-in slide-in-from-top-2 duration-200">
+                        <div className="flex justify-between items-center mb-3">
+                            <h4 className="text-xs font-bold text-app-dim uppercase tracking-wider">Compatibility Analysis</h4>
+                            <button 
+                                onClick={() => handleRevalidate(file)}
+                                disabled={isRevalidating}
+                                className="flex items-center gap-1.5 px-2 py-1 bg-app-card border border-app-border rounded text-[10px] font-bold text-app-text hover:bg-app-card-hover transition-all disabled:opacity-50"
+                            >
+                                <RefreshCw className={`w-3 h-3 ${isRevalidating ? 'animate-spin' : ''}`} />
+                                {isRevalidating ? 'Analysing...' : 'Revalidate'}
+                            </button>
+                        </div>
+
+                        <div className="overflow-hidden rounded-lg border border-app-border bg-app-card/30">
+                            <table className="w-full text-left text-[11px]">
+                                <thead className="bg-app-card/50 text-app-dim uppercase tracking-tighter border-b border-app-border">
+                                    <tr>
+                                        <th className="px-3 py-2 font-bold">Strategy</th>
+                                        <th className="px-3 py-2 font-bold">Status</th>
+                                        <th className="px-3 py-2 font-bold">Issues</th>
+                                        <th className="px-3 py-2 font-bold text-right">Last Checked</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-app-border/30">
+                                    {[...strategies].sort((a, b) => a.label.localeCompare(b.label)).map(strategy => {
+                                        const status = compatibility[strategy.id];
+                                        return (
+                                            <tr key={strategy.id} className="hover:bg-app-card-hover/20">
+                                                <td className="px-3 py-2 font-medium text-app-text">{strategy.label}</td>
+                                                <td className="px-3 py-2">
+                                                    {status?.valid ? (
+                                                        <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                                    ) : status?.valid === false ? (
+                                                        <XCircle className="w-4 h-4 text-red-500" />
+                                                    ) : (
+                                                        <span className="text-app-dim italic">Pending</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2 text-app-dim">
+                                                    {status?.issues?.length > 0 ? (
+                                                        <ul className="list-disc list-inside">
+                                                            {status.issues.map((issue, i) => <li key={i}>{issue}</li>)}
+                                                        </ul>
+                                                    ) : status?.valid ? (
+                                                        <span className="text-emerald-500/70">Compatible</span>
+                                                    ) : (
+                                                        "—"
+                                                    )}
+                                                </td>
+                                                <td className="px-3 py-2 text-right text-app-dim font-mono">
+                                                    {status?.lastChecked ? new Date(status.lastChecked).toLocaleString() : 'Never'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const FileList = ({ title, type, items }) => (
         <div className="bg-app-card/40 border border-app-border rounded-xl overflow-hidden">
             <div className="px-4 py-3 bg-app-card/60 border-b border-app-border flex justify-between items-center">
@@ -230,45 +386,7 @@ export default function FileManagerView() {
             ) : (
                 <div className="divide-y divide-app-border">
                     {items.map(file => (
-                        <div key={file.path} className="p-3 flex items-center justify-between hover:bg-app-card-hover transition-colors group">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded bg-app-bg flex items-center justify-center text-emerald-500">
-                                    <Volume2 className="w-4 h-4" />
-                                </div>
-                                <span className="text-sm font-medium text-app-text">{file.name}</span>
-                            </div>
-                            
-                            <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                {/* Browser Play */}
-                                <button 
-                                    onClick={() => handleBrowserPlay(file)}
-                                    className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
-                                    title="Preview in Browser"
-                                >
-                                    {playingFile === file.name ? <StopCircle className="w-4 h-4 text-emerald-400" /> : <Play className="w-4 h-4" />}
-                                </button>
-                                
-                                {/* Server Play - Opens Modal */}
-                                <button 
-                                    onClick={() => setTestModalFile(file)}
-                                    className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
-                                    title="Test on Speakers"
-                                >
-                                    <Server className={`w-4 h-4 ${serverPlaying === file.name ? 'text-emerald-400 animate-pulse' : ''}`} />
-                                </button>
-
-                                {/* Delete (Custom only) */}
-                                {type === 'custom' && !file.metadata?.protected && (
-                                    <button 
-                                        onClick={() => handleDelete(file.name)}
-                                        className="p-1.5 hover:bg-red-900/20 rounded text-app-dim hover:text-red-400"
-                                        title="Delete File"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
+                        <FileRow key={file.path} file={file} type={type} />
                     ))}
                 </div>
             )}
@@ -362,32 +480,7 @@ export default function FileManagerView() {
                                 {!isCollapsed && (
                                     <div className="divide-y divide-app-border">
                                         {items.map(file => (
-                                            <div key={file.path} className="p-3 flex items-center justify-between hover:bg-app-card-hover transition-colors group">
-                                                <div className="flex items-center gap-3 pl-2">
-                                                    <div className="w-8 h-8 rounded bg-app-bg/50 flex items-center justify-center text-emerald-500/70">
-                                                        <Volume2 className="w-4 h-4" />
-                                                    </div>
-                                                    <span className="text-sm font-medium text-app-text/90">{file.name}</span>
-                                                </div>
-                                                
-                                                <div className="flex items-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
-                                                    <button 
-                                                        onClick={() => handleBrowserPlay(file)}
-                                                        className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
-                                                        title="Preview in Browser"
-                                                    >
-                                                        {playingFile === file.name ? <StopCircle className="w-4 h-4 text-emerald-400" /> : <Play className="w-4 h-4" />}
-                                                    </button>
-                                                    
-                                                    <button 
-                                                        onClick={() => setTestModalFile(file)}
-                                                        className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
-                                                        title="Test on Speakers"
-                                                    >
-                                                        <Server className={`w-4 h-4 ${serverPlaying === file.name ? 'text-emerald-400 animate-pulse' : ''}`} />
-                                                    </button>
-                                                </div>
-                                            </div>
+                                            <FileRow key={file.path} file={file} type="cache" />
                                         ))}
                                     </div>
                                 )}

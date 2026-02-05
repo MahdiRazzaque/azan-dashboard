@@ -557,6 +557,20 @@ describe('API Routes Integration', () => {
                 .send({ filename: 'test.mp3' })
                 .expect(404);
         });
+
+        it('POST /api/settings/files/revalidate - should revalidate file', async () => {
+            const mockMetadata = { name: 'test.mp3', duration: 10 };
+            audioAssetService.analyzeFile = jest.fn().mockResolvedValue(mockMetadata);
+            
+            const res = await request(app)
+                .post('/api/settings/files/revalidate')
+                .set('Cookie', [`auth_token=${adminToken}`])
+                .send({ filename: 'test.mp3', type: 'custom' })
+                .expect(200);
+            
+            expect(res.body).toEqual(mockMetadata);
+            expect(audioAssetService.analyzeFile).toHaveBeenCalled();
+        });
     });
 
     describe('System Actions', () => {
