@@ -596,18 +596,6 @@ const systemController = {
             { id: 'tts', label: 'TTS Service' }
         ];
 
-        // Add output strategies that are enabled
-        const config = configService.get();
-        const strategies = OutputFactory.getAllStrategies();
-        
-        strategies.forEach(strategy => {
-            if (strategy.hidden || strategy.id === 'browser') return;
-            const outputConfig = config.automation?.outputs?.[strategy.id];
-            if (outputConfig?.enabled) {
-                registry.push({ id: strategy.id, label: `${strategy.label} Integration` });
-            }
-        });
-
         res.json(registry);
     },
 
