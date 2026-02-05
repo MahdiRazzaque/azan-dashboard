@@ -335,7 +335,7 @@ export default function FileManagerView() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-app-border/30">
-                                    {strategies.map(strategy => {
+                                    {[...strategies].sort((a, b) => a.label.localeCompare(b.label)).map(strategy => {
                                         const status = compatibility[strategy.id];
                                         return (
                                             <tr key={strategy.id} className="hover:bg-app-card-hover/20">
