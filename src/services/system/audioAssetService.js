@@ -269,7 +269,7 @@ const ensureTTSFile = async (prayer, event, settings, config) => {
 
     // Check TTS Health before generating
     const healthCheck = require('./healthCheck');
-    const ttsHealth = await healthCheck.refresh('all');
+    const ttsHealth = await healthCheck.refresh('tts');
     if (!ttsHealth.tts?.healthy) {
         return { 
             success: false, 
