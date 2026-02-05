@@ -65,9 +65,9 @@ export default function FileManagerView() {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Verify mp3
-        if (!file.name.endsWith('.mp3') && file.type !== 'audio/mpeg') {
-            setError("Only MP3 files are allowed");
+        // Verify it is an audio file
+        if (!file.type.startsWith('audio/') && !['.mp3', '.wav', '.aac', '.ogg', '.opus', '.flac', '.m4a'].some(ext => file.name.toLowerCase().endsWith(ext))) {
+            setError("Invalid file type. Please upload an audio file.");
             return;
         }
 
@@ -306,7 +306,7 @@ export default function FileManagerView() {
                         type="file" 
                         id="audio-upload" 
                         className="hidden" 
-                        accept=".mp3,audio/mpeg"
+                        accept="audio/*"
                         onChange={handleUpload}
                         disabled={uploading}
                     />
@@ -319,7 +319,7 @@ export default function FileManagerView() {
                         ) : (
                             <Upload className="w-4 h-4" />
                         )}
-                        Upload MP3
+                        Upload Audio
                     </label>
                 </div>
             </div>

@@ -135,9 +135,10 @@ const cleanupTempAudio = async (force = false) => {
 
     try {
         const files = await fsp.readdir(AUDIO_TEMP_DIR);
+        const audioExtensions = ['.mp3', '.wav', '.aac', '.ogg', '.opus', '.flac', '.m4a'];
         let deletedCount = 0;
         for (const file of files) {
-            if (!file.endsWith('.mp3')) continue;
+            if (!audioExtensions.includes(path.extname(file).toLowerCase())) continue;
             const filePath = path.join(AUDIO_TEMP_DIR, file);
             const stats = await fsp.stat(filePath);
             
@@ -447,7 +448,8 @@ const generateMetadataForExistingFiles = async () => {
             await fsp.access(dirSet.audio);
         } catch { continue; }
         
-        const files = (await fsp.readdir(dirSet.audio)).filter(f => f.endsWith('.mp3'));
+        const audioExtensions = ['.mp3', '.wav', '.aac', '.ogg', '.opus', '.flac', '.m4a'];
+        const files = (await fsp.readdir(dirSet.audio)).filter(f => audioExtensions.includes(path.extname(f).toLowerCase()));
         for (const file of files) {
             const audioPath = path.join(dirSet.audio, file);
             const metaPath = path.join(dirSet.meta, file + '.json');

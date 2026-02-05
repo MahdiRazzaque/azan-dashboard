@@ -210,11 +210,15 @@ const systemController = {
         const getFileEntries = async (audioDir, type) => {
             try {
                 const files = await fs.readdir(audioDir);
-                return files.filter(f => f.endsWith('.mp3')).map(f => ({
-                    f,
-                    type,
-                    metaDir: type === 'custom' ? metaCustomDir : metaCacheDir
-                }));
+                // Allow common audio formats
+                const audioExtensions = ['.mp3', '.wav', '.aac', '.ogg', '.opus', '.flac', '.m4a'];
+                return files
+                    .filter(f => audioExtensions.includes(path.extname(f).toLowerCase()))
+                    .map(f => ({
+                        f,
+                        type,
+                        metaDir: type === 'custom' ? metaCustomDir : metaCacheDir
+                    }));
             } catch {
                 return [];
             }

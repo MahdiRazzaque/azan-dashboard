@@ -45,7 +45,7 @@ const getMimeType = (format, filePath) => {
  */
 const analyseAudioFile = async (filePath) => {
     try {
-        const { parseFile } = await import('music-metadata');
+        const { parseFile } = require('music-metadata');
         const metadata = await parseFile(filePath);
         const stats = await fs.stat(filePath);
         

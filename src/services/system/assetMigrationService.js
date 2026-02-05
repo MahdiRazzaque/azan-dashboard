@@ -38,7 +38,8 @@ class AssetMigrationService {
                     continue;
                 }
 
-                const files = (await fs.readdir(dirSet.audio)).filter(f => f.endsWith('.mp3'));
+                const audioExtensions = ['.mp3', '.wav', '.aac', '.ogg', '.opus', '.flac', '.m4a'];
+                const files = (await fs.readdir(dirSet.audio)).filter(f => audioExtensions.includes(path.extname(f).toLowerCase()));
                 
                 // Process in batches of 50
                 const BATCH_SIZE = 50;

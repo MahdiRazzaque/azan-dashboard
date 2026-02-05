@@ -248,8 +248,7 @@ const settingsController = {
 
             // REQ-005: File Count Hard Limit
             const existingFiles = await fsAsync.readdir(targetDir).catch(() => []);
-            const mp3Files = existingFiles.filter(f => f.endsWith('.mp3'));
-            if (mp3Files.length >= 500) {
+            if (existingFiles.length >= 500) {
                 // Cleanup temp file
                 try { await fsAsync.unlink(tempPath); } catch { /* ignore */ }
                 return res.status(400).json({ 
@@ -263,9 +262,9 @@ const settingsController = {
             try {
                 basicMetadata = await audioValidator.analyseAudioFile(tempPath);
                 
-                // Strict check: must be audio/mpeg for mp3 files
-                if (basicMetadata.mimeType !== 'audio/mpeg') {
-                    throw new Error('Invalid file format: Not a valid MP3 file');
+                // Allow any audio format supported by the validator
+                if (!basicMetadata.mimeType || !basicMetadata.mimeType.startsWith('audio/')) {
+                    throw new Error('Invalid file format: Not a valid audio file');
                 }
             } catch (validationError) {
                 // Cleanup temp file on validation failure

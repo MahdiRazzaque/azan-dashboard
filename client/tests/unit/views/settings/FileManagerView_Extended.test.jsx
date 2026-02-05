@@ -66,20 +66,20 @@ describe('FileManagerView Extended Coverage', () => {
     it('should handle empty file selection in handleUpload', async () => {
         render(<FileManagerView />);
         await screen.findByText('custom1.mp3');
-        const input = screen.getByLabelText(/Upload MP3/i);
+        const input = screen.getByLabelText(/Upload Audio/i);
         
         fireEvent.change(input, { target: { files: [] } });
         // Nothing should happen, performUpload should not be called
         expect(fetch).not.toHaveBeenCalledWith('/api/settings/upload', expect.anything());
     });
 
-    it('should reject non-mp3 files', async () => {
+    it('should reject non-audio files', async () => {
         render(<FileManagerView />);
         await screen.findByText('custom1.mp3');
-        const input = screen.getByLabelText(/Upload MP3/i);
+        const input = screen.getByLabelText(/Upload Audio/i);
         
         fireEvent.change(input, { target: { files: [new File([''], 'test.txt', { type: 'text/plain' })] } });
-        expect(screen.getByText('Only MP3 files are allowed')).toBeDefined();
+        expect(screen.getByText('Invalid file type. Please upload an audio file.')).toBeDefined();
     });
 
     it('should handle upload failure with JSON error message', async () => {
@@ -95,7 +95,7 @@ describe('FileManagerView Extended Coverage', () => {
         });
 
         render(<FileManagerView />);
-        const input = screen.getByLabelText(/Upload MP3/i);
+        const input = screen.getByLabelText(/Upload Audio/i);
         
         await act(async () => {
             fireEvent.change(input, { target: { files: [new File([''], 'new.mp3', { type: 'audio/mpeg' })] } });
@@ -118,7 +118,7 @@ describe('FileManagerView Extended Coverage', () => {
         });
 
         render(<FileManagerView />);
-        const input = screen.getByLabelText(/Upload MP3/i);
+        const input = screen.getByLabelText(/Upload Audio/i);
         
         await act(async () => {
             fireEvent.change(input, { target: { files: [new File([''], 'new.mp3', { type: 'audio/mpeg' })] } });
@@ -138,7 +138,7 @@ describe('FileManagerView Extended Coverage', () => {
         });
 
         render(<FileManagerView />);
-        const input = screen.getByLabelText(/Upload MP3/i);
+        const input = screen.getByLabelText(/Upload Audio/i);
         
         await act(async () => {
             fireEvent.change(input, { target: { files: [new File([''], 'new.mp3', { type: 'audio/mpeg' })] } });
@@ -202,7 +202,7 @@ describe('FileManagerView Extended Coverage', () => {
     it('should handle overwrite cancel', async () => {
         render(<FileManagerView />);
         await screen.findByText('custom1.mp3');
-        const input = screen.getByLabelText(/Upload MP3/i);
+        const input = screen.getByLabelText(/Upload Audio/i);
         
         // Select existing file
         fireEvent.change(input, { target: { files: [new File([''], 'custom1.mp3', { type: 'audio/mpeg' })] } });
