@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "driver.js": "^1.4.0",
     "lucide-react": "^0.562.0",
     "luxon": "^3.7.2",
     "react": "^18.2.0",
