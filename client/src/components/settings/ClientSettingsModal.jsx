@@ -1,33 +1,33 @@
 import React, { useState } from 'react';
-import { X, Monitor, Palette, Clock, Bell, VolumeX, Volume2, Check, Layout, Timer, AlertTriangle, Cpu } from 'lucide-react';
+import { X, Monitor, Palette, Clock, Bell, VolumeX, Volume2, Check, Layout, Timer, AlertTriangle, Cpu, Compass } from 'lucide-react';
 import { useClientPreferences } from '@/hooks/useClientPreferences';
 import { useSettings } from '@/hooks/useSettings';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-/**
- * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
- *
- * @param {...any} inputs - The class names or objects to merge.
- * @returns {string} The merged class string.
- */
+
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
-/**
- * A modal component that allows users to manage client-specific preferences,
- * such as appearance settings and audio exclusion rules.
- *
- * @param {object} props - The component props.
- * @param {Function} props.onClose - Function to call when closing the modal.
- * @returns {JSX.Element} The rendered modal component.
- */
+
 const ClientSettingsModal = ({ onClose }) => {
   const { preferences, updateAppearance, toggleAudioExclusion, isAudioExcluded, muteAll, unmuteAll } = useClientPreferences();
-  const { config } = useSettings();
+  const { config, refresh } = useSettings();
   const wakeLock = useWakeLock();
   const [activeTab, setActiveTab] = useState('appearance');
 
+  const handleRestartDashboardTour = () => {
+    fetch('/api/settings/tour-state', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dashboardSeen: false }),
+    }).then(() => {
+      refresh();
+      onClose();
+    }).catch(() => {
+      onClose();
+    });
+  };
   const prayers = [
     { id: 'fajr', label: 'Fajr' },
     { id: 'sunrise', label: 'Sunrise' },
@@ -299,6 +299,20 @@ const ClientSettingsModal = ({ onClose }) => {
 
             {activeTab === 'system' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Dashboard Tour */}
+                <div className="flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-app-text">Dashboard Tour</span>
+                    <span className="text-xs text-app-dim">Restart the guided dashboard tour</span>
+                  </div>
+                  <button
+                    onClick={handleRestartDashboardTour}
+                    className="px-3 py-1.5 text-xs font-medium bg-app-card-hover text-app-text rounded-lg hover:bg-app-card transition-colors flex items-center gap-1.5"
+                  >
+                    <Compass size={14} />
+                    Restart Tour
+                  </button>
+                </div>
                 {/* Target Dhuhr after Fajr */}
                 <div className="flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border">
                   <div className="flex flex-col gap-1">

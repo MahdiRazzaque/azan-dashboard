@@ -1,45 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/hooks/useSettings';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { 
     Menu, X, Settings, Clock, Zap, FileAudio, 
-    Terminal, LogOut, ChevronLeft, Shield, Save, RotateCcw, AlertTriangle
+    Terminal, LogOut, ChevronLeft, Shield, Save, RotateCcw, AlertTriangle, Compass
 } from 'lucide-react';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import SaveProcessModal from '@/components/common/SaveProcessModal';
+import { useTour } from '@/hooks/useTour';
+import { adminTourSteps } from '@/config/tourSteps';
+import WelcomeModal from '@/components/common/WelcomeModal';
 
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-/**
- * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
- *
- * @param {...any} inputs - The class names or objects to merge.
- * @returns {string} The merged class string.
- */
 function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
-
-/**
- * A layout component for the settings pages, providing a sidebar navigation,
- * header area, and a common state for handling configuration saves and resets.
- *
- * @param {object} props - The component props.
- * @param {Array} props.logs - Array of log messages to display or process.
- * @param {object} props.processStatus - Real-time status update for ongoing processes.
- * @returns {JSX.Element} The rendered settings layout component.
- */
 export default function SettingsLayout({ logs, processStatus }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [showAdminTourModal, setShowAdminTourModal] = useState(false);
   
   // Process Modal State
   const [showProcessModal, setShowProcessModal] = useState(false);
   const [saveResult, setSaveResult] = useState(null);
 
+  const { startTour, stopTour } = useTour();
+  const adminTourStartedRef = useRef(false);
   const { logout } = useAuth();
   const { 
     config,
@@ -52,7 +42,8 @@ export default function SettingsLayout({ logs, processStatus }) {
     getSectionHealth,
     resetDraft,
     saving,
-    validateBeforeSave
+    validateBeforeSave,
+    refresh
   } = useSettings();
 
   const location = useLocation();
@@ -62,6 +53,15 @@ export default function SettingsLayout({ logs, processStatus }) {
         resetDraft();
     }
   }, [resetDraft]);
+
+  useEffect(() => {
+    if (!config?.system?.tours || config.system.tours.adminSeen !== false) return;
+    if (adminTourStartedRef.current) return;
+    adminTourStartedRef.current = true;
+    setShowAdminTourModal(true);
+  }, [config]);
+
+  useEffect(() => () => stopTour(), [stopTour]);
 
   // Auto-dismiss notification
   useEffect(() => {
@@ -101,6 +101,38 @@ export default function SettingsLayout({ logs, processStatus }) {
           setNotification({ type: 'error', message: 'Reset failed: ' + result.error });
       }
   };
+
+  const handleAdminTourComplete = useCallback(() => {
+    fetch('/api/settings/tour-state', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminSeen: true }),
+    }).then(() => refresh()).catch(() => {});
+  }, [refresh]);
+
+  const handleStartAdminTour = useCallback(() => {
+    setShowAdminTourModal(false);
+    requestAnimationFrame(() => startTour('admin', adminTourSteps, handleAdminTourComplete));
+  }, [startTour, handleAdminTourComplete]);
+
+  const handleSkipAdminTour = useCallback(() => {
+    fetch('/api/settings/tour-state', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminSeen: true }),
+    }).then(() => { setShowAdminTourModal(false); refresh(); }).catch(() => { setShowAdminTourModal(false); });
+  }, [refresh]);
+
+  const handleRestartAdminTour = useCallback(() => {
+    adminTourStartedRef.current = false;
+    fetch('/api/settings/tour-state', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminSeen: false }),
+    }).then(() => {
+      requestAnimationFrame(() => startTour('admin', adminTourSteps, handleAdminTourComplete));
+    }).catch(() => {});
+  }, [startTour, handleAdminTourComplete]);
   
   const navItems = [
     { 
@@ -202,6 +234,7 @@ export default function SettingsLayout({ logs, processStatus }) {
           processStatus={processStatus}
           result={saveResult}
       />
+      {showAdminTourModal && <WelcomeModal onStartTour={handleStartAdminTour} onSkip={handleSkipAdminTour} title="Welcome to the Admin Panel" description="Take a quick tour to learn about the configuration sections and system management tools." />}
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
@@ -225,8 +258,17 @@ export default function SettingsLayout({ logs, processStatus }) {
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 {navItems.map((item) => {
                     const isDirty = item.isDirty();
+                    const tourId = {
+                      'General': 'tour-nav-general',
+                      'Prayers': 'tour-nav-prayers',
+                      'Automation': 'tour-nav-automation',
+                      'File Manager': 'tour-nav-files',
+                      'Credentials': 'tour-nav-credentials',
+                      'Developer': 'tour-nav-developer',
+                    }[item.label];
                     return (
                         <NavLink
+                            id={tourId}
                             key={item.to}
                             to={item.to}
                             onClick={() => setSidebarOpen(false)}
@@ -253,6 +295,13 @@ export default function SettingsLayout({ logs, processStatus }) {
             {/* Actions Section Removed - Moved to Header */}
             
             <div className="p-4 border-t border-app-border shrink-0 mt-auto">
+                <button 
+                    onClick={handleRestartAdminTour}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-sm font-medium text-app-dim hover:bg-app-card-hover hover:text-app-text rounded-md transition-colors mb-2"
+                >
+                    <Compass className="w-5 h-5" />
+                    Restart Tour
+                </button>
                 <button 
                     onClick={logout}
                     className="flex w-full items-center gap-3 px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
