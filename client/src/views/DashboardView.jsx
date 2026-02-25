@@ -37,17 +37,13 @@ const DashboardView = ({ prayers, nextPrayer, lastUpdated, isMuted, toggleMute, 
     }, [refresh]);
 
     useEffect(() => {
-      if (config?.system?.tours?.dashboardSeen === false) {
-        if (initialLoadRef.current) {
-          requestAnimationFrame(() => setShowWelcomeModal(true));
-        } else {
-          requestAnimationFrame(() => startTour('dashboard', dashboardTourSteps, handleTourComplete));
-        }
+      if (config?.system?.tours?.dashboardSeen === false && initialLoadRef.current) {
+        requestAnimationFrame(() => setShowWelcomeModal(true));
       }
       if (config !== undefined) {
         initialLoadRef.current = false;
       }
-    }, [config, startTour, handleTourComplete]);
+    }, [config]);
 
     useEffect(() => () => stopTour(), [stopTour]);
 
