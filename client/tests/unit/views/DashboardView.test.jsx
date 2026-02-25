@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import DashboardView from '../../../src/views/DashboardView';
 
@@ -69,6 +69,69 @@ describe('DashboardView', () => {
       fetchSettings: mockFetchSettings
     });
     render(<DashboardView {...defaultProps} />);
+    expect(screen.queryByTestId('welcome-modal')).toBeNull();
+  });
+
+  it('clicking Start in WelcomeModal calls startTour and hides modal', async () => {
+    useSettings.mockReturnValue({
+      config: { system: { tours: { dashboardSeen: false } } },
+      refresh: vi.fn()
+    });
+    render(<DashboardView {...defaultProps} />);
+    expect(screen.getByTestId('welcome-modal')).toBeDefined();
+    fireEvent.click(screen.getByText('Start'));
+    expect(mockStartTour).toHaveBeenCalledWith('dashboard', expect.any(Array), expect.any(Function));
+    expect(screen.queryByTestId('welcome-modal')).toBeNull();
+  });
+
+  it('handleTourComplete PATCHes tour state and calls refresh', async () => {
+    const refresh = vi.fn().mockResolvedValue();
+    useSettings.mockReturnValue({
+      config: { system: { tours: { dashboardSeen: false } } },
+      refresh
+    });
+    render(<DashboardView {...defaultProps} />);
+    fireEvent.click(screen.getByText('Start'));
+    const onComplete = mockStartTour.mock.calls[0][2];
+    await onComplete();
+    expect(global.fetch).toHaveBeenCalledWith('/api/settings/tour-state', expect.objectContaining({ method: 'PATCH' }));
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it('handleSkipTour PATCHes tour state, hides modal, and calls refresh on success', async () => {
+    const refresh = vi.fn().mockResolvedValue();
+    global.fetch = vi.fn().mockResolvedValue({ ok: true });
+    useSettings.mockReturnValue({
+      config: { system: { tours: { dashboardSeen: false } } },
+      refresh
+    });
+    render(<DashboardView {...defaultProps} />);
+    await fireEvent.click(screen.getByText('Skip'));
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(screen.queryByTestId('welcome-modal')).toBeNull();
+  });
+
+  it('handleSkipTour hides modal even when fetch rejects', async () => {
+    const refresh = vi.fn();
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network fail'));
+    useSettings.mockReturnValue({
+      config: { system: { tours: { dashboardSeen: false } } },
+      refresh
+    });
+    render(<DashboardView {...defaultProps} />);
+    fireEvent.click(screen.getByText('Skip'));
+    await vi.waitFor(() => expect(screen.queryByTestId('welcome-modal')).toBeNull());
+  });
+
+  it('calls startTour directly (no modal) when dashboardSeen turns false after initial load', () => {
+    const refresh = vi.fn();
+    const { rerender } = render(<DashboardView {...defaultProps} />);
+    useSettings.mockReturnValue({
+      config: { system: { tours: { dashboardSeen: false } } },
+      refresh
+    });
+    rerender(<DashboardView {...defaultProps} />);
+    expect(mockStartTour).toHaveBeenCalledWith('dashboard', expect.any(Array), expect.any(Function));
     expect(screen.queryByTestId('welcome-modal')).toBeNull();
   });
 });
