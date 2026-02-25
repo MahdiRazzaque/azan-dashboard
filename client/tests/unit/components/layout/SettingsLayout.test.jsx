@@ -161,14 +161,14 @@ describe('SettingsLayout', () => {
     expect(container.querySelector('.bg-orange-500')).toBeDefined();
   });
 
-  it('should call startTour when adminSeen is false', () => {
+  it('should show welcome modal when adminSeen is false', () => {
     useSettings.mockReturnValue({
       ...baseMock,
       config: { system: { tours: { adminSeen: false } } }
     });
     render(<MemoryRouter><SettingsLayout /></MemoryRouter>);
-    expect(mockStartTour).toHaveBeenCalledWith('admin', expect.any(Array), expect.any(Function));
-  });
+    expect(screen.getByText('Welcome to the Admin Panel')).toBeDefined();
+  })
 
   it('should have Restart Tour button in sidebar', () => {
     render(<MemoryRouter><SettingsLayout /></MemoryRouter>);
