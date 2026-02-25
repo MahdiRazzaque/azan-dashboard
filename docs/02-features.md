@@ -25,20 +25,11 @@
         *   **Local:** The server's physical audio output (3.5mm/HDMI).
         *   **Browser:** All connected dashboard clients.
         *   **VoiceMonkey:** External Alexa/Smart Home devices.
-
-### Kiosk Mode & System Logic
-*   **Purpose:** Provides control over browser-level system behaviours, grouped in the **Display Settings → System** tab.
-*   **Focus Logic:** 
-    *   **Skip Sunrise:** Use "Target Dhuhr after Fajr" to remove Sunrise from the main dashboard countdown.
-*   **Screen Wake Lock:** 
-    *   Prevents the display device from sleeping, ideal for TV screens and dedicated tablets.
-    *   Use the Power icon on the dashboard overlay for session-level control.
-    *   Enable "Auto-enable Wake Lock" in settings to activate automatically on page load.
-*   **Auto-unmute:** 
-    *   Attempts to resume the browser's `AudioContext` automatically on page load.
-    *   If blocked by browser policy, a pulsing red icon appears with the tooltip "Auto-play blocked. Click to enable."
-    *   A single click on the icon resolves the block for the session.
-*   **Requirements:** Most system logic (Wake Lock, Auto-unmute) requires a secure context (HTTPS or localhost).
+*   **Guided Onboarding Tours:**
+    *   On first visit to the **Dashboard**, a welcome modal prompts the user to start or skip a step-by-step guided tour.
+    *   On first visit to the **Admin Panel**, a separate welcome modal offers the same choice for an admin-specific tour.
+    *   Completing or skipping a tour marks it as seen in the backend so it never auto-triggers again.
+    *   Both tours can be restarted at any time — the dashboard tour via **Display Settings → System → Restart Tour**, and the admin tour via the **Admin Panel → Restart Tour** button. Restarting bypasses the welcome modal and launches the tour immediately.
 
 ### Settings Interface
 The administration panel provides granular control over the system:

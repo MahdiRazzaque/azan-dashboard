@@ -52,7 +52,7 @@ The API uses **HttpOnly Cookies** storing a JWT (JSON Web Token) for authenticat
 | `POST` | `/reset` | Resets configuration to factory defaults (`default.json`). |
 | `POST` | `/upload` | Uploads a custom MP3 file. Returns metadata and compatibility info. |
 | `DELETE`| `/files` | Deletes a custom audio file. |
-
+| `PATCH` | `/tour-state` | Updates the guided tour seen-state. Body: `{ dashboardSeen?: boolean, adminSeen?: boolean }`. Requires auth. |
 ### Prayers (`/api/prayers`)
 
 | Method | Endpoint | Description |
