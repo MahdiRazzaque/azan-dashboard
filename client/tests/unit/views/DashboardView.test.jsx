@@ -123,7 +123,7 @@ describe('DashboardView', () => {
     await vi.waitFor(() => expect(screen.queryByTestId('welcome-modal')).toBeNull());
   });
 
-  it('calls startTour directly (no modal) when dashboardSeen turns false after initial load', () => {
+  it('does not auto-start tour when config updates after initial load', () => {
     const refresh = vi.fn();
     const { rerender } = render(<DashboardView {...defaultProps} />);
     useSettings.mockReturnValue({
@@ -131,7 +131,8 @@ describe('DashboardView', () => {
       refresh
     });
     rerender(<DashboardView {...defaultProps} />);
-    expect(mockStartTour).toHaveBeenCalledWith('dashboard', expect.any(Array), expect.any(Function));
+    // Tour should not auto-start; modal should show on next load or user must click Start
+    expect(mockStartTour).not.toHaveBeenCalled();
     expect(screen.queryByTestId('welcome-modal')).toBeNull();
   });
 });
