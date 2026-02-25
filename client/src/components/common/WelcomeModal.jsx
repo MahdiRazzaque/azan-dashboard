@@ -1,6 +1,15 @@
 import React, { useRef, useEffect } from 'react';
 import { Compass } from 'lucide-react';
 
+/**
+ * Introductory modal that offers users the option to start or skip an onboarding tour.
+ * @param {object} props
+ * @param {Function} props.onStartTour - Called when the user clicks "Start Tour".
+ * @param {Function} props.onSkip - Called when the user clicks "Skip Tour".
+ * @param {string} [props.title] - Modal heading text.
+ * @param {string} [props.description] - Modal body text.
+ * @returns {JSX.Element} The rendered welcome modal.
+ */
 export default function WelcomeModal({ onStartTour, onSkip, title, description }) {
     const startTourRef = useRef(null);
     const skipTourRef = useRef(null);

@@ -412,6 +412,12 @@ const settingsController = {
         }
     },
 
+/**
+ * Updates the onboarding tour state (dashboardSeen / adminSeen) in config.
+ * @param {import('express').Request} req - Express request with body { dashboardSeen?, adminSeen? }.
+ * @param {import('express').Response} res - Express response.
+ * @returns {Promise<void>} Resolves when the tour state has been updated.
+ */
     updateTourState: async (req, res) => {
         const { dashboardSeen, adminSeen } = req.body;
         if (dashboardSeen !== undefined && typeof dashboardSeen !== 'boolean') {

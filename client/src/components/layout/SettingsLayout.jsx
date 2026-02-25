@@ -15,9 +15,22 @@ import WelcomeModal from '@/components/common/WelcomeModal';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * Utility to merge Tailwind class names conditionally.
+ * @param {...*} inputs - Class values passed to clsx.
+ * @returns {string} Merged class string.
+ */
 function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
+/**
+ * Layout shell for the settings panel, providing the sidebar nav, global save/reset controls,
+ * and the admin onboarding tour flow.
+ * @param {object} props
+ * @param {Array} [props.logs] - SSE log entries forwarded to the outlet.
+ * @param {object} [props.processStatus] - Current process status for the save modal.
+ * @returns {JSX.Element} The rendered settings layout.
+ */
 export default function SettingsLayout({ logs, processStatus }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -58,7 +71,7 @@ export default function SettingsLayout({ logs, processStatus }) {
     if (!config?.system?.tours || config.system.tours.adminSeen !== false) return;
     if (adminTourStartedRef.current) return;
     adminTourStartedRef.current = true;
-    setShowAdminTourModal(true);
+    requestAnimationFrame(() => setShowAdminTourModal(true));
   }, [config]);
 
   useEffect(() => () => stopTour(), [stopTour]);

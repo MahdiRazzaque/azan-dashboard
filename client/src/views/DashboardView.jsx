@@ -39,7 +39,7 @@ const DashboardView = ({ prayers, nextPrayer, lastUpdated, isMuted, toggleMute, 
     useEffect(() => {
       if (config?.system?.tours?.dashboardSeen === false) {
         if (initialLoadRef.current) {
-          setShowWelcomeModal(true);
+          requestAnimationFrame(() => setShowWelcomeModal(true));
         } else {
           requestAnimationFrame(() => startTour('dashboard', dashboardTourSteps, handleTourComplete));
         }

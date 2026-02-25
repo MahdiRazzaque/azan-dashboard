@@ -7,9 +7,20 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 
+/**
+ * Utility to merge Tailwind class names conditionally.
+ * @param {...*} inputs - Class values passed to clsx.
+ * @returns {string} Merged class string.
+ */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
 
+/**
+ * Modal component for managing client-side display and audio preferences.
+ * @param {object} props
+ * @param {Function} props.onClose - Callback to close the modal.
+ * @returns {JSX.Element} The rendered client settings modal.
+ */
 const ClientSettingsModal = ({ onClose }) => {
   const { preferences, updateAppearance, toggleAudioExclusion, isAudioExcluded, muteAll, unmuteAll } = useClientPreferences();
   const { config, refresh } = useSettings();
