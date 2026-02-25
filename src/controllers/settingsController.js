@@ -111,7 +111,8 @@ const settingsController = {
             location: fullConfig.location,
             prayers: fullConfig.prayers,
             sources: fullConfig.sources,
-            automation: automation
+            automation: automation,
+            system: { tours: fullConfig.system?.tours }
         });
     },
 
@@ -409,7 +410,20 @@ const settingsController = {
                 message: error.message 
             });
         }
-    }
+    },
+
+    updateTourState: async (req, res) => {
+        const { dashboardSeen, adminSeen } = req.body;
+        if (dashboardSeen !== undefined && typeof dashboardSeen !== 'boolean') {
+            return res.status(400).json({ error: 'Invalid tour state' });
+        }
+        if (adminSeen !== undefined && typeof adminSeen !== 'boolean') {
+            return res.status(400).json({ error: 'Invalid tour state' });
+        }
+        await configService.update({ system: { tours: req.body } });
+        res.json({ success: true });
+    },
+
 };
 
 module.exports = settingsController;
