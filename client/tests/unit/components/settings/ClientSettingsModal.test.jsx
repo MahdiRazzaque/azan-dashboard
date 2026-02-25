@@ -45,6 +45,7 @@ describe('ClientSettingsModal', () => {
     });
     useSettings.mockReturnValue({ config: baseConfig });
     useWakeLock.mockReturnValue({ isSupported: true });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true });
   });
 
   it('should render correctly and default to Appearance tab', () => {
@@ -142,5 +143,21 @@ describe('ClientSettingsModal', () => {
     const xButton = screen.getAllByRole('button').find(b => b.querySelector('svg.lucide-x'));
     fireEvent.click(xButton);
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('should show Restart Tour button in system tab', () => {
+    render(<ClientSettingsModal onClose={onClose} />);
+    fireEvent.click(screen.getByText('System'));
+    expect(screen.getByText('Restart Tour')).toBeDefined();
+  });
+
+  it('should call fetch on Restart Tour click', async () => {
+    render(<ClientSettingsModal onClose={onClose} />);
+    fireEvent.click(screen.getByText('System'));
+    fireEvent.click(screen.getByText('Restart Tour'));
+    expect(global.fetch).toHaveBeenCalledWith('/api/settings/tour-state', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({ dashboardSeen: false })
+    }));
   });
 });

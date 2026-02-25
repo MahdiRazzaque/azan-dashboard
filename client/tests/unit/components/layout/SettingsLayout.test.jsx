@@ -10,7 +10,9 @@ vi.mock('../../../../src/hooks/useAuth');
 vi.mock('../../../../src/hooks/useSettings');
 vi.mock('../../../../src/components/common/ConfirmModal', () => ({ default: ({ isOpen, onConfirm, title }) => isOpen ? <div data-testid="confirm-modal">{title}<button onClick={onConfirm}>Confirm</button></div> : null }));
 vi.mock('../../../../src/components/common/SaveProcessModal', () => ({ default: ({ isOpen, result }) => isOpen ? <div data-testid="process-modal">{result?.success ? 'Saved' : 'Saving'}</div> : null }));
+vi.mock('../../../../src/hooks/useTour', () => ({ useTour: vi.fn() }));
 
+import { useTour } from '../../../../src/hooks/useTour';
 describe('SettingsLayout', () => {
   const logout = vi.fn();
   const resetDraft = vi.fn();
@@ -37,10 +39,19 @@ describe('SettingsLayout', () => {
     refreshHealth
   };
 
+  const mockStartTour = vi.fn();
+  const mockStopTour = vi.fn();
+
   beforeEach(() => {
     vi.clearAllMocks();
     useAuth.mockReturnValue({ logout });
     useSettings.mockReturnValue(baseMock);
+    useTour.mockReturnValue({
+      startTour: mockStartTour,
+      stopTour: mockStopTour
+    });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => cb());
   });
 
   afterEach(() => {
@@ -148,5 +159,19 @@ describe('SettingsLayout', () => {
     });
     const { container } = render(<MemoryRouter><SettingsLayout /></MemoryRouter>);
     expect(container.querySelector('.bg-orange-500')).toBeDefined();
+  });
+
+  it('should call startTour when adminSeen is false', () => {
+    useSettings.mockReturnValue({
+      ...baseMock,
+      config: { system: { tours: { adminSeen: false } } }
+    });
+    render(<MemoryRouter><SettingsLayout /></MemoryRouter>);
+    expect(mockStartTour).toHaveBeenCalledWith('admin', expect.any(Array), expect.any(Function));
+  });
+
+  it('should have Restart Tour button in sidebar', () => {
+    render(<MemoryRouter><SettingsLayout /></MemoryRouter>);
+    expect(screen.getByText('Restart Tour')).toBeDefined();
   });
 });
