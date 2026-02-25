@@ -55,12 +55,12 @@ function App() {
 
   // Prevent accessing setup if not required
   if (!setupRequired && location.pathname === '/setup') {
-      return <Navigate to="/login" replace />;
+      return <Navigate to="/" replace />;
   }
 
   // Redirect authenticated users away from login
   if (isAuthenticated && location.pathname === '/login') {
-      return <Navigate to="/settings" replace />;
+      return <Navigate to="/" replace />;
   }
 
   return (

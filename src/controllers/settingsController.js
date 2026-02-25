@@ -111,7 +111,8 @@ const settingsController = {
             location: fullConfig.location,
             prayers: fullConfig.prayers,
             sources: fullConfig.sources,
-            automation: automation
+            automation: automation,
+            system: { tours: fullConfig.system?.tours }
         });
     },
 
@@ -409,7 +410,26 @@ const settingsController = {
                 message: error.message 
             });
         }
-    }
+    },
+
+/**
+ * Updates the onboarding tour state (dashboardSeen / adminSeen) in config.
+ * @param {import('express').Request} req - Express request with body { dashboardSeen?, adminSeen? }.
+ * @param {import('express').Response} res - Express response.
+ * @returns {Promise<void>} Resolves when the tour state has been updated.
+ */
+    updateTourState: async (req, res) => {
+        const { dashboardSeen, adminSeen } = req.body;
+        if (dashboardSeen !== undefined && typeof dashboardSeen !== 'boolean') {
+            return res.status(400).json({ error: 'Invalid tour state' });
+        }
+        if (adminSeen !== undefined && typeof adminSeen !== 'boolean') {
+            return res.status(400).json({ error: 'Invalid tour state' });
+        }
+        await configService.update({ system: { tours: req.body } });
+        res.json({ success: true });
+    },
+
 };
 
 module.exports = settingsController;

@@ -105,6 +105,7 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
   return (
     <div className="absolute top-2 right-2 lg:top-6 lg:right-6 flex gap-1.5 lg:gap-3 z-50">
       <button 
+        id="tour-wake-lock"
         onClick={handleWakeLockToggle}
         disabled={!wakeLock.isSupported}
         className={`p-1.5 lg:p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
@@ -119,6 +120,7 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
       </button>
 
       <button 
+        id="tour-mute-btn"
         onClick={toggleMute}
         className={`p-1.5 lg:p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
           blocked ? 'bg-app-danger animate-pulse text-white' : 
@@ -130,6 +132,7 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
       </button>
 
       <button 
+        id="tour-display-settings"
         onClick={() => setShowSettings(true)}
         className="p-1.5 lg:p-3 rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
         title="Display Settings"
@@ -139,6 +142,7 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
       
       <div className="relative">
         <button 
+          id="tour-admin-settings"
           onClick={() => navigate('/settings')}
           className="p-1.5 lg:p-3 rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
           title={isDegraded ? `System Warning:\n${healthIssues.join('\n')}` : "Settings"}

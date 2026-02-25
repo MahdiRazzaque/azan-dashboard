@@ -105,7 +105,7 @@ const FocusCard = ({ nextPrayer, prayers, lastUpdated, onCountdownComplete }) =>
     const nextName = nextPrayer ? nextPrayer.name.charAt(0).toUpperCase() + nextPrayer.name.slice(1) : '';
 
     return (
-        <div className="bg-app-card rounded-3xl h-auto lg:h-full flex flex-col items-center justify-center text-center p-8 shadow-2xl relative overflow-hidden">
+        <div id="tour-focus-card" className="bg-app-card rounded-3xl h-auto lg:h-full flex flex-col items-center justify-center text-center p-8 shadow-2xl relative overflow-hidden">
             {/* Background Decoration */}
             <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/30 pointer-events-none" />
 

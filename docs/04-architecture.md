@@ -67,7 +67,10 @@ The frontend is a Single Page Application (SPA) designed for resilience.
     *   `SettingsContext`: Manages configuration fetching, "dirty" state tracking, and validation.
     *   `ClientPreferencesContext`: Persists device-specific settings (Dark mode, Mute state) to `localStorage`.
 *   **Component Strategy:** Uses modular components (e.g., `FocusCard`, `TriggerCard`) to ensure UI consistency.
-
+*   **Onboarding & Tours:**
+    *   `WelcomeModal` (`components/common/`): A reusable modal that presents "Start Tour" / "Skip" options. Used by both the Dashboard and Admin Panel for their respective first-run tours.
+    *   `useTour` (`hooks/`): Wraps the `driver.js` library to provide `startTour` and `stopTour` functions with consistent theming and lifecycle callbacks.
+    *   Tour step definitions live in `config/tourSteps.js` (`dashboardTourSteps`, `adminTourSteps`).
 ![System Architecture Diagram](./images/architecture-diagram.png)
 
 ## Data Layer & Persistence

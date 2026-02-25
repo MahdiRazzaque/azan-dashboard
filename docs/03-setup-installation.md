@@ -51,7 +51,7 @@ This is the easiest way to get started. It bundles the Backend, Frontend, and Py
     ```
 
 4.  **Access:**
-    Open your browser at `http://localhost:3000`. You will be redirected to the Setup Wizard to create an admin password.
+    Open your browser at `http://localhost:3000`. You will be redirected to the Setup Wizard to create an admin password. After completing setup, you will land on the main dashboard where a guided tour will offer to walk you through the key features.
 
 ### Option B: Manual Installation
 Use this for development or if you cannot use Docker.

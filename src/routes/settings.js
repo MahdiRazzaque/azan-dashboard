@@ -20,4 +20,6 @@ router.post('/upload', operationsLimiter, authenticateToken, storageCheck, uploa
 router.post('/files/revalidate', operationsLimiter, authenticateToken, asyncHandler(settingsController.revalidateFile));
 router.delete('/files', authenticateToken, asyncHandler(settingsController.deleteFile));
 
+router.patch('/tour-state', authenticateToken, asyncHandler(settingsController.updateTourState));
+
 module.exports = router;

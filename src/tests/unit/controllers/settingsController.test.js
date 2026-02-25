@@ -154,7 +154,7 @@ describe('settingsController Unit Tests', () => {
             await settingsController.getPublicSettings(req, res);
             
             expect(configService.reload).toHaveBeenCalled();
-            expect(res.json).toHaveBeenCalledWith({
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
                 location: mockConfig.location,
                 prayers: mockConfig.prayers,
                 sources: mockConfig.sources,
@@ -166,7 +166,7 @@ describe('settingsController Unit Tests', () => {
                         }
                     }
                 }
-            });
+            }));
         });
 
         it('should handle missing outputs in public settings', async () => {
@@ -181,6 +181,36 @@ describe('settingsController Unit Tests', () => {
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
                 automation: {}
             }));
+        });
+
+        it('should include system.tours in public response', async () => {
+            const mockConfig = {
+                location: { city: 'London' },
+                prayers: {},
+                sources: {},
+                automation: {},
+                system: { tours: { dashboardSeen: true, adminSeen: false }, healthChecks: {} }
+            };
+            configService.get.mockReturnValue(mockConfig);
+            await settingsController.getPublicSettings(req, res);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+                system: { tours: { dashboardSeen: true, adminSeen: false } }
+            }));
+        });
+
+        it('should NOT expose full system object — only tours sub-field', async () => {
+            const mockConfig = {
+                location: {},
+                prayers: {},
+                sources: {},
+                automation: {},
+                system: { tours: { dashboardSeen: false }, healthChecks: { sensitive: true } }
+            };
+            configService.get.mockReturnValue(mockConfig);
+            await settingsController.getPublicSettings(req, res);
+            const callArg = res.json.mock.calls[0][0];
+            expect(callArg.system.healthChecks).toBeUndefined();
+            expect(callArg.system.tours).toEqual({ dashboardSeen: false });
         });
     });
 
@@ -211,6 +241,31 @@ describe('settingsController Unit Tests', () => {
             workflowService.executeUpdate.mockRejectedValue(new Error('Internal Oops'));
             await settingsController.updateSettings(req, res);
             expect(res.status).toHaveBeenCalledWith(500);
+        });
+    });
+
+    describe('updateTourState', () => {
+        it('should update dashboardSeen and return 200', async () => {
+            req.body = { dashboardSeen: true };
+            configService.update.mockResolvedValue();
+            await settingsController.updateTourState(req, res);
+            expect(configService.update).toHaveBeenCalledWith({ system: { tours: { dashboardSeen: true } } });
+            expect(res.json).toHaveBeenCalledWith({ success: true });
+        });
+
+        it('should update adminSeen and return 200', async () => {
+            req.body = { adminSeen: true };
+            configService.update.mockResolvedValue();
+            await settingsController.updateTourState(req, res);
+            expect(configService.update).toHaveBeenCalledWith({ system: { tours: { adminSeen: true } } });
+            expect(res.json).toHaveBeenCalledWith({ success: true });
+        });
+
+        it('should return 400 if dashboardSeen is not a boolean', async () => {
+            req.body = { dashboardSeen: 'yes' };
+            await settingsController.updateTourState(req, res);
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith({ error: 'Invalid tour state' });
         });
     });
 

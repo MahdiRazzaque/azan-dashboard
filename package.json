@@ -11,7 +11,7 @@
     "test:client:coverage": "vitest --config .config/vitest.config.mjs run --coverage",
     "start": "node src/server.js",
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
-    "tts:start": "cd src/microservices/tts && venv\\Scripts\\python server.py",
+    "tts:start": "cd src/microservices/tts && venv/bin/python server.py",
     "server:dev": "nodemon --config .config/nodemon.json src/server.js",
     "client:dev": "cd client && npm run dev",
     "client:install": "cd client && npm install",

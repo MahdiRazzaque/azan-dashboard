@@ -52,7 +52,7 @@ const PrayerCard = ({ prayers, nextPrayer }) => {
     };
 
     return (
-        <div className="bg-app-card rounded-3xl h-auto lg:h-full flex flex-col overflow-hidden shadow-2xl p-4">
+        <div id="tour-prayer-card" className="bg-app-card rounded-3xl h-auto lg:h-full flex flex-col overflow-hidden shadow-2xl p-4">
             <div className="flex-1 flex flex-col justify-center space-y-2">
                  <div className="flex justify-between px-4 lg:px-10 pb-4 text-app-dim text-sm lg:text-xl uppercase tracking-widest font-semibold opacity-50 border-b border-app-border/20">
                      <span className="w-1/3 text-left">Prayer</span>

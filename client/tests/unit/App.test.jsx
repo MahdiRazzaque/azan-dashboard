@@ -103,7 +103,7 @@ describe('App', () => {
     expect(screen.getByTestId('setup-view')).toBeDefined();
   });
 
-  it('should redirect to /login if setup is NOT required and path is /setup', () => {
+  it('should redirect to / (dashboard) if setup is NOT required and path is /setup', () => {
     mockUseAuth.mockReturnValue({
       setupRequired: false,
       loading: false
@@ -113,10 +113,10 @@ describe('App', () => {
         <App />
       </MemoryRouter>
     );
-    expect(screen.getByTestId('login-view')).toBeDefined();
+    expect(screen.getByTestId('dashboard-view')).toBeDefined();
   });
 
-  it('should redirect to /settings if authenticated and path is /login', () => {
+  it('should redirect to / (dashboard) if authenticated and path is /login', () => {
     mockUseAuth.mockReturnValue({
       setupRequired: false,
       loading: false,
@@ -128,7 +128,7 @@ describe('App', () => {
       </MemoryRouter>
     );
     // /settings redirects to general, but we just check if it enters the settings area
-    expect(screen.getByTestId('settings-layout')).toBeDefined();
+    expect(screen.getByTestId('dashboard-view')).toBeDefined();
   });
 
   it('should render DashboardView for root path', () => {
