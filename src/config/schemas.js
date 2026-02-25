@@ -72,11 +72,19 @@ const systemSchema = z.object({
   healthChecks: z.record(z.string(), z.boolean()).default({
     api: true,
     tts: true
-  })
+  }),
+  tours: z.object({
+    dashboardSeen: z.boolean().default(false),
+    adminSeen: z.boolean().default(false)
+  }).default({ dashboardSeen: false, adminSeen: false })
 }).default({
   healthChecks: {
     api: true,
     tts: true
+  },
+  tours: {
+    dashboardSeen: false,
+    adminSeen: false
   }
 });
 
@@ -149,6 +157,7 @@ const envUpdateSchema = z.object({
 
 module.exports = {
   configSchema,
+  systemSchema,
   automationSchema,
   prayerTriggersSchema,
   sunriseTriggersSchema,

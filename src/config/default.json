@@ -83,6 +83,10 @@
     "healthChecks": {
       "api": true,
       "tts": true
+    },
+    "tours": {
+      "dashboardSeen": false,
+      "adminSeen": false
     }
   }
 }
