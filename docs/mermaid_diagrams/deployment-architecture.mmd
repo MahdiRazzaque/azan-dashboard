@@ -1,0 +1,55 @@
+graph TB
+    subgraph "Host Machine"
+        subgraph "Docker Container"
+            SUP["Supervisord<br/>(Process Manager)"]
+            SUP --> NODE["Node.js Backend<br/>Express 5 · Port 3000"]
+            SUP --> PY["Python TTS<br/>FastAPI · Port 8000"]
+            NODE -->|"HTTP localhost:8000"| PY
+        end
+
+        subgraph "Bind-Mount Volumes"
+            V1["./config/<br/>local.json + .env"]
+            V2["./data/<br/>Prayer time cache"]
+            V3["./public/audio/<br/>MP3 files + TTS cache"]
+        end
+
+        Docker_Container["Docker Container"]
+        Docker_Container --- V1
+        Docker_Container --- V2
+        Docker_Container --- V3
+
+        subgraph "Linux Audio (Optional)"
+            DEV["/dev/snd<br/>ALSA sound devices"]
+        end
+        Docker_Container -.-|"device mapping"| DEV
+    end
+
+    subgraph "Reverse Proxy (Optional)"
+        NGINX["Nginx / Caddy / Cloudflare Tunnel"]
+    end
+
+    subgraph "Clients"
+        DASH["Dashboard Browser"]
+        TABLET["Kiosk Tablet"]
+    end
+
+    DASH -->|"HTTPS"| NGINX
+    TABLET -->|"HTTPS"| NGINX
+    NGINX -->|"HTTP :3000"| NODE
+
+    subgraph "External"
+        API1["Aladhan API"]
+        API2["MyMasjid API"]
+        VMAPI["VoiceMonkey API"]
+    end
+
+    NODE -->|"HTTPS"| API1
+    NODE -->|"HTTPS"| API2
+    NODE -->|"HTTPS"| VMAPI
+
+    subgraph "CI/CD (Optional)"
+        GH["GitHub Actions"]
+        TARGETS["Production Instance(s)"]
+    end
+
+    GH -->|"SSH deploy"| TARGETS

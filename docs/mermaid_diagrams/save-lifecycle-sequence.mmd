@@ -1,0 +1,44 @@
+sequenceDiagram
+    participant UI as React Frontend
+    participant API as Express Backend
+    participant CFG as ConfigService
+    participant VAL as ValidationService
+    participant SCH as SchedulerService
+    participant AAS as AudioAssetService
+    participant SSE as SSE Service
+
+    UI->>API: PUT /api/settings (draft config)
+    API->>VAL: validateConfig(draft)
+    activate VAL
+    VAL->>VAL: Zod schema parse
+    VAL->>VAL: Cross-field validation
+    VAL-->>API: Validation result
+    deactivate VAL
+
+    alt Validation failed
+        API-->>UI: 400 { errors: [...] }
+    else Validation passed
+        API->>CFG: update(draft)
+        activate CFG
+        CFG->>CFG: Strip secrets from JSON
+        CFG->>CFG: Encrypt sensitive fields
+        CFG->>CFG: Atomic write (tmp → rename)
+        CFG-->>API: Updated config
+        deactivate CFG
+
+        API->>SCH: hotReload()
+        activate SCH
+        SCH->>SCH: Cancel all existing jobs
+        SCH->>SCH: Re-schedule with new config
+        deactivate SCH
+
+        API->>AAS: syncAudioAssets()
+        activate AAS
+        AAS->>AAS: Validate trigger audio sources
+        AAS->>AAS: Generate missing TTS files
+        AAS-->>API: { warnings: [...] }
+        deactivate AAS
+
+        API->>SSE: broadcast('config-updated')
+        API-->>UI: 200 { config, warnings }
+    end

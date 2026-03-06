@@ -1,0 +1,46 @@
+graph TB
+    subgraph "Client Layer"
+        BROWSER["React SPA<br/>(Vite + Tailwind)"]
+        KIOSK["Kiosk Tablet<br/>(Full-screen browser)"]
+    end
+
+    subgraph "Docker Container"
+        subgraph "Supervisord"
+            BE["Node.js Backend<br/>Express 5 · :3000"]
+            TTS["Python TTS Microservice<br/>FastAPI + edge-tts · :8000"]
+        end
+        STATIC["Static File Server<br/>/audio/custom, /audio/cache"]
+    end
+
+    subgraph "Data Layer"
+        CFG["config/<br/>local.json · .env"]
+        CACHE["data/<br/>Prayer time JSON cache"]
+        AUDIO["public/audio/<br/>MP3 files + sidecar metadata"]
+    end
+
+    subgraph "External Services"
+        ALADHAN["Aladhan API<br/>(Prayer calculations)"]
+        MYMASJID["MyMasjid API<br/>(Mosque timetables)"]
+        VM["VoiceMonkey API<br/>(Alexa announcements)"]
+    end
+
+    subgraph "Audio Targets"
+        SPEAKERS["Local Speakers<br/>ALSA · mpg123/aplay"]
+        ALEXA["Alexa Devices"]
+        BROWSAUDIO["Browser Audio<br/>via SSE events"]
+    end
+
+    BROWSER -->|"HTTP REST + SSE"| BE
+    KIOSK -->|"HTTP REST + SSE"| BE
+    BE -->|"HTTP :8000"| TTS
+    BE -->|serves| STATIC
+    BE -->|"read/write"| CFG
+    BE -->|"read/write"| CACHE
+    BE -->|"read/write"| AUDIO
+    TTS -->|"writes to"| AUDIO
+    BE -->|"HTTPS"| ALADHAN
+    BE -->|"HTTPS"| MYMASJID
+    BE -->|"HTTPS"| VM
+    BE -->|"child process"| SPEAKERS
+    VM -->|"cloud push"| ALEXA
+    BE -->|"SSE broadcast"| BROWSAUDIO

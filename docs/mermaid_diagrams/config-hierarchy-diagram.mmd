@@ -1,0 +1,25 @@
+graph TB
+    subgraph "Configuration Sources"
+        direction TB
+        ENV[".env<br/>Secrets only<br/><i>JWT_SECRET, VOICEMONKEY_TOKEN, …</i>"]
+        LOCAL["local.json<br/>User overrides<br/><i>Location, prayers, automation, outputs</i>"]
+        DEFAULT["default.json<br/>Shipped defaults<br/><i>London coords, Aladhan method 15, all triggers disabled</i>"]
+    end
+
+    ENV -->|"① Highest priority"| MERGE["ConfigService.init()"]
+    LOCAL -->|"② User layer"| MERGE
+    DEFAULT -->|"③ Base layer"| MERGE
+
+    MERGE --> ZOD{"Zod Schema<br/>Validation"}
+    ZOD -->|"✓ Valid"| RUNTIME["Runtime Config<br/>configService.get()"]
+    ZOD -->|"✗ Invalid"| FAIL["Startup Error<br/>Descriptive Zod messages"]
+
+    subgraph "On configService.update()"
+        RUNTIME --> STRIP["Strip secrets<br/>from JSON payload"]
+        STRIP --> ENCRYPT{"AZAN_ENCRYPTION_KEY<br/>set?"}
+        ENCRYPT -->|"Yes"| AES["AES-256-CBC<br/>encrypt sensitive fields"]
+        ENCRYPT -->|"No"| PLAIN["Store plaintext"]
+        AES --> ATOMIC["Atomic write<br/>tmp → rename"]
+        PLAIN --> ATOMIC
+        ATOMIC --> LOCAL
+    end
