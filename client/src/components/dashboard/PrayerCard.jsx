@@ -204,10 +204,12 @@ const PrayerCard = ({
             }
 
             if (event.key === 'ArrowLeft' && canNavigateBackward && !isTransitioning) {
+                event.preventDefault();
                 onNavigate?.(-1);
             }
 
             if (event.key === 'ArrowRight' && canNavigateForward && !isTransitioning) {
+                event.preventDefault();
                 onNavigate?.(1);
             }
         };

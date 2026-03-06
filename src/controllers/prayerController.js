@@ -4,7 +4,10 @@ const { DateTime } = require('luxon');
 const { getPrayersWithNext, getPrayerCalendarWindow } = require('@services/core/prayerTimeService');
 
 const prayerCalendarQuerySchema = z.object({
-    cursorDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    cursorDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(
+        (value) => DateTime.fromISO(value).isValid,
+        { message: 'cursorDate is not a valid calendar date.' }
+    ).optional(),
     direction: z.enum(['future', 'past']).optional()
 }).refine(
     ({ cursorDate, direction }) => Boolean(cursorDate) === Boolean(direction),

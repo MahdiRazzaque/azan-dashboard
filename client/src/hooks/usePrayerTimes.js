@@ -207,7 +207,7 @@ export const usePrayerTimes = () => {
     setViewedDateState((currentViewedDate) => {
       const nextViewedDate = (preserveViewedDate || isStalePayload)
         ? (currentViewedDate || nextReference || null)
-        : (currentViewedDate || nextReference || null);
+        : (nextReference || null);
       viewedDateRef.current = nextViewedDate;
       return nextViewedDate;
     });
