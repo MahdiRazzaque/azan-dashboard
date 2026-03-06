@@ -1,0 +1,46 @@
+sequenceDiagram
+    participant S as server.js
+    participant ENV as envManager
+    participant CFG as ConfigService
+    participant MIG as MigrationService
+    participant HC as HealthCheck
+    participant VS as VoiceService
+    participant PTS as PrayerTimeService
+    participant AAS as AudioAssetService
+    participant AMIG as AssetMigrationService
+    participant SCH as SchedulerService
+
+    S->>ENV: Load .env · Generate JWT_SECRET if absent
+    S->>CFG: init()
+    activate CFG
+    CFG->>CFG: Merge default.json + local.json
+    CFG->>MIG: migrateConfig() — V1→V2→V3→V4→V5
+    CFG->>MIG: migrateEnvSecrets() — first-boot secret migration
+    CFG->>CFG: Zod validate merged config
+    deactivate CFG
+
+    S->>HC: runStartupChecks()
+    activate HC
+    HC->>HC: API self-test (localhost:3000/api/health)
+    HC->>HC: TTS ping (localhost:8000/health)
+    deactivate HC
+
+    S->>VS: init() — Fetch + cache available TTS voices
+
+    S->>PTS: refreshCache()
+    activate PTS
+    PTS->>PTS: Fetch current year prayer data
+    PTS->>PTS: Fetch next year prayer data
+    deactivate PTS
+
+    S->>AAS: syncAudioAssets() — Validate sidecar metadata · generate missing TTS
+    S->>AMIG: run() — Legacy audio file migrations
+
+    S->>SCH: initScheduler()
+    activate SCH
+    SCH->>SCH: Schedule all prayer events via node-schedule
+    SCH->>SCH: Schedule midnight refresh job
+    SCH->>SCH: Schedule stale-data check job
+    deactivate SCH
+
+    Note over S: Express server listening on :3000
