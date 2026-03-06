@@ -57,6 +57,7 @@ const createMockSchedulerService = () => ({
 const createMockPrayerTimeService = () => ({
     getPrayerTimes: jest.fn(),
     getPrayersWithNext: jest.fn(),
+    getPrayerCalendarWindow: jest.fn(),
     forceRefresh: jest.fn(() => Promise.resolve({ meta: { success: true, timestamp: Date.now() } })),
     readCache: jest.fn(() => ({}))
 });

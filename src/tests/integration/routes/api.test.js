@@ -654,6 +654,11 @@ describe('API Routes Integration', () => {
                      dhuhr: { start: '2024-01-01T12:00:00', iqamah: '2024-01-01T12:15:00' }
                  }
              });
+             prayerTimeService.getPrayerCalendarWindow.mockResolvedValueOnce({
+                 '2023-12-25': {
+                     fajr: { start: '2023-12-25T05:00:00', iqamah: '2023-12-25T05:15:00' }
+                 }
+             });
              
              const res = await request(app)
                 .get('/api/prayers')
@@ -661,6 +666,7 @@ describe('API Routes Integration', () => {
              
              expect(res.body.prayers).toBeDefined();
              expect(res.body.prayers.fajr).toBeDefined();
+             expect(res.body.calendar).toBeDefined();
         });
 
         it('GET /api/prayers - should handle next prayer logic', async () => {
@@ -677,6 +683,11 @@ describe('API Routes Integration', () => {
                      name: 'fajr',
                      time: '2024-01-02T05:01:00Z',
                      isTomorrow: true
+                 }
+             });
+             prayerTimeService.getPrayerCalendarWindow.mockResolvedValueOnce({
+                 '2024-01-01': {
+                     fajr: { start: '2024-01-01T05:00:00Z', iqamah: '2024-01-01T05:15:00Z' }
                  }
              });
 
@@ -775,8 +786,51 @@ describe('API Routes Integration', () => {
                      fajr: { start: '2024-01-01T05:00:00', iqamah: '2024-01-01T05:15:00' }
                  }
              });
+             prayerTimeService.getPrayerCalendarWindow.mockResolvedValueOnce({
+                 '2024-01-01': {
+                     fajr: { start: '2024-01-01T05:00:00', iqamah: '2024-01-01T05:15:00' }
+                 }
+             });
              
              await request(app).get('/api/prayers').expect(200);
+        });
+
+        it('GET /api/prayers - should forward valid cursorDate and direction queries', async () => {
+             prayerTimeService.getPrayersWithNext.mockResolvedValueOnce({
+                 meta: { date: '2024-01-01', source: 'test' },
+                 prayers: {
+                     fajr: { start: '2024-01-01T05:00:00', iqamah: '2024-01-01T05:15:00' }
+                 }
+             });
+             prayerTimeService.getPrayerCalendarWindow.mockResolvedValueOnce({
+                 '2024-01-09': {
+                     fajr: { start: '2024-01-09T05:00:00', iqamah: '2024-01-09T05:15:00' }
+                 }
+             });
+
+             const res = await request(app)
+                 .get('/api/prayers?cursorDate=2024-01-08&direction=future')
+                 .expect(200);
+
+            expect(prayerTimeService.getPrayerCalendarWindow).toHaveBeenCalledWith(
+                expect.any(Object),
+                'Europe/London',
+                {
+                    cursorDate: '2024-01-08',
+                    direction: 'future'
+                },
+                expect.any(Object)
+            );
+             expect(res.body.calendar['2024-01-09']).toBeDefined();
+        });
+
+        it('GET /api/prayers - should reject invalid calendar query parameters', async () => {
+             await request(app)
+                 .get('/api/prayers?cursorDate=01-08-2024&direction=future')
+                 .expect(400);
+
+             expect(prayerTimeService.getPrayersWithNext).not.toHaveBeenCalled();
+             expect(prayerTimeService.getPrayerCalendarWindow).not.toHaveBeenCalled();
         });
 
         it('GET /api/prayers - should handle errors', async () => {

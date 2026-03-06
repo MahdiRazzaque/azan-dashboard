@@ -53,6 +53,29 @@ describe('PrayerTimeService Comprehensive', () => {
         }
     };
 
+    const createRawPrayerData = (dateKey) => ({
+        meta: {
+            date: dateKey,
+            source: 'test-source',
+            cached: true
+        },
+        prayers: {
+            fajr: `${dateKey}T05:00:00.000Z`,
+            sunrise: `${dateKey}T06:30:00.000Z`,
+            dhuhr: `${dateKey}T12:00:00.000Z`,
+            asr: `${dateKey}T15:30:00.000Z`,
+            maghrib: `${dateKey}T18:00:00.000Z`,
+            isha: `${dateKey}T19:30:00.000Z`,
+            iqamah: {
+                fajr: `${dateKey}T05:15:00.000Z`,
+                dhuhr: `${dateKey}T12:15:00.000Z`,
+                asr: `${dateKey}T15:45:00.000Z`,
+                maghrib: `${dateKey}T18:10:00.000Z`,
+                isha: `${dateKey}T19:45:00.000Z`
+            }
+        }
+    });
+
     beforeEach(() => {
         jest.restoreAllMocks();
         jest.clearAllMocks();
@@ -173,5 +196,85 @@ describe('PrayerTimeService Comprehensive', () => {
         ProviderFactory.create.mockReturnValue({ getAnnualTimes: jest.fn().mockResolvedValue({ [DateTime.now().toISODate()]: { fajr: 'T' } }) });
         await service.forceRefresh(mockConfig);
         expect(fsp.unlink).toHaveBeenCalled();
+    });
+
+    describe('getPrayerCalendarWindow', () => {
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        it('returns a 15-day calendar window centered on today by default', async () => {
+            const now = DateTime.fromISO('2080-01-08T12:00:00.000Z');
+            jest.useFakeTimers().setSystemTime(now.toJSDate());
+
+            const getPrayerTimesSpy = jest.spyOn(service, 'getPrayerTimes').mockImplementation(async (_config, date) => {
+                return createRawPrayerData(date.toISODate());
+            });
+
+            const calendar = await service.getPrayerCalendarWindow(mockConfig, 'UTC');
+            const dates = Object.keys(calendar);
+
+            expect(dates).toHaveLength(15);
+            expect(dates[0]).toBe('2080-01-01');
+            expect(dates[7]).toBe('2080-01-08');
+            expect(dates[14]).toBe('2080-01-15');
+            expect(calendar['2080-01-08'].dhuhr.start).toBe('2080-01-08T12:00:00.000Z');
+            expect(getPrayerTimesSpy).toHaveBeenCalledTimes(15);
+        });
+
+        it('returns the next seven days after a future cursor', async () => {
+            const getPrayerTimesSpy = jest.spyOn(service, 'getPrayerTimes').mockImplementation(async (_config, date) => {
+                return createRawPrayerData(date.toISODate());
+            });
+
+            const calendar = await service.getPrayerCalendarWindow(mockConfig, 'UTC', {
+                cursorDate: '2080-01-15',
+                direction: 'future'
+            });
+
+            expect(Object.keys(calendar)).toEqual([
+                '2080-01-16',
+                '2080-01-17',
+                '2080-01-18',
+                '2080-01-19',
+                '2080-01-20',
+                '2080-01-21',
+                '2080-01-22'
+            ]);
+            expect(getPrayerTimesSpy).toHaveBeenCalledTimes(7);
+        });
+
+        it('returns the previous seven days before a past cursor', async () => {
+            const getPrayerTimesSpy = jest.spyOn(service, 'getPrayerTimes').mockImplementation(async (_config, date) => {
+                return createRawPrayerData(date.toISODate());
+            });
+
+            const calendar = await service.getPrayerCalendarWindow(mockConfig, 'UTC', {
+                cursorDate: '2080-01-15',
+                direction: 'past'
+            });
+
+            expect(Object.keys(calendar)).toEqual([
+                '2080-01-08',
+                '2080-01-09',
+                '2080-01-10',
+                '2080-01-11',
+                '2080-01-12',
+                '2080-01-13',
+                '2080-01-14'
+            ]);
+            expect(getPrayerTimesSpy).toHaveBeenCalledTimes(7);
+        });
+
+        it('returns an empty calendar when a directional chunk cannot be fetched', async () => {
+            jest.spyOn(service, 'getPrayerTimes').mockRejectedValue(new Error('Year unavailable'));
+
+            const calendar = await service.getPrayerCalendarWindow(mockConfig, 'UTC', {
+                cursorDate: '2080-12-31',
+                direction: 'future'
+            });
+
+            expect(calendar).toEqual({});
+        });
     });
 });

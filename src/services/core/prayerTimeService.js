@@ -12,6 +12,7 @@ const CACHE_FILE = path.join(process.cwd(), 'data', 'cache.json');
  * @type {Object|null}
  */
 let inMemoryCache = null;
+const PRAYER_NAMES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 /**
  * Ensures the data directory exists.
@@ -32,44 +33,17 @@ async function ensureDataDir() {
  * 
  * @param {Object} config - Application configuration.
  * @param {string} timezone - Timezone string.
+ * @param {import('luxon').DateTime} [referenceDate] - The request-scoped date/time used for current-day calculations.
  * @returns {Promise<Object>} Object containing meta, prayers, and nextPrayer.
  */
-async function getPrayersWithNext(config, timezone) {
-  const now = DateTime.now().setZone(timezone);
+async function getPrayersWithNext(config, timezone, referenceDate = DateTime.now().setZone(timezone)) {
+  const now = referenceDate.setZone(timezone);
   
   // 1. Fetch Data for Today
   const rawData = await module.exports.getPrayerTimes(config, now);
   
   // 2. Process Prayers (Start + Iqamah)
-  const prayers = {};
-  const prayerNames = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
-  
-  prayerNames.forEach(name => {
-    const startISO = rawData.prayers[name]; 
-    if (!startISO) {
-        console.warn(`[PrayerService] Missing prayer time for ${name}`);
-        return;
-    }
-    
-    let iqamahISO = null;
-    if (name !== 'sunrise') {
-        // Use explicit Iqamah from source if available
-        if (rawData.prayers.iqamah && rawData.prayers.iqamah[name]) {
-            iqamahISO = rawData.prayers.iqamah[name];
-        } else {
-            // Fallback to calculation
-            const settings = config.prayers[name];
-            if (settings) {
-                iqamahISO = calculateIqamah(startISO, settings, timezone);
-            }
-        }
-    }
-    
-    prayers[name] = {
-      start: startISO,
-      iqamah: iqamahISO
-    };
-  });
+  const prayers = buildPrayerRows(rawData, config, timezone);
 
   // 3. Calculate Next Prayer
   let nextPrayer = calculateNextPrayer(prayers, now);
@@ -102,6 +76,41 @@ async function getPrayersWithNext(config, timezone) {
     prayers,
     nextPrayer
   };
+}
+
+/**
+ * Builds a window of prayer rows for the dashboard calendar response.
+ *
+ * @param {Object} config - The global application configuration.
+ * @param {string} timezone - The configured location timezone.
+ * @param {Object} [options={}] - Cursor options for directional pagination.
+ * @param {string} [options.cursorDate] - The anchor date for directional pagination.
+ * @param {'future'|'past'} [options.direction] - The chunk direction relative to the cursor.
+ * @param {import('luxon').DateTime} [referenceDate] - The request-scoped date/time used for default window generation.
+ * @returns {Promise<Object>} A map of ISO dates to prayer rows.
+ */
+async function getPrayerCalendarWindow(config, timezone, options = {}, referenceDate = DateTime.now().setZone(timezone)) {
+  const { cursorDate, direction } = options;
+  const hasDirectionalCursor = Boolean(cursorDate && direction);
+  const startDate = hasDirectionalCursor
+    ? getDirectionalWindowStart(cursorDate, direction, timezone)
+    : referenceDate.setZone(timezone).startOf('day').minus({ days: 7 });
+  const daysToFetch = hasDirectionalCursor ? 7 : 15;
+  const calendar = {};
+
+  for (let offset = 0; offset < daysToFetch; offset += 1) {
+    const date = startDate.plus({ days: offset });
+    try {
+      const rawData = await module.exports.getPrayerTimes(config, date);
+      calendar[date.toISODate()] = buildPrayerRows(rawData, config, timezone);
+    } catch (error) {
+      if (hasDirectionalCursor) {
+        return {};
+      }
+    }
+  }
+
+  return calendar;
 }
 
 /**
@@ -306,6 +315,63 @@ function applyOverrides(prayers, config) {
 }
 
 /**
+ * Normalizes a raw prayer payload into dashboard-friendly prayer rows.
+ *
+ * @param {Object} rawData - Raw prayer response for a single day.
+ * @param {Object} config - The global application configuration.
+ * @param {string} timezone - The configured location timezone.
+ * @returns {Object} A map of prayer names to start/iqamah timestamps.
+ */
+function buildPrayerRows(rawData, config, timezone) {
+  const prayers = {};
+
+  PRAYER_NAMES.forEach((name) => {
+    const startISO = rawData?.prayers?.[name];
+    if (!startISO) {
+      console.warn(`[PrayerService] Missing prayer time for ${name}`);
+      return;
+    }
+
+    let iqamahISO = null;
+    if (name !== 'sunrise') {
+      if (rawData.prayers.iqamah && rawData.prayers.iqamah[name]) {
+        iqamahISO = rawData.prayers.iqamah[name];
+      } else {
+        const settings = config.prayers[name];
+        if (settings) {
+          iqamahISO = calculateIqamah(startISO, settings, timezone);
+        }
+      }
+    }
+
+    prayers[name] = {
+      start: startISO,
+      iqamah: iqamahISO
+    };
+  });
+
+  return prayers;
+}
+
+/**
+ * Resolves the starting day for a directional calendar chunk.
+ *
+ * @param {string} cursorDate - The current edge date in ISO format.
+ * @param {'future'|'past'} direction - The direction to paginate.
+ * @param {string} timezone - The configured location timezone.
+ * @returns {import('luxon').DateTime} The first day to fetch for the requested chunk.
+ */
+function getDirectionalWindowStart(cursorDate, direction, timezone) {
+  const cursor = DateTime.fromISO(cursorDate, { zone: timezone }).startOf('day');
+
+  if (direction === 'past') {
+    return cursor.minus({ days: 7 });
+  }
+
+  return cursor.plus({ days: 1 });
+}
+
+/**
  * Forces a refresh of the prayer times by deleting the cache and re-fetching.
  *
  * @param {Object} config - The global application configuration.
@@ -324,6 +390,7 @@ async function forceRefresh(config) {
 module.exports = {
   getPrayerTimes,
   getPrayersWithNext,
+  getPrayerCalendarWindow,
   forceRefresh,
   readCache
 };
