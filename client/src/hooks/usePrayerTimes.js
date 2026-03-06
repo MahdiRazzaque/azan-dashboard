@@ -360,6 +360,21 @@ export const usePrayerTimes = () => {
     startDayTransition(activeReferenceDate, nextDirection);
   }, [activeReferenceDate, startDayTransition, viewedDate]);
 
+  const syncViewedDateToReference = useCallback(() => {
+    if (!activeReferenceDate) {
+      return;
+    }
+
+    navigationRequestRef.current += 1;
+    clearTimeout(transitionTimerRef.current);
+    clearTimeout(inactivityTimerRef.current);
+    isTransitioningRef.current = false;
+    viewedDateRef.current = activeReferenceDate;
+    setTransitionDate(null);
+    setIsTransitioning(false);
+    setViewedDateState(activeReferenceDate);
+  }, [activeReferenceDate]);
+
   const viewedPrayers = viewedDate ? (calendar[viewedDate] || prayers) : prayers;
   const transitionPrayers = transitionDate
     ? (calendar[transitionDate] || (transitionDate === activeReferenceDate ? prayers : null))
@@ -443,6 +458,7 @@ export const usePrayerTimes = () => {
     setViewedDate,
     navigateDay,
     resetViewedDate,
+    syncViewedDateToReference,
     refetch: () => fetchPrayers({ preserveViewedDate: true })
   };
 };

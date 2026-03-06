@@ -436,6 +436,35 @@ describe('usePrayerTimes', () => {
     expect(result.current.viewedDate).toBe('2026-01-30');
   });
 
+  it('syncs back to the reference date immediately when external UI state disables date navigation', async () => {
+    const response = createResponse({ startDate: '2026-01-30', count: 2 });
+    fetch.mockImplementation(() => Promise.resolve(okResponse(response)));
+
+    const { result } = renderHook(() => usePrayerTimes());
+
+    await flushHook();
+
+    act(() => {
+      result.current.navigateDay(1);
+    });
+
+    expect(result.current.isTransitioning).toBe(true);
+    expect(result.current.transitionDate).toBe('2026-01-31');
+
+    act(() => {
+      result.current.syncViewedDateToReference();
+    });
+
+    expect(result.current.isTransitioning).toBe(false);
+    expect(result.current.transitionDate).toBe(null);
+    expect(result.current.viewedDate).toBe('2026-01-30');
+
+    await finishTransition();
+
+    expect(result.current.viewedDate).toBe('2026-01-30');
+    expect(result.current.isTransitioning).toBe(false);
+  });
+
   it('uses a future transition when resetting back to today from an older date', async () => {
     const initialResponse = createResponse({ startDate: '2026-01-30', count: 2 });
     fetch.mockImplementation(() => Promise.resolve(okResponse(initialResponse)));
