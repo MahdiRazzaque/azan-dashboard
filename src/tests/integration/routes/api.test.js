@@ -44,7 +44,8 @@ jest.mock('fs/promises', () => ({
     mkdir: jest.fn().mockResolvedValue(),
     rename: jest.fn().mockResolvedValue(),
     readdir: jest.fn().mockResolvedValue([]),
-    stat: jest.fn().mockResolvedValue({ size: 100 })
+    stat: jest.fn().mockResolvedValue({ size: 100 }),
+    copyFile: jest.fn().mockResolvedValue()
 }));
 const fsPromises = require('fs/promises');
 

@@ -31,7 +31,8 @@ jest.mock('fs/promises', () => ({
     writeFile: jest.fn(),
     mkdir: jest.fn(),
     rename: jest.fn(),
-    readdir: jest.fn()
+    readdir: jest.fn(),
+    copyFile: jest.fn()
 }));
 jest.mock('@utils/audioValidator');
 jest.mock('@services/core/prayerTimeService', () => ({
@@ -70,6 +71,7 @@ describe('settingsController Unit Tests', () => {
         fsAsync.readdir.mockResolvedValue([]);
         fsAsync.rename.mockResolvedValue();
         fsAsync.unlink.mockResolvedValue();
+        fsAsync.copyFile.mockResolvedValue();
         fsAsync.writeFile.mockResolvedValue();
 
         // Default health state for mocks

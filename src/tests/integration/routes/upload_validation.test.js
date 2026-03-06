@@ -28,7 +28,8 @@ jest.mock('fs/promises', () => ({
     writeFile: jest.fn().mockResolvedValue(),
     mkdir: jest.fn().mockResolvedValue(),
     rename: jest.fn().mockResolvedValue(),
-    readdir: jest.fn().mockResolvedValue([])
+    readdir: jest.fn().mockResolvedValue([]),
+    copyFile: jest.fn().mockResolvedValue()
 }));
 
 // Mock Config
