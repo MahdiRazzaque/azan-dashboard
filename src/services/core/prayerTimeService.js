@@ -92,21 +92,37 @@ async function getPrayersWithNext(config, timezone, referenceDate = DateTime.now
 async function getPrayerCalendarWindow(config, timezone, options = {}, referenceDate = DateTime.now().setZone(timezone)) {
   const { cursorDate, direction } = options;
   const hasDirectionalCursor = Boolean(cursorDate && direction);
-  const startDate = hasDirectionalCursor
-    ? getDirectionalWindowStart(cursorDate, direction, timezone)
-    : referenceDate.setZone(timezone).startOf('day').minus({ days: 7 });
-  const daysToFetch = hasDirectionalCursor ? 7 : 15;
+  if (hasDirectionalCursor) {
+    const calendarEntries = [];
+    let date = getDirectionalWindowStart(cursorDate, direction, timezone);
+
+    for (let offset = 0; offset < 7; offset += 1) {
+      try {
+        const rawData = await module.exports.getPrayerTimes(config, date);
+        calendarEntries.push([date.toISODate(), buildPrayerRows(rawData, config, timezone)]);
+        date = direction === 'past' ? date.minus({ days: 1 }) : date.plus({ days: 1 });
+      } catch (error) {
+        break;
+      }
+    }
+
+    if (direction === 'past') {
+      calendarEntries.reverse();
+    }
+
+    return Object.fromEntries(calendarEntries);
+  }
+
+  const startDate = referenceDate.setZone(timezone).startOf('day').minus({ days: 7 });
   const calendar = {};
 
-  for (let offset = 0; offset < daysToFetch; offset += 1) {
+  for (let offset = 0; offset < 15; offset += 1) {
     const date = startDate.plus({ days: offset });
     try {
       const rawData = await module.exports.getPrayerTimes(config, date);
       calendar[date.toISODate()] = buildPrayerRows(rawData, config, timezone);
     } catch (error) {
-      if (hasDirectionalCursor) {
-        return {};
-      }
+      continue;
     }
   }
 
@@ -365,7 +381,7 @@ function getDirectionalWindowStart(cursorDate, direction, timezone) {
   const cursor = DateTime.fromISO(cursorDate, { zone: timezone }).startOf('day');
 
   if (direction === 'past') {
-    return cursor.minus({ days: 7 });
+    return cursor.minus({ days: 1 });
   }
 
   return cursor.plus({ days: 1 });

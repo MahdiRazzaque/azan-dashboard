@@ -266,6 +266,29 @@ describe('PrayerTimeService Comprehensive', () => {
             expect(getPrayerTimesSpy).toHaveBeenCalledTimes(7);
         });
 
+        it('returns the available consecutive previous days before stopping at the first missing day', async () => {
+            const getPrayerTimesSpy = jest.spyOn(service, 'getPrayerTimes').mockImplementation(async (_config, date) => {
+                const dateKey = date.toISODate();
+
+                if (dateKey === '2080-01-01') {
+                    return createRawPrayerData(dateKey);
+                }
+
+                throw new Error('Year unavailable');
+            });
+
+            const calendar = await service.getPrayerCalendarWindow(mockConfig, 'UTC', {
+                cursorDate: '2080-01-02',
+                direction: 'past'
+            });
+
+            expect(Object.keys(calendar)).toEqual(['2080-01-01']);
+            expect(calendar['2080-01-01'].fajr.start).toBe('2080-01-01T05:00:00.000Z');
+            expect(getPrayerTimesSpy).toHaveBeenCalledTimes(2);
+            expect(getPrayerTimesSpy.mock.calls[0][1].toISODate()).toBe('2080-01-01');
+            expect(getPrayerTimesSpy.mock.calls[1][1].toISODate()).toBe('2079-12-31');
+        });
+
         it('returns an empty calendar when a directional chunk cannot be fetched', async () => {
             jest.spyOn(service, 'getPrayerTimes').mockRejectedValue(new Error('Year unavailable'));
 
