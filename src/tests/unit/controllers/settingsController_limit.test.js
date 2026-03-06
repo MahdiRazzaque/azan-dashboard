@@ -8,7 +8,8 @@ jest.mock('fs/promises', () => ({
     writeFile: jest.fn(),
     mkdir: jest.fn(),
     rename: jest.fn(),
-    readdir: jest.fn()
+    readdir: jest.fn(),
+    copyFile: jest.fn()
 }));
 
 jest.mock('@utils/audioValidator', () => ({

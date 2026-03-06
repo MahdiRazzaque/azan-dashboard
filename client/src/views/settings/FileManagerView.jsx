@@ -414,7 +414,7 @@ export default function FileManagerView() {
         <div className="space-y-6 max-w-4xl mx-auto pb-12">
             <div className="flex justify-between items-start">
                 <div>
-                    <h2 className="text-2xl font-bold text-app-text mb-2">Audio Manager</h2>
+                    <h2 className="text-2xl font-bold text-app-text mb-2">File Manager</h2>
                     <p className="text-app-dim">Manage custom audio files and view generated speech cache.</p>
                 </div>
                 
