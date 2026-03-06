@@ -6,6 +6,29 @@ import { formatPrayerLabel, formatPrayerTime } from '@/utils/prayerNames';
 const PRAYER_LIST = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 const SWIPE_THRESHOLD = 50;
 
+const PrayerTimeValue = ({ time, clockFormat, className = '' }) => {
+    const formattedTime = formatPrayerTime(time, clockFormat);
+
+    if (clockFormat !== '12h') {
+        return <span className={className}>{formattedTime}</span>;
+    }
+
+    const match = formattedTime.match(/^(.*)\s(AM|PM)$/);
+
+    if (!match) {
+        return <span className={className}>{formattedTime}</span>;
+    }
+
+    const [, timeValue, meridiem] = match;
+
+    return (
+        <span className={`${className} inline-flex items-baseline justify-center gap-1`}>
+            <span>{timeValue}</span>
+            <span className="text-[0.45em] font-semibold uppercase tracking-[0.2em] opacity-70">{meridiem}</span>
+        </span>
+    );
+};
+
 const PrayerRow = ({ name, time, iqamah, status, clockFormat, prayerNameLanguage }) => {
     const baseClass = "flex items-center justify-between py-3 px-4 lg:py-6 lg:px-10 text-2xl lg:text-5xl font-medium border-b border-white/5 last:border-0 transition-all duration-500";
 
@@ -25,12 +48,12 @@ const PrayerRow = ({ name, time, iqamah, status, clockFormat, prayerNameLanguage
     return (
         <div className={`${baseClass} ${colorClass} ${bgClass} border-app-border/10`}>
             <span className="w-1/3 text-left">{label}</span>
-            <span className="w-1/3 text-center">{formatPrayerTime(time, clockFormat)}</span>
+            <PrayerTimeValue time={time} clockFormat={clockFormat} className="w-1/3 text-center" />
             <span className="w-1/3 text-right text-xl lg:text-4xl opacity-60">
                 {name === 'sunrise' ? (
                     <span className="text-app-dim opacity-30 tracking-widest text-2xl lg:text-3xl">---</span>
                 ) : (
-                    iqamah ? formatPrayerTime(iqamah, clockFormat) : ''
+                    iqamah ? <PrayerTimeValue time={iqamah} clockFormat={clockFormat} className="justify-end" /> : ''
                 )}
             </span>
         </div>
@@ -50,6 +73,7 @@ const isInputFocused = () => {
 const PrayerCard = ({
     prayers,
     nextPrayer,
+    isFetching = false,
     viewedDate,
     referenceDate,
     onNavigate,
@@ -148,8 +172,8 @@ const PrayerCard = ({
 
     const listAnimationClass = isTransitioning
         ? transitionDirection === 'past'
-            ? 'translate-x-2 opacity-80'
-            : '-translate-x-2 opacity-80'
+            ? 'translate-x-16 opacity-35'
+            : '-translate-x-16 opacity-35'
         : 'translate-x-0 opacity-100';
 
     return (
@@ -172,7 +196,22 @@ const PrayerCard = ({
                             >
                                 {'<'}
                             </button>
-                            <div className="text-center text-base lg:text-2xl font-semibold tracking-wide">{formattedDate}</div>
+                            <div className="flex items-center justify-center gap-3 text-center">
+                                {isFetching ? (
+                                    <span aria-label="Loading prayer data" className="inline-flex h-6 w-6 animate-spin rounded-full border-2 border-app-border/40 border-t-app-accent lg:h-8 lg:w-8" />
+                                ) : (
+                                    <div className="text-base lg:text-2xl font-semibold tracking-wide">{formattedDate}</div>
+                                )}
+                                {viewedDate && referenceDate && viewedDate !== referenceDate && (
+                                    <button
+                                        type="button"
+                                        onClick={onResetToday}
+                                        className="shrink-0 rounded-full border border-app-accent/40 bg-app-accent/10 px-3 py-1 text-xs lg:text-sm font-semibold text-app-accent transition-colors hover:bg-app-accent/20"
+                                    >
+                                        ↺ Today
+                                    </button>
+                                )}
+                            </div>
                             <button
                                 type="button"
                                 aria-label="Next Day"
@@ -189,15 +228,6 @@ const PrayerCard = ({
                                 <span className="w-1/3 text-center">Start Time</span>
                                 <span className="w-1/3 text-right">Iqamah</span>
                             </div>
-                            {viewedDate !== referenceDate && (
-                                <button
-                                    type="button"
-                                    onClick={onResetToday}
-                                    className="shrink-0 rounded-full border border-app-accent/40 bg-app-accent/10 px-3 py-1 text-xs lg:text-sm font-semibold text-app-accent transition-colors hover:bg-app-accent/20"
-                                >
-                                    ↺ Today
-                                </button>
-                            )}
                         </div>
                     </div>
                 ) : (
@@ -208,7 +238,7 @@ const PrayerCard = ({
                     </div>
                 )}
 
-                <div className={`transition-all duration-200 transform ${listAnimationClass}`}>
+                <div className={`transform-gpu transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${listAnimationClass}`}>
                     {PRAYER_LIST.map((key) => (
                         <PrayerRow
                             key={key}

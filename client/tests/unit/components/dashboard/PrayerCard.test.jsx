@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import PrayerCard from '../../../../src/components/dashboard/PrayerCard';
 import { useClientPreferences } from '../../../../src/hooks/useClientPreferences';
 
@@ -44,10 +44,6 @@ describe('PrayerCard', () => {
     useClientPreferences.mockReturnValue({ preferences: basePreferences });
   });
 
-  afterEach(() => {
-    document.body.innerHTML = '';
-  });
-
   it('renders the interactive date header and the timetable rows', () => {
     render(<PrayerCard {...defaultProps} />);
 
@@ -76,7 +72,23 @@ describe('PrayerCard', () => {
 
     render(<PrayerCard {...defaultProps} />);
 
-    expect(screen.getAllByText('2:00 PM').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('2:00').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('PM')[0].className).toContain('text-[0.45em]');
+  });
+
+  it('replaces the date with a loading indicator while prayer data is fetching', () => {
+    render(<PrayerCard {...defaultProps} viewedDate="2026-01-31" isFetching />);
+
+    expect(screen.getByLabelText('Loading prayer data')).toBeDefined();
+    expect(screen.queryByText('Friday, 31 January')).toBeNull();
+    expect(screen.getByText(/Today/)).toBeDefined();
+  });
+
+  it('does not show the Today button before a viewed date exists', () => {
+    render(<PrayerCard {...defaultProps} viewedDate={null} isFetching />);
+
+    expect(screen.getByLabelText('Loading prayer data')).toBeDefined();
+    expect(screen.queryByText(/Today/)).toBeNull();
   });
 
   it('shows the Today button only when viewedDate differs from the reference date', () => {
