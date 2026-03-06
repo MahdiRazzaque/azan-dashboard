@@ -9,6 +9,8 @@ const TestComponent = () => {
   return (
     <div>
       <div data-testid="theme">{preferences.appearance.theme}</div>
+      <div data-testid="enable-date-navigation">{preferences.appearance.enableDateNavigation ? 'Yes' : 'No'}</div>
+      <div data-testid="prayer-name-language">{preferences.appearance.prayerNameLanguage}</div>
       <div data-testid="excluded">{isAudioExcluded('fajr', 'adhan') ? 'Yes' : 'No'}</div>
       <button onClick={() => updateAppearance('theme', 'light')}>Light Theme</button>
       <button onClick={() => toggleAudioExclusion('fajr', 'adhan')}>Toggle Fajr</button>
@@ -27,6 +29,8 @@ describe('ClientPreferencesContext', () => {
   it('should initialize with default preferences', () => {
     render(<ClientPreferencesProvider><TestComponent /></ClientPreferencesProvider>);
     expect(screen.getByTestId('theme').textContent).toBe('dark');
+    expect(screen.getByTestId('enable-date-navigation').textContent).toBe('Yes');
+    expect(screen.getByTestId('prayer-name-language').textContent).toBe('english');
   });
 
   it('should load preferences from localStorage', () => {
@@ -39,6 +43,8 @@ describe('ClientPreferencesContext', () => {
     render(<ClientPreferencesProvider><TestComponent /></ClientPreferencesProvider>);
     expect(screen.getByTestId('theme').textContent).toBe('light');
     expect(screen.getByTestId('excluded').textContent).toBe('Yes');
+    expect(screen.getByTestId('enable-date-navigation').textContent).toBe('Yes');
+    expect(screen.getByTestId('prayer-name-language').textContent).toBe('english');
   });
 
   it('should handle corrupt localStorage data', () => {
