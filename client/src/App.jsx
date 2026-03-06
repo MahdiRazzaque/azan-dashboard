@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { usePrayerTimes } from '@/hooks/usePrayerTimes';
 import { useSSE } from '@/hooks/useSSE';
@@ -30,7 +30,50 @@ function App() {
   const { playUrl, isMuted, toggleMute, blocked } = useAudio({
     autoUnmute: preferences.appearance.autoUnmute
   });
-  const { prayers, nextPrayer, lastUpdated, refetch } = usePrayerTimes();
+  const {
+    prayers,
+    nextPrayer,
+    lastUpdated,
+    isFetching,
+    refetch,
+    viewedPrayers,
+    viewedDate,
+    referenceDate,
+    transitionDate,
+    transitionNonce,
+    transitionPrayers,
+    navigateDay,
+    resetViewedDate,
+    syncViewedDateToReference,
+    canNavigateBackward,
+    canNavigateForward,
+    transitionDirection,
+    isTransitioning,
+    timezone
+  } = usePrayerTimes();
+  const enableDateNavigation = preferences.appearance.enableDateNavigation;
+
+  useEffect(() => {
+    if (!enableDateNavigation && (isTransitioning || (viewedDate && referenceDate && viewedDate !== referenceDate))) {
+      syncViewedDateToReference();
+    }
+  }, [enableDateNavigation, isTransitioning, referenceDate, syncViewedDateToReference, viewedDate]);
+
+  const dashboardViewedDate = enableDateNavigation ? viewedDate : referenceDate;
+  const dashboardViewedPrayers = useMemo(() => {
+    if (!enableDateNavigation) {
+      return prayers;
+    }
+
+    return viewedPrayers || prayers;
+  }, [enableDateNavigation, prayers, viewedPrayers]);
+  const dashboardTransitionDate = enableDateNavigation ? transitionDate : null;
+  const dashboardTransitionNonce = enableDateNavigation ? transitionNonce : 0;
+  const dashboardTransitionPrayers = enableDateNavigation ? transitionPrayers : null;
+  const dashboardCanNavigateBackward = enableDateNavigation ? canNavigateBackward : false;
+  const dashboardCanNavigateForward = enableDateNavigation ? canNavigateForward : false;
+  const dashboardTransitionDirection = enableDateNavigation ? transitionDirection : 'future';
+  const dashboardIsTransitioning = enableDateNavigation ? isTransitioning : false;
 
   const handleAudioPlay = useCallback((prayer, event, url) => {
     if (isAudioExcluded(prayer, event)) {
@@ -40,7 +83,7 @@ function App() {
     playUrl(url);
   }, [isAudioExcluded, playUrl]);
 
-  const { logs, isConnected, processStatus } = useSSE(handleAudioPlay);
+  const { logs, processStatus } = useSSE(handleAudioPlay);
   const { setupRequired, loading, isAuthenticated, connectionError } = useAuth();
   const location = useLocation();
 
@@ -70,11 +113,25 @@ function App() {
             element={
                 <DashboardView 
                     prayers={prayers} 
+                    viewedPrayers={dashboardViewedPrayers}
                     nextPrayer={nextPrayer} 
                     lastUpdated={lastUpdated}
+                    isFetching={isFetching}
+                    transitionDate={dashboardTransitionDate}
+                    transitionNonce={dashboardTransitionNonce}
+                    transitionPrayers={dashboardTransitionPrayers}
                     isMuted={isMuted} 
                     toggleMute={toggleMute} 
                     blocked={blocked} 
+                    viewedDate={dashboardViewedDate}
+                    referenceDate={referenceDate}
+                    onNavigateDay={navigateDay}
+                    onResetToToday={resetViewedDate}
+                    canNavigateBackward={dashboardCanNavigateBackward}
+                    canNavigateForward={dashboardCanNavigateForward}
+                    transitionDirection={dashboardTransitionDirection}
+                    isTransitioning={dashboardIsTransitioning}
+                    timezone={timezone}
                     onCountdownComplete={refetch}
                 />
             } 

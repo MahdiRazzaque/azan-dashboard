@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../../src/App';
@@ -9,6 +9,8 @@ import { usePrayerTimes } from '../../src/hooks/usePrayerTimes';
 import { useSSE } from '../../src/hooks/useSSE';
 import { useClientPreferences } from '../../src/hooks/useClientPreferences';
 
+const dashboardViewSpy = vi.hoisted(() => vi.fn());
+
 // Mock all hooks used in App
 vi.mock('../../src/hooks/useAuth');
 vi.mock('../../src/hooks/useAudio');
@@ -17,7 +19,12 @@ vi.mock('../../src/hooks/useSSE');
 vi.mock('../../src/hooks/useClientPreferences');
 
 // Mock views and components to simplify testing App logic
-vi.mock('../../src/views/DashboardView', () => ({ default: () => <div data-testid="dashboard-view">Dashboard</div> }));
+vi.mock('../../src/views/DashboardView', () => ({
+  default: (props) => {
+    dashboardViewSpy(props);
+    return <div data-testid="dashboard-view">Dashboard</div>;
+  }
+}));
 vi.mock('../../src/views/LoginView', () => ({ default: () => <div data-testid="login-view">Login</div> }));
 vi.mock('../../src/views/SetupView', () => ({ default: () => <div data-testid="setup-view">Setup</div> }));
 vi.mock('../../src/views/ConnectionErrorView', () => ({ default: () => <div data-testid="connection-error-view">Connection Error</div> }));
@@ -33,9 +40,10 @@ describe('App', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    dashboardViewSpy.mockClear();
     
     mockUseClientPreferences.mockReturnValue({
-      preferences: { appearance: { autoUnmute: false } },
+      preferences: { appearance: { autoUnmute: false, enableDateNavigation: true } },
       isAudioExcluded: vi.fn()
     });
     mockUseAudio.mockReturnValue({
@@ -48,7 +56,22 @@ describe('App', () => {
       prayers: [],
       nextPrayer: null,
       lastUpdated: null,
-      refetch: vi.fn()
+      isFetching: false,
+      refetch: vi.fn(),
+      viewedPrayers: [],
+      viewedDate: '2026-01-30',
+      referenceDate: '2026-01-30',
+      transitionDate: null,
+      transitionNonce: 0,
+      transitionPrayers: null,
+      navigateDay: vi.fn(),
+      resetViewedDate: vi.fn(),
+      syncViewedDateToReference: vi.fn(),
+      canNavigateBackward: true,
+      canNavigateForward: true,
+      transitionDirection: 'future',
+      isTransitioning: false,
+      timezone: 'UTC'
     });
     mockUseSSE.mockReturnValue({
       logs: [],
@@ -138,6 +161,54 @@ describe('App', () => {
       </MemoryRouter>
     );
     expect(screen.getByTestId('dashboard-view')).toBeDefined();
+  });
+
+  it('should snap dashboard props back to the reference day when date navigation is disabled', async () => {
+    const syncViewedDateToReference = vi.fn();
+    const currentDayPrayers = [{ id: 'current' }];
+    const viewedDayPrayers = [{ id: 'viewed' }];
+
+    mockUseClientPreferences.mockReturnValue({
+      preferences: { appearance: { autoUnmute: false, enableDateNavigation: false } },
+      isAudioExcluded: vi.fn()
+    });
+    mockUsePrayerTimes.mockReturnValue({
+      prayers: currentDayPrayers,
+      nextPrayer: null,
+      lastUpdated: null,
+      isFetching: false,
+      refetch: vi.fn(),
+      viewedPrayers: viewedDayPrayers,
+      viewedDate: '2026-01-31',
+      referenceDate: '2026-01-30',
+      transitionDate: '2026-01-31',
+      transitionNonce: 7,
+      transitionPrayers: viewedDayPrayers,
+      navigateDay: vi.fn(),
+      resetViewedDate: vi.fn(),
+      syncViewedDateToReference,
+      canNavigateBackward: true,
+      canNavigateForward: true,
+      transitionDirection: 'future',
+      isTransitioning: true,
+      timezone: 'UTC'
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>
+    );
+
+    const latestProps = dashboardViewSpy.mock.calls.at(-1)?.[0];
+    expect(latestProps.viewedPrayers).toBe(currentDayPrayers);
+    expect(latestProps.viewedDate).toBe('2026-01-30');
+    expect(latestProps.transitionDate).toBeNull();
+    expect(latestProps.transitionPrayers).toBeNull();
+    expect(latestProps.isTransitioning).toBe(false);
+    expect(latestProps.canNavigateForward).toBe(false);
+
+    await waitFor(() => expect(syncViewedDateToReference).toHaveBeenCalled());
   });
 
   it('should handle audio play via handleAudioPlay callback passed to useSSE', () => {

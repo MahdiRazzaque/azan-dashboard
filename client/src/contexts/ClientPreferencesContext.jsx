@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ClientPreferencesContext } from '@/hooks/useClientPreferences';
 
 const STORAGE_KEY = 'azan-client-prefs';
@@ -9,6 +9,8 @@ const DEFAULT_PREFERENCES = {
     clockFormat: '24h',
     showSeconds: true,
     countdownMode: 'normal', // 'normal' | 'digital' | 'minimal'
+    enableDateNavigation: true,
+    prayerNameLanguage: 'english',
     skipSunriseCountdown: false,
     wakeLockAutoStart: false,
     autoUnmute: false
@@ -16,12 +18,24 @@ const DEFAULT_PREFERENCES = {
   audioExclusions: [] // Array of "prayer-event" strings, e.g., ["fajr-adhan"]
 };
 
+const mergePreferences = (storedPreferences = {}) => ({
+  ...DEFAULT_PREFERENCES,
+  ...storedPreferences,
+  appearance: {
+    ...DEFAULT_PREFERENCES.appearance,
+    ...(storedPreferences.appearance || {})
+  },
+  audioExclusions: Array.isArray(storedPreferences.audioExclusions)
+    ? storedPreferences.audioExclusions
+    : DEFAULT_PREFERENCES.audioExclusions
+});
+
 export const ClientPreferencesProvider = ({ children }) => {
   const [preferences, setPreferences] = useState(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return DEFAULT_PREFERENCES;
     try {
-      return JSON.parse(stored);
+      return mergePreferences(JSON.parse(stored));
     } catch (e) {
       console.error('Failed to parse client preferences:', e);
       return DEFAULT_PREFERENCES;

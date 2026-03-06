@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import WelcomeModal from '@/components/common/WelcomeModal';
 import { useTour } from '@/hooks/useTour';
@@ -9,7 +9,29 @@ import TopControls from '@/components/layout/TopControls';
 import PrayerCard from '@/components/dashboard/PrayerCard';
 import FocusCard from '@/components/dashboard/FocusCard';
 
-const DashboardView = ({ prayers, nextPrayer, lastUpdated, isMuted, toggleMute, blocked, onCountdownComplete }) => {
+const DashboardView = ({
+    prayers,
+    viewedPrayers,
+    nextPrayer,
+    lastUpdated,
+    isFetching,
+    transitionDate,
+    transitionNonce,
+    transitionPrayers,
+    isMuted,
+    toggleMute,
+    blocked,
+    onCountdownComplete,
+    viewedDate,
+    referenceDate,
+    onNavigateDay,
+    onResetToToday,
+    canNavigateBackward,
+    canNavigateForward,
+    transitionDirection,
+    isTransitioning,
+    timezone
+}) => {
     const [showWelcomeModal, setShowWelcomeModal] = useState(false);
     const initialLoadRef = useRef(true);
     const { config, refresh } = useSettings();
@@ -52,8 +74,29 @@ const DashboardView = ({ prayers, nextPrayer, lastUpdated, isMuted, toggleMute, 
             {showWelcomeModal && <WelcomeModal onStartTour={handleStartTour} onSkip={handleSkipTour} />}
             <TopControls isMuted={isMuted} toggleMute={toggleMute} blocked={blocked} />
             <DashboardLayout>
-                <PrayerCard prayers={prayers} nextPrayer={nextPrayer} />
-                <FocusCard nextPrayer={nextPrayer} prayers={prayers} lastUpdated={lastUpdated} onCountdownComplete={onCountdownComplete} />
+                <PrayerCard
+                    prayers={viewedPrayers || prayers}
+                    nextPrayer={nextPrayer}
+                    isFetching={isFetching}
+                    transitionDate={transitionDate}
+                    transitionNonce={transitionNonce}
+                    transitionPrayers={transitionPrayers}
+                    viewedDate={viewedDate}
+                    referenceDate={referenceDate}
+                    onNavigate={onNavigateDay}
+                    onResetToday={onResetToToday}
+                    canNavigateBackward={canNavigateBackward}
+                    canNavigateForward={canNavigateForward}
+                    transitionDirection={transitionDirection}
+                    isTransitioning={isTransitioning}
+                />
+                <FocusCard
+                    nextPrayer={nextPrayer}
+                    prayers={prayers}
+                    lastUpdated={lastUpdated}
+                    onCountdownComplete={onCountdownComplete}
+                    timezone={timezone}
+                />
             </DashboardLayout>
         </div>
     );

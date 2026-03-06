@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { DateTime } from 'luxon';
 import { useClientPreferences } from '@/hooks/useClientPreferences';
-import { useMemo } from 'react';
+import { formatPrayerLabel } from '@/utils/prayerNames';
 
-const FocusCard = ({ nextPrayer, prayers, lastUpdated, onCountdownComplete }) => {
-    const [now, setNow] = useState(DateTime.now());
+const FocusCard = ({ nextPrayer, prayers, lastUpdated, onCountdownComplete, timezone }) => {
+    const getCurrentTime = useCallback(() => timezone ? DateTime.now().setZone(timezone) : DateTime.now(), [timezone]);
+    const [, setClockTick] = useState(0);
     const { preferences } = useClientPreferences();
-    const { clockFormat, showSeconds, countdownMode, skipSunriseCountdown } = preferences.appearance;
+    const { clockFormat, showSeconds, countdownMode, skipSunriseCountdown, prayerNameLanguage } = preferences.appearance;
     const lastTriggeredRef = useRef(null);
     const isFetchingRef = useRef(false);
+    const now = getCurrentTime();
 
     // Calculate effective next prayer (skip sunrise if preference is set)
     const effectiveNextPrayer = useMemo(() => {
@@ -24,7 +26,7 @@ const FocusCard = ({ nextPrayer, prayers, lastUpdated, onCountdownComplete }) =>
     }, [nextPrayer, skipSunriseCountdown, prayers]);
 
     useEffect(() => {
-        const timer = setInterval(() => setNow(DateTime.now()), 1000);
+        const timer = setInterval(() => setClockTick((currentTick) => currentTick + 1), 1000);
         return () => clearInterval(timer);
     }, []);
 
@@ -32,7 +34,7 @@ const FocusCard = ({ nextPrayer, prayers, lastUpdated, onCountdownComplete }) =>
     useEffect(() => {
         if (!effectiveNextPrayer || !onCountdownComplete) return;
 
-        const target = DateTime.fromISO(effectiveNextPrayer.time);
+        const target = DateTime.fromISO(effectiveNextPrayer.time).setZone(timezone || DateTime.local().zoneName);
         const secondsLeft = Math.floor((target.toMillis() - now.toMillis()) / 1000);
 
         // Only trigger if we haven't already triggered for this specific prayer time
@@ -49,14 +51,14 @@ const FocusCard = ({ nextPrayer, prayers, lastUpdated, onCountdownComplete }) =>
             
             return () => clearTimeout(timer);
         }
-    }, [effectiveNextPrayer, now, onCountdownComplete]);
+    }, [effectiveNextPrayer, now, onCountdownComplete, timezone]);
 
     // Retry loop: monitor lastUpdated to detect if server returned stale data
     useEffect(() => {
         if (!isFetchingRef.current || !effectiveNextPrayer || !onCountdownComplete) return;
 
-        const target = DateTime.fromISO(effectiveNextPrayer.time);
-        const currentNow = DateTime.now();
+        const target = DateTime.fromISO(effectiveNextPrayer.time).setZone(timezone || DateTime.local().zoneName);
+        const currentNow = getCurrentTime();
         const secondsLeft = Math.floor((target.toMillis() - currentNow.toMillis()) / 1000);
 
         if (secondsLeft > 0) {
@@ -73,11 +75,11 @@ const FocusCard = ({ nextPrayer, prayers, lastUpdated, onCountdownComplete }) =>
             
             return () => clearTimeout(timer);
         }
-    }, [lastUpdated, effectiveNextPrayer, onCountdownComplete]);
+    }, [effectiveNextPrayer, getCurrentTime, lastUpdated, onCountdownComplete, timezone]);
 
     const getCountdown = () => {
         if (!effectiveNextPrayer) return null;
-        const target = DateTime.fromISO(effectiveNextPrayer.time);
+        const target = DateTime.fromISO(effectiveNextPrayer.time).setZone(timezone || DateTime.local().zoneName);
         const secondsLeft = Math.max(0, Math.floor((target.toMillis() - now.toMillis()) / 1000));
 
         if (secondsLeft <= 0) return '0sec';
@@ -102,7 +104,7 @@ const FocusCard = ({ nextPrayer, prayers, lastUpdated, onCountdownComplete }) =>
         return `${seconds}sec`;
     };
 
-    const nextName = nextPrayer ? nextPrayer.name.charAt(0).toUpperCase() + nextPrayer.name.slice(1) : '';
+    const nextName = effectiveNextPrayer ? formatPrayerLabel(effectiveNextPrayer.name, prayerNameLanguage) : '';
 
     return (
         <div id="tour-focus-card" className="bg-app-card rounded-3xl h-auto lg:h-full flex flex-col items-center justify-center text-center p-8 shadow-2xl relative overflow-hidden">
@@ -133,7 +135,7 @@ const FocusCard = ({ nextPrayer, prayers, lastUpdated, onCountdownComplete }) =>
             {effectiveNextPrayer && (
                 <div className="flex flex-col items-center space-y-4 z-10 mt-4">
                     <div className="text-lg lg:text-2xl text-app-accent font-semibold uppercase tracking-[0.3em] opacity-90 drop-shadow-md">
-                        Upcoming: {effectiveNextPrayer.name.charAt(0).toUpperCase() + effectiveNextPrayer.name.slice(1)}
+                        Upcoming: {nextName}
                     </div>
                     <div className="text-3xl lg:text-6xl min-w-[250px] lg:min-w-[500px] text-center font-mono text-app-text bg-app-bg/40 px-6 lg:px-10 py-2 lg:py-4 rounded-2xl backdrop-blur-lg border border-app-border shadow-inner">
                         {getCountdown()}

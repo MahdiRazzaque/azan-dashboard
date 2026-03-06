@@ -13,7 +13,8 @@ describe('FocusCard', () => {
       clockFormat: '24h',
       showSeconds: true,
       countdownMode: 'normal',
-      skipSunriseCountdown: false
+      skipSunriseCountdown: false,
+      prayerNameLanguage: 'english'
     }
   };
 
@@ -35,7 +36,8 @@ describe('FocusCard', () => {
     nextPrayer: { name: 'dhuhr', time: '2026-01-30T12:05:00Z', isTomorrow: false },
     prayers: {},
     lastUpdated: Date.now(),
-    onCountdownComplete: vi.fn()
+    onCountdownComplete: vi.fn(),
+    timezone: 'UTC'
   };
 
   it('should render clock and date', () => {
@@ -144,5 +146,30 @@ describe('FocusCard', () => {
   it('should return null next name if nextPrayer is null', () => {
     render(<FocusCard {...defaultProps} nextPrayer={null} />);
     expect(screen.queryByText(/Upcoming:/)).toBeNull();
+  });
+
+  it('should render Arabic prayer names when that preference is enabled', () => {
+    useClientPreferences.mockReturnValue({
+      preferences: {
+        ...mockPreferences,
+        appearance: {
+          ...mockPreferences.appearance,
+          prayerNameLanguage: 'arabic'
+        }
+      }
+    });
+
+    render(<FocusCard {...defaultProps} />);
+
+    expect(screen.getByText(/ظُهْر/)).toBeDefined();
+  });
+
+  it('should use the supplied timezone for the date and clock display', () => {
+    vi.setSystemTime(new Date('2026-01-30T00:30:00Z'));
+
+    render(<FocusCard {...defaultProps} timezone="America/New_York" />);
+
+    expect(screen.getByText(/Thursday, 29 January/)).toBeDefined();
+    expect(screen.getByText('19:30')).toBeDefined();
   });
 });
