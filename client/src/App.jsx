@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { usePrayerTimes } from '@/hooks/usePrayerTimes';
 import { useSSE } from '@/hooks/useSSE';
@@ -30,7 +30,22 @@ function App() {
   const { playUrl, isMuted, toggleMute, blocked } = useAudio({
     autoUnmute: preferences.appearance.autoUnmute
   });
-  const { prayers, nextPrayer, lastUpdated, refetch } = usePrayerTimes();
+  const {
+    prayers,
+    nextPrayer,
+    lastUpdated,
+    refetch,
+    viewedPrayers,
+    viewedDate,
+    referenceDate,
+    navigateDay,
+    resetViewedDate,
+    canNavigateBackward,
+    canNavigateForward,
+    transitionDirection,
+    isTransitioning,
+    timezone
+  } = usePrayerTimes();
 
   const handleAudioPlay = useCallback((prayer, event, url) => {
     if (isAudioExcluded(prayer, event)) {
@@ -40,7 +55,7 @@ function App() {
     playUrl(url);
   }, [isAudioExcluded, playUrl]);
 
-  const { logs, isConnected, processStatus } = useSSE(handleAudioPlay);
+  const { logs, processStatus } = useSSE(handleAudioPlay);
   const { setupRequired, loading, isAuthenticated, connectionError } = useAuth();
   const location = useLocation();
 
@@ -70,11 +85,21 @@ function App() {
             element={
                 <DashboardView 
                     prayers={prayers} 
+                    viewedPrayers={viewedPrayers}
                     nextPrayer={nextPrayer} 
                     lastUpdated={lastUpdated}
                     isMuted={isMuted} 
                     toggleMute={toggleMute} 
                     blocked={blocked} 
+                    viewedDate={viewedDate}
+                    referenceDate={referenceDate}
+                    onNavigateDay={navigateDay}
+                    onResetToToday={resetViewedDate}
+                    canNavigateBackward={canNavigateBackward}
+                    canNavigateForward={canNavigateForward}
+                    transitionDirection={transitionDirection}
+                    isTransitioning={isTransitioning}
+                    timezone={timezone}
                     onCountdownComplete={refetch}
                 />
             } 
