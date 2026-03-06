@@ -276,8 +276,9 @@ const settingsController = {
                 });
             }
 
-            // 2. Move file from temp to custom
-            await fsAsync.rename(tempPath, targetPath);
+            // 2. Move file from temp to custom (use copy+unlink to avoid EXDEV errors across filesystems/Docker volumes)
+            await fsAsync.copyFile(tempPath, targetPath);
+            await fsAsync.unlink(tempPath);
 
             // 3. Generate metadata sidecar
             const enrichedMetadata = await audioAssetService.enrichMetadata(targetPath, basicMetadata);
