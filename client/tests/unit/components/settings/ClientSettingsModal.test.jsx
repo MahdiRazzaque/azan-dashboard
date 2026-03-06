@@ -24,6 +24,8 @@ describe('ClientSettingsModal', () => {
       showSeconds: true,
       countdownMode: 'normal',
       theme: 'dark',
+      enableDateNavigation: true,
+      prayerNameLanguage: 'english',
       skipSunriseCountdown: false,
       wakeLockAutoStart: false,
       autoUnmute: false
@@ -64,6 +66,24 @@ describe('ClientSettingsModal', () => {
     const switches = screen.getAllByRole('button').filter(b => b.className.includes('inline-flex'));
     fireEvent.click(switches[0]);
     expect(updateAppearance).toHaveBeenCalledWith('showSeconds', false);
+  });
+
+  it('should handle the date navigation toggle in Appearance', () => {
+    const { container } = render(<ClientSettingsModal onClose={onClose} />);
+    const row = screen.getByText('Date Navigation').closest('div')?.parentElement;
+    const toggle = row?.querySelector('button.inline-flex') ?? container.querySelector('button.inline-flex');
+
+    fireEvent.click(toggle);
+
+    expect(updateAppearance).toHaveBeenCalledWith('enableDateNavigation', false);
+  });
+
+  it('should handle the prayer name language selector in Appearance', () => {
+    render(<ClientSettingsModal onClose={onClose} />);
+
+    fireEvent.click(screen.getByText('Arabic'));
+
+    expect(updateAppearance).toHaveBeenCalledWith('prayerNameLanguage', 'arabic');
   });
 
   it('should switch tabs', () => {

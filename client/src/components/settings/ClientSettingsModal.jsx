@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Monitor, Palette, Clock, Bell, VolumeX, Volume2, Check, Layout, Timer, AlertTriangle, Cpu, Compass } from 'lucide-react';
+import { useState } from 'react';
+import { X, Monitor, Palette, Clock, Bell, VolumeX, Volume2, Layout, Timer, AlertTriangle, Cpu, Compass } from 'lucide-react';
 import { useClientPreferences } from '@/hooks/useClientPreferences';
 import { useSettings } from '@/hooks/useSettings';
 import { useWakeLock } from '@/hooks/useWakeLock';
@@ -58,7 +58,19 @@ const ClientSettingsModal = ({ onClose }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClose();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label="Close client settings"
+      />
 
       {/* Modal Content */}
       <div className="relative w-full max-w-2xl bg-app-card border border-app-border rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[80vh] md:h-auto max-h-[90vh]">
@@ -161,6 +173,51 @@ const ClientSettingsModal = ({ onClose }) => {
                       preferences.appearance.showSeconds ? "translate-x-6" : "translate-x-1"
                     )} />
                   </button>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-app-text">Date Navigation</span>
+                    <span className="text-xs text-app-dim">Enable swipe and arrow navigation between timetable days</span>
+                  </div>
+                  <button
+                    onClick={() => updateAppearance('enableDateNavigation', !preferences.appearance.enableDateNavigation)}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                      preferences.appearance.enableDateNavigation ? "bg-app-accent" : "bg-app-card-hover"
+                    )}
+                  >
+                    <span className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                      preferences.appearance.enableDateNavigation ? "translate-x-6" : "translate-x-1"
+                    )} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-app-dim">
+                    <Layout size={16} />
+                    <span className="text-xs font-bold uppercase tracking-wider">Prayer Name Language</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { id: 'english', label: 'English' },
+                      { id: 'arabic', label: 'Arabic' }
+                    ].map(option => (
+                      <button
+                        key={option.id}
+                        onClick={() => updateAppearance('prayerNameLanguage', option.id)}
+                        className={cn(
+                          "py-3 rounded-2xl border transition-all duration-300 font-medium",
+                          preferences.appearance.prayerNameLanguage === option.id
+                            ? "bg-app-accent/10 border-app-accent text-app-accent shadow-[0_0_15px_rgba(var(--accent-rgb),0.2)]"
+                            : "bg-app-card border-app-border text-app-dim hover:border-app-card-hover"
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Countdown Mode */}
