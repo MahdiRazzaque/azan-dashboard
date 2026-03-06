@@ -1,10 +1,42 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { DateTime } from 'luxon';
 import { useClientPreferences } from '@/hooks/useClientPreferences';
 import { formatPrayerLabel, formatPrayerTime } from '@/utils/prayerNames';
 
 const PRAYER_LIST = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 const SWIPE_THRESHOLD = 50;
+const TRACK_TRANSITION_STYLE = 'transform 300ms cubic-bezier(0.22,1,0.36,1)';
+
+const getTrackStartTransform = (direction) => (
+    direction === 'past' ? 'translate3d(-100%, 0, 0)' : 'translate3d(0, 0, 0)'
+);
+
+const getTrackEndTransform = (direction) => (
+    direction === 'past' ? 'translate3d(0, 0, 0)' : 'translate3d(-100%, 0, 0)'
+);
+
+const getPrayerStatus = (key, activeNextPrayer) => {
+    if (!activeNextPrayer) {
+        return 'future';
+    }
+
+    const idx = PRAYER_LIST.indexOf(key);
+    const nextIdx = PRAYER_LIST.indexOf(activeNextPrayer.name);
+
+    if (activeNextPrayer.isTomorrow) {
+        return 'passed';
+    }
+
+    if (idx < nextIdx) {
+        return 'passed';
+    }
+
+    if (idx === nextIdx) {
+        return 'next';
+    }
+
+    return 'future';
+};
 
 const PrayerTimeValue = ({ time, clockFormat, className = '' }) => {
     const formattedTime = formatPrayerTime(time, clockFormat);
@@ -60,6 +92,22 @@ const PrayerRow = ({ name, time, iqamah, status, clockFormat, prayerNameLanguage
     );
 };
 
+const PrayerTablePanel = ({ prayers, activeNextPrayer, clockFormat, prayerNameLanguage }) => (
+    <div className="min-w-full">
+        {PRAYER_LIST.map((key) => (
+            <PrayerRow
+                key={key}
+                name={key}
+                time={prayers[key]?.start}
+                iqamah={prayers[key]?.iqamah}
+                status={getPrayerStatus(key, activeNextPrayer)}
+                clockFormat={clockFormat}
+                prayerNameLanguage={prayerNameLanguage}
+            />
+        ))}
+    </div>
+);
+
 const isInputFocused = () => {
     const activeElement = document.activeElement;
     if (!activeElement) {
@@ -74,6 +122,9 @@ const PrayerCard = ({
     prayers,
     nextPrayer,
     isFetching = false,
+    transitionDate,
+    transitionNonce,
+    transitionPrayers,
     viewedDate,
     referenceDate,
     onNavigate,
@@ -84,10 +135,14 @@ const PrayerCard = ({
     isTransitioning
 }) => {
     const touchStartRef = useRef(null);
+    const trackRef = useRef(null);
+    const firstAnimationFrameRef = useRef(null);
+    const secondAnimationFrameRef = useRef(null);
     const { preferences } = useClientPreferences();
     const { clockFormat, prayerNameLanguage, enableDateNavigation } = preferences.appearance;
 
     const activeNextPrayer = viewedDate === referenceDate ? nextPrayer : null;
+    const incomingNextPrayer = transitionDate === referenceDate ? nextPrayer : null;
 
     const formattedDate = useMemo(() => {
         if (!viewedDate) {
@@ -97,20 +152,46 @@ const PrayerCard = ({
         return DateTime.fromISO(viewedDate).toFormat('cccc, d MMMM');
     }, [viewedDate]);
 
-    const getStatus = (key) => {
-        if (!activeNextPrayer) return 'future';
+    const shouldRenderTransitionPanels = Boolean(isTransitioning && viewedDate && transitionDate && transitionPrayers);
 
-        const idx = PRAYER_LIST.indexOf(key);
-        const nextIdx = PRAYER_LIST.indexOf(activeNextPrayer.name);
+    const panels = useMemo(() => {
+        const currentPanel = {
+            key: viewedDate || 'current-day',
+            prayers,
+            activeNextPrayer
+        };
 
-        if (activeNextPrayer.isTomorrow) {
-            return 'passed';
+        if (!shouldRenderTransitionPanels) {
+            return [currentPanel];
         }
 
-        if (idx < nextIdx) return 'passed';
-        if (idx === nextIdx) return 'next';
-        return 'future';
-    };
+        const incomingPanel = {
+            key: transitionDate,
+            prayers: transitionPrayers,
+            activeNextPrayer: incomingNextPrayer
+        };
+
+        return transitionDirection === 'past'
+            ? [incomingPanel, currentPanel]
+            : [currentPanel, incomingPanel];
+    }, [activeNextPrayer, incomingNextPrayer, prayers, shouldRenderTransitionPanels, transitionDate, transitionDirection, transitionPrayers, viewedDate]);
+
+    useLayoutEffect(() => {
+        const trackElement = trackRef.current;
+        if (!trackElement) {
+            return undefined;
+        }
+
+        if (!shouldRenderTransitionPanels) {
+            trackElement.style.transition = 'none';
+            trackElement.style.transform = 'translate3d(0, 0, 0)';
+            return undefined;
+        }
+
+        trackElement.style.transition = 'none';
+        trackElement.style.transform = getTrackStartTransform(transitionDirection);
+        return undefined;
+    }, [shouldRenderTransitionPanels, transitionDirection, transitionNonce]);
 
     useEffect(() => {
         if (!enableDateNavigation) {
@@ -134,6 +215,34 @@ const PrayerCard = ({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [canNavigateBackward, canNavigateForward, enableDateNavigation, isTransitioning, onNavigate]);
+
+    useEffect(() => {
+        cancelAnimationFrame(firstAnimationFrameRef.current);
+        cancelAnimationFrame(secondAnimationFrameRef.current);
+
+        if (!shouldRenderTransitionPanels) {
+            return undefined;
+        }
+
+        const trackElement = trackRef.current;
+        if (!trackElement) {
+            return undefined;
+        }
+
+        const endTransform = getTrackEndTransform(transitionDirection);
+
+        firstAnimationFrameRef.current = requestAnimationFrame(() => {
+            secondAnimationFrameRef.current = requestAnimationFrame(() => {
+                trackElement.style.transition = TRACK_TRANSITION_STYLE;
+                trackElement.style.transform = endTransform;
+            });
+        });
+
+        return () => {
+            cancelAnimationFrame(firstAnimationFrameRef.current);
+            cancelAnimationFrame(secondAnimationFrameRef.current);
+        };
+    }, [shouldRenderTransitionPanels, transitionDate, transitionDirection, transitionNonce]);
 
     const handleTouchStart = (event) => {
         if (!enableDateNavigation) {
@@ -170,12 +279,6 @@ const PrayerCard = ({
         }
     };
 
-    const listAnimationClass = isTransitioning
-        ? transitionDirection === 'past'
-            ? 'translate-x-16 opacity-35'
-            : '-translate-x-16 opacity-35'
-        : 'translate-x-0 opacity-100';
-
     return (
         <div
             id="tour-prayer-card"
@@ -206,7 +309,8 @@ const PrayerCard = ({
                                     <button
                                         type="button"
                                         onClick={onResetToday}
-                                        className="shrink-0 rounded-full border border-app-accent/40 bg-app-accent/10 px-3 py-1 text-xs lg:text-sm font-semibold text-app-accent transition-colors hover:bg-app-accent/20"
+                                        disabled={isTransitioning}
+                                        className="shrink-0 rounded-full border border-app-accent/40 bg-app-accent/10 px-3 py-1 text-xs lg:text-sm font-semibold text-app-accent transition-colors hover:bg-app-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         ↺ Today
                                     </button>
@@ -238,18 +342,22 @@ const PrayerCard = ({
                     </div>
                 )}
 
-                <div className={`transform-gpu transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${listAnimationClass}`}>
-                    {PRAYER_LIST.map((key) => (
-                        <PrayerRow
-                            key={key}
-                            name={key}
-                            time={prayers[key]?.start}
-                            iqamah={prayers[key]?.iqamah}
-                            status={getStatus(key)}
-                            clockFormat={clockFormat}
-                            prayerNameLanguage={prayerNameLanguage}
-                        />
-                    ))}
+                <div className="relative overflow-hidden" data-testid="prayer-table-viewport">
+                    <div
+                        ref={trackRef}
+                        className="flex transform-gpu will-change-transform"
+                        data-testid="prayer-table-track"
+                    >
+                        {panels.map((panel) => (
+                            <PrayerTablePanel
+                                key={panel.key}
+                                prayers={panel.prayers}
+                                activeNextPrayer={panel.activeNextPrayer}
+                                clockFormat={clockFormat}
+                                prayerNameLanguage={prayerNameLanguage}
+                            />
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>

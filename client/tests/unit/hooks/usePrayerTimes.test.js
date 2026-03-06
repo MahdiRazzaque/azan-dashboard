@@ -57,6 +57,13 @@ const flushHook = async () => {
   });
 };
 
+const finishTransition = async () => {
+  await act(async () => {
+    vi.advanceTimersByTime(301);
+    await Promise.resolve();
+  });
+};
+
 describe('usePrayerTimes', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -102,6 +109,11 @@ describe('usePrayerTimes', () => {
       result.current.navigateDay(1);
     });
 
+    expect(result.current.viewedDate).toBe('2026-01-30');
+    expect(result.current.transitionDate).toBe('2026-01-31');
+
+    await finishTransition();
+
     expect(result.current.viewedDate).toBe('2026-01-31');
     expect(result.current.viewedPrayers).toEqual(response.calendar['2026-01-31']);
     const directionalCalls = fetch.mock.calls.filter(([url]) => String(url).includes('cursorDate='));
@@ -135,11 +147,12 @@ describe('usePrayerTimes', () => {
       result.current.navigateDay(1);
     });
 
-    expect(result.current.viewedDate).toBe('2026-01-31');
+    expect(result.current.viewedDate).toBe('2026-01-30');
+    expect(result.current.transitionDate).toBe('2026-01-31');
 
-    await act(async () => {
-      vi.advanceTimersByTime(281);
-    });
+    await finishTransition();
+
+    expect(result.current.viewedDate).toBe('2026-01-31');
 
     act(() => {
       result.current.navigateDay(1);
@@ -149,6 +162,11 @@ describe('usePrayerTimes', () => {
 
     const directionalCalls = fetch.mock.calls.filter(([url]) => String(url).includes('cursorDate=2026-01-31'));
     expect(directionalCalls.length).toBeGreaterThan(0);
+
+    expect(result.current.viewedDate).toBe('2026-01-31');
+    expect(result.current.transitionDate).toBe('2026-02-01');
+
+    await finishTransition();
 
     expect(result.current.viewedDate).toBe('2026-02-01');
     expect(result.current.viewedPrayers).toEqual(futureCalendar['2026-02-01']);
@@ -188,18 +206,12 @@ describe('usePrayerTimes', () => {
       result.current.navigateDay(1);
     });
 
-    expect(result.current.viewedDate).toBe('2026-01-31');
+    await finishTransition();
 
-    await act(async () => {
-      vi.advanceTimersByTime(281);
-    });
+    expect(result.current.viewedDate).toBe('2026-01-31');
 
     act(() => {
       result.current.navigateDay(1);
-    });
-
-    await act(async () => {
-      vi.advanceTimersByTime(281);
     });
 
     act(() => {
@@ -238,9 +250,7 @@ describe('usePrayerTimes', () => {
       result.current.navigateDay(1);
     });
 
-    await act(async () => {
-      vi.advanceTimersByTime(281);
-    });
+    await finishTransition();
 
     act(() => {
       result.current.navigateDay(1);
@@ -282,6 +292,11 @@ describe('usePrayerTimes', () => {
 
     await flushHook();
 
+    expect(result.current.viewedDate).toBe('2026-01-02');
+    expect(result.current.transitionDate).toBe('2026-01-01');
+
+    await finishTransition();
+
     expect(result.current.viewedDate).toBe('2026-01-01');
     expect(result.current.canNavigateBackward).toBe(false);
   });
@@ -315,9 +330,7 @@ describe('usePrayerTimes', () => {
       result.current.navigateDay(1);
     });
 
-    await act(async () => {
-      vi.advanceTimersByTime(281);
-    });
+    await finishTransition();
 
     act(() => {
       result.current.navigateDay(1);
@@ -332,6 +345,95 @@ describe('usePrayerTimes', () => {
     });
 
     expect(result.current.isFetching).toBe(false);
+  });
+
+  it('ignores a stale directional fetch that resolves after the user navigates elsewhere', async () => {
+    const initialResponse = createResponse({ startDate: '2026-01-30', count: 2 });
+    const futureCalendar = createCalendar('2026-02-01', 7);
+    const futureResponse = createResponse({
+      referenceDate: '2026-01-30',
+      startDate: '2026-02-01',
+      count: 7,
+      calendar: futureCalendar
+    });
+    let resolveDirectionalFetch;
+
+    fetch.mockImplementation((url) => {
+      const { cursorDate, direction } = getRequestMeta(url);
+      if (cursorDate === '2026-01-31' && direction === 'future') {
+        return new Promise((resolve) => {
+          resolveDirectionalFetch = () => resolve(okResponse(futureResponse));
+        });
+      }
+
+      return Promise.resolve(okResponse(initialResponse));
+    });
+
+    const { result } = renderHook(() => usePrayerTimes());
+
+    await flushHook();
+
+    act(() => {
+      result.current.navigateDay(1);
+    });
+
+    await finishTransition();
+
+    expect(result.current.viewedDate).toBe('2026-01-31');
+
+    act(() => {
+      result.current.navigateDay(1);
+    });
+
+    await flushHook();
+
+    act(() => {
+      result.current.navigateDay(-1);
+    });
+
+    await finishTransition();
+
+    expect(result.current.viewedDate).toBe('2026-01-30');
+
+    await act(async () => {
+      resolveDirectionalFetch();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.viewedDate).toBe('2026-01-30');
+    expect(result.current.transitionDate).toBe(null);
+  });
+
+  it('ignores repeated reset-to-today requests while a reset transition is already running', async () => {
+    const initialResponse = createResponse({ startDate: '2026-01-30', count: 2 });
+    fetch.mockImplementation(() => Promise.resolve(okResponse(initialResponse)));
+
+    const { result } = renderHook(() => usePrayerTimes());
+
+    await flushHook();
+
+    act(() => {
+      result.current.setViewedDate('2026-01-29');
+    });
+
+    act(() => {
+      result.current.resetViewedDate();
+    });
+
+    expect(result.current.transitionNonce).toBe(1);
+    expect(result.current.transitionDate).toBe('2026-01-30');
+
+    act(() => {
+      result.current.resetViewedDate();
+    });
+
+    expect(result.current.transitionNonce).toBe(1);
+    expect(result.current.transitionDate).toBe('2026-01-30');
+
+    await finishTransition();
+
+    expect(result.current.viewedDate).toBe('2026-01-30');
   });
 
   it('uses a future transition when resetting back to today from an older date', async () => {
@@ -351,6 +453,10 @@ describe('usePrayerTimes', () => {
     });
 
     expect(result.current.transitionDirection).toBe('future');
+    expect(result.current.transitionDate).toBe('2026-01-30');
+
+    await finishTransition();
+
     expect(result.current.viewedDate).toBe('2026-01-30');
   });
 
@@ -365,6 +471,8 @@ describe('usePrayerTimes', () => {
     act(() => {
       result.current.navigateDay(1);
     });
+
+    await finishTransition();
 
     expect(result.current.viewedDate).toBe('2026-01-31');
 
@@ -408,11 +516,9 @@ describe('usePrayerTimes', () => {
       result.current.navigateDay(1);
     });
 
-    expect(result.current.viewedDate).toBe('2026-01-31');
+    await finishTransition();
 
-    await act(async () => {
-      vi.advanceTimersByTime(281);
-    });
+    expect(result.current.viewedDate).toBe('2026-01-31');
 
     await act(async () => {
       vi.advanceTimersByTime(1001);

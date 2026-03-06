@@ -4,7 +4,7 @@ import { useMidnightObserver } from '@/hooks/useMidnightObserver';
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 const INACTIVITY_TIMEOUT_MS = 120 * 1000;
-const TRANSITION_DURATION_MS = 280;
+const TRANSITION_DURATION_MS = 300;
 const PRAYER_SEQUENCE = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 const buildPrayerUrl = (params = {}) => {
@@ -83,14 +83,18 @@ export const usePrayerTimes = () => {
   const [navigationBoundaries, setNavigationBoundaries] = useState({ past: false, future: false });
   const [transitionDirection, setTransitionDirection] = useState('future');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [transitionDate, setTransitionDate] = useState(null);
+  const [transitionNonce, setTransitionNonce] = useState(0);
 
   const abortControllerRef = useRef(null);
   const inactivityTimerRef = useRef(null);
   const transitionTimerRef = useRef(null);
+  const isTransitioningRef = useRef(false);
   const referenceDateRef = useRef(null);
   const viewedDateRef = useRef(null);
   const calendarRef = useRef({});
   const pendingRequestCountRef = useRef(0);
+  const navigationRequestRef = useRef(0);
 
   const startFetching = useCallback(() => {
     pendingRequestCountRef.current += 1;
@@ -141,11 +145,22 @@ export const usePrayerTimes = () => {
   });
   const activeReferenceDate = initialReferenceDate || referenceDate;
 
-  const applyTransition = useCallback((direction) => {
+  const startDayTransition = useCallback((targetDate, direction) => {
+    if (isTransitioningRef.current) {
+      return;
+    }
+
+    isTransitioningRef.current = true;
+    setTransitionDate(targetDate);
+    setTransitionNonce((currentNonce) => currentNonce + 1);
     setTransitionDirection(direction);
     setIsTransitioning(true);
     clearTimeout(transitionTimerRef.current);
     transitionTimerRef.current = setTimeout(() => {
+      isTransitioningRef.current = false;
+      viewedDateRef.current = targetDate;
+      setViewedDateState(targetDate);
+      setTransitionDate(null);
       setIsTransitioning(false);
     }, TRANSITION_DURATION_MS);
   }, []);
@@ -250,7 +265,7 @@ export const usePrayerTimes = () => {
           ...current,
           [direction]: true
         }));
-        return false;
+        return null;
       }
 
       setCalendar((currentCalendar) => {
@@ -266,15 +281,15 @@ export const usePrayerTimes = () => {
         [direction]: reachedBoundary
       }));
       setError(null);
-      return true;
+      return chunk;
     } catch (fetchError) {
       if (fetchError.name === 'AbortError') {
-        return false;
+        return null;
       }
 
       console.error('Prayer Calendar Chunk Fetch Error:', fetchError);
       setError(fetchError.message);
-      return false;
+      return null;
     } finally {
       finishFetching();
 
@@ -300,18 +315,18 @@ export const usePrayerTimes = () => {
   const maxCachedDate = orderedDates[orderedDates.length - 1] || null;
 
   const navigateDay = useCallback(async (delta) => {
-    if (!viewedDate || delta === 0 || isTransitioning) {
+    if (!viewedDate || delta === 0 || isTransitioningRef.current) {
       return;
     }
 
     const direction = delta > 0 ? 'future' : 'past';
+    const requestId = navigationRequestRef.current + 1;
+    navigationRequestRef.current = requestId;
+    const originViewedDate = viewedDate;
     const targetDate = DateTime.fromISO(viewedDate).plus({ days: delta }).toISODate();
 
-    applyTransition(direction);
-
     if (calendar[targetDate]) {
-      viewedDateRef.current = targetDate;
-      setViewedDateState(targetDate);
+      startDayTransition(targetDate, direction);
       return;
     }
 
@@ -324,26 +339,31 @@ export const usePrayerTimes = () => {
       return;
     }
 
-    const loaded = await fetchCalendarChunk(cursorDate, direction);
-    if (loaded) {
-      viewedDateRef.current = targetDate;
-      setViewedDateState(targetDate);
+    const loadedChunk = await fetchCalendarChunk(cursorDate, direction);
+    if (
+      loadedChunk?.[targetDate]
+      && navigationRequestRef.current === requestId
+      && viewedDateRef.current === originViewedDate
+    ) {
+      startDayTransition(targetDate, direction);
     }
-  }, [applyTransition, calendar, fetchCalendarChunk, isTransitioning, maxCachedDate, minCachedDate, navigationBoundaries, viewedDate]);
+  }, [calendar, fetchCalendarChunk, maxCachedDate, minCachedDate, navigationBoundaries, startDayTransition, viewedDate]);
 
   const resetViewedDate = useCallback(() => {
-    if (!activeReferenceDate) {
+    if (!activeReferenceDate || viewedDate === activeReferenceDate || isTransitioningRef.current) {
       return;
     }
 
+    navigationRequestRef.current += 1;
     const nextDirection = viewedDate && viewedDate < activeReferenceDate ? 'future' : 'past';
 
-    applyTransition(nextDirection);
-    viewedDateRef.current = activeReferenceDate;
-    setViewedDateState(activeReferenceDate);
-  }, [activeReferenceDate, applyTransition, viewedDate]);
+    startDayTransition(activeReferenceDate, nextDirection);
+  }, [activeReferenceDate, startDayTransition, viewedDate]);
 
   const viewedPrayers = viewedDate ? (calendar[viewedDate] || prayers) : prayers;
+  const transitionPrayers = transitionDate
+    ? (calendar[transitionDate] || (transitionDate === activeReferenceDate ? prayers : null))
+    : null;
 
   const canNavigateBackward = useMemo(() => {
     if (!viewedDate) {
@@ -371,6 +391,7 @@ export const usePrayerTimes = () => {
       clearInterval(intervalId);
       clearTimeout(inactivityTimerRef.current);
       clearTimeout(transitionTimerRef.current);
+      isTransitioningRef.current = false;
       abortControllerRef.current?.abort();
     };
   }, [fetchPrayers]);
@@ -416,6 +437,9 @@ export const usePrayerTimes = () => {
     canNavigateForward,
     transitionDirection,
     isTransitioning,
+    transitionDate,
+    transitionNonce,
+    transitionPrayers,
     setViewedDate,
     navigateDay,
     resetViewedDate,

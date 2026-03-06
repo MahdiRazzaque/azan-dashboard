@@ -1,5 +1,4 @@
-import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import PrayerCard from '../../../../src/components/dashboard/PrayerCard';
 import { useClientPreferences } from '../../../../src/hooks/useClientPreferences';
@@ -16,6 +15,22 @@ describe('PrayerCard', () => {
     asr: { start: '2026-01-30T15:00:00.000Z', iqamah: '2026-01-30T15:30:00.000Z' },
     maghrib: { start: '2026-01-30T17:00:00.000Z', iqamah: '2026-01-30T17:15:00.000Z' },
     isha: { start: '2026-01-30T19:00:00.000Z', iqamah: '2026-01-30T19:30:00.000Z' }
+  };
+  const nextDayPrayers = {
+    fajr: { start: '2026-01-31T06:00:00.000Z', iqamah: '2026-01-31T06:20:00.000Z' },
+    sunrise: { start: '2026-01-31T07:30:00.000Z' },
+    dhuhr: { start: '2026-01-31T13:10:00.000Z', iqamah: '2026-01-31T13:30:00.000Z' },
+    asr: { start: '2026-01-31T16:10:00.000Z', iqamah: '2026-01-31T16:30:00.000Z' },
+    maghrib: { start: '2026-01-31T17:10:00.000Z', iqamah: '2026-01-31T17:25:00.000Z' },
+    isha: { start: '2026-01-31T20:10:00.000Z', iqamah: '2026-01-31T20:30:00.000Z' }
+  };
+  const previousDayPrayers = {
+    fajr: { start: '2026-01-29T05:10:00.000Z', iqamah: '2026-01-29T05:25:00.000Z' },
+    sunrise: { start: '2026-01-29T06:50:00.000Z' },
+    dhuhr: { start: '2026-01-29T13:50:00.000Z', iqamah: '2026-01-29T14:10:00.000Z' },
+    asr: { start: '2026-01-29T15:10:00.000Z', iqamah: '2026-01-29T15:25:00.000Z' },
+    maghrib: { start: '2026-01-29T16:50:00.000Z', iqamah: '2026-01-29T17:05:00.000Z' },
+    isha: { start: '2026-01-29T18:50:00.000Z', iqamah: '2026-01-29T19:05:00.000Z' }
   };
 
   const basePreferences = {
@@ -36,6 +51,7 @@ describe('PrayerCard', () => {
     canNavigateBackward: true,
     canNavigateForward: true,
     transitionDirection: 'future',
+    transitionNonce: 0,
     isTransitioning: false
   };
 
@@ -91,6 +107,80 @@ describe('PrayerCard', () => {
     expect(screen.queryByText(/Today/)).toBeNull();
   });
 
+  it('renders outgoing and incoming timetable panels during a day transition', () => {
+    render(
+      <PrayerCard
+        {...defaultProps}
+        isTransitioning
+        transitionDirection="future"
+        transitionDate="2026-01-31"
+        transitionPrayers={nextDayPrayers}
+      />
+    );
+
+    expect(screen.getAllByText('Fajr')).toHaveLength(2);
+    expect(screen.getByText('14:00')).toBeDefined();
+    expect(screen.getByText('16:10')).toBeDefined();
+    expect(screen.getByTestId('prayer-table-track').className).toContain('flex');
+  });
+
+  it('stages matching slide animations for future and past navigation', () => {
+    const animationFrames = [];
+    const requestAnimationFrameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+    const cancelAnimationFrameSpy = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+
+    const { rerender } = render(
+      <PrayerCard
+        {...defaultProps}
+        isTransitioning
+        transitionDirection="future"
+        transitionDate="2026-01-31"
+        transitionNonce={1}
+        transitionPrayers={nextDayPrayers}
+      />
+    );
+
+    const track = screen.getByTestId('prayer-table-track');
+    expect(track.style.transition).toBe('none');
+    expect(track.style.transform).toBe('translate3d(0, 0, 0)');
+
+    act(() => {
+      animationFrames.shift()?.(0);
+      animationFrames.shift()?.(16);
+    });
+
+    expect(track.style.transition).toContain('transform 300ms');
+    expect(track.style.transform).toBe('translate3d(-100%, 0, 0)');
+
+    rerender(
+      <PrayerCard
+        {...defaultProps}
+        isTransitioning
+        transitionDirection="past"
+        transitionDate="2026-01-29"
+        transitionNonce={2}
+        transitionPrayers={previousDayPrayers}
+      />
+    );
+
+    expect(track.style.transition).toBe('none');
+    expect(track.style.transform).toBe('translate3d(-100%, 0, 0)');
+
+    act(() => {
+      animationFrames.shift()?.(32);
+      animationFrames.shift()?.(48);
+    });
+
+    expect(track.style.transition).toContain('transform 300ms');
+    expect(track.style.transform).toBe('translate3d(0, 0, 0)');
+
+    requestAnimationFrameSpy.mockRestore();
+    cancelAnimationFrameSpy.mockRestore();
+  });
+
   it('shows the Today button only when viewedDate differs from the reference date', () => {
     const { rerender } = render(<PrayerCard {...defaultProps} viewedDate="2026-01-31" />);
 
@@ -101,6 +191,12 @@ describe('PrayerCard', () => {
 
     rerender(<PrayerCard {...defaultProps} viewedDate="2026-01-30" />);
     expect(screen.queryByText(/Today/)).toBeNull();
+  });
+
+  it('disables the Today button while a transition is running', () => {
+    render(<PrayerCard {...defaultProps} viewedDate="2026-01-31" isTransitioning />);
+
+    expect(screen.getByRole('button', { name: /Today/ })).toBeDisabled();
   });
 
   it('calls onNavigate when the chevrons are clicked', () => {

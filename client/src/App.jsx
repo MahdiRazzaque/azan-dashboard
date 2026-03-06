@@ -39,6 +39,9 @@ function App() {
     viewedPrayers,
     viewedDate,
     referenceDate,
+    transitionDate,
+    transitionNonce,
+    transitionPrayers,
     navigateDay,
     resetViewedDate,
     canNavigateBackward,
@@ -90,6 +93,9 @@ function App() {
                     nextPrayer={nextPrayer} 
                     lastUpdated={lastUpdated}
                     isFetching={isFetching}
+                    transitionDate={transitionDate}
+                    transitionNonce={transitionNonce}
+                    transitionPrayers={transitionPrayers}
                     isMuted={isMuted} 
                     toggleMute={toggleMute} 
                     blocked={blocked} 
