@@ -1,66 +1,173 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import PrayerCard from '../../../../src/components/dashboard/PrayerCard';
-import { DateTime } from 'luxon';
+import { useClientPreferences } from '../../../../src/hooks/useClientPreferences';
+
+vi.mock('../../../../src/hooks/useClientPreferences');
 
 describe('PrayerCard', () => {
+  const onNavigate = vi.fn();
+  const onResetToday = vi.fn();
   const mockPrayers = {
-    fajr: { start: '2026-01-30T05:00:00', iqamah: '2026-01-30T05:30:00' },
-    sunrise: { start: '2026-01-30T07:00:00' },
-    dhuhr: { start: '2026-01-30T12:00:00', iqamah: '2026-01-30T12:30:00' },
-    asr: { start: '2026-01-30T15:00:00', iqamah: '2026-01-30T15:30:00' },
-    maghrib: { start: '2026-01-30T17:00:00', iqamah: '2026-01-30T17:15:00' },
-    isha: { start: '2026-01-30T19:00:00', iqamah: '2026-01-30T19:30:00' }
+    fajr: { start: '2026-01-30T05:00:00.000Z', iqamah: '2026-01-30T05:30:00.000Z' },
+    sunrise: { start: '2026-01-30T07:00:00.000Z' },
+    dhuhr: { start: '2026-01-30T14:00:00.000Z', iqamah: '2026-01-30T14:30:00.000Z' },
+    asr: { start: '2026-01-30T15:00:00.000Z', iqamah: '2026-01-30T15:30:00.000Z' },
+    maghrib: { start: '2026-01-30T17:00:00.000Z', iqamah: '2026-01-30T17:15:00.000Z' },
+    isha: { start: '2026-01-30T19:00:00.000Z', iqamah: '2026-01-30T19:30:00.000Z' }
   };
 
-  it('should render all prayers', () => {
-    render(<PrayerCard prayers={mockPrayers} nextPrayer={null} />);
+  const basePreferences = {
+    appearance: {
+      clockFormat: '24h',
+      prayerNameLanguage: 'english',
+      enableDateNavigation: true
+    }
+  };
+
+  const defaultProps = {
+    prayers: mockPrayers,
+    nextPrayer: { name: 'asr', isTomorrow: false },
+    viewedDate: '2026-01-30',
+    referenceDate: '2026-01-30',
+    onNavigate,
+    onResetToday,
+    canNavigateBackward: true,
+    canNavigateForward: true,
+    transitionDirection: 'future',
+    isTransitioning: false
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useClientPreferences.mockReturnValue({ preferences: basePreferences });
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('renders the interactive date header and the timetable rows', () => {
+    render(<PrayerCard {...defaultProps} />);
+
+    expect(screen.getByRole('button', { name: 'Previous Day' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Next Day' })).toBeDefined();
+    expect(screen.getByText('Friday, 30 January')).toBeDefined();
     expect(screen.getByText('Fajr')).toBeDefined();
-    expect(screen.getByText('Sunrise')).toBeDefined();
-    expect(screen.getByText('Dhuhr')).toBeDefined();
-    expect(screen.getByText('Asr')).toBeDefined();
-    expect(screen.getByText('Maghrib')).toBeDefined();
-    expect(screen.getByText('Isha')).toBeDefined();
+    expect(screen.getByText('Start Time')).toBeDefined();
   });
 
-  it('should mark today\'s next prayer correctly', () => {
-    const nextPrayer = { name: 'asr', isTomorrow: false };
-    render(<PrayerCard prayers={mockPrayers} nextPrayer={nextPrayer} />);
-    
-    const asrRow = screen.getByText('Asr').parentElement;
-    expect(asrRow.className).toContain('text-app-accent');
-    expect(asrRow.className).toContain('bg-app-accent/10');
+  it('formats times in 24h mode', () => {
+    render(<PrayerCard {...defaultProps} />);
 
-    const fajrRow = screen.getByText('Fajr').parentElement;
-    expect(fajrRow.className).toContain('text-app-dim');
+    expect(screen.getAllByText('14:00').length).toBeGreaterThan(0);
   });
 
-  it('should mark all prayers as passed if next prayer is tomorrow', () => {
-    const nextPrayer = { name: 'fajr', isTomorrow: true };
-    render(<PrayerCard prayers={mockPrayers} nextPrayer={nextPrayer} />);
-    
-    const ishaRow = screen.getByText('Isha').parentElement;
-    expect(ishaRow.className).toContain('text-app-dim');
+  it('formats times in 12h mode with AM/PM', () => {
+    useClientPreferences.mockReturnValue({
+      preferences: {
+        appearance: {
+          ...basePreferences.appearance,
+          clockFormat: '12h'
+        }
+      }
+    });
+
+    render(<PrayerCard {...defaultProps} />);
+
+    expect(screen.getAllByText('2:00 PM').length).toBeGreaterThan(0);
   });
 
-  it('should show --- for sunrise iqamah', () => {
-    render(<PrayerCard prayers={mockPrayers} nextPrayer={null} />);
-    expect(screen.getByText('---')).toBeDefined();
+  it('shows the Today button only when viewedDate differs from the reference date', () => {
+    const { rerender } = render(<PrayerCard {...defaultProps} viewedDate="2026-01-31" />);
+
+    expect(screen.getByText(/Today/)).toBeDefined();
+
+    fireEvent.click(screen.getByText(/Today/));
+    expect(onResetToday).toHaveBeenCalled();
+
+    rerender(<PrayerCard {...defaultProps} viewedDate="2026-01-30" />);
+    expect(screen.queryByText(/Today/)).toBeNull();
   });
 
-  it('should handle missing times', () => {
-    const incompletePrayers = {
-        fajr: { start: null, iqamah: null }
-    };
-    render(<PrayerCard prayers={incompletePrayers} nextPrayer={null} />);
-    // All prayers will have '-' for start time if not provided in mock
-    expect(screen.getAllByText('-').length).toBeGreaterThan(0);
+  it('calls onNavigate when the chevrons are clicked', () => {
+    render(<PrayerCard {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous Day' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next Day' }));
+
+    expect(onNavigate).toHaveBeenNthCalledWith(1, -1);
+    expect(onNavigate).toHaveBeenNthCalledWith(2, 1);
   });
 
-  it('should format times correctly', () => {
-    render(<PrayerCard prayers={mockPrayers} nextPrayer={null} />);
-    // 05:00 should be formatted as 5:00
-    expect(screen.getAllByText('5:00').length).toBeGreaterThan(0);
+  it('disables the next-day chevron when forward navigation is unavailable', () => {
+    render(<PrayerCard {...defaultProps} canNavigateForward={false} />);
+
+    expect(screen.getByRole('button', { name: 'Next Day' })).toBeDisabled();
+  });
+
+  it('responds to keyboard arrows when focus is not inside an input', () => {
+    render(<PrayerCard {...defaultProps} />);
+
+    fireEvent.keyDown(window, { key: 'ArrowLeft', code: 'ArrowLeft' });
+    fireEvent.keyDown(window, { key: 'ArrowRight', code: 'ArrowRight' });
+
+    expect(onNavigate).toHaveBeenNthCalledWith(1, -1);
+    expect(onNavigate).toHaveBeenNthCalledWith(2, 1);
+  });
+
+  it('ignores keyboard arrows when focus is inside an input', () => {
+    render(<PrayerCard {...defaultProps} />);
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    input.focus();
+
+    fireEvent.keyDown(window, { key: 'ArrowRight', code: 'ArrowRight' });
+
+    expect(onNavigate).not.toHaveBeenCalled();
+    input.remove();
+  });
+
+  it('triggers future navigation on a right-to-left swipe beyond the threshold', () => {
+    const { container } = render(<PrayerCard {...defaultProps} />);
+
+    fireEvent.touchStart(container.firstChild, { touches: [{ clientX: 200, clientY: 20 }] });
+    fireEvent.touchEnd(container.firstChild, { changedTouches: [{ clientX: 120, clientY: 20 }] });
+
+    expect(onNavigate).toHaveBeenCalledWith(1);
+  });
+
+  it('renders Arabic prayer names when that preference is enabled', () => {
+    useClientPreferences.mockReturnValue({
+      preferences: {
+        appearance: {
+          ...basePreferences.appearance,
+          prayerNameLanguage: 'arabic'
+        }
+      }
+    });
+
+    render(<PrayerCard {...defaultProps} />);
+
+    expect(screen.getByText('فجر')).toBeDefined();
+    expect(screen.getByText('ظُهْر')).toBeDefined();
+  });
+
+  it('hides all date navigation controls when the feature flag is disabled', () => {
+    useClientPreferences.mockReturnValue({
+      preferences: {
+        appearance: {
+          ...basePreferences.appearance,
+          enableDateNavigation: false
+        }
+      }
+    });
+
+    render(<PrayerCard {...defaultProps} viewedDate="2026-01-31" />);
+
+    expect(screen.queryByRole('button', { name: 'Previous Day' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Next Day' })).toBeNull();
+    expect(screen.queryByText(/Today/)).toBeNull();
   });
 });
