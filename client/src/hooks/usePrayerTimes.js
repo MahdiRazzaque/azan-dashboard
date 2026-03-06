@@ -4,7 +4,7 @@ import { useMidnightObserver } from '@/hooks/useMidnightObserver';
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 const INACTIVITY_TIMEOUT_MS = 120 * 1000;
-const TRANSITION_DURATION_MS = 200;
+const TRANSITION_DURATION_MS = 280;
 const PRAYER_SEQUENCE = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
 const buildPrayerUrl = (params = {}) => {
@@ -73,6 +73,7 @@ export const usePrayerTimes = () => {
   const [nextPrayer, setNextPrayer] = useState(null);
   const [meta, setMeta] = useState({});
   const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(Date.now());
   const [calendar, setCalendar] = useState({});
@@ -89,6 +90,20 @@ export const usePrayerTimes = () => {
   const referenceDateRef = useRef(null);
   const viewedDateRef = useRef(null);
   const calendarRef = useRef({});
+  const pendingRequestCountRef = useRef(0);
+
+  const startFetching = useCallback(() => {
+    pendingRequestCountRef.current += 1;
+    setIsFetching(true);
+  }, []);
+
+  const finishFetching = useCallback(() => {
+    pendingRequestCountRef.current = Math.max(0, pendingRequestCountRef.current - 1);
+
+    if (pendingRequestCountRef.current === 0) {
+      setIsFetching(false);
+    }
+  }, []);
 
   const handleMidnight = useCallback((nextReferenceDate) => {
     const currentReferenceDate = referenceDateRef.current || initialReferenceDate || nextReferenceDate;
@@ -188,6 +203,8 @@ export const usePrayerTimes = () => {
       setLoading(true);
     }
 
+    startFetching();
+
     try {
       const response = await fetch(buildPrayerUrl());
       if (!response.ok) {
@@ -200,17 +217,20 @@ export const usePrayerTimes = () => {
       console.error('Prayer Times Fetch Error:', fetchError);
       setError(fetchError.message);
     } finally {
+      finishFetching();
+
       if (isInitial) {
         setLoading(false);
       }
     }
-  }, [applyPayload]);
+  }, [applyPayload, finishFetching, startFetching]);
 
   const fetchCalendarChunk = useCallback(async (cursorDate, direction) => {
     abortControllerRef.current?.abort();
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    startFetching();
 
     try {
       const response = await fetch(buildPrayerUrl({ cursorDate, direction }), {
@@ -223,6 +243,7 @@ export const usePrayerTimes = () => {
 
       const data = await response.json();
       const chunk = data.calendar || {};
+      const reachedBoundary = Object.keys(chunk).length < 7;
 
       if (Object.keys(chunk).length === 0) {
         setNavigationBoundaries((current) => ({
@@ -242,7 +263,7 @@ export const usePrayerTimes = () => {
       });
       setNavigationBoundaries((current) => ({
         ...current,
-        [direction]: false
+        [direction]: reachedBoundary
       }));
       setError(null);
       return true;
@@ -255,11 +276,13 @@ export const usePrayerTimes = () => {
       setError(fetchError.message);
       return false;
     } finally {
+      finishFetching();
+
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
       }
     }
-  }, []);
+  }, [finishFetching, startFetching]);
 
   const setViewedDate = useCallback((nextViewedDate) => {
     setViewedDateState((currentViewedDate) => {
@@ -313,10 +336,12 @@ export const usePrayerTimes = () => {
       return;
     }
 
-    applyTransition('past');
+    const nextDirection = viewedDate && viewedDate < activeReferenceDate ? 'future' : 'past';
+
+    applyTransition(nextDirection);
     viewedDateRef.current = activeReferenceDate;
     setViewedDateState(activeReferenceDate);
-  }, [activeReferenceDate, applyTransition]);
+  }, [activeReferenceDate, applyTransition, viewedDate]);
 
   const viewedPrayers = viewedDate ? (calendar[viewedDate] || prayers) : prayers;
 
@@ -380,6 +405,7 @@ export const usePrayerTimes = () => {
     nextPrayer,
     meta,
     loading,
+    isFetching,
     error,
     lastUpdated,
     timezone,

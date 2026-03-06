@@ -14,6 +14,7 @@ const DashboardView = ({
     viewedPrayers,
     nextPrayer,
     lastUpdated,
+    isFetching,
     isMuted,
     toggleMute,
     blocked,
@@ -73,6 +74,7 @@ const DashboardView = ({
                 <PrayerCard
                     prayers={viewedPrayers || prayers}
                     nextPrayer={nextPrayer}
+                    isFetching={isFetching}
                     viewedDate={viewedDate}
                     referenceDate={referenceDate}
                     onNavigate={onNavigateDay}

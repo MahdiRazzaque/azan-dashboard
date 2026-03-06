@@ -34,6 +34,7 @@ function App() {
     prayers,
     nextPrayer,
     lastUpdated,
+    isFetching,
     refetch,
     viewedPrayers,
     viewedDate,
@@ -88,6 +89,7 @@ function App() {
                     viewedPrayers={viewedPrayers}
                     nextPrayer={nextPrayer} 
                     lastUpdated={lastUpdated}
+                    isFetching={isFetching}
                     isMuted={isMuted} 
                     toggleMute={toggleMute} 
                     blocked={blocked} 
