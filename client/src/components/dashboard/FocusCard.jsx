@@ -80,7 +80,7 @@ const FocusCard = ({ nextPrayer, prayers, lastUpdated, onCountdownComplete, time
     const getCountdown = () => {
         if (!effectiveNextPrayer) return null;
         const target = DateTime.fromISO(effectiveNextPrayer.time).setZone(timezone || DateTime.local().zoneName);
-        const secondsLeft = Math.max(0, Math.floor((target.toMillis() - now.toMillis()) / 1000));
+        const secondsLeft = Math.max(0, Math.ceil((target.toMillis() - now.toMillis()) / 1000));
 
         if (secondsLeft <= 0) return '0sec';
 
