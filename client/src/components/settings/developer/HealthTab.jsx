@@ -294,9 +294,9 @@ function HealthRow({ label, status, lastChecked, enabled, canToggle = true, onTo
                 {feedback && <span className="text-[10px] font-bold text-emerald-500 animate-pulse">{feedback}</span>}
                 
                 {canToggle ? (
-                    <div className="flex items-center gap-2 px-2 border-r border-app-border/50">
+                    <div className={cn('flex items-center gap-2 px-2 border-r border-app-border/50', status === 'disabled' && 'opacity-50')}>
                         <span className="text-[10px] font-bold uppercase text-app-dim">Daily Check</span>
-                        <Toggle checked={enabled} onChange={onToggle} />
+                        <Toggle checked={enabled} onChange={onToggle} disabled={status === 'disabled'} />
                     </div>
                 ) : (
                     <div className="flex items-center gap-1 text-app-dim opacity-50 px-2 border-r border-app-border/50">
@@ -307,11 +307,15 @@ function HealthRow({ label, status, lastChecked, enabled, canToggle = true, onTo
                 
                 <button 
                     onClick={onRefresh}
-                    disabled={refreshing}
+                    disabled={refreshing || status === 'disabled'}
                     title="Force Refresh Health"
-                    className={cn("p-1.5 hover:bg-app-card-hover rounded text-app-dim transition-colors", refreshing && "text-emerald-500")}
+                    className={cn(
+                        'p-1.5 hover:bg-app-card-hover rounded text-app-dim transition-colors',
+                        refreshing && 'text-emerald-500',
+                        status === 'disabled' && 'opacity-50 cursor-not-allowed hover:bg-transparent'
+                    )}
                 >
-                    <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+                    <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
                 </button>
             </div>
         </div>
@@ -342,24 +346,27 @@ function StatusIndicator({ status }) {
  * @param {Object} props - The component properties.
  * @param {boolean} props.checked - Whether the toggle is currently in the 'on' state.
  * @param {Function} props.onChange - Callback triggered when the toggle is clicked.
+ * @param {boolean} [props.disabled=false] - Whether the toggle is disabled.
  * @returns {JSX.Element} The rendered toggle switch.
  */
-function Toggle({ checked, onChange }) {
+function Toggle({ checked, onChange, disabled = false }) {
     return (
         <button 
             type="button"
             role="switch"
             aria-checked={checked}
-            onClick={() => onChange(!checked)}
+            disabled={disabled}
+            onClick={() => !disabled && onChange(!checked)}
             className={cn(
-                "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none border-transparent",
-                checked ? "bg-emerald-600" : "bg-app-border"
+                'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none border-transparent',
+                checked ? 'bg-emerald-600' : 'bg-app-border',
+                disabled && 'cursor-not-allowed'
             )}
         >
             <span
                 className={cn(
-                    "inline-block h-3 w-3 transform rounded-full bg-white transition duration-200 ease-in-out",
-                    checked ? "translate-x-5" : "translate-x-1"
+                    'inline-block h-3 w-3 transform rounded-full bg-white transition duration-200 ease-in-out',
+                    checked ? 'translate-x-5' : 'translate-x-1'
                 )}
             />
         </button>

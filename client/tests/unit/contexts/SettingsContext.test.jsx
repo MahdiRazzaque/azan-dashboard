@@ -333,5 +333,34 @@ describe('SettingsContext Ultimate Coverage', () => {
       );
       expect(healthCalls.length).toBeGreaterThanOrEqual(1);
     });
+
+    it('should parse health data from 503 responses (degraded system)', async () => {
+      const healthData = {
+        local: { healthy: true, lastChecked: '2026-03-10T17:22:57.506Z' },
+        tts: { healthy: false, message: 'Service Unreachable', lastChecked: '2026-03-10T17:26:25.620Z' },
+        voicemonkey: { healthy: false, message: 'Token Missing', lastChecked: '2026-03-10T17:22:57.506Z' }
+      };
+      fetch.mockImplementation(async (url) => {
+        // Backend returns 503 when critical services are unhealthy
+        if (url.includes('/api/system/health')) return mockResponse(healthData, false, 503);
+        if (url.includes('/api/settings')) return mockResponse(baseConfig);
+        if (url.includes('/api/system/voices')) return mockResponse([]);
+        if (url.includes('/api/system/providers')) return mockResponse([]);
+        return mockResponse({});
+      });
+
+      let context;
+      render(<SettingsProvider><HealthTestComponent callback={(s) => context = s} /></SettingsProvider>);
+      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+
+      // Even though the response is 503, the health data should be parsed and used
+      await waitFor(() => {
+        expect(context.systemHealth.tts.healthy).toBe(false);
+        expect(context.systemHealth.tts.message).toBe('Service Unreachable');
+        expect(context.systemHealth.voicemonkey.healthy).toBe(false);
+        expect(context.systemHealth.voicemonkey.message).toBe('Token Missing');
+        expect(context.systemHealth.local.healthy).toBe(true);
+      });
+    });
   });
 });

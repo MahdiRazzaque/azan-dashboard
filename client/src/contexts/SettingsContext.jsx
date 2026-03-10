@@ -6,11 +6,11 @@ import { SettingsContext } from '@/hooks/useSettings';
 export const SettingsProvider = ({ children }) => {
   const [config, setConfig] = useState(null);
   const [draftConfig, setDraftConfig] = useState(null);
-  const [systemHealth, setSystemHealth] = useState({ 
-      local: { healthy: true }, 
-      tts: { healthy: true }, 
-      voicemonkey: { healthy: true } 
-  }); // Default optimistic
+  const [systemHealth, setSystemHealth] = useState({
+      local: { healthy: false },
+      tts: { healthy: false },
+      voicemonkey: { healthy: false }
+  }); // Default pessimistic — real state fetched from backend on mount
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pausedPolling, setPausedPolling] = useState(false);
@@ -68,7 +68,9 @@ export const SettingsProvider = ({ children }) => {
               handleRateLimit();
               return;
           }
-          if (res.ok) {
+          // Health endpoint returns valid JSON for both 200 (all healthy) and 503 (degraded).
+          // We must parse the body regardless of HTTP status to get actual service states.
+          if (res.ok || res.status === 503) {
               const data = await res.json();
               setSystemHealth(data);
           }

@@ -16,6 +16,7 @@ function init() {
     if (healthCache) return;
 
     healthCache = {
+        api: { healthy: true, message: 'Ready', lastChecked: null },
         local: { healthy: true, message: 'Online', lastChecked: null },
         tts: { healthy: false, message: 'Initialising...', lastChecked: null },
         primarySource: { healthy: false, message: 'Initialising...', lastChecked: null },
@@ -109,6 +110,9 @@ async function _refreshTarget(target, params = null, { force = false } = {}) {
         return { healthy: false, message: 'Monitoring Disabled' };
     }
 
+    // API server is inherently healthy if this code is executing
+    if (target === 'api') return { healthy: true, message: 'Ready' };
+
     if (target === 'tts') return checkPythonService();
     if (target === 'primarySource') return checkSource('primary');
     if (target === 'backupSource') return checkSource('backup');
@@ -166,7 +170,7 @@ async function refresh(target = 'all', params = null, { force = false } = {}) {
         const targets = [];
 
         if (target === 'all') {
-            targets.push('tts', 'primarySource', 'backupSource');
+            targets.push('api', 'tts', 'primarySource', 'backupSource');
             OutputFactory.getAllStrategies().forEach(s => {
                 if (!s.hidden) targets.push(s.id);
             });
