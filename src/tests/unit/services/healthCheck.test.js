@@ -163,4 +163,116 @@ describe('HealthCheck Service', () => {
             expect(mockLocalStrategy.healthCheck).toHaveBeenCalled();
         });
     });
+
+    describe('Per-service lastChecked (Issue #37)', () => {
+        it('should set lastChecked on each refreshed target, not globally', async () => {
+            const result = await healthCheck.refresh('tts');
+
+            // The refreshed target should have its own lastChecked
+            expect(result.tts.lastChecked).toBeDefined();
+            expect(typeof result.tts.lastChecked).toBe('string');
+
+            // Global lastChecked should NOT exist
+            expect(result.lastChecked).toBeUndefined();
+        });
+
+        it('should set lastChecked on all targets when refreshing all', async () => {
+            const result = await healthCheck.refresh('all');
+
+            expect(result.tts.lastChecked).toBeDefined();
+            expect(result.primarySource.lastChecked).toBeDefined();
+            expect(result.backupSource.lastChecked).toBeDefined();
+            expect(result.local.lastChecked).toBeDefined();
+            expect(result.voicemonkey.lastChecked).toBeDefined();
+
+            // Global lastChecked should NOT exist
+            expect(result.lastChecked).toBeUndefined();
+        });
+
+        it('should initialise each service with lastChecked: null', () => {
+            // Use isolateModules to get a fresh healthCache
+            jest.isolateModules(() => {
+                const freshHealthCheck = require('@services/system/healthCheck');
+                // Re-mock OutputFactory for the fresh module context
+                const FreshOutputFactory = require('../../../outputs');
+                FreshOutputFactory.getAllStrategies.mockReturnValue([
+                    { id: 'local', hidden: false, params: [] },
+                    { id: 'voicemonkey', hidden: false, params: [] }
+                ]);
+
+                freshHealthCheck.init();
+                const health = freshHealthCheck.getHealth();
+
+                // Each service entry should have lastChecked: null initially
+                expect(health.tts.lastChecked).toBeNull();
+                expect(health.primarySource.lastChecked).toBeNull();
+                expect(health.backupSource.lastChecked).toBeNull();
+                expect(health.local.lastChecked).toBeNull();
+                expect(health.voicemonkey.lastChecked).toBeNull();
+            });
+        });
+
+        it('should only update lastChecked for the specific target refreshed', async () => {
+            // Record current state before targeted refresh
+            const before = healthCheck.getHealth();
+            const ttsBefore = before.tts.lastChecked;
+
+            // Refresh only voicemonkey
+            await healthCheck.refresh('voicemonkey');
+            const after = healthCheck.getHealth();
+
+            // voicemonkey should have a new lastChecked
+            expect(after.voicemonkey.lastChecked).toBeDefined();
+            expect(typeof after.voicemonkey.lastChecked).toBe('string');
+
+            // tts should be unchanged from before the refresh
+            expect(after.tts.lastChecked).toBe(ttsBefore);
+        });
+
+        it('should not stamp lastChecked when monitoring is disabled (no real check ran)', async () => {
+            // Record local's lastChecked before refresh
+            const before = healthCheck.getHealth();
+            const localLastCheckedBefore = before.local?.lastChecked || null;
+
+            configService.get.mockReturnValue({
+                system: {
+                    healthChecks: {
+                        local: false,
+                        voicemonkey: true,
+                        tts: true
+                    }
+                },
+                sources: { primary: { type: 'aladhan' }, backup: { type: 'mymasjid', enabled: true } }
+            });
+
+            const result = await healthCheck.refresh('all');
+
+            // Disabled service should preserve its previous lastChecked (no real check ran)
+            expect(result.local.lastChecked).toBe(localLastCheckedBefore);
+
+            // Enabled services should have a new lastChecked timestamp
+            expect(result.voicemonkey.lastChecked).toBeDefined();
+            expect(typeof result.voicemonkey.lastChecked).toBe('string');
+            expect(result.tts.lastChecked).toBeDefined();
+        });
+
+        it('should return api as healthy even when api monitoring is toggled off', async () => {
+            configService.get.mockReturnValue({
+                system: {
+                    healthChecks: {
+                        api: false
+                    }
+                },
+                sources: { primary: { type: 'aladhan' }, backup: { type: 'mymasjid', enabled: true } }
+            });
+
+            const result = await healthCheck.refresh('api');
+
+            // API should always be healthy — it is exempt from monitoring toggle
+            expect(result.api.healthy).toBe(true);
+            expect(result.api.message).toBe('Ready');
+            expect(result.api.lastChecked).toBeDefined();
+            expect(typeof result.api.lastChecked).toBe('string');
+        });
+    });
 });

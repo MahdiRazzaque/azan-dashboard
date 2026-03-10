@@ -246,4 +246,121 @@ describe('SettingsContext Ultimate Coverage', () => {
       expect(count).toBe(0);
     });
   });
+
+  describe('Health check fetch on mount (Issue #37)', () => {
+    const HealthTestComponent = ({ callback }) => {
+      const s = useSettings();
+      React.useEffect(() => { if (callback) callback(s); }, [s, callback]);
+      if (s.loading && !s.config) return <div data-testid="loading">Loading...</div>;
+      return (
+        <div data-testid="done">
+          <span data-testid="health-tts">{String(s.systemHealth?.tts?.healthy)}</span>
+          <span data-testid="health-local">{String(s.systemHealth?.local?.healthy)}</span>
+          <span data-testid="health-voicemonkey">{String(s.systemHealth?.voicemonkey?.healthy ?? 'undefined')}</span>
+        </div>
+      );
+    };
+
+    it('should fetch health state from backend on mount', async () => {
+      const healthData = {
+        local: { healthy: true },
+        tts: { healthy: false, message: 'TTS service unavailable' },
+        voicemonkey: { healthy: false, message: 'Not configured' }
+      };
+      fetch.mockImplementation(async (url) => {
+        if (url.includes('/api/system/health')) return mockResponse(healthData);
+        if (url.includes('/api/settings')) return mockResponse(baseConfig);
+        if (url.includes('/api/system/voices')) return mockResponse([]);
+        if (url.includes('/api/system/providers')) return mockResponse([]);
+        return mockResponse({});
+      });
+
+      render(<SettingsProvider><HealthTestComponent /></SettingsProvider>);
+      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+
+      // Verify health endpoint was called on mount
+      const healthCalls = fetch.mock.calls.filter(([url]) => 
+        url.includes('/api/system/health') && !url.includes('/refresh')
+      );
+      expect(healthCalls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should populate systemHealth from API response, not optimistic defaults', async () => {
+      const healthData = {
+        local: { healthy: true },
+        tts: { healthy: false, message: 'TTS service unavailable' },
+        voicemonkey: { healthy: false, message: 'Not configured' }
+      };
+      fetch.mockImplementation(async (url) => {
+        if (url.includes('/api/system/health')) return mockResponse(healthData);
+        if (url.includes('/api/settings')) return mockResponse(baseConfig);
+        if (url.includes('/api/system/voices')) return mockResponse([]);
+        if (url.includes('/api/system/providers')) return mockResponse([]);
+        return mockResponse({});
+      });
+
+      let context;
+      render(<SettingsProvider><HealthTestComponent callback={(s) => context = s} /></SettingsProvider>);
+      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+
+      // After mount, systemHealth should reflect the API response (unhealthy services)
+      // NOT the optimistic defaults (all healthy)
+      await waitFor(() => {
+        expect(context.systemHealth.tts.healthy).toBe(false);
+        expect(context.systemHealth.voicemonkey.healthy).toBe(false);
+        expect(context.systemHealth.tts.message).toBe('TTS service unavailable');
+      });
+    });
+
+    it('should fetch health even when not authenticated', async () => {
+      useAuth.mockReturnValue({ isAuthenticated: false });
+      const healthData = {
+        local: { healthy: true },
+        tts: { healthy: false, message: 'TTS offline' }
+      };
+      fetch.mockImplementation(async (url) => {
+        if (url.includes('/api/system/health')) return mockResponse(healthData);
+        if (url.includes('/api/settings')) return mockResponse(baseConfig);
+        return mockResponse({});
+      });
+
+      render(<SettingsProvider><HealthTestComponent /></SettingsProvider>);
+      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+
+      // Health endpoint requires no auth, should be called regardless
+      const healthCalls = fetch.mock.calls.filter(([url]) => 
+        url.includes('/api/system/health') && !url.includes('/refresh')
+      );
+      expect(healthCalls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should parse health data from 503 responses (degraded system)', async () => {
+      const healthData = {
+        local: { healthy: true, lastChecked: '2026-03-10T17:22:57.506Z' },
+        tts: { healthy: false, message: 'Service Unreachable', lastChecked: '2026-03-10T17:26:25.620Z' },
+        voicemonkey: { healthy: false, message: 'Token Missing', lastChecked: '2026-03-10T17:22:57.506Z' }
+      };
+      fetch.mockImplementation(async (url) => {
+        // Backend returns 503 when critical services are unhealthy
+        if (url.includes('/api/system/health')) return mockResponse(healthData, false, 503);
+        if (url.includes('/api/settings')) return mockResponse(baseConfig);
+        if (url.includes('/api/system/voices')) return mockResponse([]);
+        if (url.includes('/api/system/providers')) return mockResponse([]);
+        return mockResponse({});
+      });
+
+      let context;
+      render(<SettingsProvider><HealthTestComponent callback={(s) => context = s} /></SettingsProvider>);
+      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+
+      // Even though the response is 503, the health data should be parsed and used
+      await waitFor(() => {
+        expect(context.systemHealth.tts.healthy).toBe(false);
+        expect(context.systemHealth.tts.message).toBe('Service Unreachable');
+        expect(context.systemHealth.voicemonkey.healthy).toBe(false);
+        expect(context.systemHealth.voicemonkey.message).toBe('Token Missing');
+        expect(context.systemHealth.local.healthy).toBe(true);
+      });
+    });
+  });
 });

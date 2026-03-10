@@ -118,7 +118,7 @@ export default function HealthTab({ config, systemHealth, refreshHealth, refresh
                         id={service.id}
                         label={service.label}
                         status={service.id === 'api' ? 'online' : (systemHealth[service.id]?.healthy ? 'online' : 'offline')}
-                        lastChecked={systemHealth.lastChecked}
+                        lastChecked={systemHealth[service.id]?.lastChecked}
                         canToggle={true}
                         enabled={healthChecks[service.id] === true}
                         onToggle={(val) => handleToggle(service.id, val)}
@@ -139,7 +139,7 @@ export default function HealthTab({ config, systemHealth, refreshHealth, refresh
                     id="primarySource"
                     label={`Primary: ${config.sources.primary?.type || 'Not Set'}`}
                     status={systemHealth.primarySource?.healthy ? 'online' : 'offline'}
-                    lastChecked={systemHealth.lastChecked}
+                    lastChecked={systemHealth.primarySource?.lastChecked}
                     enabled={healthChecks.primarySource === true}
                     onToggle={(val) => handleToggle('primarySource', val)}
                     onRefresh={() => handleForceRefresh('primarySource')}
@@ -152,7 +152,7 @@ export default function HealthTab({ config, systemHealth, refreshHealth, refresh
                         id="backupSource"
                         label={`Backup: ${config.sources.backup?.type}`}
                         status={config.sources.backup.enabled === false ? 'disabled' : (systemHealth.backupSource?.healthy ? 'online' : 'offline')}
-                        lastChecked={systemHealth.lastChecked}
+                        lastChecked={systemHealth.backupSource?.lastChecked}
                         enabled={healthChecks.backupSource === true}
                         onToggle={(val) => handleToggle('backupSource', val)}
                         onRefresh={() => handleForceRefresh('backupSource')}
@@ -174,7 +174,7 @@ export default function HealthTab({ config, systemHealth, refreshHealth, refresh
                         id={output.id}
                         label={output.label}
                         status={config.automation?.outputs?.[output.id]?.enabled === false ? 'disabled' : (systemHealth[output.id]?.healthy ? 'online' : 'offline')}
-                        lastChecked={systemHealth.lastChecked}
+                        lastChecked={systemHealth[output.id]?.lastChecked}
                         enabled={healthChecks[output.id] === true}
                         onToggle={(val) => handleToggle(output.id, val)}
                         onRefresh={() => handleForceRefresh(output.id)}
@@ -221,7 +221,7 @@ function HealthCard({ title, icon, children }) {
  * @param {Object} props - The component properties.
  * @param {string} props.label - The display name of the service.
  * @param {string} props.status - The current operational status (e.g., 'online', 'offline').
- * @param {string} props.lastChecked - ISO timestamp of the last successful health check.
+ * @param {string|null} props.lastChecked - ISO timestamp of this service's last health check, or null if never checked.
  * @param {boolean} props.enabled - Whether automated monitoring is active for this row.
  * @param {boolean} [props.canToggle=true] - Whether the user can enable/disable monitoring.
  * @param {Function} props.onToggle - Callback when the toggle switch is flipped.
@@ -294,9 +294,9 @@ function HealthRow({ label, status, lastChecked, enabled, canToggle = true, onTo
                 {feedback && <span className="text-[10px] font-bold text-emerald-500 animate-pulse">{feedback}</span>}
                 
                 {canToggle ? (
-                    <div className="flex items-center gap-2 px-2 border-r border-app-border/50">
+                    <div className={cn('flex items-center gap-2 px-2 border-r border-app-border/50', status === 'disabled' && 'opacity-50')}>
                         <span className="text-[10px] font-bold uppercase text-app-dim">Daily Check</span>
-                        <Toggle checked={enabled} onChange={onToggle} />
+                        <Toggle checked={enabled} onChange={onToggle} disabled={status === 'disabled'} />
                     </div>
                 ) : (
                     <div className="flex items-center gap-1 text-app-dim opacity-50 px-2 border-r border-app-border/50">
@@ -307,11 +307,15 @@ function HealthRow({ label, status, lastChecked, enabled, canToggle = true, onTo
                 
                 <button 
                     onClick={onRefresh}
-                    disabled={refreshing}
+                    disabled={refreshing || status === 'disabled'}
                     title="Force Refresh Health"
-                    className={cn("p-1.5 hover:bg-app-card-hover rounded text-app-dim transition-colors", refreshing && "text-emerald-500")}
+                    className={cn(
+                        'p-1.5 hover:bg-app-card-hover rounded text-app-dim transition-colors',
+                        refreshing && 'text-emerald-500',
+                        status === 'disabled' && 'opacity-50 cursor-not-allowed hover:bg-transparent'
+                    )}
                 >
-                    <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+                    <RefreshCw className={cn('w-4 h-4', refreshing && 'animate-spin')} />
                 </button>
             </div>
         </div>
@@ -342,24 +346,27 @@ function StatusIndicator({ status }) {
  * @param {Object} props - The component properties.
  * @param {boolean} props.checked - Whether the toggle is currently in the 'on' state.
  * @param {Function} props.onChange - Callback triggered when the toggle is clicked.
+ * @param {boolean} [props.disabled=false] - Whether the toggle is disabled.
  * @returns {JSX.Element} The rendered toggle switch.
  */
-function Toggle({ checked, onChange }) {
+function Toggle({ checked, onChange, disabled = false }) {
     return (
         <button 
             type="button"
             role="switch"
             aria-checked={checked}
-            onClick={() => onChange(!checked)}
+            disabled={disabled}
+            onClick={() => !disabled && onChange(!checked)}
             className={cn(
-                "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none border-transparent",
-                checked ? "bg-emerald-600" : "bg-app-border"
+                'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none border-transparent',
+                checked ? 'bg-emerald-600' : 'bg-app-border',
+                disabled && 'cursor-not-allowed'
             )}
         >
             <span
                 className={cn(
-                    "inline-block h-3 w-3 transform rounded-full bg-white transition duration-200 ease-in-out",
-                    checked ? "translate-x-5" : "translate-x-1"
+                    'inline-block h-3 w-3 transform rounded-full bg-white transition duration-200 ease-in-out',
+                    checked ? 'translate-x-5' : 'translate-x-1'
                 )}
             />
         </button>

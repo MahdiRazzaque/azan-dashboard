@@ -16,12 +16,12 @@ function init() {
     if (healthCache) return;
 
     healthCache = {
-        local: { healthy: true, message: 'Online' }, // Added local health
-        tts: { healthy: false, message: 'Initialising...' },
-        primarySource: { healthy: false, message: 'Initialising...' },
-        backupSource: { healthy: false, message: 'Initialising...' },
-        ports: { api: process.env.PORT || 3000, tts: 8000 },
-        lastChecked: null
+        api: { healthy: true, message: 'Ready', lastChecked: null },
+        local: { healthy: true, message: 'Online', lastChecked: null },
+        tts: { healthy: false, message: 'Initialising...', lastChecked: null },
+        primarySource: { healthy: false, message: 'Initialising...', lastChecked: null },
+        backupSource: { healthy: false, message: 'Initialising...', lastChecked: null },
+        ports: { api: process.env.PORT || 3000, tts: 8000 }
     };
 
     // Dynamically add strategy keys to healthCache for non-hidden outputs
@@ -30,7 +30,7 @@ function init() {
         if (Array.isArray(strategies)) {
             strategies.forEach(meta => {
                 if (!meta.hidden) {
-                    healthCache[meta.id] = { healthy: false, message: 'Initialising...' };
+                    healthCache[meta.id] = { healthy: false, message: 'Initialising...', lastChecked: null };
                 }
             });
         }
@@ -105,6 +105,9 @@ async function _refreshTarget(target, params = null, { force = false } = {}) {
     const config = configService.get();
     const healthChecks = config.system?.healthChecks || {};
 
+    // API server is inherently healthy if this code is executing (exempt from monitoring toggle)
+    if (target === 'api') return { healthy: true, message: 'Ready' };
+
     // Check if monitoring is enabled for this target
     if (!force && healthChecks[target] === false) {
         return { healthy: false, message: 'Monitoring Disabled' };
@@ -167,7 +170,7 @@ async function refresh(target = 'all', params = null, { force = false } = {}) {
         const targets = [];
 
         if (target === 'all') {
-            targets.push('tts', 'primarySource', 'backupSource');
+            targets.push('api', 'tts', 'primarySource', 'backupSource');
             OutputFactory.getAllStrategies().forEach(s => {
                 if (!s.hidden) targets.push(s.id);
             });
@@ -175,18 +178,25 @@ async function refresh(target = 'all', params = null, { force = false } = {}) {
             targets.push(target);
         }
 
+        const now = new Date().toISOString();
         const promises = targets.map(t => 
             _refreshTarget(t, params, { force })
-                .then(res => updates[t] = res)
+                .then(res => {
+                    // Only stamp lastChecked when a real check executed,
+                    // not when monitoring was disabled (no actual check ran)
+                    const lastChecked = res.message === 'Monitoring Disabled'
+                        ? (healthCache[t]?.lastChecked || null)
+                        : now;
+                    updates[t] = { ...res, lastChecked };
+                })
         );
 
         await Promise.all(promises);
 
-        // Update cache
+        // Update cache — per-service lastChecked, no global timestamp
         healthCache = { 
             ...healthCache, 
-            ...updates, 
-            lastChecked: new Date().toISOString() 
+            ...updates
         };
 
         // Refresh ports

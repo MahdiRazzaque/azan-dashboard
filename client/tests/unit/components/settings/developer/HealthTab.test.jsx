@@ -27,12 +27,11 @@ describe('HealthTab', () => {
     };
 
     const mockSystemHealth = {
-        lastChecked: '2026-02-04T12:00:00Z',
-        api: { healthy: true, message: 'Healthy' },
-        tts: { healthy: false, message: 'Unreachable' },
-        primarySource: { healthy: true, message: 'Healthy' },
-        backupSource: { healthy: true, message: 'Healthy' },
-        alexa: { healthy: true, message: 'Healthy' }
+        api: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T12:00:00Z' },
+        tts: { healthy: false, message: 'Unreachable', lastChecked: '2026-02-04T12:00:00Z' },
+        primarySource: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T12:00:00Z' },
+        backupSource: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T12:00:00Z' },
+        alexa: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T12:00:00Z' }
     };
 
     const refreshHealth = vi.fn();
@@ -364,5 +363,181 @@ describe('HealthTab', () => {
         });
 
         expect(screen.getByText(/Unreachable \/ Offline/)).toBeDefined();
+    });
+
+    it('should display per-service lastChecked timestamps, not global', async () => {
+        const perServiceHealth = {
+            api: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T12:00:00Z' },
+            tts: { healthy: false, message: 'Unreachable', lastChecked: '2026-02-04T10:00:00Z' },
+            primarySource: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T08:00:00Z' },
+            backupSource: { healthy: true, message: 'Healthy', lastChecked: null },
+            alexa: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T14:00:00Z' }
+        };
+
+        fetch.mockImplementation((url) => {
+            if (url === '/api/system/services/registry') {
+                return Promise.resolve({
+                    json: () => Promise.resolve([
+                        { id: 'api', label: 'API Server' },
+                        { id: 'tts', label: 'TTS Service' }
+                    ])
+                });
+            }
+            if (url === '/api/system/outputs/registry') {
+                return Promise.resolve({
+                    json: () => Promise.resolve([
+                        { id: 'alexa', label: 'Alexa Output' }
+                    ])
+                });
+            }
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        });
+
+        await act(async () => {
+            render(<HealthTab config={mockConfig} systemHealth={perServiceHealth} refreshHealth={refreshHealth} refresh={refresh} />);
+        });
+
+        // TTS was checked at 10:00 — its row should show TTS's own lastChecked
+        const ttsTime = new Date('2026-02-04T10:00:00Z').toLocaleTimeString();
+        expect(screen.getByText(new RegExp(ttsTime))).toBeDefined();
+
+        // API was checked at 12:00
+        const apiTime = new Date('2026-02-04T12:00:00Z').toLocaleTimeString();
+        expect(screen.getByText(new RegExp(apiTime))).toBeDefined();
+
+        // Backup source has lastChecked: null — should NOT show a Last Checked time
+        // (backupSource row should not contain 'Last Checked')
+        const backupRow = screen.getByText('Backup: Local').closest('div[class*="flex items-center justify-between"]');
+        expect(backupRow.textContent).not.toContain('Last Checked');
+    });
+
+    it('should disable refresh button and daily check toggle for disabled output strategies', async () => {
+        const configWithDisabledAlexa = {
+            ...mockConfig,
+            automation: {
+                outputs: {
+                    alexa: { enabled: false }
+                }
+            }
+        };
+
+        fetch.mockImplementation((url) => {
+            if (url === '/api/system/services/registry') {
+                return Promise.resolve({
+                    json: () => Promise.resolve([
+                        { id: 'api', label: 'API Server' },
+                        { id: 'tts', label: 'TTS Service' }
+                    ])
+                });
+            }
+            if (url === '/api/system/outputs/registry') {
+                return Promise.resolve({
+                    json: () => Promise.resolve([
+                        { id: 'alexa', label: 'Alexa Output' }
+                    ])
+                });
+            }
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        });
+
+        await act(async () => {
+            render(<HealthTab config={configWithDisabledAlexa} systemHealth={mockSystemHealth} refreshHealth={refreshHealth} refresh={refresh} />);
+        });
+
+        // Find the Alexa row by its label
+        const alexaRow = screen.getByText('Alexa Output').closest('div[class*="flex items-center justify-between"]');
+
+        // The refresh button within the Alexa row should be disabled
+        const refreshButton = alexaRow.querySelector('button[title="Force Refresh Health"]');
+        expect(refreshButton).toBeDefined();
+        expect(refreshButton.disabled).toBe(true);
+
+        // The toggle within the Alexa row should also be disabled
+        const toggle = alexaRow.querySelector('button[role="switch"]');
+        expect(toggle).toBeDefined();
+        expect(toggle.disabled).toBe(true);
+    });
+
+    it('should not disable refresh button and toggle for enabled output strategies', async () => {
+        fetch.mockImplementation((url) => {
+            if (url === '/api/system/services/registry') {
+                return Promise.resolve({
+                    json: () => Promise.resolve([
+                        { id: 'api', label: 'API Server' },
+                        { id: 'tts', label: 'TTS Service' }
+                    ])
+                });
+            }
+            if (url === '/api/system/outputs/registry') {
+                return Promise.resolve({
+                    json: () => Promise.resolve([
+                        { id: 'alexa', label: 'Alexa Output' }
+                    ])
+                });
+            }
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        });
+
+        await act(async () => {
+            render(<HealthTab config={mockConfig} systemHealth={mockSystemHealth} refreshHealth={refreshHealth} refresh={refresh} />);
+        });
+
+        // Find the Alexa row by its label (alexa is enabled in mockConfig)
+        const alexaRow = screen.getByText('Alexa Output').closest('div[class*="flex items-center justify-between"]');
+
+        // The refresh button should NOT be disabled for enabled strategies
+        const refreshButton = alexaRow.querySelector('button[title="Force Refresh Health"]');
+        expect(refreshButton).toBeDefined();
+        expect(refreshButton.disabled).toBe(false);
+
+        // The toggle should NOT be disabled for enabled strategies
+        const toggle = alexaRow.querySelector('button[role="switch"]');
+        expect(toggle).toBeDefined();
+        expect(toggle.disabled).toBe(false);
+    });
+
+    it('should not trigger toggle onChange when strategy is disabled', async () => {
+        const configWithDisabledAlexa = {
+            ...mockConfig,
+            automation: {
+                outputs: {
+                    alexa: { enabled: false }
+                }
+            }
+        };
+
+        fetch.mockImplementation((url) => {
+            if (url === '/api/system/services/registry') {
+                return Promise.resolve({
+                    json: () => Promise.resolve([
+                        { id: 'api', label: 'API Server' },
+                        { id: 'tts', label: 'TTS Service' }
+                    ])
+                });
+            }
+            if (url === '/api/system/outputs/registry') {
+                return Promise.resolve({
+                    json: () => Promise.resolve([
+                        { id: 'alexa', label: 'Alexa Output' }
+                    ])
+                });
+            }
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        });
+
+        await act(async () => {
+            render(<HealthTab config={configWithDisabledAlexa} systemHealth={mockSystemHealth} refreshHealth={refreshHealth} refresh={refresh} />);
+        });
+
+        const alexaRow = screen.getByText('Alexa Output').closest('div[class*="flex items-center justify-between"]');
+        const toggle = alexaRow.querySelector('button[role="switch"]');
+
+        // Click the disabled toggle
+        await act(async () => {
+            fireEvent.click(toggle);
+        });
+
+        // The toggle API should NOT have been called
+        expect(fetch).not.toHaveBeenCalledWith('/api/system/health/toggle', expect.anything());
     });
 });
