@@ -55,10 +55,13 @@ const Toggle = ({ checked, onChange, label, description }) => (
  * @param {object} props.formData - The current draft configuration object.
  * @param {Function} props.onChange - Callback to handle setting changes.
  * @param {Function} props.bulkUpdateOffsets - Callback to handle bulk updates.
+ * @param {Function} [props.bulkUpdateIqamahOffsets] - Callback to handle bulk iqamah offset updates.
+ * @param {Array} [props.providers] - List of available prayer time providers with capabilities.
+ * @param {object} [props.sources] - The configured prayer time sources (primary/backup).
  * @returns {JSX.Element} The rendered general settings tab.
  */
-export default function AutomationGeneralTab({ config, formData, onChange, bulkUpdateOffsets }) {
-    const [batchVals, setBatchVals] = useState({ preAdhan: 15, preIqamah: 10 });
+export default function AutomationGeneralTab({ config, formData, onChange, bulkUpdateOffsets, bulkUpdateIqamahOffsets, providers, sources }) {
+    const [batchVals, setBatchVals] = useState({ preAdhan: 15, preIqamah: 10, iqamahOffset: 15 });
     const [toast, setToast] = useState(null);
 
     const handleBulkUpdate = (type) => {
@@ -66,6 +69,26 @@ export default function AutomationGeneralTab({ config, formData, onChange, bulkU
         setToast(`Successfully updated ${count} ${type.replace(/([A-Z])/g, ' $1').toLowerCase()} triggers.`);
         setTimeout(() => setToast(null), 5000);
     };
+    const handleIqamahBulkUpdate = () => {
+        if (!bulkUpdateIqamahOffsets) return;
+        const count = bulkUpdateIqamahOffsets(batchVals.iqamahOffset);
+
+        // Check if any active source provides Iqamah and override is off
+        const primaryProvider = providers?.find(p => p.id === sources?.primary?.type);
+        const backupProvider = sources?.backup?.enabled ? providers?.find(p => p.id === sources?.backup?.type) : null;
+        const anyProvidesIqamah = primaryProvider?.capabilities?.providesIqamah || backupProvider?.capabilities?.providesIqamah;
+
+        const prayers = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
+        const anyOverrideOff = anyProvidesIqamah && prayers.some(p => !formData?.prayers?.[p]?.iqamahOverride);
+
+        let message = `Successfully updated ${count} iqamah offset values.`;
+        if (anyOverrideOff) {
+            message += ' Note: Your active source provides Iqamah times. Prayers without override enabled will use source times instead.';
+        }
+        setToast(message);
+        setTimeout(() => setToast(null), 5000);
+    };
+
 
     return (
         <div className="space-y-8">
@@ -174,6 +197,34 @@ export default function AutomationGeneralTab({ config, formData, onChange, bulkU
                              <button 
                                 type="button"
                                 onClick={() => handleBulkUpdate('preIqamah')}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors"
+                             >
+                                Apply to All
+                             </button>
+                        </div>
+                    </div>
+
+                    {/* Row 3: Iqamah Offset */}
+                    <div className="flex flex-col md:flex-row md:items-center gap-4 bg-app-bg/20 p-4 rounded-lg border border-app-border">
+                        <div className="flex-1">
+                            <div className="font-medium text-app-text">Iqamah Offset</div>
+                            <div className="text-xs text-app-dim">Minutes after Adhan for Iqamah</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                             <div className="flex items-center gap-2 bg-app-card border border-app-border rounded px-2 py-1">
+                                <span className="text-[10px] text-app-dim font-bold uppercase">Mins</span>
+                                <input 
+                                    type="number" 
+                                    min="0" 
+                                    max="60"
+                                    value={batchVals.iqamahOffset}
+                                    onChange={e => setBatchVals(prev => ({ ...prev, iqamahOffset: e.target.value }))}
+                                    className="w-12 bg-transparent border-none text-sm text-app-text focus:outline-none font-mono focus:ring-0"
+                                />
+                             </div>
+                             <button 
+                                type="button"
+                                onClick={handleIqamahBulkUpdate}
                                 className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded transition-colors"
                              >
                                 Apply to All

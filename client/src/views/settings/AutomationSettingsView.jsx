@@ -30,7 +30,9 @@ export default function AutomationSettingsView() {
           updateSetting, 
           loading,
           systemHealth,
-          bulkUpdateOffsets
+          bulkUpdateOffsets,
+          bulkUpdateIqamahOffsets,
+          providers
         } = useSettings();
     
         const [searchParams, setSearchParams] = useSearchParams();
@@ -115,6 +117,9 @@ export default function AutomationSettingsView() {
                     formData={draftConfig}
                     onChange={updateSetting}
                     bulkUpdateOffsets={bulkUpdateOffsets}
+                    bulkUpdateIqamahOffsets={bulkUpdateIqamahOffsets}
+                    providers={providers}
+                    sources={draftConfig?.sources}
                 />
             )}
 

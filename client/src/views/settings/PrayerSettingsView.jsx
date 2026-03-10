@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useSettings } from '@/hooks/useSettings';
 import TriggerCard from '@/components/settings/TriggerCard';
+import IqamahTimingCard from '@/components/settings/IqamahTimingCard';
 import { validateTrigger } from '@/utils/validation';
-import { Clock, AlertTriangle, Save, CheckCircle, XCircle, Info } from 'lucide-react';
+import { AlertTriangle, Save, CheckCircle, XCircle, Info } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -81,8 +82,6 @@ export default function PrayerSettingsView() {
     const currentPrayerSettings = localConfig.prayers[activeTab];
     const currentTriggers = localConfig.automation.triggers[activeTab];
     
-    const activeProvider = providers.find(p => p.id === localConfig.sources?.primary?.type);
-    const providesIqamah = activeProvider?.capabilities?.providesIqamah;
 
     // Handler for Iqamah Config
     const updatePrayerConfig = (key, value) => {
@@ -309,18 +308,16 @@ export default function PrayerSettingsView() {
                 })}
             </div>
 
-            {/* Warning Banner */}
-            {activeTab !== 'sunrise' && providesIqamah && currentPrayerSettings?.iqamahOverride && (
-                <div className="bg-amber-900/20 border border-amber-800/50 rounded-lg p-4 flex items-start gap-4 mx-1">
-                    <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                    <div>
-                        <h4 className="text-amber-200 font-medium">External Source Override Active</h4>
-                        <p className="text-amber-400/80 text-sm mt-1">
-                            You are using a data source that provides its own Iqamah times, but you have enabled local overrides for {activeTab}. 
-                            The dashboard will ignore the timings provided by the source and calculate them locally instead.
-                        </p>
-                    </div>
-                </div>
+            {/* Iqamah Timing Card */}
+            {activeTab !== 'sunrise' && (
+                <IqamahTimingCard
+                    activeTab={activeTab}
+                    currentPrayerSettings={currentPrayerSettings}
+                    updatePrayerConfig={updatePrayerConfig}
+                    providers={providers}
+                    sources={localConfig.sources}
+                    isDirty={JSON.stringify(config.prayers[activeTab]) !== JSON.stringify(localConfig.prayers[activeTab])}
+                />
             )}
 
                 {/* Triggers Sequence */}
@@ -373,111 +370,6 @@ export default function PrayerSettingsView() {
                             strategies={strategies}
                                     error={validationErrors[`${activeTab}-iqamah`]}
                                     isDirty={isTriggerDirty(activeTab, 'iqamah')}
-                                    extraContent={(
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <Clock className="w-4 h-4 text-emerald-500" />
-                                                <h4 className="text-sm font-semibold text-app-text flex items-center gap-2 uppercase tracking-tight">
-                                                    Timing Logic
-                                                    {JSON.stringify(config.prayers[activeTab]) !== JSON.stringify(localConfig.prayers[activeTab]) && (
-                                                        <span className="w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
-                                                    )}
-                                                </h4>
-                                            </div>
-
-                                            {/* Override Switch - Only Visible for sources that provide iqamah */}
-                                            {providesIqamah && (
-                                                <div className="flex items-center justify-between pb-3 border-b border-app-border">
-                                                    <div>
-                                                        <label className="text-xs font-medium text-app-dim">Override source schedule</label>
-                                                        <p className="text-[10px] text-app-dim mt-0.5">Calculate iqamah locally</p>
-                                                    </div>
-                                                    <button
-                                                        role="switch"
-                                                        aria-checked={currentPrayerSettings.iqamahOverride}
-                                                        onClick={() => updatePrayerConfig('iqamahOverride', !currentPrayerSettings.iqamahOverride)}
-                                                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
-                                                            currentPrayerSettings.iqamahOverride ? 'bg-emerald-600' : 'bg-app-card-hover'
-                                                        }`}
-                                                    >
-                                                        <span className={`inline-block h-3 w-3 transform rounded-full bg-app-text transition duration-200 ease-in-out ${
-                                                            currentPrayerSettings.iqamahOverride ? 'translate-x-5' : 'translate-x-1'
-                                                        }`} />
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            {(!providesIqamah || currentPrayerSettings.iqamahOverride) ? (
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4">
-                                                    <div className="space-y-2">
-                                                        <label className="text-[10px] text-app-dim font-bold uppercase tracking-wider">Mode</label>
-                                                        <div className="grid grid-cols-2 gap-1 bg-app-bg/20 p-1 rounded-lg border border-app-border">
-                                                            <button
-                                                                onClick={() => updatePrayerConfig('fixedTime', null)}
-                                                                className={`py-1.5 text-[11px] font-medium rounded transition-all ${
-                                                                    currentPrayerSettings.fixedTime === null
-                                                                    ? 'bg-emerald-600 text-app-text shadow-lg'
-                                                                    : 'text-app-dim hover:text-app-text'
-                                                                }`}
-                                                            >
-                                                                Offset
-                                                            </button>
-                                                            <button
-                                                                onClick={() => updatePrayerConfig('fixedTime', '12:00')}
-                                                                className={`py-1.5 text-[11px] font-medium rounded transition-all ${
-                                                                    currentPrayerSettings.fixedTime !== null
-                                                                    ? 'bg-emerald-600 text-app-text shadow-lg'
-                                                                    : 'text-app-dim hover:text-app-text'
-                                                                }`}
-                                                            >
-                                                                Fixed
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {currentPrayerSettings.fixedTime === null ? (
-                                                        <>
-                                                            <div>
-                                                                <label className="block text-[10px] text-app-dim font-bold uppercase tracking-wider mb-2">Minutes After</label>
-                                                                <input 
-                                                                    type="number" 
-                                                                    value={currentPrayerSettings.iqamahOffset}
-                                                                    onChange={e => updatePrayerConfig('iqamahOffset', parseInt(e.target.value) || 0)}
-                                                                    className="w-full bg-app-bg border border-app-border rounded p-2 text-sm text-app-text focus:outline-none focus:border-emerald-500"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="block text-[10px] text-app-dim font-bold uppercase tracking-wider mb-2">Rounding</label>
-                                                                <input 
-                                                                    type="number" 
-                                                                    value={currentPrayerSettings.roundTo}
-                                                                    onChange={e => updatePrayerConfig('roundTo', parseInt(e.target.value) || 0)}
-                                                                    className="w-full bg-app-bg border border-app-border rounded p-2 text-sm text-app-text focus:outline-none focus:border-emerald-500"
-                                                                />
-                                                            </div>
-                                                        </>
-                                                    ) : (
-                                                        <div className="md:col-span-2">
-                                                            <label className="block text-[10px] text-app-dim font-bold uppercase tracking-wider mb-2">Set Time (HH:MM)</label>
-                                                            <input 
-                                                                type="time" 
-                                                                value={currentPrayerSettings.fixedTime}
-                                                                onChange={e => updatePrayerConfig('fixedTime', e.target.value)}
-                                                                className="w-full bg-app-bg border border-app-border rounded p-2 text-sm text-app-text [color-scheme:dark] focus:outline-none focus:border-emerald-500 transition-colors"
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center gap-3 py-2 px-3 bg-app-card/50 rounded-lg border border-app-border border-dashed">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                                    <p className="text-app-dim text-[11px] leading-relaxed">
-                                                        Following source schedule. Toggle <strong className="text-app-text font-semibold">Override</strong> to set custom rules.
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
                                 />
                             </>
                         )}
