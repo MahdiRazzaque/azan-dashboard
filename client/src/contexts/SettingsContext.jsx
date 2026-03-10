@@ -303,6 +303,27 @@ export const SettingsProvider = ({ children }) => {
     return count;
   }, []);
 
+  const bulkUpdateIqamahOffsets = useCallback((minutes) => {
+    const raw = parseInt(minutes);
+    const clampedMinutes = isNaN(raw) ? 0 : Math.min(60, Math.max(0, raw));
+    const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    
+    let count = 0;
+    setDraftConfig(prev => {
+        if (!prev) return prev;
+        const next = JSON.parse(JSON.stringify(prev));
+        for (const prayer of prayers) {
+            if (prayer === 'sunrise') continue;
+            if (next.prayers?.[prayer]) {
+                next.prayers[prayer].iqamahOffset = clampedMinutes;
+                count++;
+            }
+        }
+        return next;
+    });
+    return count;
+  }, []);
+
   const resetDraft = useCallback(() => {
       if (configRef.current) {
           setDraftConfig(JSON.parse(JSON.stringify(configRef.current)));
@@ -438,6 +459,7 @@ export const SettingsProvider = ({ children }) => {
         refreshHealth,
         validateBeforeSave: () => ({ success: true }),
         bulkUpdateOffsets,
+        bulkUpdateIqamahOffsets,
         voices,
         voicesLoading,
         voicesError,

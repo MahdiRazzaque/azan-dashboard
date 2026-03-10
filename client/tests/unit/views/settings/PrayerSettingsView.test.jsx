@@ -7,16 +7,22 @@ import * as validation from '../../../../src/utils/validation';
 
 vi.mock('../../../../src/hooks/useSettings');
 vi.mock('../../../../src/utils/validation');
-vi.mock('../../../../src/components/settings/TriggerCard', () => ({ 
-  default: ({ label, onChange, trigger, extraContent, error, isDirty }) => (
-    <div data-testid={`trigger-card-${label.replace(/\s+/g, '-').toLowerCase()}`}>
-        <span data-testid="card-label">{label}</span>
-        {isDirty && <span data-testid="dirty-indicator">Dirty</span>}
-        {error && <span data-testid="error-message">{error}</span>}
-        <button onClick={() => onChange({ ...trigger, enabled: !trigger.enabled })}>Toggle</button>
-        <div data-testid="extra-content">{extraContent}</div>
-    </div>
-) }));
+const mockTriggerCard = vi.fn(({ label, onChange, trigger, error, isDirty }) => (
+  <div data-testid={`trigger-card-${label.replace(/\s+/g, '-').toLowerCase()}`}>
+      <span data-testid="card-label">{label}</span>
+      {isDirty && <span data-testid="dirty-indicator">Dirty</span>}
+      {error && <span data-testid="error-message">{error}</span>}
+      <button onClick={() => onChange({ ...trigger, enabled: !trigger.enabled })}>Toggle</button>
+  </div>
+));
+vi.mock('../../../../src/components/settings/TriggerCard', () => ({
+  default: (props) => mockTriggerCard(props)
+}));
+
+const mockIqamahTimingCard = vi.fn(() => <div data-testid="iqamah-timing-card" />);
+vi.mock('../../../../src/components/settings/IqamahTimingCard', () => ({
+  default: (props) => mockIqamahTimingCard(props)
+}));
 
 describe('PrayerSettingsView', () => {
   const updateSetting = vi.fn();
@@ -110,12 +116,42 @@ describe('PrayerSettingsView', () => {
     expect(updateSetting).toHaveBeenCalled();
   });
 
-  it('should handle iqamah configuration changes: fixed/offset mode', async () => {
+  it('should render IqamahTimingCard for non-sunrise prayers', async () => {
+    await act(async () => {
+        render(<PrayerSettingsView />);
+    });
+    
+    expect(screen.getByTestId('iqamah-timing-card')).toBeDefined();
+    expect(mockIqamahTimingCard).toHaveBeenCalledWith(
+        expect.objectContaining({
+            activeTab: 'fajr',
+            currentPrayerSettings: config.prayers.fajr,
+            providers: [{ id: 'aladhan', capabilities: { providesIqamah: true } }],
+            sources: config.sources
+        })
+    );
+  });
+
+  it('should not render IqamahTimingCard for sunrise', async () => {
+    await act(async () => {
+        render(<PrayerSettingsView />);
+    });
+    
+    await act(async () => {
+        fireEvent.click(screen.getByText(/sunrise/i));
+    });
+    
+    // IqamahTimingCard should not be rendered for sunrise
+    // Reset mock calls and check the last render had no IqamahTimingCard
+    expect(screen.queryAllByTestId('iqamah-timing-card').length).toBe(0);
+  });
+
+  it('should pass isDirty to IqamahTimingCard when prayer settings change', async () => {
     useSettings.mockReturnValue({
         ...useSettings(),
         draftConfig: {
             ...config,
-            prayers: { ...config.prayers, fajr: { ...config.prayers.fajr, iqamahOverride: true } }
+            prayers: { ...config.prayers, fajr: { ...config.prayers.fajr, iqamahOffset: 99 } }
         }
     });
 
@@ -123,106 +159,27 @@ describe('PrayerSettingsView', () => {
         render(<PrayerSettingsView />);
     });
     
-    await act(async () => {
-        fireEvent.click(screen.getByText('Fixed'));
-    });
-    expect(updateSetting).toHaveBeenCalledWith('prayers.fajr.fixedTime', '12:00');
-
-    await act(async () => {
-        fireEvent.click(screen.getByText('Offset'));
-    });
-    expect(updateSetting).toHaveBeenCalledWith('prayers.fajr.fixedTime', null);
+    expect(mockIqamahTimingCard).toHaveBeenCalledWith(
+        expect.objectContaining({
+            isDirty: true
+        })
+    );
   });
 
-  it('should handle iqamah input changes: offset and rounding', async () => {
-    useSettings.mockReturnValue({
-        ...useSettings(),
-        draftConfig: {
-            ...config,
-            prayers: { ...config.prayers, fajr: { ...config.prayers.fajr, iqamahOverride: true } }
-        }
-    });
-
+  it('should not render extraContent on iqamah TriggerCard', async () => {
     await act(async () => {
         render(<PrayerSettingsView />);
     });
     
-    const inputs = screen.getAllByRole('spinbutton');
-    // Offset input
-    await act(async () => {
-        fireEvent.change(inputs[0], { target: { value: '20' } });
-    });
-    expect(updateSetting).toHaveBeenCalledWith('prayers.fajr.iqamahOffset', 20);
+    const iqamahCard = screen.getByTestId('trigger-card-4.-iqamah');
+    expect(iqamahCard).toBeDefined();
 
-    // Rounding input
-    await act(async () => {
-        fireEvent.change(inputs[1], { target: { value: '5' } });
-    });
-    expect(updateSetting).toHaveBeenCalledWith('prayers.fajr.roundTo', 5);
-  });
-
-  it('should handle fixed time input change', async () => {
-    useSettings.mockReturnValue({
-        ...useSettings(),
-        draftConfig: {
-            ...config,
-            prayers: { ...config.prayers, fajr: { ...config.prayers.fajr, fixedTime: '05:30', iqamahOverride: true } }
-        }
-    });
-
-    await act(async () => {
-        render(<PrayerSettingsView />);
-    });
-    
-    const timeInput = screen.getByDisplayValue('05:30');
-    await act(async () => {
-        fireEvent.change(timeInput, { target: { value: '06:00' } });
-    });
-    expect(updateSetting).toHaveBeenCalledWith('prayers.fajr.fixedTime', '06:00');
-  });
-
-  it('should handle iqamah override toggle', async () => {
-    await act(async () => {
-        render(<PrayerSettingsView />);
-    });
-    
-    const switchButton = screen.getByRole('switch');
-    await act(async () => {
-        fireEvent.click(switchButton);
-    });
-    expect(updateSetting).toHaveBeenCalledWith('prayers.fajr.iqamahOverride', true);
-  });
-
-  it('should show warning banner when iqamah override is active', async () => {
-    useSettings.mockReturnValue({
-        ...useSettings(),
-        draftConfig: {
-            ...config,
-            prayers: { ...config.prayers, fajr: { ...config.prayers.fajr, iqamahOverride: true } }
-        }
-    });
-
-    await act(async () => {
-        render(<PrayerSettingsView />);
-    });
-    
-    expect(screen.getByText('External Source Override Active')).toBeDefined();
-  });
-
-  it('should render simplified UI when provider does not provide iqamah', async () => {
-    useSettings.mockReturnValue({
-        ...useSettings(),
-        providers: [{ id: 'aladhan', capabilities: { providesIqamah: false } }]
-    });
-
-    await act(async () => {
-        render(<PrayerSettingsView />);
-    });
-    
-    // Should NOT show the override switch
-    expect(screen.queryByRole('switch')).toBeNull();
-    // Should show Timing Logic directly
-    expect(screen.getByText('Timing Logic')).toBeDefined();
+    // Verify the iqamah TriggerCard was not called with an extraContent prop
+    const iqamahCall = mockTriggerCard.mock.calls.find(
+        ([props]) => props.label === '4. Iqamah'
+    );
+    expect(iqamahCall).toBeDefined();
+    expect(iqamahCall[0]).not.toHaveProperty('extraContent');
   });
 
   it('should handle fetch errors gracefully', async () => {
