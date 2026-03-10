@@ -105,13 +105,13 @@ async function _refreshTarget(target, params = null, { force = false } = {}) {
     const config = configService.get();
     const healthChecks = config.system?.healthChecks || {};
 
+    // API server is inherently healthy if this code is executing (exempt from monitoring toggle)
+    if (target === 'api') return { healthy: true, message: 'Ready' };
+
     // Check if monitoring is enabled for this target
     if (!force && healthChecks[target] === false) {
         return { healthy: false, message: 'Monitoring Disabled' };
     }
-
-    // API server is inherently healthy if this code is executing
-    if (target === 'api') return { healthy: true, message: 'Ready' };
 
     if (target === 'tts') return checkPythonService();
     if (target === 'primarySource') return checkSource('primary');
@@ -181,7 +181,14 @@ async function refresh(target = 'all', params = null, { force = false } = {}) {
         const now = new Date().toISOString();
         const promises = targets.map(t => 
             _refreshTarget(t, params, { force })
-                .then(res => updates[t] = { ...res, lastChecked: now })
+                .then(res => {
+                    // Only stamp lastChecked when a real check executed,
+                    // not when monitoring was disabled (no actual check ran)
+                    const lastChecked = res.message === 'Monitoring Disabled'
+                        ? (healthCache[t]?.lastChecked || null)
+                        : now;
+                    updates[t] = { ...res, lastChecked };
+                })
         );
 
         await Promise.all(promises);

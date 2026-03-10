@@ -228,5 +228,51 @@ describe('HealthCheck Service', () => {
             // tts should be unchanged from before the refresh
             expect(after.tts.lastChecked).toBe(ttsBefore);
         });
+
+        it('should not stamp lastChecked when monitoring is disabled (no real check ran)', async () => {
+            // Record local's lastChecked before refresh
+            const before = healthCheck.getHealth();
+            const localLastCheckedBefore = before.local?.lastChecked || null;
+
+            configService.get.mockReturnValue({
+                system: {
+                    healthChecks: {
+                        local: false,
+                        voicemonkey: true,
+                        tts: true
+                    }
+                },
+                sources: { primary: { type: 'aladhan' }, backup: { type: 'mymasjid', enabled: true } }
+            });
+
+            const result = await healthCheck.refresh('all');
+
+            // Disabled service should preserve its previous lastChecked (no real check ran)
+            expect(result.local.lastChecked).toBe(localLastCheckedBefore);
+
+            // Enabled services should have a new lastChecked timestamp
+            expect(result.voicemonkey.lastChecked).toBeDefined();
+            expect(typeof result.voicemonkey.lastChecked).toBe('string');
+            expect(result.tts.lastChecked).toBeDefined();
+        });
+
+        it('should return api as healthy even when api monitoring is toggled off', async () => {
+            configService.get.mockReturnValue({
+                system: {
+                    healthChecks: {
+                        api: false
+                    }
+                },
+                sources: { primary: { type: 'aladhan' }, backup: { type: 'mymasjid', enabled: true } }
+            });
+
+            const result = await healthCheck.refresh('api');
+
+            // API should always be healthy — it is exempt from monitoring toggle
+            expect(result.api.healthy).toBe(true);
+            expect(result.api.message).toBe('Ready');
+            expect(result.api.lastChecked).toBeDefined();
+            expect(typeof result.api.lastChecked).toBe('string');
+        });
     });
 });
