@@ -13,8 +13,8 @@ describe('SourceConfigurator', () => {
   const onChange = vi.fn();
   const onLocationChange = vi.fn();
   const mockProviders = [
-    { id: 'aladhan', label: 'Aladhan', parameters: [{ key: 'method', label: 'Method', default: 2 }], branding: { accentColor: 'blue' } },
-    { id: 'mymasjid', label: 'MyMasjid', parameters: [], branding: { accentColor: 'emerald' } }
+    { id: 'aladhan', label: 'Aladhan', parameters: [{ key: 'method', label: 'Method', default: 2 }], branding: { accentColor: 'blue' }, capabilities: { providesIqamah: false } },
+    { id: 'mymasjid', label: 'MyMasjid', parameters: [], branding: { accentColor: 'emerald' }, capabilities: { providesIqamah: true } }
   ];
 
   beforeEach(() => {
@@ -77,5 +77,39 @@ describe('SourceConfigurator', () => {
 
     fireEvent.change(inputs[1], { target: { value: '20.5' } });
     expect(onLocationChange).toHaveBeenCalledWith('long', 20.5);
+  });
+
+  describe('Iqamah capability badge (FEAT-001)', () => {
+    it('should display Iqamah badge on providers with providesIqamah capability', () => {
+      render(<SourceConfigurator source={{ type: 'aladhan' }} onChange={onChange} />);
+      const badges = screen.getAllByTestId('iqamah-badge');
+      expect(badges).toHaveLength(1);
+      // Badge should be near MyMasjid, not Aladhan
+      const mymasjidButton = screen.getByText('MyMasjid').closest('button');
+      expect(mymasjidButton.querySelector('[data-testid="iqamah-badge"]')).not.toBeNull();
+    });
+
+    it('should not display Iqamah badge on providers without providesIqamah', () => {
+      render(<SourceConfigurator source={{ type: 'aladhan' }} onChange={onChange} />);
+      const aladhanButton = screen.getByText('Aladhan').closest('button');
+      expect(aladhanButton.querySelector('[data-testid="iqamah-badge"]')).toBeNull();
+    });
+
+    it('should show tooltip text on Iqamah badge', () => {
+      render(<SourceConfigurator source={{ type: 'mymasjid' }} onChange={onChange} />);
+      const badge = screen.getByTestId('iqamah-badge');
+      expect(badge.getAttribute('title')).toBe('This source provides Iqamah times');
+    });
+
+    it('should not show badge when capabilities are undefined', () => {
+      useProviders.mockReturnValue({
+        providers: [
+          { id: 'custom', label: 'Custom', parameters: [], branding: { accentColor: 'blue' } }
+        ],
+        loading: false
+      });
+      render(<SourceConfigurator source={{ type: 'custom' }} onChange={onChange} />);
+      expect(screen.queryByTestId('iqamah-badge')).toBeNull();
+    });
   });
 });

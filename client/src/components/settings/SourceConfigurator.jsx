@@ -1,4 +1,4 @@
-import { Globe, MapPin, CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { Globe, MapPin, CheckCircle, Loader2, AlertTriangle, ClockCheck } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useProviders } from '@/hooks/useProviders';
@@ -158,6 +158,23 @@ export default function SourceConfigurator({
                                 className="absolute top-2 right-2 w-5 h-5 text-amber-500 animate-pulse" 
                                 title={getProviderErrorMessage()} 
                             />
+                        )}
+                        {provider.capabilities?.providesIqamah && (
+                            <span 
+                                data-testid="iqamah-badge"
+                                title="This source provides Iqamah times"
+                                className={cn(
+                                    "absolute top-1 z-10",
+                                    isProviderOffline(provider.id) ? "right-7" : "right-2"
+                                )}
+                            >
+                                <ClockCheck 
+                                    className={cn(
+                                        "w-5 h-5 opacity-70",
+                                        getIconColorClass(provider)
+                                    )}
+                                />
+                            </span>
                         )}
                     </button>
                 ))}

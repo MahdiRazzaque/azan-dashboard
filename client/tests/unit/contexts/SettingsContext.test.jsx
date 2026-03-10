@@ -138,4 +138,112 @@ describe('SettingsContext Ultimate Coverage', () => {
       await waitFor(() => expect(consoleSpy).toHaveBeenCalled());
       consoleSpy.mockRestore();
   });
+
+  describe('bulkUpdateIqamahOffsets (FEAT-005)', () => {
+    const configWithIqamah = {
+      ...baseConfig,
+      prayers: {
+        fajr: { iqamahOffset: 20, roundTo: 15, fixedTime: null, iqamahOverride: false },
+        sunrise: { iqamahOffset: 0, roundTo: 0, fixedTime: null, iqamahOverride: false },
+        dhuhr: { iqamahOffset: 15, roundTo: 15, fixedTime: null, iqamahOverride: false },
+        asr: { iqamahOffset: 15, roundTo: 15, fixedTime: null, iqamahOverride: false },
+        maghrib: { iqamahOffset: 10, roundTo: 5, fixedTime: null, iqamahOverride: false },
+        isha: { iqamahOffset: 15, roundTo: 15, fixedTime: null, iqamahOverride: true }
+      }
+    };
+
+    const iqamahFetchMock = async (url) => {
+      if (url.includes('/api/settings')) return mockResponse(configWithIqamah);
+      if (url.includes('/api/system/voices')) return mockResponse([]);
+      if (url.includes('/api/system/providers')) return mockResponse([]);
+      return mockResponse({});
+    };
+
+    const IqamahTestComponent = ({ callback }) => {
+      const s = useSettings();
+      React.useEffect(() => { if (callback) callback(s); }, [s, callback]);
+      if (s.loading && !s.config) return <div data-testid="loading">Loading...</div>;
+      return (
+        <div data-testid="done">
+          <span data-testid="fajr-offset">{s.draftConfig?.prayers?.fajr?.iqamahOffset}</span>
+          <span data-testid="sunrise-offset">{s.draftConfig?.prayers?.sunrise?.iqamahOffset}</span>
+          <span data-testid="dhuhr-offset">{s.draftConfig?.prayers?.dhuhr?.iqamahOffset}</span>
+          <span data-testid="asr-offset">{s.draftConfig?.prayers?.asr?.iqamahOffset}</span>
+          <span data-testid="maghrib-offset">{s.draftConfig?.prayers?.maghrib?.iqamahOffset}</span>
+          <span data-testid="isha-offset">{s.draftConfig?.prayers?.isha?.iqamahOffset}</span>
+          <span data-testid="isha-override">{String(s.draftConfig?.prayers?.isha?.iqamahOverride)}</span>
+        </div>
+      );
+    };
+
+    it('should update iqamahOffset for all prayers except sunrise', async () => {
+      fetch.mockImplementation(iqamahFetchMock);
+      let context;
+      render(<SettingsProvider><IqamahTestComponent callback={(s) => context = s} /></SettingsProvider>);
+      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+
+      act(() => { context.bulkUpdateIqamahOffsets(25); });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('fajr-offset').textContent).toBe('25');
+        expect(screen.getByTestId('sunrise-offset').textContent).toBe('0');
+        expect(screen.getByTestId('dhuhr-offset').textContent).toBe('25');
+        expect(screen.getByTestId('asr-offset').textContent).toBe('25');
+        expect(screen.getByTestId('maghrib-offset').textContent).toBe('25');
+        expect(screen.getByTestId('isha-offset').textContent).toBe('25');
+      });
+    });
+
+    it('should preserve iqamahOverride boolean (Safe Mode)', async () => {
+      fetch.mockImplementation(iqamahFetchMock);
+      let context;
+      render(<SettingsProvider><IqamahTestComponent callback={(s) => context = s} /></SettingsProvider>);
+      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+
+      act(() => { context.bulkUpdateIqamahOffsets(30); });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('isha-override').textContent).toBe('true');
+      });
+    });
+
+    it('should clamp values to 0-60 range', async () => {
+      fetch.mockImplementation(iqamahFetchMock);
+      let context;
+      render(<SettingsProvider><IqamahTestComponent callback={(s) => context = s} /></SettingsProvider>);
+      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+
+      act(() => { context.bulkUpdateIqamahOffsets(100); });
+      await waitFor(() => {
+        expect(screen.getByTestId('fajr-offset').textContent).toBe('60');
+      });
+
+      act(() => { context.bulkUpdateIqamahOffsets(-5); });
+      await waitFor(() => {
+        expect(screen.getByTestId('fajr-offset').textContent).toBe('0');
+      });
+    });
+
+    it('should handle NaN input gracefully', async () => {
+      fetch.mockImplementation(iqamahFetchMock);
+      let context;
+      render(<SettingsProvider><IqamahTestComponent callback={(s) => context = s} /></SettingsProvider>);
+      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+
+      act(() => { context.bulkUpdateIqamahOffsets('abc'); });
+      await waitFor(() => {
+        expect(screen.getByTestId('fajr-offset').textContent).toBe('0');
+      });
+    });
+
+    it('should return 0 count when draftConfig is null', async () => {
+      fetch.mockImplementation(async () => mockResponse(null));
+      let context;
+      render(<SettingsProvider><IqamahTestComponent callback={(s) => context = s} /></SettingsProvider>);
+      await waitFor(() => expect(screen.getByTestId('loading')).toBeDefined());
+
+      const count = context.bulkUpdateIqamahOffsets(10);
+      expect(count).toBe(0);
+    });
+  });
 });
