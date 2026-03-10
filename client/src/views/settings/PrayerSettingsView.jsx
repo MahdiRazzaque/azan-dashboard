@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
-import { useSettings } from '@/hooks/useSettings';
-import TriggerCard from '@/components/settings/TriggerCard';
-import IqamahTimingCard from '@/components/settings/IqamahTimingCard';
-import { validateTrigger } from '@/utils/validation';
-import { AlertTriangle, Save, CheckCircle, XCircle, Info } from 'lucide-react';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { useState, useEffect } from "react";
+import { useSettings } from "@/hooks/useSettings";
+import TriggerCard from "@/components/settings/TriggerCard";
+import IqamahTimingCard from "@/components/settings/IqamahTimingCard";
+import { Clock, AlertTriangle, Info } from "lucide-react";
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 /**
  * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
@@ -28,12 +27,7 @@ export default function PrayerSettingsView() {
         draftConfig, 
         config,
         updateSetting, 
-        saveSettings, 
-        saving,
-        isSectionDirty,
         getSectionHealth,
-        resetDraft,
-        systemHealth,
         providers
     } = useSettings();
     const [activeTab, setActiveTab] = useState('fajr');
@@ -41,8 +35,6 @@ export default function PrayerSettingsView() {
     const [strategies, setStrategies] = useState([]);
     
     // Local state for UI only
-    const [validationErrors, setValidationErrors] = useState({});
-    const [notification, setNotification] = useState(null);
 
     useEffect(() => {
         // Fetch audio files for the dropdowns
@@ -64,15 +56,6 @@ export default function PrayerSettingsView() {
             .catch(err => console.error("Failed to fetch output strategies", err));
     }, []);
 
-    // Auto-dismiss notification
-    useEffect(() => {
-        if (notification) {
-            const timer = setTimeout(() => {
-                setNotification(null);
-            }, 5000);
-            return () => clearTimeout(timer);
-        }
-    }, [notification]);
 
     if (!draftConfig) {
         return <div className="p-8 text-app-dim">Loading settings...</div>;
@@ -90,15 +73,6 @@ export default function PrayerSettingsView() {
 
     // Handler for Automation Triggers
     const updateTrigger = (triggerName, newTriggerData) => {
-        // Clear error for this trigger if any when user edits
-        if (validationErrors[`${activeTab}-${triggerName}`]) {
-            setValidationErrors(prev => {
-                const next = { ...prev };
-                delete next[`${activeTab}-${triggerName}`];
-                return next;
-            });
-        }
-
         updateSetting(`automation.triggers.${activeTab}.${triggerName}`, newTriggerData);
     };
 
@@ -129,116 +103,9 @@ export default function PrayerSettingsView() {
     };
 
 
-    const handleSave = async () => {
-        setNotification(null);
-        setValidationErrors({});
-        
-        let hasErrors = false;
-        const newErrors = {};
-        const configToSave = JSON.parse(JSON.stringify(localConfig));
-        const errorsList = [];
-
-
-
-        for (const prayer of PRAYERS) {
-            const prayerTriggers = configToSave.automation.triggers[prayer];
-            const triggerTypes = prayer === 'sunrise' 
-                ? ['preAdhan', 'adhan'] 
-                : ['preAdhan', 'adhan', 'preIqamah', 'iqamah'];
-
-            for (const type of triggerTypes) {
-                const trigger = prayerTriggers[type];
-                const error = await validateTrigger(trigger);
-                if (error) {
-                    hasErrors = true;
-                    newErrors[`${prayer}-${type}`] = error;
-                    trigger.enabled = false;
-                    errorsList.push(`${prayer} ${type}: ${error}`);
-                } else if (trigger.enabled) {
-                    // Extra Service Availability Checks
-                    if (trigger.type === 'tts' && (!systemHealth.tts || !systemHealth.tts.healthy)) {
-                        hasErrors = true;
-                        const msg = "TTS Service is offline";
-                        newErrors[`${prayer}-${type}`] = msg;
-                        trigger.enabled = false;
-                        errorsList.push(`${prayer} ${type}: ${msg}`);
-                    }
-                    
-                    (trigger.targets || []).forEach(targetId => {
-                        if (targetId === 'browser') return;
-                        
-                        const health = systemHealth[targetId];
-                        const outputConfig = localConfig.automation?.outputs?.[targetId];
-                        const strategy = strategies.find(s => s.id === targetId);
-                        const label = strategy?.label || targetId;
-
-                        if (outputConfig && !outputConfig.enabled) {
-                            hasErrors = true;
-                            const msg = `${label} output is disabled`;
-                            newErrors[`${prayer}-${type}`] = msg;
-                            trigger.enabled = false;
-                            errorsList.push(`${prayer} ${type}: ${msg}`);
-                        } else if (!health || !health.healthy) {
-                            hasErrors = true;
-                            const msg = `${label} output is offline`;
-                            newErrors[`${prayer}-${type}`] = msg;
-                            trigger.enabled = false;
-                            errorsList.push(`${prayer} ${type}: ${msg}`);
-                        }
-                    });
-                }
-            }
-        }
-
-        if (hasErrors) {
-            setValidationErrors(newErrors);
-            // setLocalConfig(configToSave); // Removed
-            setNotification({
-                type: 'error',
-                message: 'Some automations were invalid and have been disabled.',
-                details: errorsList
-            });
-        }
-
-        try {
-            const result = await saveSettings(configToSave);
-            if (result.success) {
-                if (!hasErrors) {
-                    setNotification({ type: 'success', message: 'Configuration saved successfully.' });
-                }
-            } else {
-                 setNotification({ type: 'error', message: result.error || 'Failed to save configuration to server.' });
-            }
-        } catch (e) {
-            console.error(e);
-            setNotification({ type: 'error', message: 'An error occurred while saving.' });
-        }
-    };
-
-    const isDirty = isSectionDirty('prayers') || isSectionDirty('automation.triggers');
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-12 relative">
-            {/* Notification Toast */}
-            {notification && (
-                <div className={`fixed top-6 left-1/2 -translate-x-1/2 lg:left-[calc(50%+8rem)] p-4 rounded-lg shadow-xl border backdrop-blur-md max-w-md w-[90%] z-50 animate-in slide-in-from-top-5 ${
-                    notification.type === 'success' 
-                    ? 'bg-emerald-900/90 border-emerald-700/50 text-emerald-100' 
-                    : 'bg-red-900/90 border-red-700/50 text-red-100'
-                }`}>
-                    <div className="flex gap-3">
-                        {notification.type === 'success' ? <CheckCircle className="w-5 h-5 shrink-0" /> : <XCircle className="w-5 h-5 shrink-0" />}
-                        <div>
-                            <h4 className="font-semibold">{notification.message}</h4>
-                            {notification.details && (
-                                <ul className="mt-1 text-sm list-disc list-inside opacity-90 space-y-0.5">
-                                    {notification.details.map((d, i) => <li key={i}>{d}</li>)}
-                                </ul>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -246,25 +113,12 @@ export default function PrayerSettingsView() {
                     <p className="text-app-dim">Configure timing rules and automation triggers for each prayer.</p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center gap-3">
-                    {isDirty && (
-                        <button
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-bold text-sm shadow-lg shadow-orange-900/20 transition-all animate-in fade-in zoom-in-95"
-                        >
-                            <Save className={cn("w-4 h-4", saving && "animate-spin")} />
-                            {saving ? 'Saving...' : 'Save Changes'}
-                        </button>
-                    )}
-
-                    <div className="flex items-start gap-3 px-3 py-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg text-[10px] text-app-dim max-w-sm md:max-w-[240px]">
+                <div className="flex items-start gap-3 px-3 py-2 bg-emerald-500/5 border border-emerald-500/10 rounded-lg text-[10px] text-app-dim max-w-sm md:max-w-[240px]">
                         <Info className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
                         <p className="leading-tight font-medium">
                             Enabled automations are automatically broadcasted to all devices with the dashboard open.
                         </p>
                     </div>
-                </div>
             </div>
 
             {/* Navigation Pills */}
@@ -336,7 +190,6 @@ export default function PrayerSettingsView() {
                             onChange={d => updateTrigger('preAdhan', d)} 
                             files={audioFiles}
                             strategies={strategies}
-                            error={validationErrors[`${activeTab}-preAdhan`]}
                             isDirty={isTriggerDirty(activeTab, 'preAdhan')}
                         />
                         <TriggerCard 
@@ -346,7 +199,6 @@ export default function PrayerSettingsView() {
                             onChange={d => updateTrigger('adhan', d)} 
                             files={audioFiles}
                             strategies={strategies}
-                            error={validationErrors[`${activeTab}-adhan`]}
                             isDirty={isTriggerDirty(activeTab, 'adhan')}
                         />
                         
@@ -359,7 +211,6 @@ export default function PrayerSettingsView() {
                                     onChange={d => updateTrigger('preIqamah', d)} 
                                     files={audioFiles}
                             strategies={strategies}
-                                    error={validationErrors[`${activeTab}-preIqamah`]}
                                     isDirty={isTriggerDirty(activeTab, 'preIqamah')}
                                 />
                                 <TriggerCard 
@@ -369,7 +220,6 @@ export default function PrayerSettingsView() {
                                     onChange={d => updateTrigger('iqamah', d)} 
                                     files={audioFiles}
                             strategies={strategies}
-                                    error={validationErrors[`${activeTab}-iqamah`]}
                                     isDirty={isTriggerDirty(activeTab, 'iqamah')}
                                 />
                             </>

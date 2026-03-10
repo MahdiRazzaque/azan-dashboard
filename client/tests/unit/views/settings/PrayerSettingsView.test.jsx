@@ -3,16 +3,16 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import PrayerSettingsView from '../../../../src/views/settings/PrayerSettingsView';
 import { useSettings } from '../../../../src/hooks/useSettings';
-import * as validation from '../../../../src/utils/validation';
 
 vi.mock('../../../../src/hooks/useSettings');
-vi.mock('../../../../src/utils/validation');
-const mockTriggerCard = vi.fn(({ label, onChange, trigger, error, isDirty }) => (
+
+const mockTriggerCard = vi.fn(({ label, onChange, trigger, extraContent, error, isDirty }) => (
   <div data-testid={`trigger-card-${label.replace(/\s+/g, '-').toLowerCase()}`}>
       <span data-testid="card-label">{label}</span>
       {isDirty && <span data-testid="dirty-indicator">Dirty</span>}
       {error && <span data-testid="error-message">{error}</span>}
       <button onClick={() => onChange({ ...trigger, enabled: !trigger.enabled })}>Toggle</button>
+      <div data-testid="extra-content">{extraContent}</div>
   </div>
 ));
 vi.mock('../../../../src/components/settings/TriggerCard', () => ({
@@ -23,10 +23,8 @@ const mockIqamahTimingCard = vi.fn(() => <div data-testid="iqamah-timing-card" /
 vi.mock('../../../../src/components/settings/IqamahTimingCard', () => ({
   default: (props) => mockIqamahTimingCard(props)
 }));
-
 describe('PrayerSettingsView', () => {
   const updateSetting = vi.fn();
-  const saveSettings = vi.fn();
   const getSectionHealth = vi.fn();
   const config = {
     sources: { primary: { type: 'aladhan' } },
@@ -64,11 +62,9 @@ describe('PrayerSettingsView', () => {
       draftConfig: JSON.parse(JSON.stringify(config)),
       config,
       updateSetting,
-      saveSettings,
       loading: false,
       isSectionDirty: vi.fn().mockReturnValue(false),
       getSectionHealth: getSectionHealth.mockReturnValue({ healthy: true, issues: [] }),
-      systemHealth: { tts: { healthy: true }, voicemonkey: { healthy: true } },
       providers: [{ id: 'aladhan', capabilities: { providesIqamah: true } }]
     });
     
@@ -78,7 +74,6 @@ describe('PrayerSettingsView', () => {
         return Promise.reject(new Error('Unknown API'));
     }));
 
-    validation.validateTrigger.mockResolvedValue(null);
   });
 
   it('should render correctly and fetch initial data', async () => {
@@ -103,7 +98,7 @@ describe('PrayerSettingsView', () => {
     expect(screen.getAllByTestId(/trigger-card-/).length).toBe(2);
   });
 
-  it('should handle trigger updates and clear validation errors', async () => {
+  it('should handle trigger updates', async () => {
     await act(async () => {
         render(<PrayerSettingsView />);
     });
@@ -211,205 +206,37 @@ describe('PrayerSettingsView', () => {
     expect(screen.getByText('Connection Error')).toBeDefined();
   });
 
-  it('should clear notification timer on unmount', async () => {
-    const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
-    useSettings.mockReturnValue({ ...useSettings(), isSectionDirty: () => true });
-    
-    let unmount;
-    await act(async () => {
-        const result = render(<PrayerSettingsView />);
-        unmount = result.unmount;
+  it('should NOT render a local Save Changes button (save is handled globally)', async () => {
+    useSettings.mockReturnValue({
+        ...useSettings(),
+        isSectionDirty: () => true
     });
 
-    // Trigger notification
-    saveSettings.mockResolvedValue({ success: true });
-    
     await act(async () => {
-        fireEvent.click(screen.getByText('Save Changes'));
+        render(<PrayerSettingsView />);
     });
 
-    expect(screen.getByText('Configuration saved successfully.')).toBeDefined();
-
-    unmount();
-    expect(clearTimeoutSpy).toHaveBeenCalled();
-    clearTimeoutSpy.mockRestore();
+    expect(screen.queryByText('Save Changes')).toBeNull();
+    expect(screen.queryByText('Saving...')).toBeNull();
   });
 
-  describe('handleSave', () => {
-    it('should save successfully when everything is valid', async () => {
-      saveSettings.mockResolvedValue({ success: true });
-      useSettings.mockReturnValue({
-          ...useSettings(),
-          isSectionDirty: () => true
-      });
-
-      await act(async () => {
-          render(<PrayerSettingsView />);
-      });
-      
-      const saveButton = screen.getByText('Save Changes');
-      await act(async () => {
-          fireEvent.click(saveButton);
-      });
-
-      expect(saveSettings).toHaveBeenCalled();
-      expect(screen.getByText('Configuration saved successfully.')).toBeDefined();
+  it('should NOT render notification toasts (no local save/validation)', async () => {
+    await act(async () => {
+        render(<PrayerSettingsView />);
     });
 
-    it('should show error when validation fails', async () => {
-      validation.validateTrigger.mockResolvedValueOnce('Invalid offset');
-      useSettings.mockReturnValue({
-          ...useSettings(),
-          isSectionDirty: () => true
-      });
-
-      await act(async () => {
-          render(<PrayerSettingsView />);
-      });
-      
-      const saveButton = screen.getByText('Save Changes');
-      await act(async () => {
-          fireEvent.click(saveButton);
-      });
-
-      expect(screen.getByText('Some automations were invalid and have been disabled.')).toBeDefined();
-      expect(screen.getByText(/fajr preAdhan: Invalid offset/i)).toBeDefined();
-    });
-
-    it('should show error when TTS service is offline and trigger uses TTS', async () => {
-      const configWithTTS = JSON.parse(JSON.stringify(config));
-      configWithTTS.automation.triggers.fajr.preAdhan.type = 'tts';
-      configWithTTS.automation.triggers.fajr.preAdhan.enabled = true;
-      
-      useSettings.mockReturnValue({
-          ...useSettings(),
-          draftConfig: configWithTTS,
-          isSectionDirty: () => true,
-          systemHealth: { tts: { healthy: false } }
-      });
-
-      await act(async () => {
-          render(<PrayerSettingsView />);
-      });
-      
-      const saveButton = screen.getByText('Save Changes');
-      await act(async () => {
-          fireEvent.click(saveButton);
-      });
-
-      expect(screen.getByText(/fajr preAdhan: TTS Service is offline/i)).toBeDefined();
-    });
-
-    it('should show error when output is offline', async () => {
-        const configWithOutput = JSON.parse(JSON.stringify(config));
-        configWithOutput.automation.triggers.fajr.preAdhan.targets = ['voicemonkey'];
-        configWithOutput.automation.triggers.fajr.preAdhan.enabled = true;
-        
-        useSettings.mockReturnValue({
-            ...useSettings(),
-            draftConfig: configWithOutput,
-            isSectionDirty: () => true,
-            systemHealth: { tts: { healthy: true }, voicemonkey: { healthy: false } }
-        });
-  
-        await act(async () => {
-            render(<PrayerSettingsView />);
-        });
-        
-        const saveButton = screen.getByText('Save Changes');
-        await act(async () => {
-            fireEvent.click(saveButton);
-        });
-  
-        expect(screen.getByText(/fajr preAdhan: VoiceMonkey output is offline/i)).toBeDefined();
-    });
-
-    it('should show error when output is disabled', async () => {
-        const configWithOutput = JSON.parse(JSON.stringify(config));
-        configWithOutput.automation.triggers.fajr.preAdhan.targets = ['voicemonkey'];
-        configWithOutput.automation.triggers.fajr.preAdhan.enabled = true;
-        configWithOutput.automation.outputs = { voicemonkey: { enabled: false } };
-        
-        useSettings.mockReturnValue({
-            ...useSettings(),
-            draftConfig: configWithOutput,
-            isSectionDirty: () => true,
-            systemHealth: { tts: { healthy: true }, voicemonkey: { healthy: true } }
-        });
-  
-        await act(async () => {
-            render(<PrayerSettingsView />);
-        });
-        
-        const saveButton = screen.getByText('Save Changes');
-        await act(async () => {
-            fireEvent.click(saveButton);
-        });
-  
-        expect(screen.getByText(/fajr preAdhan: VoiceMonkey output is disabled/i)).toBeDefined();
-    });
-
-    it('should skip health check for browser target', async () => {
-        const configWithBrowser = JSON.parse(JSON.stringify(config));
-        configWithBrowser.automation.triggers.fajr.preAdhan.targets = ['browser'];
-        configWithBrowser.automation.triggers.fajr.preAdhan.enabled = true;
-        
-        saveSettings.mockResolvedValue({ success: true });
-        useSettings.mockReturnValue({
-            ...useSettings(),
-            draftConfig: configWithBrowser,
-            isSectionDirty: () => true
-        });
-  
-        await act(async () => {
-            render(<PrayerSettingsView />);
-        });
-        
-        const saveButton = screen.getByText('Save Changes');
-        await act(async () => {
-            fireEvent.click(saveButton);
-        });
-  
-        expect(saveSettings).toHaveBeenCalled();
-        expect(screen.getByText('Configuration saved successfully.')).toBeDefined();
-    });
-
-    it('should handle server save failure', async () => {
-        saveSettings.mockResolvedValue({ success: false, error: 'Database error' });
-        useSettings.mockReturnValue({
-            ...useSettings(),
-            isSectionDirty: () => true
-        });
-  
-        await act(async () => {
-            render(<PrayerSettingsView />);
-        });
-        
-        const saveButton = screen.getByText('Save Changes');
-        await act(async () => {
-            fireEvent.click(saveButton);
-        });
-  
-        expect(screen.getByText('Database error')).toBeDefined();
-    });
-
-    it('should handle unexpected errors during save', async () => {
-        saveSettings.mockRejectedValue(new Error('Network crash'));
-        useSettings.mockReturnValue({
-            ...useSettings(),
-            isSectionDirty: () => true
-        });
-  
-        await act(async () => {
-            render(<PrayerSettingsView />);
-        });
-        
-        const saveButton = screen.getByText('Save Changes');
-        await act(async () => {
-            fireEvent.click(saveButton);
-        });
-  
-        expect(screen.getByText('An error occurred while saving.')).toBeDefined();
-    });
+    // No notification elements should be present at all
+    expect(screen.queryByText('Configuration saved successfully.')).toBeNull();
+    expect(screen.queryByText('Some automations were invalid and have been disabled.')).toBeNull();
   });
-});
+
+  it('should NOT pass error props to TriggerCards', async () => {
+    await act(async () => {
+        render(<PrayerSettingsView />);
+    });
+
+    // No error-message test IDs should be rendered in any TriggerCard
+    expect(screen.queryAllByTestId('error-message')).toHaveLength(0);
+  });
+
+  });
