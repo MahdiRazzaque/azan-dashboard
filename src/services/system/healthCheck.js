@@ -16,12 +16,11 @@ function init() {
     if (healthCache) return;
 
     healthCache = {
-        local: { healthy: true, message: 'Online' }, // Added local health
-        tts: { healthy: false, message: 'Initialising...' },
-        primarySource: { healthy: false, message: 'Initialising...' },
-        backupSource: { healthy: false, message: 'Initialising...' },
-        ports: { api: process.env.PORT || 3000, tts: 8000 },
-        lastChecked: null
+        local: { healthy: true, message: 'Online', lastChecked: null },
+        tts: { healthy: false, message: 'Initialising...', lastChecked: null },
+        primarySource: { healthy: false, message: 'Initialising...', lastChecked: null },
+        backupSource: { healthy: false, message: 'Initialising...', lastChecked: null },
+        ports: { api: process.env.PORT || 3000, tts: 8000 }
     };
 
     // Dynamically add strategy keys to healthCache for non-hidden outputs
@@ -30,7 +29,7 @@ function init() {
         if (Array.isArray(strategies)) {
             strategies.forEach(meta => {
                 if (!meta.hidden) {
-                    healthCache[meta.id] = { healthy: false, message: 'Initialising...' };
+                    healthCache[meta.id] = { healthy: false, message: 'Initialising...', lastChecked: null };
                 }
             });
         }
@@ -175,18 +174,18 @@ async function refresh(target = 'all', params = null, { force = false } = {}) {
             targets.push(target);
         }
 
+        const now = new Date().toISOString();
         const promises = targets.map(t => 
             _refreshTarget(t, params, { force })
-                .then(res => updates[t] = res)
+                .then(res => updates[t] = { ...res, lastChecked: now })
         );
 
         await Promise.all(promises);
 
-        // Update cache
+        // Update cache — per-service lastChecked, no global timestamp
         healthCache = { 
             ...healthCache, 
-            ...updates, 
-            lastChecked: new Date().toISOString() 
+            ...updates
         };
 
         // Refresh ports

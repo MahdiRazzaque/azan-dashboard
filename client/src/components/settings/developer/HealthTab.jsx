@@ -118,7 +118,7 @@ export default function HealthTab({ config, systemHealth, refreshHealth, refresh
                         id={service.id}
                         label={service.label}
                         status={service.id === 'api' ? 'online' : (systemHealth[service.id]?.healthy ? 'online' : 'offline')}
-                        lastChecked={systemHealth.lastChecked}
+                        lastChecked={systemHealth[service.id]?.lastChecked}
                         canToggle={true}
                         enabled={healthChecks[service.id] === true}
                         onToggle={(val) => handleToggle(service.id, val)}
@@ -139,7 +139,7 @@ export default function HealthTab({ config, systemHealth, refreshHealth, refresh
                     id="primarySource"
                     label={`Primary: ${config.sources.primary?.type || 'Not Set'}`}
                     status={systemHealth.primarySource?.healthy ? 'online' : 'offline'}
-                    lastChecked={systemHealth.lastChecked}
+                    lastChecked={systemHealth.primarySource?.lastChecked}
                     enabled={healthChecks.primarySource === true}
                     onToggle={(val) => handleToggle('primarySource', val)}
                     onRefresh={() => handleForceRefresh('primarySource')}
@@ -152,7 +152,7 @@ export default function HealthTab({ config, systemHealth, refreshHealth, refresh
                         id="backupSource"
                         label={`Backup: ${config.sources.backup?.type}`}
                         status={config.sources.backup.enabled === false ? 'disabled' : (systemHealth.backupSource?.healthy ? 'online' : 'offline')}
-                        lastChecked={systemHealth.lastChecked}
+                        lastChecked={systemHealth.backupSource?.lastChecked}
                         enabled={healthChecks.backupSource === true}
                         onToggle={(val) => handleToggle('backupSource', val)}
                         onRefresh={() => handleForceRefresh('backupSource')}
@@ -174,7 +174,7 @@ export default function HealthTab({ config, systemHealth, refreshHealth, refresh
                         id={output.id}
                         label={output.label}
                         status={config.automation?.outputs?.[output.id]?.enabled === false ? 'disabled' : (systemHealth[output.id]?.healthy ? 'online' : 'offline')}
-                        lastChecked={systemHealth.lastChecked}
+                        lastChecked={systemHealth[output.id]?.lastChecked}
                         enabled={healthChecks[output.id] === true}
                         onToggle={(val) => handleToggle(output.id, val)}
                         onRefresh={() => handleForceRefresh(output.id)}
@@ -221,7 +221,7 @@ function HealthCard({ title, icon, children }) {
  * @param {Object} props - The component properties.
  * @param {string} props.label - The display name of the service.
  * @param {string} props.status - The current operational status (e.g., 'online', 'offline').
- * @param {string} props.lastChecked - ISO timestamp of the last successful health check.
+ * @param {string|null} props.lastChecked - ISO timestamp of this service's last health check, or null if never checked.
  * @param {boolean} props.enabled - Whether automated monitoring is active for this row.
  * @param {boolean} [props.canToggle=true] - Whether the user can enable/disable monitoring.
  * @param {Function} props.onToggle - Callback when the toggle switch is flipped.

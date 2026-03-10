@@ -27,12 +27,11 @@ describe('HealthTab', () => {
     };
 
     const mockSystemHealth = {
-        lastChecked: '2026-02-04T12:00:00Z',
-        api: { healthy: true, message: 'Healthy' },
-        tts: { healthy: false, message: 'Unreachable' },
-        primarySource: { healthy: true, message: 'Healthy' },
-        backupSource: { healthy: true, message: 'Healthy' },
-        alexa: { healthy: true, message: 'Healthy' }
+        api: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T12:00:00Z' },
+        tts: { healthy: false, message: 'Unreachable', lastChecked: '2026-02-04T12:00:00Z' },
+        primarySource: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T12:00:00Z' },
+        backupSource: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T12:00:00Z' },
+        alexa: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T12:00:00Z' }
     };
 
     const refreshHealth = vi.fn();
@@ -364,5 +363,51 @@ describe('HealthTab', () => {
         });
 
         expect(screen.getByText(/Unreachable \/ Offline/)).toBeDefined();
+    });
+
+    it('should display per-service lastChecked timestamps, not global', async () => {
+        const perServiceHealth = {
+            api: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T12:00:00Z' },
+            tts: { healthy: false, message: 'Unreachable', lastChecked: '2026-02-04T10:00:00Z' },
+            primarySource: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T08:00:00Z' },
+            backupSource: { healthy: true, message: 'Healthy', lastChecked: null },
+            alexa: { healthy: true, message: 'Healthy', lastChecked: '2026-02-04T14:00:00Z' }
+        };
+
+        fetch.mockImplementation((url) => {
+            if (url === '/api/system/services/registry') {
+                return Promise.resolve({
+                    json: () => Promise.resolve([
+                        { id: 'api', label: 'API Server' },
+                        { id: 'tts', label: 'TTS Service' }
+                    ])
+                });
+            }
+            if (url === '/api/system/outputs/registry') {
+                return Promise.resolve({
+                    json: () => Promise.resolve([
+                        { id: 'alexa', label: 'Alexa Output' }
+                    ])
+                });
+            }
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+        });
+
+        await act(async () => {
+            render(<HealthTab config={mockConfig} systemHealth={perServiceHealth} refreshHealth={refreshHealth} refresh={refresh} />);
+        });
+
+        // TTS was checked at 10:00 — its row should show TTS's own lastChecked
+        const ttsTime = new Date('2026-02-04T10:00:00Z').toLocaleTimeString();
+        expect(screen.getByText(new RegExp(ttsTime))).toBeDefined();
+
+        // API was checked at 12:00
+        const apiTime = new Date('2026-02-04T12:00:00Z').toLocaleTimeString();
+        expect(screen.getByText(new RegExp(apiTime))).toBeDefined();
+
+        // Backup source has lastChecked: null — should NOT show a Last Checked time
+        // (backupSource row should not contain 'Last Checked')
+        const backupRow = screen.getByText('Backup: Local').closest('div[class*="flex items-center justify-between"]');
+        expect(backupRow.textContent).not.toContain('Last Checked');
     });
 });

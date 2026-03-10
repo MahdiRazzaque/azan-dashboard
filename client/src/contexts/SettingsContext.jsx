@@ -117,19 +117,20 @@ export const SettingsProvider = ({ children }) => {
       // 1. Initial Load of Global Data (Settings)
       // We always fetch settings when authentication state changes to ensure
       // we have the correct level of detail (public vs admin/secrets).
-      // Note: Health checks are NOT triggered on page load. They only occur:
-      //   - At server startup (runStartupChecks)
-      //   - Daily at midnight for services with health monitoring enabled
-      //   - On manual refresh via the UI
       fetchSettings();
-      
-      // 2. Load Authenticated-only Data (Voices & Providers)
+
+      // 2. Fetch cached health state from backend (no auth required)
+      // This reads the existing server-side health cache (populated at startup)
+      // without triggering new health checks. Ensures UI reflects actual state.
+      fetchHealth();
+
+      // 3. Load Authenticated-only Data (Voices & Providers)
       if (isAuthenticated) {
         fetchVoices();
         fetchProviders();
       }
     }
-  }, [isAuthenticated, pausedPolling, fetchSettings, fetchVoices, fetchProviders]);
+  }, [isAuthenticated, pausedPolling, fetchSettings, fetchHealth, fetchVoices, fetchProviders]);
 
 
   const refreshHealth = useCallback(async (target = 'all', mode = 'silent') => {
