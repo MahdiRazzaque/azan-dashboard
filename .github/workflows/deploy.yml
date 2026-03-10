@@ -7,22 +7,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:          
-          - project_path: "/home/ubuntu/azan.home.kg"
-            app_port: 3005
-            project_name: "azan-dashboard-1"
-            base_url: "https://azan.home.kg"
-
-          - project_path: "/home/ubuntu/azan-dashboard.home.kg"
-            app_port: 3010
-            project_name: "azan-dashboard-2"
-            base_url: "https://azan-dashboard.home.kg"
 
     steps:
-      - name: Deploy to ${{ matrix.project_path }}
+      - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
@@ -33,10 +20,10 @@ jobs:
             # Stop on error
             set -e
             
-            echo "🚀 Starting deployment for: ${{ matrix.project_path }} on Port ${{ matrix.app_port }}"
+            echo "🚀 Starting deployment"
             
             # 1. Navigate
-            cd ${{ matrix.project_path }}
+            cd ${{ secrets.PROJECT_PATH }}
 
             # 2. FIX GIT LOCKS
             if [ -f .git/index.lock ]; then rm -f .git/index.lock; fi
@@ -49,19 +36,19 @@ jobs:
             # 4. Persist Environment Variables
             touch .env
             sed -i '/^APP_PORT=/d' .env
-            echo "APP_PORT=${{ matrix.app_port }}" >> .env
+            echo "APP_PORT=${{ secrets.APP_PORT }}" >> .env
             
             sed -i '/^COMPOSE_PROJECT_NAME=/d' .env
-            echo "COMPOSE_PROJECT_NAME=${{ matrix.project_name }}" >> .env
+            echo "COMPOSE_PROJECT_NAME=${{ secrets.COMPOSE_PROJECT_NAME }}" >> .env
 
             # Update App Config
             mkdir -p config
             touch config/.env
             sed -i '/^BASE_URL=/d' config/.env
-            echo "BASE_URL=${{ matrix.base_url }}" >> config/.env
+            echo "BASE_URL=${{ secrets.BASE_URL }}" >> config/.env
 
-            # 5. Deploy (Updated Command)
-            docker compose --env-file .env -p ${{ matrix.project_name }} -f docker/docker-compose.yml -f docker/docker-compose.audio.yml up -d --build
+            # 5. Deploy
+            docker compose --env-file .env -p ${{ secrets.COMPOSE_PROJECT_NAME }} -f docker/docker-compose.yml -f docker/docker-compose.audio.yml up -d --build
 
             # 6. Cleanup & Reload Nginx
             docker image prune -f
