@@ -242,8 +242,8 @@ describe('SettingsContext Ultimate Coverage', () => {
       render(<SettingsProvider><IqamahTestComponent callback={(s) => context = s} /></SettingsProvider>);
       await waitFor(() => expect(screen.getByTestId('loading')).toBeDefined());
 
-      act(() => { context.bulkUpdateIqamahOffsets(10); });
-      // count is mutated inside setState callback; not reliably returned synchronously in React 18
+      const count = context.bulkUpdateIqamahOffsets(10);
+      expect(count).toBe(0);
     });
   });
 });
