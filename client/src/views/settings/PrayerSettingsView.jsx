@@ -311,6 +311,7 @@ export default function PrayerSettingsView() {
             {/* Iqamah Timing Card */}
             {activeTab !== 'sunrise' && (
                 <IqamahTimingCard
+                    key={activeTab}
                     activeTab={activeTab}
                     currentPrayerSettings={currentPrayerSettings}
                     updatePrayerConfig={updatePrayerConfig}
