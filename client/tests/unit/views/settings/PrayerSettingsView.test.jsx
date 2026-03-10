@@ -7,15 +7,17 @@ import * as validation from '../../../../src/utils/validation';
 
 vi.mock('../../../../src/hooks/useSettings');
 vi.mock('../../../../src/utils/validation');
-vi.mock('../../../../src/components/settings/TriggerCard', () => ({ 
-  default: ({ label, onChange, trigger, error, isDirty }) => (
-    <div data-testid={`trigger-card-${label.replace(/\s+/g, '-').toLowerCase()}`}>
-        <span data-testid="card-label">{label}</span>
-        {isDirty && <span data-testid="dirty-indicator">Dirty</span>}
-        {error && <span data-testid="error-message">{error}</span>}
-        <button onClick={() => onChange({ ...trigger, enabled: !trigger.enabled })}>Toggle</button>
-    </div>
-) }));
+const mockTriggerCard = vi.fn(({ label, onChange, trigger, error, isDirty }) => (
+  <div data-testid={`trigger-card-${label.replace(/\s+/g, '-').toLowerCase()}`}>
+      <span data-testid="card-label">{label}</span>
+      {isDirty && <span data-testid="dirty-indicator">Dirty</span>}
+      {error && <span data-testid="error-message">{error}</span>}
+      <button onClick={() => onChange({ ...trigger, enabled: !trigger.enabled })}>Toggle</button>
+  </div>
+));
+vi.mock('../../../../src/components/settings/TriggerCard', () => ({
+  default: (props) => mockTriggerCard(props)
+}));
 
 const mockIqamahTimingCard = vi.fn(() => <div data-testid="iqamah-timing-card" />);
 vi.mock('../../../../src/components/settings/IqamahTimingCard', () => ({
@@ -171,6 +173,13 @@ describe('PrayerSettingsView', () => {
     
     const iqamahCard = screen.getByTestId('trigger-card-4.-iqamah');
     expect(iqamahCard).toBeDefined();
+
+    // Verify the iqamah TriggerCard was not called with an extraContent prop
+    const iqamahCall = mockTriggerCard.mock.calls.find(
+        ([props]) => props.label === '4. Iqamah'
+    );
+    expect(iqamahCall).toBeDefined();
+    expect(iqamahCall[0]).not.toHaveProperty('extraContent');
   });
 
   it('should handle fetch errors gracefully', async () => {

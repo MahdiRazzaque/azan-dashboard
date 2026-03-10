@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, AlertTriangle, CheckCircle, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -33,12 +33,9 @@ export default function IqamahTimingCard({
 }) {
     const [isCollapsed, setIsCollapsed] = useState(true);
 
-    const [prevTab, setPrevTab] = useState(activeTab);
-
-    if (activeTab !== prevTab) {
-        setPrevTab(activeTab);
+    useEffect(() => {
         setIsCollapsed(true);
-    }
+    }, [activeTab]);
 
     if (activeTab === 'sunrise') return null;
 
