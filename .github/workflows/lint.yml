@@ -3,6 +3,13 @@ name: CI - Linting
 on:
   pull_request:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'client/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.config/eslint*'
+      - '.github/workflows/lint.yml'
   workflow_dispatch:
   workflow_call:
 
