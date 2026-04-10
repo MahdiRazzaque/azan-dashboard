@@ -13,7 +13,8 @@ export const useTour = () => {
     if (driverInstance?.isActive()) {
       try {
         driverInstance.destroy();
-      } catch (error) {
+      } catch {
+        // driver.js may throw during destroy if already cleaned up — safe to ignore
       }
     }
 
