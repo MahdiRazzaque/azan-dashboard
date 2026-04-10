@@ -147,12 +147,8 @@ class LocalOutput extends BaseOutput {
      */
     async healthCheck(requestedParams) {
         console.log('[Output: Local] Starting health check');
-        const ConfigService = require('../config');
-        const config = ConfigService.get();
 
-        const audioPlayer = (requestedParams && requestedParams.audioPlayer) ||
-                           config.automation?.outputs?.local?.params?.audioPlayer ||
-                           'mpg123';
+        const audioPlayer = (requestedParams && requestedParams.audioPlayer) || 'mpg123';
 
         if (!ALLOWED_AUDIO_PLAYERS.includes(audioPlayer)) {
             return { healthy: false, message: 'Invalid Audio Player' };

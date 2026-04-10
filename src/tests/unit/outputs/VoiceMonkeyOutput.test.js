@@ -1,7 +1,6 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const ConfigService = require('@config');
 const Bottleneck = require('bottleneck');
 
 // Mock bottleneck
@@ -23,7 +22,6 @@ jest.mock('fs', () => ({
     existsSync: jest.fn(),
     readFileSync: jest.fn()
 }));
-jest.mock('@config');
 
 describe('VoiceMonkeyOutput Comprehensive', () => {
     let VoiceMonkeyOutput;
@@ -36,16 +34,6 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         output = new VoiceMonkeyOutput();
-        ConfigService.get.mockReturnValue({
-            automation: {
-                baseUrl: 'https://test.com',
-                outputs: {
-                    voicemonkey: {
-                        params: { token: 't1', device: 'd1' }
-                    }
-                }
-            }
-        });
     });
 
     it('should return metadata', () => {
@@ -57,7 +45,7 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
         fs.promises.access.mockResolvedValue(undefined);
         fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: true } } }));
         axios.get.mockResolvedValue({ data: { success: true } });
-        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' } }, {});
+        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' }, params: { token: 't1', device: 'd1' }, baseUrl: 'https://test.com' }, {});
         expect(axios.get).toHaveBeenCalled();
     });
 
@@ -68,20 +56,18 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
     });
 
     it('should handle missing params in execute', async () => {
-        ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com' } });
-        await output.execute({ source: { url: '/t.mp3' } }, {});
+        await output.execute({ source: { url: '/t.mp3' }, baseUrl: 'https://ok.com' }, {});
         expect(axios.get).not.toHaveBeenCalled();
     });
 
     it('should handle trigger fail', async () => {
         axios.get.mockRejectedValue(new Error('Fail'));
-        await expect(output.execute({ source: { url: 'https://ok.com/t.mp3' } }, {})).rejects.toThrow();
+        await expect(output.execute({ source: { url: 'https://ok.com/t.mp3' }, params: { token: 't1', device: 'd1' }, baseUrl: 'https://test.com' }, {})).rejects.toThrow();
     });
 
     describe('execute edge cases', () => {
         it('should skip if baseUrl is not HTTPS', async () => {
-            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'http://insecure.com' } });
-            await output.execute({ source: { url: '/t.mp3' } }, {});
+            await output.execute({ source: { url: '/t.mp3' }, params: { token: 't1', device: 'd1' }, baseUrl: 'http://insecure.com' }, {});
             expect(axios.get).not.toHaveBeenCalled();
         });
 
@@ -89,44 +75,39 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
             const err = new Error('Aborted');
             err.name = 'AbortError';
             axios.get.mockRejectedValue(err);
-            await output.execute({ source: { url: 'https://ok.com/t.mp3' } }, {});
+            await output.execute({ source: { url: 'https://ok.com/t.mp3' }, params: { token: 't1', device: 'd1' }, baseUrl: 'https://test.com' }, {});
             // Should not throw
         });
 
         it('should handle missing token or device', async () => {
-            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: {} } } } });
-            await output.execute({ source: { url: '/t.mp3' } }, {});
+            await output.execute({ source: { url: '/t.mp3' }, params: {}, baseUrl: 'https://ok.com' }, {});
             expect(axios.get).not.toHaveBeenCalled();
         });
     });
 
     describe('healthCheck edge cases', () => {
         it('should return offline if baseUrl is not HTTPS', async () => {
-            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'http://insecure.com' } });
-            const result = await output.healthCheck();
+            const result = await output.healthCheck({ baseUrl: 'http://insecure.com', token: 't1' });
             expect(result.healthy).toBe(false);
             expect(result.message).toContain('HTTPS Base URL required');
         });
 
         it('should return offline if token is missing', async () => {
-            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: {} } } } });
-            const result = await output.healthCheck();
+            const result = await output.healthCheck({ baseUrl: 'https://ok.com' });
             expect(result.healthy).toBe(false);
             expect(result.message).toContain('Token Missing');
         });
 
         it('should handle API failure response', async () => {
-            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: { token: 't' } } } } });
             axios.get.mockResolvedValue({ data: { success: false, error: 'Some API Error' } });
-            const result = await output.healthCheck();
+            const result = await output.healthCheck({ baseUrl: 'https://ok.com', token: 't' });
             expect(result.healthy).toBe(false);
             expect(result.message).toBe('Some API Error');
         });
 
         it('should handle network error', async () => {
-            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: { token: 't' } } } } });
             axios.get.mockRejectedValue(new Error('Network Error'));
-            const result = await output.healthCheck();
+            const result = await output.healthCheck({ baseUrl: 'https://ok.com', token: 't' });
             expect(result.healthy).toBe(false);
             expect(result.message).toBe('Network Error');
         });
@@ -269,9 +250,8 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
 
     describe('healthCheck success', () => {
         it('should return healthy if API returns success', async () => {
-            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: { token: 't' } } } } });
             axios.get.mockResolvedValue({ data: { success: true } });
-            const result = await output.healthCheck();
+            const result = await output.healthCheck({ baseUrl: 'https://ok.com', token: 't' });
             expect(result.healthy).toBe(true);
             expect(result.message).toBe('Online');
         });
@@ -293,9 +273,8 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
         });
 
         it('should use token from payload params', async () => {
-            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com' } });
             axios.get.mockResolvedValue({ data: { success: true } });
-            await output.execute({ source: { url: '/t.mp3' }, params: { token: 'p-token', device: 'p-device' } }, {});
+            await output.execute({ source: { url: '/t.mp3' }, params: { token: 'p-token', device: 'p-device' }, baseUrl: 'https://ok.com' }, {});
             expect(axios.get).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
                 params: expect.objectContaining({ token: 'p-token' })
             }));
@@ -304,9 +283,8 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
 
     describe('healthCheck edge cases extra', () => {
         it('should handle missing error string in API failure', async () => {
-            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'https://ok.com', outputs: { voicemonkey: { params: { token: 't' } } } } });
             axios.get.mockResolvedValue({ data: { success: false } });
-            const result = await output.healthCheck();
+            const result = await output.healthCheck({ baseUrl: 'https://ok.com', token: 't' });
             expect(result.message).toBe('API Failure');
         });
     });

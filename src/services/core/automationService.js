@@ -178,9 +178,10 @@ const _getActiveTargets = (config, settings) => {
  * @param {number} masterLeadTime - The maximum lead time across all active targets.
  * @param {Object} payload - The execution payload.
  * @param {Object} executionMetadata - Metadata for the execution (e.g., isTest).
+ * @param {Object} config - The full application config for resolving per-target params.
  * @returns {Promise<void>} A promise that resolves when the target execution is finished.
  */
-const _executeTarget = async (target, masterLeadTime, payload, executionMetadata) => {
+const _executeTarget = async (target, masterLeadTime, payload, executionMetadata, config) => {
     const { targetId, leadTime } = target;
     try {
         const strategy = OutputFactory.getStrategy(targetId);
@@ -188,13 +189,18 @@ const _executeTarget = async (target, masterLeadTime, payload, executionMetadata
         
         const waitDelay = masterLeadTime - leadTime;
         const timeoutMs = metadata.timeoutMs || 5000;
+
+        const targetPayload = {
+            ...payload,
+            params: config.automation?.outputs?.[targetId]?.params
+        };
         
         await withTimeout(
             async (signal) => {
                 if (waitDelay > 0) {
                     await delay(waitDelay, signal);
                 }
-                return strategy.execute(payload, executionMetadata, signal);
+                return strategy.execute(targetPayload, executionMetadata, signal);
             },
             timeoutMs + waitDelay,
             `Strategy ${targetId} timed out after ${timeoutMs}ms`
@@ -240,7 +246,7 @@ const triggerEvent = async (prayer, event) => {
     const executionMetadata = { isTest: false };
 
     const promises = activeTargets.map(target => 
-        _executeTarget(target, masterLeadTime, payload, executionMetadata)
+        _executeTarget(target, masterLeadTime, payload, executionMetadata, config)
     );
 
     await Promise.allSettled(promises);

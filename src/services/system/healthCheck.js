@@ -140,6 +140,29 @@ async function _refreshTarget(target, params = null, { force = false } = {}) {
             if (Object.keys(strategyParams).length === 0) {
                 strategyParams = null;
             }
+        } else if (meta?.params) {
+            // No transient params provided — populate from stored config so
+            // output strategies don't need to import config themselves (avoids
+            // circular dependency: config → outputs → config).
+            const configParams = config.automation?.outputs?.[target]?.params;
+            if (configParams) {
+                strategyParams = {};
+                meta.params.forEach(p => {
+                    if (p.requiredForHealth && configParams[p.key] !== undefined) {
+                        strategyParams[p.key] = configParams[p.key];
+                    }
+                });
+                if (Object.keys(strategyParams).length === 0) {
+                    strategyParams = null;
+                }
+            }
+        }
+
+        // Inject global baseUrl so strategies don't need to read config directly.
+        if (strategyParams && config.automation?.baseUrl) {
+            strategyParams.baseUrl = config.automation.baseUrl;
+        } else if (!strategyParams && config.automation?.baseUrl) {
+            strategyParams = { baseUrl: config.automation.baseUrl };
         }
 
         return await strategy.healthCheck(strategyParams);

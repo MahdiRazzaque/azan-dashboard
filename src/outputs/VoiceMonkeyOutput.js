@@ -3,7 +3,6 @@ const axios = require('axios');
 const fs = require('fs').promises;
 const path = require('path');
 const Bottleneck = require('bottleneck');
-const ConfigService = require('../config');
 
 /**
  * Strategy for triggering audio playback via the VoiceMonkey API (Alexa).
@@ -83,14 +82,10 @@ class VoiceMonkeyOutput extends BaseOutput {
                 }
             }
 
-        const config = ConfigService.get();
-        // Prefer parameters provided in the trigger payload, then fall back to global config.
-        const token = (payload.params && payload.params.token) ||
-                      config.automation?.outputs?.voicemonkey?.params?.token;
-        const device = (payload.params && payload.params.device) ||
-                       config.automation?.outputs?.voicemonkey?.params?.device;
-
-        const baseUrl = payload.baseUrl || config.automation?.baseUrl;
+        // Caller (automationService / systemController) injects params & baseUrl into the payload.
+        const token = payload.params && payload.params.token;
+        const device = payload.params && payload.params.device;
+        const baseUrl = payload.baseUrl;
 
         // REQ-001: Alexa requires public URLs to be served over HTTPS.
         if (!baseUrl || !baseUrl.startsWith('https://')) {
@@ -139,11 +134,9 @@ class VoiceMonkeyOutput extends BaseOutput {
      */
     async healthCheck(requestedParams) {
         console.log('[Output: VoiceMonkey] Starting health check');
-        const config = ConfigService.get();
-        // Use provided token (e.g. during credential verification) or fallback to saved config
-        const token = (requestedParams && requestedParams.token) ||
-                      config.automation?.outputs?.voicemonkey?.params?.token;
-        const baseUrl = config.automation?.baseUrl;
+        // Caller (healthCheck.js) provides params from stored config.
+        const token = requestedParams && requestedParams.token;
+        const baseUrl = requestedParams && requestedParams.baseUrl;
 
         if (!baseUrl || !baseUrl.startsWith('https://')) {
             console.log('[Output: VoiceMonkey] Health: Offline (HTTPS Base URL required)');

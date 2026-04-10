@@ -653,7 +653,7 @@ const systemController = {
             }
 
             // Dynamic source from request (e.g., File Manager preview)
-            const payload = { params, source };
+            const payload = { params, source, baseUrl: currentConfig.automation?.baseUrl };
 
             await strategy.execute(payload, { isTest: true });
             res.json({ success: true });
