@@ -348,6 +348,36 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
         });
     });
 
+    describe('path containment guard', () => {
+        it('should skip execution when filePath escapes audio root via absolute path', async () => {
+            const spyWarn = jest.spyOn(console, 'warn').mockImplementation();
+            await output.execute(
+                { source: { url: '/t.mp3', filePath: '/etc/passwd' } },
+                {}
+            );
+            expect(axios.get).not.toHaveBeenCalled();
+            expect(spyWarn).toHaveBeenCalledWith(
+                expect.stringContaining('Skipped: filePath escapes audio root')
+            );
+            spyWarn.mockRestore();
+        });
+
+        it('should skip execution when filePath uses .. to traverse outside audio root', async () => {
+            const audioRoot = path.resolve(__dirname, '../../../../public/audio');
+            const escapingPath = path.join(audioRoot, '../../etc/shadow');
+            const spyWarn = jest.spyOn(console, 'warn').mockImplementation();
+            await output.execute(
+                { source: { url: '/t.mp3', filePath: escapingPath } },
+                {}
+            );
+            expect(axios.get).not.toHaveBeenCalled();
+            expect(spyWarn).toHaveBeenCalledWith(
+                expect.stringContaining('Skipped: filePath escapes audio root')
+            );
+            spyWarn.mockRestore();
+        });
+    });
+
     describe('Queue failed handler', () => {
         it('should cover the listener', () => {
             // Re-require to get a fresh instance with fresh mock calls
