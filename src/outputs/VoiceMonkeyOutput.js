@@ -64,6 +64,7 @@ class VoiceMonkeyOutput extends BaseOutput {
             const projectPublicRoot = path.join(__dirname, '../../public/audio');
             const srcPublicRoot = path.join(__dirname, '../public/audio');
             const relativePath = path.relative(projectPublicRoot, payload.source.filePath);
+            // nosemgrep: path-join-resolve-traversal — payload.source.filePath is internal pipeline data, not user input
             const metaPath = path.join(srcPublicRoot, relativePath + '.json');
 
             try {
@@ -106,7 +107,8 @@ class VoiceMonkeyOutput extends BaseOutput {
             ? payload.source.url
             : `${baseUrl}${payload.source.url}`;
 
-        console.log(`${prefix} Triggering announcement for device: ${device}`);
+        const sanitisedDevice = String(device).replace(/[\n\r\t\x00-\x1f\x7f-\x9f]/g, '');
+        console.log(`${prefix} Triggering announcement for device: ${sanitisedDevice}`);
 
         try {
             // Use the request queue to prevent rate-limiting by the VoiceMonkey API.
