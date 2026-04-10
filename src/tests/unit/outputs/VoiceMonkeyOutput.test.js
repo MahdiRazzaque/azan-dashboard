@@ -54,16 +54,20 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
     });
 
     it('should execute successfully', async () => {
+        const audioRoot = path.resolve(__dirname, '../../../../public/audio');
+        const testFilePath = path.join(audioRoot, 'custom/test.mp3');
         fs.promises.access.mockResolvedValue(undefined);
         fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: true } } }));
         axios.get.mockResolvedValue({ data: { success: true } });
-        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' } }, {});
+        await output.execute({ source: { url: '/t.mp3', filePath: testFilePath } }, {});
         expect(axios.get).toHaveBeenCalled();
     });
 
     it('should skip incompatible', async () => {
+        const audioRoot = path.resolve(__dirname, '../../../../public/audio');
+        const testFilePath = path.join(audioRoot, 'custom/test.mp3');
         fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: false } } }));
-        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' } }, {});
+        await output.execute({ source: { url: '/t.mp3', filePath: testFilePath } }, {});
         expect(axios.get).not.toHaveBeenCalled();
     });
 

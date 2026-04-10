@@ -236,9 +236,15 @@ const settingsController = {
     uploadFile: async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         
-        // Multer generates the filename via DiskStorage, but validate defensively
-        const safeFilename = path.basename(req.file.filename);
-        if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(safeFilename)) {
+        // Multer generates the filename via DiskStorage; only reject traversal/path-segment edge cases
+        const originalFilename = String(req.file.filename || '');
+        const safeFilename = path.basename(originalFilename);
+        if (
+            !safeFilename ||
+            safeFilename === '.' ||
+            safeFilename === '..' ||
+            safeFilename !== originalFilename
+        ) {
             try { await fsAsync.unlink(req.file.path); } catch { /* ignore */ }
             return res.status(400).json({ error: 'Invalid filename' });
         }
@@ -325,7 +331,12 @@ const settingsController = {
         if (!filename) return res.status(400).json({ error: 'Missing filename' });
         
         const sanitised = path.basename(String(filename));
-        if (sanitised !== filename || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(sanitised)) {
+        if (
+            sanitised !== filename ||
+            sanitised === '.' ||
+            sanitised === '..' ||
+            !/^[a-zA-Z0-9._-]+$/.test(sanitised)
+        ) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
@@ -390,7 +401,12 @@ const settingsController = {
         }
 
         const sanitised = path.basename(String(filename));
-        if (sanitised !== filename || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(sanitised)) {
+        if (
+            sanitised !== filename ||
+            sanitised === '.' ||
+            sanitised === '..' ||
+            !/^[a-zA-Z0-9._-]+$/.test(sanitised)
+        ) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
