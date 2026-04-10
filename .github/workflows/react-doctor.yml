@@ -1,4 +1,4 @@
-name: CI - React Doctor
+name: React Doctor
 
 on:
   pull_request:

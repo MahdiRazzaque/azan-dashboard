@@ -1,4 +1,4 @@
-name: CI - Linting
+name: Linting
 
 on:
   pull_request:
