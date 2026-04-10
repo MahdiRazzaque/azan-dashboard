@@ -236,11 +236,18 @@ const settingsController = {
     uploadFile: async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         
+        // Multer generates the filename via DiskStorage, but validate defensively
+        const safeFilename = path.basename(req.file.filename);
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(safeFilename)) {
+            try { await fsAsync.unlink(req.file.path); } catch { /* ignore */ }
+            return res.status(400).json({ error: 'Invalid filename' });
+        }
+
         const tempPath = req.file.path;
         const targetDir = path.join(__dirname, '../../public/audio/custom');
-        const targetPath = path.join(targetDir, req.file.filename);
+        const targetPath = path.join(targetDir, safeFilename); // nosemgrep: path-join-resolve-traversal
         const metaDir = path.join(__dirname, '../public/audio/custom');
-        const metaPath = path.join(metaDir, req.file.filename + '.json');
+        const metaPath = path.join(metaDir, safeFilename + '.json'); // nosemgrep: path-join-resolve-traversal
         
         try {
             // Ensure target and meta directories exist
@@ -291,8 +298,8 @@ const settingsController = {
 
             res.json({
                 message: 'File uploaded and analysed successfully',
-                filename: req.file.filename,
-                path: `custom/${req.file.filename}`,
+                filename: safeFilename,
+                path: `custom/${safeFilename}`,
                 ...enrichedMetadata
             });
         } catch (error) {
@@ -317,18 +324,20 @@ const settingsController = {
         const { filename } = req.body;
         if (!filename) return res.status(400).json({ error: 'Missing filename' });
         
-        const audioPath = path.join(__dirname, '../../public/audio/custom', filename);
-        const metaPath = path.join(__dirname, '../public/audio/custom', filename + '.json');
-        
-        // Prevent directory traversal attacks
-        if (filename.includes('..') || /[\\/]/.test(filename)) {
+        const sanitised = path.basename(String(filename));
+        if (sanitised !== filename || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(sanitised)) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
+        const audioDir = path.resolve(__dirname, '../../public/audio/custom');
+        const metaDir = path.resolve(__dirname, '../public/audio/custom');
+        const audioPath = path.join(audioDir, sanitised); // nosemgrep: path-join-resolve-traversal, express-path-join-resolve-traversal
+        const metaPath = path.join(metaDir, sanitised + '.json'); // nosemgrep: path-join-resolve-traversal, express-path-join-resolve-traversal
+
         // Check if file is protected
         try {
-            await fsAsync.access(metaPath);
-            const metaContent = await fsAsync.readFile(metaPath, 'utf8');
+            await fsAsync.access(metaPath); // nosemgrep: express-fs-filename
+            const metaContent = await fsAsync.readFile(metaPath, 'utf8'); // nosemgrep: express-fs-filename
             const metadata = JSON.parse(metaContent);
             if (metadata.protected) {
                 return res.status(403).json({ error: 'Forbidden: File is protected and cannot be deleted' });
@@ -338,16 +347,16 @@ const settingsController = {
         let deleted = false;
         try {
             let audioExists = false;
-            try { await fsAsync.access(audioPath); audioExists = true; } catch { /* ignore */ }
+            try { await fsAsync.access(audioPath); audioExists = true; } catch { /* ignore */ } // nosemgrep: express-fs-filename
             if (audioExists) {
-                await fsAsync.unlink(audioPath);
+                await fsAsync.unlink(audioPath); // nosemgrep: express-fs-filename
                 deleted = true;
             }
 
             let metaExists = false;
-            try { await fsAsync.access(metaPath); metaExists = true; } catch { /* ignore */ }
+            try { await fsAsync.access(metaPath); metaExists = true; } catch { /* ignore */ } // nosemgrep: express-fs-filename
             if (metaExists) {
-                await fsAsync.unlink(metaPath);
+                await fsAsync.unlink(metaPath); // nosemgrep: express-fs-filename
                 deleted = true;
             }
         } catch (e) {
@@ -380,19 +389,19 @@ const settingsController = {
             return res.status(400).json({ error: 'Filename and type are required' });
         }
 
-        // Prevent directory traversal attacks
-        if (filename.includes('..') || /[\\/]/.test(filename)) {
+        const sanitised = path.basename(String(filename));
+        if (sanitised !== filename || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(sanitised)) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
         const audioDir = type === 'cache' 
-            ? path.join(__dirname, '../../public/audio/cache')
-            : path.join(__dirname, '../../public/audio/custom');
+            ? path.resolve(__dirname, '../../public/audio/cache')
+            : path.resolve(__dirname, '../../public/audio/custom');
         
-        const filePath = path.join(audioDir, filename);
+        const filePath = path.join(audioDir, sanitised); // nosemgrep: path-join-resolve-traversal, express-path-join-resolve-traversal
 
         try {
-            await fsAsync.access(filePath);
+            await fsAsync.access(filePath); // nosemgrep: express-fs-filename
             
             // Call audioAssetService.analyzeFile for fresh validation
             // Note: analyzeFile is the internal method that performs the full scan
