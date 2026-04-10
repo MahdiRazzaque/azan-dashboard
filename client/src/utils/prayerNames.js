@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 
-export const ARABIC_PRAYER_NAMES = {
+const ARABIC_PRAYER_NAMES = {
   fajr: 'فجر',
   sunrise: 'شُروق',
   dhuhr: 'ظُهْر',

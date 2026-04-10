@@ -1,4 +1,4 @@
-name: Frontend Tests
+name: React Doctor
 
 on:
   pull_request:
@@ -7,13 +7,13 @@ on:
       - 'client/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/client-tests.yml'
+      - '.github/workflows/react-doctor.yml'
   workflow_dispatch:
   workflow_call:
 
 jobs:
-  test:
-    name: Run Frontend Tests
+  diagnose:
+    name: Run React Doctor
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,7 +36,6 @@ jobs:
       - name: Install client dependencies
         run: npm run client:install
 
-      - name: Run test suite
-        run: npm run test:client
-        env:
-          CI: true
+      - name: Run React Doctor
+        run: npx -y react-doctor@latest . --fail-on error --yes --verbose
+        working-directory: client
