@@ -376,6 +376,23 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
             );
             spyWarn.mockRestore();
         });
+        it('should not block filePath with dotdot-prefixed filename inside audio root', async () => {
+            const audioRoot = path.resolve(__dirname, '../../../../public/audio');
+            const dotdotFile = path.join(audioRoot, '..foo.mp3');
+            const spyWarn = jest.spyOn(console, 'warn').mockImplementation();
+            jest.spyOn(console, 'log').mockImplementation();
+            jest.spyOn(console, 'error').mockImplementation();
+            fs.promises.access.mockRejectedValue(new Error('ENOENT'));
+            axios.get.mockResolvedValue({ data: { success: true } });
+            await output.execute(
+                { source: { url: '/t.mp3', filePath: dotdotFile } },
+                {}
+            );
+            expect(spyWarn).not.toHaveBeenCalledWith(
+                expect.stringContaining('Skipped: filePath escapes audio root')
+            );
+            spyWarn.mockRestore();
+        });
     });
 
     describe('Queue failed handler', () => {

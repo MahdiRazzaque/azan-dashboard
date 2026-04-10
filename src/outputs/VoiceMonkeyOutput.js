@@ -65,7 +65,7 @@ class VoiceMonkeyOutput extends BaseOutput {
             const srcPublicRoot = path.join(__dirname, '../public/audio');
             const relativePath = path.relative(projectPublicRoot, payload.source.filePath);
 
-            if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+            if (path.isAbsolute(relativePath) || relativePath === '..' || relativePath.startsWith(`..${path.sep}`)) {
                 console.warn(`${prefix} Skipped: filePath escapes audio root`);
                 return;
             }
