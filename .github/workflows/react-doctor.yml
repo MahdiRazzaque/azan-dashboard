@@ -1,0 +1,41 @@
+name: CI - React Doctor
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'client/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/react-doctor.yml'
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  diagnose:
+    name: Run React Doctor
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.x]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install client dependencies
+        run: npm run client:install
+
+      - name: Run React Doctor
+        run: npx -y react-doctor@latest . --fail-on error --yes --verbose
+        working-directory: client
