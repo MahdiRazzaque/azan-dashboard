@@ -19,12 +19,12 @@ RUN npm run build
 FROM node:22-bookworm-slim
 
 # Install Python 3, pip, mpg123, alsa-utils, and supervisor
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    mpg123 \
-    alsa-utils \
-    supervisor \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3=3.11.2-1+b1 \
+    python3-pip=23.0.1+dfsg-1 \
+    mpg123=1.31.2-1+deb12u1 \
+    alsa-utils=1.2.8-1 \
+    supervisor=4.2.5-1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
