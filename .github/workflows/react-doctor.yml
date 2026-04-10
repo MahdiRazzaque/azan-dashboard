@@ -3,11 +3,6 @@ name: React Doctor
 on:
   pull_request:
     branches: [ main ]
-    paths:
-      - 'client/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/react-doctor.yml'
   workflow_dispatch:
   workflow_call:
 
@@ -24,18 +19,33 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check for frontend changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            frontend:
+              - 'client/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/react-doctor.yml'
+
       - name: Setup Node.js
+        if: steps.changes.outputs.frontend == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Install root dependencies
+        if: steps.changes.outputs.frontend == 'true'
         run: npm ci
 
       - name: Install client dependencies
+        if: steps.changes.outputs.frontend == 'true'
         run: npm run client:install
 
       - name: Run React Doctor
+        if: steps.changes.outputs.frontend == 'true'
         run: npx -y react-doctor@latest . --fail-on error --yes --verbose
         working-directory: client

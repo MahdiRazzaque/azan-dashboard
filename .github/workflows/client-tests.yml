@@ -3,11 +3,6 @@ name: Frontend Tests
 on:
   pull_request:
     branches: [ main ]
-    paths:
-      - 'client/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/client-tests.yml'
   workflow_dispatch:
   workflow_call:
 
@@ -22,19 +17,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check for frontend changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            frontend:
+              - 'client/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/client-tests.yml'
+
       - name: Setup Node.js
+        if: steps.changes.outputs.frontend == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Install root dependencies
+        if: steps.changes.outputs.frontend == 'true'
         run: npm ci
 
       - name: Install client dependencies
+        if: steps.changes.outputs.frontend == 'true'
         run: npm run client:install
 
       - name: Run test suite
+        if: steps.changes.outputs.frontend == 'true'
         run: npm run test:client
         env:
           CI: true

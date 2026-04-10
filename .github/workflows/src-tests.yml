@@ -3,11 +3,6 @@ name: Backend Tests
 on:
   pull_request:
     branches: [ main ]
-    paths:
-      - 'src/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/src-tests.yml'
   workflow_dispatch:
   workflow_call:
 
@@ -22,16 +17,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check for backend changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            backend:
+              - 'src/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/src-tests.yml'
+
       - name: Setup Node.js
+        if: steps.changes.outputs.backend == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Install dependencies
+        if: steps.changes.outputs.backend == 'true'
         run: npm ci
 
       - name: Run test suite
+        if: steps.changes.outputs.backend == 'true'
         run: npm run test:src
         env:
           CI: true

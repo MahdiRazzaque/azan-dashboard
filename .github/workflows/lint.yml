@@ -3,13 +3,6 @@ name: Linting
 on:
   pull_request:
     branches: [ main ]
-    paths:
-      - 'src/**'
-      - 'client/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.config/eslint*'
-      - '.github/workflows/lint.yml'
   workflow_dispatch:
   workflow_call:
 
@@ -24,14 +17,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check for code changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'client/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.config/eslint*'
+              - '.github/workflows/lint.yml'
+
       - name: Setup Node.js
+        if: steps.changes.outputs.code == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Install dependencies
+        if: steps.changes.outputs.code == 'true'
         run: npm ci
 
       - name: Run lint
+        if: steps.changes.outputs.code == 'true'
         run: npm run lint

@@ -103,7 +103,8 @@ function App() {
 
   // Redirect authenticated users away from login
   if (isAuthenticated && location.pathname === '/login') {
-      return <Navigate to="/" replace />;
+      const intendedDestination = location.state?.from?.pathname || '/';
+      return <Navigate to={intendedDestination} replace />;
   }
 
   return (

@@ -139,7 +139,7 @@ describe('App', () => {
     expect(screen.getByTestId('dashboard-view')).toBeDefined();
   });
 
-  it('should redirect to / (dashboard) if authenticated and path is /login', () => {
+  it('should redirect to / (dashboard) if authenticated and path is /login with no prior location', () => {
     mockUseAuth.mockReturnValue({
       setupRequired: false,
       loading: false,
@@ -150,8 +150,21 @@ describe('App', () => {
         <App />
       </MemoryRouter>
     );
-    // /settings redirects to general, but we just check if it enters the settings area
     expect(screen.getByTestId('dashboard-view')).toBeDefined();
+  });
+
+  it('should redirect to intended destination if authenticated and path is /login with prior location state', () => {
+    mockUseAuth.mockReturnValue({
+      setupRequired: false,
+      loading: false,
+      isAuthenticated: true
+    });
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/login', state: { from: { pathname: '/settings' } } }]}>
+        <App />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('settings-layout')).toBeDefined();
   });
 
   it('should render DashboardView for root path', () => {
