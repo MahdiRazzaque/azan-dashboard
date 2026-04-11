@@ -18,8 +18,8 @@ export default function SystemLogsTab({ logs }) {
                  </div>
             </div>
             <div className="h-[500px] overflow-y-auto p-4 space-y-1.5 scrollbar-thin scrollbar-thumb-app-border scrollbar-track-transparent">
-                {logs && logs.length > 0 ? [...logs].reverse().map((log, i) => (
-                    <div key={i} className="flex gap-3 text-app-text hover:bg-app-card-hover px-2 py-1 rounded -mx-2 group">
+                {logs && logs.length > 0 ? [...logs].reverse().map((log) => (
+                    <div key={`${log.timestamp}-${log.level}-${log.message}`} className="flex gap-3 text-app-text hover:bg-app-card-hover px-2 py-1 rounded -mx-2 group">
                         <span className="text-app-dim/60 shrink-0 select-none text-[10px] mt-1 group-hover:text-app-dim transition-colors">
                             {new Date(log.timestamp).toLocaleTimeString()}
                         </span>

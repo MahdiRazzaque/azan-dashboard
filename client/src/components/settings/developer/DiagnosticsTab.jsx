@@ -6,6 +6,7 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
+const EMPTY_JOB_STATUSES = {};
 
 /**
  * A React component that provides a comprehensive diagnostics dashboard.
@@ -36,7 +37,7 @@ export default function DiagnosticsTab({
     loading, 
     callSystemAction,
     handleRunJob,
-    jobStatuses = {},
+    jobStatuses = EMPTY_JOB_STATUSES,
     jobs
 }) {
     return (
@@ -136,8 +137,8 @@ export default function DiagnosticsTab({
                             {jobs.length === 0 ? (
                                 <tr><td colSpan="3" className="px-4 py-8 text-center text-app-dim text-xs italic">No active maintenance jobs</td></tr>
                             ) : (
-                                jobs.map((job, i) => (
-                                    <tr key={i} className="group hover:bg-app-card/40 transition-colors">
+                                jobs.map((job) => (
+                                    <tr key={job.name} className="group hover:bg-app-card/40 transition-colors">
                                         <td className="px-4 py-3 font-medium text-app-text">{job.name}</td>
                                         <td className="px-4 py-3 text-app-dim font-mono text-xs">
                                             {job.nextInvocation ? new Date(job.nextInvocation).toLocaleTimeString() : 'Pending'}
