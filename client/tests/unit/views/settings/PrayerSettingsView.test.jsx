@@ -81,8 +81,8 @@ describe('PrayerSettingsView', () => {
         render(<PrayerSettingsView />);
     });
     expect(screen.getByText('Prayer Configuration')).toBeDefined();
-    expect(global.fetch).toHaveBeenCalledWith('/api/system/audio-files');
-    expect(global.fetch).toHaveBeenCalledWith('/api/system/outputs/registry');
+    expect(global.fetch).toHaveBeenCalledWith('/api/system/audio-files', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(global.fetch).toHaveBeenCalledWith('/api/system/outputs/registry', expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
   it('should switch tabs and show sunrise specific triggers', async () => {
@@ -185,8 +185,8 @@ describe('PrayerSettingsView', () => {
         render(<PrayerSettingsView />);
     });
 
-    expect(consoleSpy).toHaveBeenCalledWith("Failed to load audio files", expect.any(Error));
-    expect(consoleSpy).toHaveBeenCalledWith("Failed to fetch output strategies", expect.any(Error));
+    expect(consoleSpy).toHaveBeenCalledWith('Failed to load files:', expect.any(Error));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.any(Error));
     consoleSpy.mockRestore();
   });
 
