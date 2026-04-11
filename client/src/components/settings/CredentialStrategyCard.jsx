@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable jsdoc/require-jsdoc */
+import { useReducer, useEffect } from 'react';
 import { CheckCircle, XCircle, Loader2, Play, Lock, Trash2, Undo2 } from 'lucide-react';
 import PasswordInput from '@/components/common/PasswordInput';
 import ConfirmModal from '@/components/common/ConfirmModal';
@@ -13,6 +14,59 @@ import { twMerge } from 'tailwind-merge';
  */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+const initialState = {
+    verifying: false,
+    showConfirm: false,
+    showSafetyWarning: false,
+    result: null,
+    showResetModal: false,
+    values: {},
+    verificationState: null, // null = use prop `verified`; 'verified' | 'unverified' = local override
+    isDirty: false,
+    saving: false,
+};
+
+function reducer(state, action) {
+    switch (action.type) {
+        case 'SYNC_VALUES':
+            return { ...state, values: action.values, isDirty: false };
+        case 'PARAM_CHANGED':
+            return { ...state, values: { ...state.values, [action.key]: action.value }, isDirty: true, verificationState: 'unverified', result: null };
+        case 'DISCARD':
+            return { ...state, values: action.values, isDirty: false, verificationState: null, result: null };
+        case 'SHOW_RESET_MODAL':
+            return { ...state, showResetModal: true };
+        case 'HIDE_RESET_MODAL':
+            return { ...state, showResetModal: false };
+        case 'RESET_VALUES':
+            return { ...state, showResetModal: false, values: action.values, isDirty: true, saving: true };
+        case 'RESET_SUCCESS':
+            return { ...state, saving: false, verificationState: 'unverified', result: { success: true, message: 'Credentials Cleared' } };
+        case 'RESET_ERROR':
+            return { ...state, saving: false, result: { success: false, message: action.message } };
+        case 'SHOW_SAFETY_WARNING':
+            return { ...state, showSafetyWarning: true };
+        case 'HIDE_SAFETY_WARNING':
+            return { ...state, showSafetyWarning: false };
+        case 'START_VERIFY':
+            return { ...state, showSafetyWarning: false, verifying: true, result: null };
+        case 'VERIFY_TRIGGERED':
+            return { ...state, verifying: false, showConfirm: true };
+        case 'VERIFY_FAILED':
+            return { ...state, verifying: false, result: { success: false, message: action.message } };
+        case 'HIDE_CONFIRM':
+            return { ...state, showConfirm: false };
+        case 'START_SAVE':
+            return { ...state, showConfirm: false, saving: true };
+        case 'SAVE_VERIFIED':
+            return { ...state, saving: false, verificationState: 'verified', result: { success: true, message: 'Verified & Saved' } };
+        case 'SAVE_FAILED':
+            return { ...state, saving: false, result: { success: false, message: action.message } };
+        default:
+            return state;
+    }
+}
+
 /**
  * A component for managing and verifying credential strategies for system outputs.
  *
@@ -24,85 +78,57 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
  * @returns {JSX.Element} The rendered credential strategy card.
  */
 export default function CredentialStrategyCard({ strategy, initialValues, verified, onSave }) {
-    const [verifying, setVerifying] = useState(false);
-    const [showConfirm, setShowConfirm] = useState(false);
-    const [showSafetyWarning, setShowSafetyWarning] = useState(false);
-    const [result, setResult] = useState(null);
-    const [showResetModal, setShowResetModal] = useState(false);
-    const [values, setValues] = useState(initialValues || {});
-    const [isVerified, setIsVerified] = useState(verified || false);
-    const [isDirty, setIsDirty] = useState(false);
-    const [saving, setSaving] = useState(false);
+    const [state, dispatch] = useReducer(reducer, {
+        ...initialState,
+        values: initialValues || {},
+    });
+    const { verifying, showConfirm, showSafetyWarning, result, showResetModal, values, verificationState, isDirty, saving } = state;
 
     // Sync local state when server config finishes loading.
     // Uses JSON.stringify for stable deep comparison.
     const initialValuesJson = JSON.stringify(initialValues || {});
     useEffect(() => {
         const parsed = JSON.parse(initialValuesJson);
-        // Populate the fields whenever server values change.
-        // We also reset isDirty because these values now match the server.
-        setValues(parsed);
-        setIsDirty(false);
+        dispatch({ type: 'SYNC_VALUES', values: parsed });
     }, [initialValuesJson]);
-
-    useEffect(() => {
-        setIsVerified(verified || false);
-    }, [verified]);
 
     const { id, label, params } = strategy;
     const sensitiveParams = params.filter(p => p.sensitive);
+    const isVerified = verificationState === null ? (verified || false) : verificationState === 'verified';
 
     const handleParamChange = (key, value) => {
-        const newValues = { ...values, [key]: value };
-        setValues(newValues);
-        setIsDirty(true);
-        setIsVerified(false);
-        setResult(null);
+        dispatch({ type: 'PARAM_CHANGED', key, value });
     };
 
     const handleDiscard = () => {
-        setValues(initialValues || {});
-        setIsDirty(false);
-        setIsVerified(verified || false);
-        setResult(null);
+        dispatch({ type: 'DISCARD', values: initialValues || {} });
     };
 
     const handleReset = async () => {
-        setShowResetModal(true);
+        dispatch({ type: 'SHOW_RESET_MODAL' });
     };
 
     const confirmReset = async () => {
-        setShowResetModal(false);
         const newValues = { ...values };
-        // Empty all sensitive parameters to prepare for a reset.
         sensitiveParams.forEach(p => newValues[p.key] = '');
-        setValues(newValues);
-        setIsDirty(true);
-        
-        setSaving(true);
+        dispatch({ type: 'RESET_VALUES', values: newValues });
+
         try {
-            // Pass 'true' to indicate this is a reset operation specifically.
             await onSave(newValues, true); 
-            setIsVerified(false);
-            setResult({ success: true, message: 'Credentials Cleared' });
+            dispatch({ type: 'RESET_SUCCESS' });
         } catch (e) {
-            setResult({ success: false, message: e.message || 'Reset Failed' });
-        } finally {
-            setSaving(false);
+            dispatch({ type: 'RESET_ERROR', message: e.message || 'Reset Failed' });
         }
     };
 
     const handleVerifyTrigger = () => {
-        setShowSafetyWarning(true);
+        dispatch({ type: 'SHOW_SAFETY_WARNING' });
     };
 
     const proceedWithVerification = async () => {
-        setShowSafetyWarning(false);
-        setVerifying(true);
-        setResult(null);
+        dispatch({ type: 'START_VERIFY' });
         try {
             const endpoint = `/api/system/outputs/${id}/verify`;
-            // Trigger a server-side verification test (e.g. sending a test sound).
             const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -114,37 +140,28 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
                 throw new Error(errData.message || errData.error || 'Verification trigger failed');
             }
             
-            // Show the confirmation modal only if the server-side test was initiated successfully.
-            setShowConfirm(true);
+            dispatch({ type: 'VERIFY_TRIGGERED' });
         } catch (e) {
-            setResult({ success: false, message: e.message });
-        } finally {
-            setVerifying(false);
+            dispatch({ type: 'VERIFY_FAILED', message: e.message });
         }
     };
 
     const handleConfirmSuccess = async () => {
-        setShowConfirm(false);
-        setSaving(true);
+        dispatch({ type: 'START_SAVE' });
         try {
-            // Once the user confirms they heard the test, persist the validated credentials to the backend.
             const res = await onSave(values, false);
             if (res.success) {
-                setIsVerified(true);
-                setResult({ success: true, message: 'Verified & Saved' });
+                dispatch({ type: 'SAVE_VERIFIED' });
             } else {
-                setResult({ success: false, message: res.error || 'Save Failed' });
+                dispatch({ type: 'SAVE_FAILED', message: res.error || 'Save Failed' });
             }
         } catch(e) {
-            setResult({ success: false, message: e.message });
-        } finally {
-            setSaving(false);
+            dispatch({ type: 'SAVE_FAILED', message: e.message });
         }
     };
 
     if (sensitiveParams.length === 0) return null;
 
-    // Check if ALL sensitive params are empty in the *original* server values (not local state).
     const originallyEmpty = sensitiveParams.every(p => !initialValues?.[p.key]);
     const allEmpty = sensitiveParams.every(p => !values[p.key]);
 
@@ -221,7 +238,7 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
 
             <ConfirmModal 
                 isOpen={showConfirm}
-                onClose={() => setShowConfirm(false)}
+                onClose={() => dispatch({ type: 'HIDE_CONFIRM' })}
                 onConfirm={handleConfirmSuccess}
                 title="Audio Verification"
                 message={`Did you hear the test message from ${label}?`}
@@ -232,7 +249,7 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
 
             <ConfirmModal 
                 isOpen={showSafetyWarning}
-                onClose={() => setShowSafetyWarning(false)}
+                onClose={() => dispatch({ type: 'HIDE_SAFETY_WARNING' })}
                 onConfirm={proceedWithVerification}
                 title="Audio Warning"
                 message="This will play audio through your connected output device (e.g., Alexa, speakers). Make sure the volume is at an appropriate level before proceeding."
@@ -243,7 +260,7 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
 
             <ConfirmModal 
                 isOpen={showResetModal}
-                onClose={() => setShowResetModal(false)}
+                onClose={() => dispatch({ type: 'HIDE_RESET_MODAL' })}
                 onConfirm={confirmReset}
                 title="Clear Credentials"
                 message="Are you sure you want to clear these credentials? This will remove them from the system."

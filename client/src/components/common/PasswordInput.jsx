@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Check, X, ShieldAlert } from 'lucide-react';
+import { useState } from 'react';
+import { Eye, EyeOff, Check, ShieldAlert } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -16,13 +16,14 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
  * password strength validation.
  *
  * @param {object} props - The component props.
+ * @param {string} [props.id] - Optional input id for external label association.
  * @param {string} props.value - The current value of the input.
  * @param {Function} props.onChange - Callback function for when the input value changes.
  * @param {string} [props.placeholder="Enter password"] - Placeholder text for the input.
  * @param {boolean} [props.showStrength=false] - Whether to display the password strength indicator.
  * @returns {JSX.Element} The rendered password input component.
  */
-export default function PasswordInput({ value, onChange, placeholder = "Enter password", showStrength = false }) {
+export default function PasswordInput({ id, value, onChange, placeholder = "Enter password", showStrength = false }) {
     const [show, setShow] = useState(false);
     const [touched, setTouched] = useState(false);
 
@@ -43,6 +44,7 @@ export default function PasswordInput({ value, onChange, placeholder = "Enter pa
         <div className="space-y-2">
             <div className="relative">
                 <input
+                    id={id}
                     type={show ? 'text' : 'password'}
                     value={value}
                     onChange={(e) => { setTouched(true); onChange(e.target.value); }}
@@ -76,10 +78,10 @@ export default function PasswordInput({ value, onChange, placeholder = "Enter pa
 
                     {/* Requirements Grid */}
                     <div className="grid grid-cols-2 gap-2">
-                        {checks.map((check, i) => {
+                        {checks.map((check) => {
                             const passed = check.test(value);
                             return (
-                                <div key={i} className="flex items-center gap-2 text-xs transition-colors duration-200">
+                                <div key={check.label} className="flex items-center gap-2 text-xs transition-colors duration-200">
                                     {passed 
                                         ? <Check className="w-3.5 h-3.5 text-emerald-500" /> 
                                         : <div className="w-3.5 h-3.5 rounded-full border border-app-border" />
