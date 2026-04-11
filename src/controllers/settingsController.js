@@ -237,7 +237,7 @@ const settingsController = {
     uploadFile: async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         
-        // Multer generates the filename via DiskStorage; only reject traversal/path-segment edge cases
+        // Multer generates the filename via DiskStorage; validate against traversal and character allowlist
         const safeFilename = sanitiseFilename(req.file.filename);
         if (!safeFilename) {
             try { await fsAsync.unlink(req.file.path); } catch { /* ignore */ }

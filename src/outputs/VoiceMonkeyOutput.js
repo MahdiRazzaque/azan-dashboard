@@ -4,7 +4,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const Bottleneck = require('bottleneck');
 const ConfigService = require('../config');
-const { assertPathContained } = require('../utils/pathSecurity');
+const { isPathContained } = require('../utils/pathSecurity');
 
 /**
  * Strategy for triggering audio playback via the VoiceMonkey API (Alexa).
@@ -65,7 +65,7 @@ class VoiceMonkeyOutput extends BaseOutput {
             const projectPublicRoot = path.join(__dirname, '../../public/audio');
             const srcPublicRoot = path.join(__dirname, '../public/audio');
 
-            if (!assertPathContained(payload.source.filePath, projectPublicRoot)) {
+            if (!isPathContained(payload.source.filePath, projectPublicRoot)) {
                 console.warn(`${prefix} Skipped: filePath escapes audio root`);
                 return;
             }

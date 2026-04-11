@@ -1,5 +1,5 @@
 const path = require('path');
-const { sanitiseFilename, assertPathContained, FILENAME_ALLOWLIST } = require('@utils/pathSecurity');
+const { sanitiseFilename, isPathContained, FILENAME_ALLOWLIST } = require('@utils/pathSecurity');
 
 describe('pathSecurity', () => {
     describe('sanitiseFilename', () => {
@@ -48,30 +48,30 @@ describe('pathSecurity', () => {
         });
     });
 
-    describe('assertPathContained', () => {
+    describe('isPathContained', () => {
         it('should return true for a path inside the root', () => {
-            expect(assertPathContained('/audio/custom/test.mp3', '/audio')).toBe(true);
+            expect(isPathContained('/audio/custom/test.mp3', '/audio')).toBe(true);
         });
 
         it('should return true for a deeply nested path', () => {
-            expect(assertPathContained('/audio/custom/sub/deep/test.mp3', '/audio')).toBe(true);
+            expect(isPathContained('/audio/custom/sub/deep/test.mp3', '/audio')).toBe(true);
         });
 
         it('should return false for an absolute path unrelated to root', () => {
-            expect(assertPathContained('/etc/passwd', '/audio')).toBe(false);
+            expect(isPathContained('/etc/passwd', '/audio')).toBe(false);
         });
 
         it('should return false for traversal that resolves outside root', () => {
             const escapingPath = path.resolve('/audio', '../etc/passwd');
-            expect(assertPathContained(escapingPath, '/audio')).toBe(false);
+            expect(isPathContained(escapingPath, '/audio')).toBe(false);
         });
 
         it('should return false when relative result is exact dotdot', () => {
-            expect(assertPathContained('/audio', '/audio/custom')).toBe(false);
+            expect(isPathContained('/audio', '/audio/custom')).toBe(false);
         });
 
         it('should return true for a dotdot-prefixed filename inside root', () => {
-            expect(assertPathContained('/audio/..foo.mp3', '/audio')).toBe(true);
+            expect(isPathContained('/audio/..foo.mp3', '/audio')).toBe(true);
         });
     });
 

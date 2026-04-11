@@ -380,8 +380,8 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
             const audioRoot = path.resolve(__dirname, '../../../../public/audio');
             const dotdotFile = path.join(audioRoot, '..foo.mp3');
             const spyWarn = jest.spyOn(console, 'warn').mockImplementation();
-            jest.spyOn(console, 'log').mockImplementation();
-            jest.spyOn(console, 'error').mockImplementation();
+            const spyLog = jest.spyOn(console, 'log').mockImplementation();
+            const spyError = jest.spyOn(console, 'error').mockImplementation();
             fs.promises.access.mockRejectedValue(new Error('ENOENT'));
             axios.get.mockResolvedValue({ data: { success: true } });
             await output.execute(
@@ -391,6 +391,8 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
             expect(spyWarn).not.toHaveBeenCalledWith(
                 expect.stringContaining('Skipped: filePath escapes audio root')
             );
+            spyError.mockRestore();
+            spyLog.mockRestore();
             spyWarn.mockRestore();
         });
     });
