@@ -63,7 +63,7 @@ async function decrypt(ciphertext, key) {
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
     
-    const decipher = crypto.createDecipheriv(ALGORITHM, derivedKey, iv);
+    const decipher = crypto.createDecipheriv(ALGORITHM, derivedKey, iv, { authTagLength: 16 });
     decipher.setAuthTag(authTag);
     
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');

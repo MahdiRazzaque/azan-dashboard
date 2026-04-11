@@ -4,6 +4,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const Bottleneck = require('bottleneck');
 const ConfigService = require('../config');
+const { isPathContained } = require('../utils/pathSecurity');
 
 /**
  * Strategy for triggering audio playback via the VoiceMonkey API (Alexa).
@@ -63,6 +64,12 @@ class VoiceMonkeyOutput extends BaseOutput {
         if (payload.source.filePath) {
             const projectPublicRoot = path.join(__dirname, '../../public/audio');
             const srcPublicRoot = path.join(__dirname, '../public/audio');
+
+            if (!isPathContained(payload.source.filePath, projectPublicRoot)) {
+                console.warn(`${prefix} Skipped: filePath escapes audio root`);
+                return;
+            }
+
             const relativePath = path.relative(projectPublicRoot, payload.source.filePath);
             const metaPath = path.join(srcPublicRoot, relativePath + '.json');
 
@@ -106,7 +113,11 @@ class VoiceMonkeyOutput extends BaseOutput {
             ? payload.source.url
             : `${baseUrl}${payload.source.url}`;
 
-        console.log(`${prefix} Triggering announcement for device: ${device}`);
+        const sanitisedDevice = String(device).replace(/[\n\r\t\x00-\x1f\x7f-\x9f]/g, '');
+        const maskedDevice = sanitisedDevice.length > 4
+            ? `${sanitisedDevice.slice(0, 2)}***${sanitisedDevice.slice(-2)}`
+            : '***';
+        console.log(`${prefix} Triggering announcement for device: ${maskedDevice}`);
 
         try {
             // Use the request queue to prevent rate-limiting by the VoiceMonkey API.

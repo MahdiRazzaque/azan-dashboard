@@ -54,16 +54,20 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
     });
 
     it('should execute successfully', async () => {
+        const audioRoot = path.resolve(__dirname, '../../../../public/audio');
+        const testFilePath = path.join(audioRoot, 'custom/test.mp3');
         fs.promises.access.mockResolvedValue(undefined);
         fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: true } } }));
         axios.get.mockResolvedValue({ data: { success: true } });
-        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' } }, {});
+        await output.execute({ source: { url: '/t.mp3', filePath: testFilePath } }, {});
         expect(axios.get).toHaveBeenCalled();
     });
 
     it('should skip incompatible', async () => {
+        const audioRoot = path.resolve(__dirname, '../../../../public/audio');
+        const testFilePath = path.join(audioRoot, 'custom/test.mp3');
         fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: false } } }));
-        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' } }, {});
+        await output.execute({ source: { url: '/t.mp3', filePath: testFilePath } }, {});
         expect(axios.get).not.toHaveBeenCalled();
     });
 
@@ -341,6 +345,55 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
         it('should detect MP3 via codec', async () => {
             const result = await output.validateAsset('p.mp3', { codec: 'mp3' });
             expect(result.valid).toBe(true);
+        });
+    });
+
+    describe('path containment guard', () => {
+        it('should skip execution when filePath escapes audio root via absolute path', async () => {
+            const spyWarn = jest.spyOn(console, 'warn').mockImplementation();
+            await output.execute(
+                { source: { url: '/t.mp3', filePath: '/etc/passwd' } },
+                {}
+            );
+            expect(axios.get).not.toHaveBeenCalled();
+            expect(spyWarn).toHaveBeenCalledWith(
+                expect.stringContaining('Skipped: filePath escapes audio root')
+            );
+            spyWarn.mockRestore();
+        });
+
+        it('should skip execution when filePath uses .. to traverse outside audio root', async () => {
+            const audioRoot = path.resolve(__dirname, '../../../../public/audio');
+            const escapingPath = path.join(audioRoot, '../../etc/shadow');
+            const spyWarn = jest.spyOn(console, 'warn').mockImplementation();
+            await output.execute(
+                { source: { url: '/t.mp3', filePath: escapingPath } },
+                {}
+            );
+            expect(axios.get).not.toHaveBeenCalled();
+            expect(spyWarn).toHaveBeenCalledWith(
+                expect.stringContaining('Skipped: filePath escapes audio root')
+            );
+            spyWarn.mockRestore();
+        });
+        it('should not block filePath with dotdot-prefixed filename inside audio root', async () => {
+            const audioRoot = path.resolve(__dirname, '../../../../public/audio');
+            const dotdotFile = path.join(audioRoot, '..foo.mp3');
+            const spyWarn = jest.spyOn(console, 'warn').mockImplementation();
+            const spyLog = jest.spyOn(console, 'log').mockImplementation();
+            const spyError = jest.spyOn(console, 'error').mockImplementation();
+            fs.promises.access.mockRejectedValue(new Error('ENOENT'));
+            axios.get.mockResolvedValue({ data: { success: true } });
+            await output.execute(
+                { source: { url: '/t.mp3', filePath: dotdotFile } },
+                {}
+            );
+            expect(spyWarn).not.toHaveBeenCalledWith(
+                expect.stringContaining('Skipped: filePath escapes audio root')
+            );
+            spyError.mockRestore();
+            spyLog.mockRestore();
+            spyWarn.mockRestore();
         });
     });
 
