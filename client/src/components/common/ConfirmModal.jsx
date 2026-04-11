@@ -24,9 +24,11 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, onCancel, onR
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center isolate">
             {/* Backdrop */}
-            <div 
+            <button
+                type="button"
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
                 onClick={onClose}
+                aria-label="Close confirmation modal"
             />
             
             {/* Modal */}

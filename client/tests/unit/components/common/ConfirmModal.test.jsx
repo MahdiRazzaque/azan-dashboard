@@ -26,9 +26,8 @@ describe('ConfirmModal', () => {
 
   it('should call onClose when backdrop is clicked (using selector)', () => {
     const onClose = vi.fn();
-    const { container } = render(<ConfirmModal {...defaultProps} onClose={onClose} />);
-    // The backdrop is the first child of the outer div
-    const backdrop = container.querySelector('.fixed > div:first-child');
+    render(<ConfirmModal {...defaultProps} onClose={onClose} />);
+    const backdrop = screen.getByLabelText('Close confirmation modal');
     fireEvent.click(backdrop);
     expect(onClose).toHaveBeenCalled();
   });

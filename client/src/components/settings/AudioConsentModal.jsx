@@ -25,9 +25,11 @@ export default function AudioConsentModal({ isOpen, onClose, onConfirm, strategy
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center isolate">
             {/* Backdrop */}
-            <div 
+            <button
+                type="button"
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
                 onClick={onClose}
+                aria-label="Close audio consent modal"
             />
             
             {/* Modal */}
