@@ -31,9 +31,7 @@ const baseConfig = {
 
 const TestComponent = ({ callback }) => {
   const s = useSettings();
-  React.useEffect(() => {
-    if (callback) callback(s);
-  }, [s, callback]);
+  if (callback) callback(s);
   if (s.loading && !s.config) return <div data-testid="loading">Loading...</div>;
   return <div data-testid="done">Done</div>;
 };
@@ -161,7 +159,7 @@ describe('SettingsContext Ultimate Coverage', () => {
 
     const IqamahTestComponent = ({ callback }) => {
       const s = useSettings();
-      React.useEffect(() => { if (callback) callback(s); }, [s, callback]);
+      if (callback) callback(s);
       if (s.loading && !s.config) return <div data-testid="loading">Loading...</div>;
       return (
         <div data-testid="done">
@@ -250,7 +248,7 @@ describe('SettingsContext Ultimate Coverage', () => {
   describe('Health check fetch on mount (Issue #37)', () => {
     const HealthTestComponent = ({ callback }) => {
       const s = useSettings();
-      React.useEffect(() => { if (callback) callback(s); }, [s, callback]);
+      if (callback) callback(s);
       if (s.loading && !s.config) return <div data-testid="loading">Loading...</div>;
       return (
         <div data-testid="done">

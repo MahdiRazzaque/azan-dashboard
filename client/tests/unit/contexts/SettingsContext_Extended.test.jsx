@@ -32,9 +32,7 @@ const baseConfig = {
 
 const TestComponent = ({ callback }) => {
   const s = useSettings();
-  React.useEffect(() => {
-    if (callback) callback(s);
-  }, [s, callback]);
+  if (callback) callback(s);
   return <div data-testid="done">Done</div>;
 };
 
