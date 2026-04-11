@@ -123,7 +123,7 @@ export default function SaveProcessModal({ isOpen, onClose, status, result, proc
                          <ul className="space-y-1 list-disc list-inside opacity-90">
                              {/* Handle both warningsList (array) and plain string error */}
                              {result.warningsList && result.warningsList.length > 0 ? (
-                                 result.warningsList.map((msg, i) => <li key={i}>{msg}</li>)
+                                  result.warningsList.map((msg) => <li key={msg}>{msg}</li>)
                              ) : (
                                  <li>{result.error || result.warning || 'Unknown Issue'}</li>
                              )}
