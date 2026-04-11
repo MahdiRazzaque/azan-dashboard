@@ -103,6 +103,51 @@ describe('HealthCheck Service', () => {
         expect(mockVMStrategy.healthCheck).toHaveBeenCalledWith({ token: 'vm_token' });
     });
 
+    it('should populate health-check params from config and inject baseUrl', async () => {
+        OutputFactory.getAllStrategies.mockReturnValue([
+            {
+                id: 'local',
+                hidden: false,
+                params: []
+            },
+            {
+                id: 'voicemonkey',
+                hidden: false,
+                params: [
+                    { key: 'token', requiredForHealth: true },
+                    { key: 'device', requiredForHealth: false },
+                    { key: 'region', requiredForHealth: true }
+                ]
+            }
+        ]);
+
+        configService.get.mockReturnValue({
+            automation: {
+                baseUrl: 'https://dashboard.test',
+                outputs: {
+                    voicemonkey: {
+                        params: {
+                            token: 'stored-token',
+                            device: 'living-room',
+                            region: 'us-east-1'
+                        }
+                    }
+                }
+            },
+            sources: { primary: { type: 'aladhan' }, backup: { type: 'mymasjid', enabled: false } },
+            location: { timezone: 'UTC' },
+            system: { healthChecks: { local: true, voicemonkey: true, primarySource: true, backupSource: true } }
+        });
+
+        await healthCheck.refresh('voicemonkey');
+
+        expect(mockVMStrategy.healthCheck).toHaveBeenCalledWith({
+            token: 'stored-token',
+            region: 'us-east-1',
+            baseUrl: 'https://dashboard.test'
+        });
+    });
+
     describe('Config-based Toggles', () => {
         it('should skip disabled checks in daily maintenance', async () => {
             configService.get.mockReturnValue({
