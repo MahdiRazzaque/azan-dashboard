@@ -5,7 +5,14 @@ import FileManagerView from '../../../../src/views/settings/FileManagerView';
 import { useSettings } from '../../../../src/hooks/useSettings';
 
 vi.mock('../../../../src/hooks/useSettings');
-vi.mock('../../../../src/components/common/AudioTestModal', () => ({ default: ({ isOpen, onTest, onClose }) => isOpen ? <div data-testid="test-modal"><button onClick={() => onTest('local')}>Test</button></div> : null }));
+vi.mock('../../../../src/components/common/AudioTestModal', () => ({
+  default: ({ isOpen, onTest }) => isOpen ? (
+    <div data-testid="test-modal">
+      <button onClick={() => onTest('local')}>Test Local</button>
+      <button onClick={() => onTest('voicemonkey')}>Test VoiceMonkey</button>
+    </div>
+  ) : null
+}));
 vi.mock('../../../../src/components/common/ConfirmModal', () => ({ default: ({ isOpen, onConfirm, onCancel, title }) => isOpen ? <div data-testid="confirm-modal">{title}<button onClick={onConfirm}>Confirm</button><button onClick={onCancel}>Cancel</button></div> : null }));
 
 describe('FileManagerView Final Push Fix v2', () => {
@@ -24,7 +31,22 @@ describe('FileManagerView Final Push Fix v2', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    useSettings.mockReturnValue({ systemHealth: {}, config: { automation: { baseUrl: 'http://base' } } });
+    useSettings.mockReturnValue({
+      systemHealth: {},
+      config: {
+        automation: {
+          baseUrl: 'http://base',
+          outputs: {
+            voicemonkey: {
+              params: {
+                token: 'masked-token',
+                device: 'living-room'
+              }
+            }
+          }
+        }
+      }
+    });
     vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url) => {
         if (url === '/api/system/audio-files') return mockResponse({ files: mockFiles, total: mockFiles.length, page: 1, limit: 50, totalPages: 1 });
         if (url === '/api/system/outputs/registry') return mockResponse([]);
@@ -55,7 +77,7 @@ describe('FileManagerView Final Push Fix v2', () => {
       // 3. Server Play
       const testBtn = screen.getAllByTitle('Test on Speakers')[0];
       fireEvent.click(testBtn);
-      fireEvent.click(screen.getByText('Test'));
+      fireEvent.click(screen.getByText('Test Local'));
       
       // 4. Upload & Overwrite
       const input = document.getElementById('audio-upload');
@@ -81,5 +103,39 @@ describe('FileManagerView Final Push Fix v2', () => {
       expect(fetch).toHaveBeenCalledWith('/api/settings/files/revalidate', expect.any(Object));
 
       consoleSpy.mockRestore();
+  });
+
+  it('should include configured output params when testing VoiceMonkey playback', async () => {
+      render(<FileManagerView />);
+      await screen.findByText('custom1.mp3');
+
+      const testBtn = screen.getAllByTitle('Test on Speakers')[0];
+      fireEvent.click(testBtn);
+      fireEvent.click(screen.getByText('Test VoiceMonkey'));
+
+      await waitFor(() => {
+        const voiceMonkeyCall = fetch.mock.calls.find(([url]) => url === '/api/system/outputs/voicemonkey/test');
+        expect(voiceMonkeyCall).toBeDefined();
+        expect(voiceMonkeyCall[1]).toEqual(expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }));
+      });
+
+      const [, request] = fetch.mock.calls.find(([url]) => url === '/api/system/outputs/voicemonkey/test');
+      expect(JSON.parse(request.body)).toEqual(expect.objectContaining({
+        baseUrl: 'http://base',
+        params: {
+          token: 'masked-token',
+          device: 'living-room'
+        },
+        source: {
+          filePath: null,
+          path: 'custom/1.mp3',
+          url: '/url/1'
+        },
+        filename: 'custom1.mp3',
+        type: 'custom'
+      }));
   });
 });

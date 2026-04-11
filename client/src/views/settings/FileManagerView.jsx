@@ -202,11 +202,13 @@ export default function FileManagerView() {
         try {
             // Polymorphic strategy test endpoint
             const endpoint = `/api/system/outputs/${targetId}/test`;
+            const outputParams = config.automation?.outputs?.[targetId]?.params || {};
             
             // Construct payload consistent with automationService expectations
             const payload = {
                 prayer: 'test',
                 event: file.name,
+                params: outputParams,
                 source: {
                     filePath: null,
                     path: file.path,
