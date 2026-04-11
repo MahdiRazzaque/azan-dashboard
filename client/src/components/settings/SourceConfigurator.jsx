@@ -13,6 +13,9 @@ import DynamicField from './DynamicField';
  */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+const EMPTY_DISABLED_TYPES = [];
+const EMPTY_LOCATION_DATA = {};
+
 /**
  * A configuration component for selecting and customising prayer time data sources,
  * including location settings and calculation methods.
@@ -31,9 +34,9 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
 export default function SourceConfigurator({ 
     source, 
     onChange, 
-    disabledTypes = [], 
+    disabledTypes = EMPTY_DISABLED_TYPES, 
     showCoordinates = true,
-    locationData = {},
+    locationData = EMPTY_LOCATION_DATA,
     onLocationChange,
     isBackup = false,
     primarySourceType = ''
@@ -201,8 +204,9 @@ export default function SourceConfigurator({
                     <div className="md:col-span-2 grid grid-cols-2 gap-4 border-b border-app-border pb-6 mb-2">
                         <div className="col-span-2 mb-1 text-sm font-semibold text-app-dim uppercase tracking-wider">Coordinates</div>
                         <div>
-                            <label className="block text-xs text-app-dim mb-1">Latitude</label>
+                            <label htmlFor="source-latitude" className="block text-xs text-app-dim mb-1">Latitude</label>
                             <input 
+                                id="source-latitude"
                                 type="number"
                                 step="any"
                                 className="w-full bg-app-card border border-app-border rounded p-2.5 text-app-text focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -211,8 +215,9 @@ export default function SourceConfigurator({
                             />
                         </div>
                         <div>
-                            <label className="block text-xs text-app-dim mb-1">Longitude</label>
+                            <label htmlFor="source-longitude" className="block text-xs text-app-dim mb-1">Longitude</label>
                             <input 
+                                id="source-longitude"
                                 type="number"
                                 step="any"
                                 className="w-full bg-app-card border border-app-border rounded p-2.5 text-app-text focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"

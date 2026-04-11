@@ -3,6 +3,8 @@ import { Search, ChevronDown, Check, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+const EMPTY_OPTIONS = [];
+
 /**
  * Conditionally joins CSS classes using tailwind-merge and clsx.
  * 
@@ -24,7 +26,7 @@ function cn(...inputs) {
  * @param {string} [props.className] - Optional additional container classes.
  * @returns {JSX.Element} The rendered searchable dropdown component.
  */
-const SearchableSelect = ({ value, options = [], onChange, placeholder = "Select...", className }) => {
+const SearchableSelect = ({ value, options = EMPTY_OPTIONS, onChange, placeholder = "Select...", className }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef(null);
@@ -53,7 +55,8 @@ const SearchableSelect = ({ value, options = [], onChange, placeholder = "Select
 
   return (
     <div className={cn("relative w-full", className)} ref={containerRef}>
-      <div 
+      <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "flex items-center justify-between w-full px-3 py-2 text-sm border rounded-lg cursor-pointer transition-all bg-app-card/50 hover:bg-app-card-hover/50",
@@ -73,14 +76,13 @@ const SearchableSelect = ({ value, options = [], onChange, placeholder = "Select
           )}
         </div>
         <ChevronDown className={cn("w-4 h-4 text-app-dim transition-transform", isOpen && "rotate-180")} />
-      </div>
+      </button>
 
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 overflow-hidden border border-app-border rounded-lg shadow-xl bg-app-card backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
           <div className="flex items-center px-3 py-2 border-b border-app-border bg-app-card">
             <Search className="w-4 h-4 mr-2 text-app-dim" />
             <input 
-              autoFocus
               type="text"
               className="w-full text-sm bg-transparent border-none outline-none text-app-text placeholder-app-dim"
               placeholder="Search..."
@@ -89,16 +91,21 @@ const SearchableSelect = ({ value, options = [], onChange, placeholder = "Select
               onClick={(e) => e.stopPropagation()}
             />
             {search && (
-              <X 
-                className="w-4 h-4 ml-2 text-app-dim cursor-pointer hover:text-app-text" 
+              <button
+                type="button"
+                className="ml-2 text-app-dim hover:text-app-text"
                 onClick={(e) => { e.stopPropagation(); setSearch(""); }}
-              />
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
             )}
           </div>
           <div className="max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-app-border scrollbar-track-transparent">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((opt) => (
-                <div 
+                <button
+                  type="button"
                   key={opt.value}
                   onClick={() => handleSelect(opt.value)}
                   className={cn(
@@ -111,7 +118,7 @@ const SearchableSelect = ({ value, options = [], onChange, placeholder = "Select
                     {opt.sublabel && <span className="text-xs text-app-dim truncate">{opt.sublabel}</span>}
                   </div>
                   {opt.value === value && <Check className="w-4 h-4 flex-shrink-0" />}
-                </div>
+                </button>
               ))
             ) : (
               <div className="px-3 py-4 text-sm text-center text-app-dim">

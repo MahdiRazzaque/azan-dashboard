@@ -141,8 +141,10 @@ export default function GeneralSettingsView() {
                 </h2>
                 
                 <label className="relative inline-flex items-center cursor-pointer">
+                    <span className="sr-only">Enable backup data source</span>
                     <input 
                         type="checkbox" 
+                        aria-label="Enable backup data source"
                         className="sr-only peer" 
                         checked={backupEnabled}
                         onChange={(e) => toggleBackup(e.target.checked)}
@@ -181,8 +183,9 @@ export default function GeneralSettingsView() {
             </h2>
             
             <div className="max-w-md">
-                <label className="block text-sm font-medium text-app-dim mb-2">Timezone (IANA)</label>
+                <label htmlFor="timezone-input" className="block text-sm font-medium text-app-dim mb-2">Timezone (IANA)</label>
                 <input 
+                    id="timezone-input"
                     className="w-full bg-app-bg border border-app-border rounded p-3 text-app-text focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                     value={formData.location?.timezone || ''}
                     onChange={e => handleChange('location.timezone', e.target.value)}
