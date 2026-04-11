@@ -72,6 +72,100 @@ describe('AutomationService Comprehensive', () => {
         expect(mockStrategy.execute).toHaveBeenCalled();
     });
 
+    it('should pass configured target params to execute during triggerEvent', async () => {
+        audioAssetService.ensureTTSFile.mockResolvedValue({ success: true });
+        configService.get.mockReturnValue({
+            automation: {
+                baseUrl: 'https://test.com',
+                triggers: {
+                    fajr: {
+                        adhan: { enabled: true, type: 'tts', template: 'T', targets: ['voicemonkey'] }
+                    }
+                },
+                outputs: {
+                    browser: { enabled: false, leadTimeMs: 0 },
+                    voicemonkey: {
+                        enabled: true,
+                        leadTimeMs: 0,
+                        params: {
+                            token: 'test-token',
+                            device: 'test-device'
+                        }
+                    }
+                }
+            }
+        });
+
+        const mockStrategy = {
+            execute: jest.fn().mockResolvedValue(),
+            constructor: { getMetadata: () => ({ id: 'voicemonkey' }) }
+        };
+
+        OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+
+        await service.triggerEvent('fajr', 'adhan');
+
+        expect(mockStrategy.execute).toHaveBeenCalledWith(
+            expect.objectContaining({
+                params: {
+                    token: 'test-token',
+                    device: 'test-device'
+                }
+            }),
+            { isTest: false },
+            expect.any(AbortSignal)
+        );
+    });
+
+    it('should merge payload params with config params before executing a target', async () => {
+        const mockStrategy = {
+            execute: jest.fn().mockResolvedValue(),
+            constructor: { getMetadata: () => ({ id: 'voicemonkey' }) }
+        };
+
+        OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+
+        await service._executeTarget(
+            { targetId: 'voicemonkey', leadTime: 0 },
+            0,
+            {
+                prayer: 'fajr',
+                event: 'adhan',
+                params: {
+                    token: 'payload-token',
+                    retries: 2
+                }
+            },
+            { isTest: false },
+            {
+                automation: {
+                    outputs: {
+                        voicemonkey: {
+                            params: {
+                                token: 'test-token',
+                                device: 'test-device'
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        expect(mockStrategy.execute).toHaveBeenCalledWith(
+            {
+                prayer: 'fajr',
+                event: 'adhan',
+                params: {
+                    token: 'test-token',
+                    retries: 2,
+                    device: 'test-device'
+                }
+            },
+            { isTest: false },
+            expect.any(AbortSignal)
+        );
+    });
+
     describe('getAudioSource', () => {
         it('should handle file type', () => {
             const settings = { type: 'file', path: 'custom.mp3' };

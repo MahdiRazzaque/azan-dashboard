@@ -192,7 +192,10 @@ const _executeTarget = async (target, masterLeadTime, payload, executionMetadata
 
         const targetPayload = {
             ...payload,
-            params: config.automation?.outputs?.[targetId]?.params
+            params: {
+                ...(payload.params || {}),
+                ...(config.automation?.outputs?.[targetId]?.params || {})
+            }
         };
         
         await withTimeout(
@@ -254,5 +257,6 @@ const triggerEvent = async (prayer, event) => {
 
 module.exports = {
     getAudioSource,
-    triggerEvent
+    triggerEvent,
+    _executeTarget
 };
