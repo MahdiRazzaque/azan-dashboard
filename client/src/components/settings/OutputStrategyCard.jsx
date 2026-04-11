@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable jsdoc/require-jsdoc */
+import { useReducer, useMemo } from 'react';
 import { CheckCircle, XCircle, Loader2, Power, AlertTriangle, Volume2 } from 'lucide-react';
 import AudioConsentModal from './AudioConsentModal';
 import { clsx } from 'clsx';
@@ -35,6 +36,220 @@ const Toggle = ({ checked, onChange }) => (
     </button>
 );
 
+const initialState = {
+    testingHealth: false,
+    testingAudio: false,
+    localStatus: null,   // null = derive from systemHealth; 'idle'|'online'|'offline' = local override
+    localErrorMsg: null,
+    showConsentModal: false,
+};
+
+function reducer(state, action) {
+    switch (action.type) {
+        case 'START_HEALTH_CHECK':
+            return { ...state, testingHealth: true, localErrorMsg: null };
+        case 'HEALTH_CHECK_ONLINE':
+            return { ...state, testingHealth: false, localStatus: 'online', localErrorMsg: null };
+        case 'HEALTH_CHECK_OFFLINE':
+            return { ...state, testingHealth: false, localStatus: 'offline', localErrorMsg: action.errorMsg };
+        case 'PARAM_CHANGED':
+            return { ...state, localStatus: 'idle', localErrorMsg: null };
+        case 'START_AUDIO_TEST':
+            return { ...state, testingAudio: true };
+        case 'END_AUDIO_TEST':
+            return { ...state, testingAudio: false };
+        case 'SHOW_CONSENT':
+            return { ...state, showConsentModal: true };
+        case 'HIDE_CONSENT':
+            return { ...state, showConsentModal: false };
+        default:
+            return state;
+    }
+}
+
+// Global constraints for all strategies
+const MIN_LEAD = -30000;
+const MAX_LEAD = 30000;
+const SNAP_POINTS = [-30000, -25000, -20000, -15000, -10000, -5000, 0, 5000, 10000, 15000, 20000, 25000, 30000];
+const SNAP_THRESHOLD = 750;
+
+const LeadTimeSlider = ({ leadTimeMs, onChange }) => (
+    <div className="pt-2">
+        <div className="flex justify-between items-center mb-1">
+            <span className="block text-sm font-medium text-app-text">Lead Time Adjustment</span>
+            <span className={cn(
+                "text-sm font-bold px-2 py-0.5 rounded",
+                leadTimeMs > 0 ? "text-emerald-400 bg-emerald-400/10" : 
+                leadTimeMs < 0 ? "text-amber-400 bg-amber-400/10" : 
+                "text-app-dim bg-app-card-hover"
+            )}>
+                {leadTimeMs > 0 ? `+${(leadTimeMs / 1000).toFixed(1)}s` : 
+                 leadTimeMs < 0 ? `${(leadTimeMs / 1000).toFixed(1)}s` : 
+                 "Synchronised"}
+            </span>
+        </div>
+        <div className="text-xs text-app-dim mb-3">
+            {leadTimeMs > 0 ? `Starts ${leadTimeMs}ms before target time.` : 
+             leadTimeMs < 0 ? `Starts ${Math.abs(leadTimeMs)}ms after target time.` : 
+             "Starts exactly at target time."}
+        </div>
+        <div className="relative mt-4 mb-16">
+            {/* Track Background */}
+            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 bg-zinc-800 rounded-lg border border-white/5" />
+            
+            {/* Bidirectional Fill (Center to Thumb) */}
+            <div 
+                className="absolute top-1/2 -translate-y-1/2 h-1.5 bg-emerald-500/40 rounded-full transition-all duration-75"
+                style={{
+                    left: leadTimeMs >= 0 ? '50%' : `${((leadTimeMs - MIN_LEAD) / (MAX_LEAD - MIN_LEAD)) * 100}%`,
+                    width: `${Math.abs(leadTimeMs) / (MAX_LEAD - MIN_LEAD) * 100}%`
+                }}
+            />
+
+            {/* Markers */}
+            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-4 pointer-events-none px-0">
+                <div className="relative w-full h-full">
+                    {SNAP_POINTS.map(p => (
+                        <div 
+                            key={p}
+                            className={cn(
+                                "absolute top-1/2 -translate-y-1/2 w-[2px] rounded-full transition-all",
+                                p === 0 ? "h-6 bg-emerald-500/80 z-20" : "h-2 bg-white/10 z-10"
+                            )}
+                            style={{ 
+                                left: `${((p - MIN_LEAD) / (MAX_LEAD - MIN_LEAD)) * 100}%`,
+                                transform: 'translate(-50%, -50%)'
+                            }}
+                        />
+                    ))}
+                </div>
+            </div>
+
+            <input 
+                type="range"
+                min={MIN_LEAD}
+                max={MAX_LEAD}
+                step="100"
+                value={leadTimeMs}
+                onChange={(e) => {
+                    let val = parseInt(e.target.value) || 0;
+                    const nearest = SNAP_POINTS.reduce((prev, curr) => 
+                        Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev
+                    );
+                    if (Math.abs(val - nearest) < SNAP_THRESHOLD) {
+                        val = nearest;
+                    }
+                    onChange('leadTimeMs', val);
+                }}
+                className="absolute inset-0 w-full h-1.5 bg-transparent appearance-none cursor-pointer z-30
+                    [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:shadow-[0_0_10px_rgba(16,185,129,0.5)] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-zinc-900
+                    [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-emerald-400 [&::-moz-range-thumb]:shadow-[0_0_10px_rgba(16,185,129,0.5)] [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-zinc-900"
+            />
+            
+            {/* High-visibility markers for precise alignment */}
+            <div className="absolute top-7 left-0 right-0 h-4 text-[10px] text-app-dim select-none pointer-events-none">
+                <span className="absolute left-0">Lag (-30s)</span>
+                <span className="absolute left-1/2 -translate-x-1/2 font-medium text-app-text/60">0s</span>
+                <span className="absolute right-0 text-right">Lead (+30s)</span>
+            </div>
+        </div>
+    </div>
+);
+
+const StrategyParams = ({ params, id, values, onParamChange }) => {
+    const visibleParams = params.filter(p => !p.sensitive);
+    if (visibleParams.length === 0) return null;
+
+    return (
+        <div className="space-y-4 pt-2">
+            {visibleParams.map(param => (
+                <div key={param.key}>
+                    <label htmlFor={`${id}-${param.key}`} className="block text-sm font-medium text-app-text mb-1">
+                        {param.label}
+                        {param.requiredForHealth && <span className="text-red-400 ml-1">*</span>}
+                    </label>
+                    {param.type === 'select' ? (
+                        <select
+                            id={`${id}-${param.key}`}
+                            value={values[param.key] || param.default || ''}
+                            onChange={e => onParamChange(param.key, e.target.value)}
+                            className="w-full bg-app-bg border border-app-border rounded p-2 text-app-text focus:ring-emerald-500 focus:border-emerald-500 mb-1 appearance-none cursor-pointer"
+                        >
+                            {param.options?.map(opt => (
+                                <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                        </select>
+                    ) : (
+                        <input 
+                            id={`${id}-${param.key}`}
+                            type="text"
+                            value={values[param.key] || param.default || ''}
+                            onChange={e => onParamChange(param.key, e.target.value)}
+                            className="w-full bg-app-bg border border-app-border rounded p-2 text-app-text focus:ring-emerald-500 focus:border-emerald-500 mb-1"
+                        />
+                    )}
+                    {param.subtext && (
+                        <div className="text-xs text-app-dim italic ml-1">
+                            {param.subtext}
+                        </div>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+};
+
+const ActionButtons = ({ status, errorMsg, testingHealth, testingAudio, onCheckHealth, onTestAudio }) => (
+    <div className="pt-4 flex flex-wrap gap-3 items-center border-t border-app-border">
+        <div className="relative group">
+            <button 
+                onClick={onCheckHealth} 
+                disabled={testingHealth || testingAudio}
+                className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded transition-colors text-sm font-medium disabled:opacity-50 min-w-[140px] justify-center",
+                    testingHealth ? "bg-amber-600/20 text-amber-400 border border-amber-600/50" :
+                    status === 'online' ? "bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-600/50" :
+                    status === 'offline' ? "bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/50" :
+                    "bg-blue-600/20 text-blue-400 hover:bg-blue-600/30"
+                )}
+            >
+                {testingHealth ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Checking...</>
+                ) : status === 'online' ? (
+                    <><CheckCircle className="w-4 h-4" /> Online</>
+                ) : status === 'offline' ? (
+                    <><XCircle className="w-4 h-4" /> Offline</>
+                ) : (
+                    <><Power className="w-4 h-4" /> Check Health</>
+                )}
+            </button>
+            
+            {/* Error Tooltip */}
+            {status === 'offline' && errorMsg && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[250px] px-3 py-2 bg-gray-900 text-white text-xs rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 border border-gray-700">
+                    <div className="font-semibold text-red-400 mb-0.5 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Connection Error
+                    </div>
+                    {errorMsg}
+                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 border-b border-r border-gray-700 rotate-45"></div>
+                </div>
+            )}
+        </div>
+
+        <button 
+            onClick={onTestAudio}
+            disabled={testingHealth || testingAudio}
+            className="flex items-center gap-2 px-4 py-2 rounded bg-app-card-hover text-app-text hover:bg-emerald-600/20 hover:text-emerald-400 border border-app-border hover:border-emerald-600/50 transition-all text-sm font-medium disabled:opacity-50 min-w-[140px] justify-center"
+        >
+            {testingAudio ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Triggering...</>
+            ) : (
+                <><Volume2 className="w-4 h-4" /> Test Audio</>
+            )}
+        </button>
+    </div>
+);
+
 /**
  * A card component that displays and manages the settings for an output strategy.
  * 
@@ -46,26 +261,24 @@ const Toggle = ({ checked, onChange }) => (
  * @returns {JSX.Element} The rendered component.
  */
 export default function OutputStrategyCard({ strategy, config, onChange, systemHealth }) {
-    const [testingHealth, setTestingHealth] = useState(false);
-    const [testingAudio, setTestingAudio] = useState(false);
-    const [status, setStatus] = useState('idle'); // idle, testing, online, offline
-    const [errorMsg, setErrorMsg] = useState(null);
-    const [showConsentModal, setShowConsentModal] = useState(false);
+    const [state, dispatch] = useReducer(reducer, initialState);
+    const { testingHealth, testingAudio, localStatus, localErrorMsg, showConsentModal } = state;
 
     const { id, label, params, hidden } = strategy;
 
-    useEffect(() => {
+    // Derive status/errorMsg: local override takes priority, otherwise derive from systemHealth
+    const { status, errorMsg } = useMemo(() => {
+        if (localStatus !== null) {
+            return { status: localStatus, errorMsg: localErrorMsg };
+        }
         if (systemHealth && systemHealth[id]) {
             const health = systemHealth[id];
-            if (health.healthy) {
-                setStatus('online');
-                setErrorMsg(null);
-            } else {
-                setStatus('offline');
-                setErrorMsg(health.message || 'Unknown error');
-            }
+            return health.healthy
+                ? { status: 'online', errorMsg: null }
+                : { status: 'offline', errorMsg: health.message || 'Unknown error' };
         }
-    }, [systemHealth, id]);
+        return { status: 'idle', errorMsg: null };
+    }, [localStatus, localErrorMsg, systemHealth, id]);
 
     if (hidden) return null;
 
@@ -73,24 +286,15 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
     const enabled = config?.enabled ?? false;
     const leadTimeMs = config?.leadTimeMs ?? strategy.defaultLeadTimeMs ?? 0;
 
-    // Global constraints for all strategies
-    const minLead = -30000;
-    const maxLead = 30000;
-    const snapPoints = [-30000, -25000, -20000, -15000, -10000, -5000, 0, 5000, 10000, 15000, 20000, 25000, 30000];
-    const snapThreshold = 750;
-
     const handleParamChange = (key, value) => {
         onChange('params', { ...values, [key]: value });
-        setStatus('idle'); // Reset status on change
+        dispatch({ type: 'PARAM_CHANGED' });
     };
 
     const handleCheckHealth = async () => {
-        setTestingHealth(true);
-        setErrorMsg(null);
+        dispatch({ type: 'START_HEALTH_CHECK' });
         
         try {
-            // Using refreshHealth endpoint to trigger health check for specific target
-            // Pass current values to allow testing unsaved changes
             const res = await fetch('/api/system/health/refresh', { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -109,16 +313,12 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
             const healthData = data[id];
             
             if (healthData && healthData.healthy) {
-                setStatus('online');
+                dispatch({ type: 'HEALTH_CHECK_ONLINE' });
             } else {
-                setStatus('offline');
-                setErrorMsg(healthData?.message || 'Unknown error');
+                dispatch({ type: 'HEALTH_CHECK_OFFLINE', errorMsg: healthData?.message || 'Unknown error' });
             }
         } catch (e) {
-            setStatus('offline');
-            setErrorMsg(e.message);
-        } finally {
-            setTestingHealth(false);
+            dispatch({ type: 'HEALTH_CHECK_OFFLINE', errorMsg: e.message });
         }
     };
 
@@ -126,7 +326,7 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
         if (sessionConsentGiven) {
             triggerAudioTest();
         } else {
-            setShowConsentModal(true);
+            dispatch({ type: 'SHOW_CONSENT' });
         }
     };
 
@@ -138,7 +338,7 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
     };
 
     const triggerAudioTest = async () => {
-        setTestingAudio(true);
+        dispatch({ type: 'START_AUDIO_TEST' });
         try {
             const res = await fetch(`/api/system/outputs/${id}/test`, {
                 method: 'POST',
@@ -154,10 +354,8 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
             }
         } catch (e) {
             console.error('Audio test failed:', e);
-            // We don't necessarily want to change the health status just because a test failed
-            // but we might want to show an alert or something.
         } finally {
-            setTestingAudio(false);
+            dispatch({ type: 'END_AUDIO_TEST' });
         }
     };
 
@@ -184,179 +382,21 @@ export default function OutputStrategyCard({ strategy, config, onChange, systemH
             </div>
             
             <div className="space-y-5">
-                {/* Lead Time Config */}
-                <div className="pt-2">
-                    <div className="flex justify-between items-center mb-1">
-                        <label className="block text-sm font-medium text-app-text">Lead Time Adjustment</label>
-                        <span className={cn(
-                            "text-sm font-bold px-2 py-0.5 rounded",
-                            leadTimeMs > 0 ? "text-emerald-400 bg-emerald-400/10" : 
-                            leadTimeMs < 0 ? "text-amber-400 bg-amber-400/10" : 
-                            "text-app-dim bg-app-card-hover"
-                        )}>
-                            {leadTimeMs > 0 ? `+${(leadTimeMs / 1000).toFixed(1)}s` : 
-                             leadTimeMs < 0 ? `${(leadTimeMs / 1000).toFixed(1)}s` : 
-                             "Synchronised"}
-                        </span>
-                    </div>
-                    <div className="text-xs text-app-dim mb-3">
-                        {leadTimeMs > 0 ? `Starts ${leadTimeMs}ms before target time.` : 
-                         leadTimeMs < 0 ? `Starts ${Math.abs(leadTimeMs)}ms after target time.` : 
-                         "Starts exactly at target time."}
-                    </div>
-                    <div className="relative mt-4 mb-16">
-                        {/* Track Background */}
-                        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 bg-zinc-800 rounded-lg border border-white/5" />
-                        
-                        {/* Bidirectional Fill (Center to Thumb) */}
-                        <div 
-                            className="absolute top-1/2 -translate-y-1/2 h-1.5 bg-emerald-500/40 rounded-full transition-all duration-75"
-                            style={{
-                                left: leadTimeMs >= 0 ? '50%' : `${((leadTimeMs - minLead) / (maxLead - minLead)) * 100}%`,
-                                width: `${Math.abs(leadTimeMs) / (maxLead - minLead) * 100}%`
-                            }}
-                        />
-
-                        {/* Markers */}
-                        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-4 pointer-events-none px-0">
-                            <div className="relative w-full h-full">
-                                {snapPoints.map(p => (
-                                    <div 
-                                        key={p}
-                                        className={cn(
-                                            "absolute top-1/2 -translate-y-1/2 w-[2px] rounded-full transition-all",
-                                            p === 0 ? "h-6 bg-emerald-500/80 z-20" : "h-2 bg-white/10 z-10"
-                                        )}
-                                        style={{ 
-                                            left: `${((p - minLead) / (maxLead - minLead)) * 100}%`,
-                                            transform: 'translate(-50%, -50%)'
-                                        }}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-
-                        <input 
-                            type="range"
-                            min={minLead}
-                            max={maxLead}
-                            step="100"
-                            value={leadTimeMs}
-                            onChange={(e) => {
-                                let val = parseInt(e.target.value) || 0;
-                                const nearest = snapPoints.reduce((prev, curr) => 
-                                    Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev
-                                );
-                                if (Math.abs(val - nearest) < snapThreshold) {
-                                    val = nearest;
-                                }
-                                onChange('leadTimeMs', val);
-                            }}
-                            className="absolute inset-0 w-full h-1.5 bg-transparent appearance-none cursor-pointer z-30
-                                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-400 [&::-webkit-slider-thumb]:shadow-[0_0_10px_rgba(16,185,129,0.5)] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-zinc-900
-                                [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-emerald-400 [&::-moz-range-thumb]:shadow-[0_0_10px_rgba(16,185,129,0.5)] [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-zinc-900"
-                        />
-                        
-                        {/* High-visibility markers for precise alignment */}
-                        <div className="absolute top-7 left-0 right-0 h-4 text-[10px] text-app-dim select-none pointer-events-none">
-                            <span className="absolute left-0">Lag (-30s)</span>
-                            <span className="absolute left-1/2 -translate-x-1/2 font-medium text-app-text/60">0s</span>
-                            <span className="absolute right-0 text-right">Lead (+30s)</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Strategy Params - Non-Sensitive Only */}
-                {params.filter(p => !p.sensitive).length > 0 && (
-                    <div className="space-y-4 pt-2">
-                        {params.filter(p => !p.sensitive).map(param => (
-                            <div key={param.key}>
-                                <label className="block text-sm font-medium text-app-text mb-1">
-                                    {param.label}
-                                    {param.requiredForHealth && <span className="text-red-400 ml-1">*</span>}
-                                </label>
-                                {param.type === 'select' ? (
-                                    <select
-                                        value={values[param.key] || param.default || ''}
-                                        onChange={e => handleParamChange(param.key, e.target.value)}
-                                        className="w-full bg-app-bg border border-app-border rounded p-2 text-app-text focus:ring-emerald-500 focus:border-emerald-500 mb-1 appearance-none cursor-pointer"
-                                    >
-                                        {param.options?.map(opt => (
-                                            <option key={opt} value={opt}>{opt}</option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <input 
-                                        type="text"
-                                        value={values[param.key] || param.default || ''}
-                                        onChange={e => handleParamChange(param.key, e.target.value)}
-                                        className="w-full bg-app-bg border border-app-border rounded p-2 text-app-text focus:ring-emerald-500 focus:border-emerald-500 mb-1"
-                                    />
-                                )}
-                                {param.subtext && (
-                                    <div className="text-xs text-app-dim italic ml-1">
-                                        {param.subtext}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Actions */}
-                <div className="pt-4 flex flex-wrap gap-3 items-center border-t border-app-border">
-                    <div className="relative group">
-                        <button 
-                            onClick={handleCheckHealth} 
-                            disabled={testingHealth || testingAudio}
-                            className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded transition-colors text-sm font-medium disabled:opacity-50 min-w-[140px] justify-center",
-                                testingHealth ? "bg-amber-600/20 text-amber-400 border border-amber-600/50" :
-                                status === 'online' ? "bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-600/50" :
-                                status === 'offline' ? "bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-600/50" :
-                                "bg-blue-600/20 text-blue-400 hover:bg-blue-600/30"
-                            )}
-                        >
-                            {testingHealth ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" /> Checking...</>
-                            ) : status === 'online' ? (
-                                <><CheckCircle className="w-4 h-4" /> Online</>
-                            ) : status === 'offline' ? (
-                                <><XCircle className="w-4 h-4" /> Offline</>
-                            ) : (
-                                <><Power className="w-4 h-4" /> Check Health</>
-                            )}
-                        </button>
-                        
-                        {/* Error Tooltip */}
-                        {status === 'offline' && errorMsg && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[250px] px-3 py-2 bg-gray-900 text-white text-xs rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 border border-gray-700">
-                                <div className="font-semibold text-red-400 mb-0.5 flex items-center gap-1">
-                                    <AlertTriangle className="w-3 h-3" /> Connection Error
-                                </div>
-                                {errorMsg}
-                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 border-b border-r border-gray-700 rotate-45"></div>
-                            </div>
-                        )}
-                    </div>
-
-                    <button 
-                        onClick={handleTestAudioClick}
-                        disabled={testingHealth || testingAudio}
-                        className="flex items-center gap-2 px-4 py-2 rounded bg-app-card-hover text-app-text hover:bg-emerald-600/20 hover:text-emerald-400 border border-app-border hover:border-emerald-600/50 transition-all text-sm font-medium disabled:opacity-50 min-w-[140px] justify-center"
-                    >
-                        {testingAudio ? (
-                            <><Loader2 className="w-4 h-4 animate-spin" /> Triggering...</>
-                        ) : (
-                            <><Volume2 className="w-4 h-4" /> Test Audio</>
-                        )}
-                    </button>
-                </div>
+                <LeadTimeSlider leadTimeMs={leadTimeMs} onChange={onChange} />
+                <StrategyParams params={params} id={id} values={values} onParamChange={handleParamChange} />
+                <ActionButtons 
+                    status={status}
+                    errorMsg={errorMsg}
+                    testingHealth={testingHealth}
+                    testingAudio={testingAudio}
+                    onCheckHealth={handleCheckHealth}
+                    onTestAudio={handleTestAudioClick}
+                />
             </div>
 
             <AudioConsentModal 
                 isOpen={showConsentModal}
-                onClose={() => setShowConsentModal(false)}
+                onClose={() => dispatch({ type: 'HIDE_CONSENT' })}
                 onConfirm={handleConsentConfirm}
                 strategyLabel={label}
             />

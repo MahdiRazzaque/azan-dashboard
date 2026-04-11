@@ -1,5 +1,74 @@
+/* eslint-disable jsdoc/require-jsdoc */
 import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+
+function DynamicInput({ commonClasses, error, errorClasses, handleValueChange, onTogglePassword, param, showPassword, value }) {
+    switch (param.type) {
+        case 'select':
+            return (
+                <select
+                    className={cn(commonClasses, error && errorClasses)}
+                    value={value ?? ''}
+                    onChange={e => {
+                        const val = e.target.value;
+                        const option = param.constraints?.options?.find(o => String(o.id) === val);
+                        handleValueChange(option ? option.id : val);
+                    }}
+                >
+                    {param.constraints?.options?.map(opt => (
+                        <option key={opt.id} value={opt.id}>
+                            {opt.label}
+                        </option>
+                    ))}
+                </select>
+            );
+
+        case 'password':
+            return (
+                <div className="relative">
+                    <input
+                        type={showPassword ? 'text' : 'password'}
+                        className={cn(commonClasses, error && errorClasses)}
+                        value={value ?? ''}
+                        onChange={e => handleValueChange(e.target.value)}
+                        placeholder={param.placeholder}
+                    />
+                    <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-app-dim hover:text-app-text"
+                        onClick={onTogglePassword}
+                    >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                </div>
+            );
+
+        case 'number':
+            return (
+                <input
+                    type="number"
+                    className={cn(commonClasses, error && errorClasses)}
+                    value={value ?? ''}
+                    onChange={e => handleValueChange(parseFloat(e.target.value))}
+                    placeholder={param.placeholder}
+                    min={param.constraints?.min}
+                    max={param.constraints?.max}
+                />
+            );
+
+        case 'text':
+        default:
+            return (
+                <input
+                    type="text"
+                    className={cn(commonClasses, error && errorClasses)}
+                    value={value ?? ''}
+                    onChange={e => handleValueChange(e.target.value)}
+                    placeholder={param.placeholder}
+                />
+            );
+    }
+}
 
 /**
  * A dynamic input component that renders based on provider metadata.
@@ -39,81 +108,22 @@ export default function DynamicField({ param, value, onChange }) {
         validate(val);
     };
 
-    const renderInput = () => {
-        switch (param.type) {
-            case 'select':
-                return (
-                    <select
-                        className={cn(commonClasses, error && errorClasses)}
-                        value={value ?? ''}
-                        onChange={e => {
-                            const val = e.target.value;
-                            const option = param.constraints?.options?.find(o => String(o.id) === val);
-                            handleValueChange(option ? option.id : val);
-                        }}
-                    >
-                        {param.constraints?.options?.map(opt => (
-                            <option key={opt.id} value={opt.id}>
-                                {opt.label}
-                            </option>
-                        ))}
-                    </select>
-                );
-
-            case 'password':
-                return (
-                    <div className="relative">
-                        <input
-                            type={showPassword ? "text" : "password"}
-                            className={cn(commonClasses, error && errorClasses)}
-                            value={value ?? ''}
-                            onChange={e => handleValueChange(e.target.value)}
-                            placeholder={param.placeholder}
-                        />
-                        <button
-                            type="button"
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-app-dim hover:text-app-text"
-                            onClick={() => setShowPassword(!showPassword)}
-                        >
-                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                    </div>
-                );
-
-            case 'number':
-                return (
-                    <input
-                        type="number"
-                        className={cn(commonClasses, error && errorClasses)}
-                        value={value ?? ''}
-                        onChange={e => handleValueChange(parseFloat(e.target.value))}
-                        placeholder={param.placeholder}
-                        min={param.constraints?.min}
-                        max={param.constraints?.max}
-                    />
-                );
-
-            case 'text':
-            default:
-                return (
-                    <input
-                        type="text"
-                        className={cn(commonClasses, error && errorClasses)}
-                        value={value ?? ''}
-                        onChange={e => handleValueChange(e.target.value)}
-                        placeholder={param.placeholder}
-                    />
-                );
-        }
-    };
-
     return (
         <div className="space-y-1">
             <div className="flex justify-between items-center">
                 <label className="block text-sm font-medium text-app-dim">{param.label}</label>
                 {error && <span className="text-xs text-red-500 animate-in fade-in duration-200">{error}</span>}
             </div>
-            {renderInput()}
+            <DynamicInput
+                commonClasses={commonClasses}
+                error={error}
+                errorClasses={errorClasses}
+                handleValueChange={handleValueChange}
+                onTogglePassword={() => setShowPassword(!showPassword)}
+                param={param}
+                showPassword={showPassword}
+                value={value}
+            />
             {param.description && (
                 <p className="text-xs text-app-dim mt-1">{param.description}</p>
             )}
