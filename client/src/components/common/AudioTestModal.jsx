@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
 import { X, Volume2, Monitor, Radio, AlertCircle, Server } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
+import { useOutputStrategies } from '@/hooks/useOutputStrategies';
 
 /**
  * A modal component that allows users to test audio playback across different
@@ -24,19 +24,7 @@ export default function AudioTestModal({
     onTest 
 }) {
     const { systemHealth, config } = useSettings();
-    const [strategies, setStrategies] = useState([]);
-
-    useEffect(() => {
-        if (isOpen) {
-            fetch('/api/system/outputs/registry')
-                .then(res => {
-                    if (!res.ok) throw new Error('Failed to fetch strategies');
-                    return res.json();
-                })
-                .then(data => setStrategies(data))
-                .catch(console.error);
-        }
-    }, [isOpen]);
+    const { strategies } = useOutputStrategies({ enabled: isOpen });
 
     if (!isOpen || !file) return null;
 
@@ -74,19 +62,32 @@ export default function AudioTestModal({
         };
     });
 
+    const handleBackdropKeyDown = (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClose();
+        }
+    };
+
+    const modalTitleId = 'audio-test-modal-title';
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center isolate">
+        <div className="fixed inset-0 z-50 flex items-center justify-center isolate" role="dialog" aria-modal="true" aria-labelledby={modalTitleId}>
             {/* Backdrop */}
             <div 
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
                 onClick={onClose}
+                onKeyDown={handleBackdropKeyDown}
+                role="button"
+                tabIndex={0}
+                aria-label="Close audio test modal"
             />
             
             {/* Modal */}
             <div className="bg-app-card border border-app-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden relative z-10 animate-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-app-border flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-app-text">Test Audio Asset</h3>
+                    <h3 id={modalTitleId} className="text-xl font-bold text-app-text">Test Audio Asset</h3>
                     <button 
                         onClick={onClose}
                         className="text-app-dim hover:text-app-text transition-colors"

@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSettings } from "@/hooks/useSettings";
+import { useAudioFiles } from "@/hooks/useAudioFiles";
+import { useOutputStrategies } from "@/hooks/useOutputStrategies";
 import TriggerCard from "@/components/settings/TriggerCard";
 import IqamahTimingCard from "@/components/settings/IqamahTimingCard";
 import { Clock, AlertTriangle, Info } from "lucide-react";
@@ -31,30 +33,10 @@ export default function PrayerSettingsView() {
         providers
     } = useSettings();
     const [activeTab, setActiveTab] = useState('fajr');
-    const [audioFiles, setAudioFiles] = useState([]);
-    const [strategies, setStrategies] = useState([]);
-    
-    // Local state for UI only
-
-    useEffect(() => {
-        // Fetch audio files for the dropdowns
-        fetch('/api/system/audio-files')
-            .then(res => res.json())
-            .then(data => {
-                // The API returns { files: [], total: 0, ... } due to pagination
-                const files = data.files || [];
-                // Filter out TTS/Cache files as per requirement
-                const filtered = files.filter(f => f.type !== 'cache');
-                setAudioFiles(filtered);
-            })
-            .catch(err => console.error("Failed to load audio files", err));
-
-        // Fetch strategies for trigger card targets
-        fetch('/api/system/outputs/registry')
-            .then(res => res.json())
-            .then(setStrategies)
-            .catch(err => console.error("Failed to fetch output strategies", err));
-    }, []);
+    const { files: audioFiles } = useAudioFiles({
+        select: (files) => files.filter(file => file.type !== 'cache')
+    });
+    const { strategies } = useOutputStrategies();
 
 
     if (!draftConfig) {
@@ -148,9 +130,9 @@ export default function PrayerSettingsView() {
                                              <AlertTriangle className="w-3 h-3" /> Service Issue
                                          </p>
                                          <ul className="space-y-0.5 list-disc list-inside">
-                                             {getSectionHealth(`prayers.${p}`).issues.map((issue, idx) => (
-                                                 <li key={idx}>{issue.type}</li>
-                                             ))}
+                                              {getSectionHealth(`prayers.${p}`).issues.map((issue) => (
+                                                  <li key={`${issue.type}-${issue.message || 'issue'}`}>{issue.type}</li>
+                                              ))}
                                          </ul>
                                      </div>
                                      <div className="w-2 h-2 bg-app-card border-r border-b border-app-border rotate-45 mx-auto -mt-1"></div>

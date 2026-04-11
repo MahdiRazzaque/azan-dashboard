@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/hooks/useSettings';
 import { Lock, ShieldCheck, Key } from 'lucide-react';
 import PasswordInput from '@/components/common/PasswordInput';
 import CredentialStrategyCard from '@/components/settings/CredentialStrategyCard';
+import { useOutputStrategies } from '@/hooks/useOutputStrategies';
 
 /**
  * A view component for managing administrator credentials and integration secrets.
@@ -15,7 +16,9 @@ import CredentialStrategyCard from '@/components/settings/CredentialStrategyCard
 export default function CredentialsSettingsView() {
   const { logout } = useAuth();
   const { updateEnvSetting, config, refreshHealth, loading: settingsLoading } = useSettings();
-  const [strategies, setStrategies] = useState([]);
+  const { strategies } = useOutputStrategies({
+      select: (data) => data.filter(strategy => strategy.params.some(param => param.sensitive))
+  });
   
   // New handlers to support card-level saving
   const handleStrategySave = async (strategyId, secrets, isReset = false) => {
@@ -57,16 +60,6 @@ export default function CredentialsSettingsView() {
       }
   };
 
-  useEffect(() => {
-      fetch('/api/system/outputs/registry')
-          .then(res => {
-              if (!res.ok) throw new Error('Failed to fetch strategies');
-              return res.json();
-          })
-          .then(data => setStrategies(data.filter(s => s.params.some(p => p.sensitive))))
-          .catch(console.error);
-  }, []);
-  
   // --- Password Change State ---
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -161,21 +154,23 @@ export default function CredentialsSettingsView() {
             </h2>
             <div className="max-w-md space-y-4">
                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-app-dim">New Password</label>
-                    <PasswordInput 
-                        value={newPassword}
-                        onChange={setNewPassword}
-                        placeholder="New Password"
+                    <label htmlFor="new-admin-password" className="block text-sm font-medium text-app-dim">New Password</label>
+                     <PasswordInput 
+                        id="new-admin-password"
+                         value={newPassword}
+                         onChange={setNewPassword}
+                         placeholder="New Password"
                         showStrength={true}
                     />
                  </div>
 
                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-app-dim">Confirm New Password</label>
-                    <PasswordInput 
-                        value={confirmPassword}
-                        onChange={setConfirmPassword}
-                        placeholder="Confirm New Password"
+                    <label htmlFor="confirm-admin-password" className="block text-sm font-medium text-app-dim">Confirm New Password</label>
+                     <PasswordInput 
+                        id="confirm-admin-password"
+                         value={confirmPassword}
+                         onChange={setConfirmPassword}
+                         placeholder="Confirm New Password"
                         showStrength={false}
                     />
                  </div>

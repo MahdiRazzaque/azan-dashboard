@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSettings } from '@/hooks/useSettings';
+import { useOutputStrategies } from '@/hooks/useOutputStrategies';
 import { Power, Zap, Music, LayoutGrid, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -36,7 +37,7 @@ export default function AutomationSettingsView() {
         } = useSettings();
     
         const [searchParams, setSearchParams] = useSearchParams();
-        const [strategies, setStrategies] = useState([]);
+        const { strategies } = useOutputStrategies();
         
         // Tab State
         const activeTab = searchParams.get('tab') || 'general';
@@ -47,16 +48,6 @@ export default function AutomationSettingsView() {
         const [voiceLocale, setVoiceLocale] = useState("All");
         const [voiceGender, setVoiceGender] = useState("All");
     
-            useEffect(() => {
-                fetch('/api/system/outputs/registry')
-                    .then(res => {
-                        if (!res.ok) throw new Error('Failed to fetch strategies');
-                        return res.json();
-                    })
-                    .then(data => setStrategies(data))
-                    .catch(console.error);
-            }, []);  
-
   if (loading || !draftConfig) return <div className="p-8 text-center text-app-dim">Loading...</div>;
 
   // Health check logic for tabs
