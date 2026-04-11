@@ -126,43 +126,41 @@ async function _refreshTarget(target, params = null, { force = false } = {}) {
         
         // Filter params based on each strategy's metadata requirements
         let strategyParams = null;
-        if (params && meta?.params) {
+        const configParams = config.automation?.outputs?.[target]?.params;
+
+        if (meta?.params) {
             strategyParams = {};
+
             meta.params.forEach(p => {
-                if (p.requiredForHealth && params[p.key] !== undefined) {
+                if (!p.requiredForHealth) {
+                    return;
+                }
+
+                if (params?.[p.key] !== undefined) {
                     strategyParams[p.key] = params[p.key];
+                    return;
+                }
+
+                if (configParams?.[p.key] !== undefined) {
+                    strategyParams[p.key] = configParams[p.key];
                 }
             });
 
-            // Unmask secrets received from the UI
+            // Unmask secrets received from the UI or preserved from config.
             configUnmasker.unmaskParams(target, strategyParams, config);
 
             if (Object.keys(strategyParams).length === 0) {
                 strategyParams = null;
             }
-        } else if (meta?.params) {
-            // No transient params provided — populate from stored config so
-            // output strategies don't need to import config themselves (avoids
-            // circular dependency: config → outputs → config).
-            const configParams = config.automation?.outputs?.[target]?.params;
-            if (configParams) {
-                strategyParams = {};
-                meta.params.forEach(p => {
-                    if (p.requiredForHealth && configParams[p.key] !== undefined) {
-                        strategyParams[p.key] = configParams[p.key];
-                    }
-                });
-                if (Object.keys(strategyParams).length === 0) {
-                    strategyParams = null;
-                }
-            }
         }
 
+        const baseUrl = params?.baseUrl ?? config.automation?.baseUrl;
+
         // Inject global baseUrl so strategies don't need to read config directly.
-        if (strategyParams && config.automation?.baseUrl) {
-            strategyParams.baseUrl = config.automation.baseUrl;
-        } else if (!strategyParams && config.automation?.baseUrl) {
-            strategyParams = { baseUrl: config.automation.baseUrl };
+        if (strategyParams && baseUrl) {
+            strategyParams.baseUrl = baseUrl;
+        } else if (!strategyParams && baseUrl) {
+            strategyParams = { baseUrl };
         }
 
         return await strategy.healthCheck(strategyParams);

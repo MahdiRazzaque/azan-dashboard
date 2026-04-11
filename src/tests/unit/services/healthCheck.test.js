@@ -148,6 +148,49 @@ describe('HealthCheck Service', () => {
         });
     });
 
+    it('should merge transient health-check params with stored config fallback and preserve transient baseUrl', async () => {
+        OutputFactory.getAllStrategies.mockReturnValue([
+            {
+                id: 'voicemonkey',
+                hidden: false,
+                params: [
+                    { key: 'token', requiredForHealth: true },
+                    { key: 'device', requiredForHealth: false },
+                    { key: 'region', requiredForHealth: true }
+                ]
+            }
+        ]);
+
+        configService.get.mockReturnValue({
+            automation: {
+                baseUrl: 'https://dashboard.test',
+                outputs: {
+                    voicemonkey: {
+                        params: {
+                            token: 'stored-token',
+                            device: 'living-room',
+                            region: 'us-east-1'
+                        }
+                    }
+                }
+            },
+            sources: { primary: { type: 'aladhan' }, backup: { type: 'mymasjid', enabled: false } },
+            location: { timezone: 'UTC' },
+            system: { healthChecks: { voicemonkey: true } }
+        });
+
+        await healthCheck.refresh('voicemonkey', {
+            token: 'transient-token',
+            baseUrl: 'https://preview.test'
+        });
+
+        expect(mockVMStrategy.healthCheck).toHaveBeenCalledWith({
+            token: 'transient-token',
+            region: 'us-east-1',
+            baseUrl: 'https://preview.test'
+        });
+    });
+
     describe('Config-based Toggles', () => {
         it('should skip disabled checks in daily maintenance', async () => {
             configService.get.mockReturnValue({
