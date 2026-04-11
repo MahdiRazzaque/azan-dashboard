@@ -6,6 +6,7 @@ const schedulerService = require('@services/core/schedulerService');
 const audioAssetService = require('@services/system/audioAssetService');
 const healthCheck = require('@services/system/healthCheck');
 const audioValidator = require('@utils/audioValidator');
+const { sanitiseFilename } = require('@utils/pathSecurity');
 const systemControllerHelper = require('./systemController');
 const OutputFactory = require('../outputs');
 
@@ -237,14 +238,8 @@ const settingsController = {
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
         
         // Multer generates the filename via DiskStorage; only reject traversal/path-segment edge cases
-        const originalFilename = String(req.file.filename || '');
-        const safeFilename = path.basename(originalFilename);
-        if (
-            !safeFilename ||
-            safeFilename === '.' ||
-            safeFilename === '..' ||
-            safeFilename !== originalFilename
-        ) {
+        const safeFilename = sanitiseFilename(req.file.filename);
+        if (!safeFilename) {
             try { await fsAsync.unlink(req.file.path); } catch { /* ignore */ }
             return res.status(400).json({ error: 'Invalid filename' });
         }
@@ -330,15 +325,8 @@ const settingsController = {
         const { filename } = req.body;
         if (!filename) return res.status(400).json({ error: 'Missing filename' });
         
-        const sanitised = path.basename(String(filename));
-        if (
-            sanitised !== filename ||
-            sanitised === '.' ||
-            sanitised === '..' ||
-            !/^[a-zA-Z0-9._-]+$/.test(sanitised)
-        ) {
-            return res.status(400).json({ error: 'Invalid filename' });
-        }
+        const sanitised = sanitiseFilename(filename);
+        if (!sanitised) return res.status(400).json({ error: 'Invalid filename' });
 
         const audioDir = path.resolve(__dirname, '../../public/audio/custom');
         const metaDir = path.resolve(__dirname, '../public/audio/custom');
@@ -400,15 +388,8 @@ const settingsController = {
             return res.status(400).json({ error: 'Filename and type are required' });
         }
 
-        const sanitised = path.basename(String(filename));
-        if (
-            sanitised !== filename ||
-            sanitised === '.' ||
-            sanitised === '..' ||
-            !/^[a-zA-Z0-9._-]+$/.test(sanitised)
-        ) {
-            return res.status(400).json({ error: 'Invalid filename' });
-        }
+        const sanitised = sanitiseFilename(filename);
+        if (!sanitised) return res.status(400).json({ error: 'Invalid filename' });
 
         const audioDir = type === 'cache' 
             ? path.resolve(__dirname, '../../public/audio/cache')
