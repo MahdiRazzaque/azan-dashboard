@@ -1,10 +1,42 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable jsdoc/require-jsdoc */
+import { useReducer, useEffect, useCallback } from 'react';
 import { HardDrive, RefreshCw, CheckCircle, XCircle, Save, AlertTriangle } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
+
+const initialState = {
+    storage: null,
+    loading: true,
+    saving: false,
+    feedback: null,
+    limit: 1.0,
+};
+
+function reducer(state, action) {
+    switch (action.type) {
+        case 'STORAGE_LOADED':
+            return { ...state, storage: action.data, loading: false };
+        case 'SYNC_LIMIT':
+            return { ...state, limit: action.limit };
+        case 'SET_LIMIT':
+            return { ...state, limit: action.limit };
+        case 'SAVE_START':
+            return { ...state, saving: true, feedback: null };
+        case 'SAVE_SUCCESS':
+            return { ...state, saving: false, feedback: { type: 'success', message: action.message } };
+        case 'SAVE_ERROR':
+            return { ...state, saving: false, feedback: { type: 'error', message: action.message } };
+        case 'VALIDATION_ERROR':
+            return { ...state, feedback: { type: 'error', message: action.message } };
+        case 'CLEAR_FEEDBACK':
+            return { ...state, feedback: null };
+        default:
+            return state;
+    }
+}
 
 /**
  * A React component that provides storage management capabilities.
@@ -16,45 +48,45 @@ const cn = (...inputs) => twMerge(clsx(inputs));
  * @returns {JSX.Element} The rendered storage management card.
  */
 export default function StorageManagementCard({ config }) {
-    const [storage, setStorage] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', message: string }
-    const [limit, setLimit] = useState(config?.data?.storageLimit || 1.0);
+    const [state, dispatch] = useReducer(reducer, {
+        ...initialState,
+        limit: config?.data?.storageLimit || 1.0,
+    });
+    const { storage, loading, saving, feedback, limit } = state;
     const { draftConfig, updateSetting, saveSettings } = useSettings();
 
-    const fetchStorage = async () => {
+    const fetchStorage = useCallback(async () => {
         try {
             const res = await fetch('/api/system/storage');
             if (res.ok) {
                 const data = await res.json();
-                setStorage(data);
+                dispatch({ type: 'STORAGE_LOADED', data });
+            } else {
+                dispatch({ type: 'SAVE_ERROR', message: 'Failed to fetch storage stats' });
             }
-            setLoading(false);
         } catch (e) {
             console.error("Failed to fetch storage stats", e);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchStorage();
         const interval = setInterval(fetchStorage, 30000);
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchStorage]);
 
     useEffect(() => {
         if (config?.data?.storageLimit !== undefined) {
-            setLimit(config.data.storageLimit);
+            dispatch({ type: 'SYNC_LIMIT', limit: config.data.storageLimit });
         }
     }, [config?.data?.storageLimit]);
 
     const handleSave = async () => {
-        setSaving(true);
-        setFeedback(null);
+        dispatch({ type: 'SAVE_START' });
         try {
             const parsedLimit = parseFloat(limit);
             if (isNaN(parsedLimit) || parsedLimit < 0.1) {
-                setFeedback({ type: 'error', message: 'Invalid limit' });
+                dispatch({ type: 'VALIDATION_ERROR', message: 'Invalid limit' });
                 return;
             }
 
@@ -66,17 +98,15 @@ export default function StorageManagementCard({ config }) {
             
             const result = await saveSettings(nextConfig);
             if (result && result.success) {
-                setFeedback({ type: 'success', message: 'Limit updated' });
+                dispatch({ type: 'SAVE_SUCCESS', message: 'Limit updated' });
                 await fetchStorage();
-                setTimeout(() => setFeedback(null), 3000);
+                setTimeout(() => dispatch({ type: 'CLEAR_FEEDBACK' }), 3000);
             } else {
-                setFeedback({ type: 'error', message: result?.error || 'Save failed' });
+                dispatch({ type: 'SAVE_ERROR', message: result?.error || 'Save failed' });
             }
         } catch (e) {
             console.error("Failed to save storage limit", e);
-            setFeedback({ type: 'error', message: 'Connection Error' });
-        } finally {
-            setSaving(false);
+            dispatch({ type: 'SAVE_ERROR', message: 'Connection Error' });
         }
     };
 
@@ -151,14 +181,15 @@ export default function StorageManagementCard({ config }) {
 
                 <div className="pt-4 border-t border-app-border/50 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-app-dim uppercase tracking-wider">Storage Limit (GB)</label>
+                        <label htmlFor="storage-limit-gb" className="text-xs font-bold text-app-dim uppercase tracking-wider">Storage Limit (GB)</label>
                         <div className="flex items-center gap-2">
                             <input 
+                                id="storage-limit-gb"
                                 type="number" 
                                 step="0.1" 
                                 min="0.1"
                                 value={limit}
-                                onChange={(e) => setLimit(e.target.value)}
+                                onChange={(e) => dispatch({ type: 'SET_LIMIT', limit: e.target.value })}
                                 className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-app-text text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all font-medium"
                             />
                             <button 

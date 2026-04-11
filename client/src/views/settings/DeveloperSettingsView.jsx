@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+/* eslint-disable jsdoc/require-jsdoc */
+import { useReducer, useEffect } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
-import { RefreshCw, Activity, Database, LayoutGrid, Terminal, HeartPulse } from 'lucide-react';
+import { Activity, LayoutGrid, Terminal, HeartPulse } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -18,6 +19,47 @@ import HealthTab from '@/components/settings/developer/HealthTab';
  */
 function cn(...inputs) { return twMerge(clsx(inputs)); }
 
+const initialState = {
+    jobs: [],
+    loading: null,
+    message: null,
+    automationStatus: null,
+    ttsStatus: null,
+    refreshing: null,
+    feedback: {},
+    apiOnline: true,
+    jobStatuses: {},
+};
+
+function reducer(state, action) {
+    switch (action.type) {
+        case 'SET_JOBS':
+            return { ...state, jobs: action.jobs };
+        case 'SET_DIAGNOSTICS':
+            return { ...state, automationStatus: action.automationStatus, ttsStatus: action.ttsStatus };
+        case 'SET_LOADING':
+            return { ...state, loading: action.loading };
+        case 'SET_MESSAGE':
+            return { ...state, message: action.message };
+        case 'CLEAR_MESSAGE':
+            return { ...state, message: null };
+        case 'START_REFRESH':
+            return { ...state, refreshing: action.target, feedback: { ...state.feedback, [action.target]: null } };
+        case 'SET_API_ONLINE':
+            return { ...state, apiOnline: action.online };
+        case 'SET_FEEDBACK':
+            return { ...state, feedback: { ...state.feedback, [action.target]: action.message } };
+        case 'CLEAR_FEEDBACK':
+            return { ...state, feedback: { ...state.feedback, [action.target]: null } };
+        case 'END_REFRESH':
+            return { ...state, refreshing: null };
+        case 'SET_JOB_STATUS':
+            return { ...state, jobStatuses: { ...state.jobStatuses, [action.jobName]: action.status } };
+        default:
+            return state;
+    }
+}
+
 /**
  * A comprehensive developer view providing diagnostics, system logs, job scheduling 
  * status, and advanced system controls like restarts and cache clearing.
@@ -29,20 +71,11 @@ export default function DeveloperSettingsView() {
     const { systemHealth, refreshHealth, config, refresh } = useSettings();
     const [searchParams, setSearchParams] = useSearchParams();
     
-    // Tab State
     const activeTab = searchParams.get('tab') || 'diagnostics';
     const setActiveTab = (tab) => setSearchParams({ tab }, { replace: true });
 
-    const [jobs, setJobs] = useState([]);
-    const [loading, setLoading] = useState(null); // 'tts' | 'scheduler' | null
-    const [message, setMessage] = useState(null);
-    const [automationStatus, setAutomationStatus] = useState(null);
-    const [ttsStatus, setTtsStatus] = useState(null);
-
-    const [refreshing, setRefreshing] = useState(null); // 'api' | 'tts' | 'local'
-    const [feedback, setFeedback] = useState({}); // { api: "Message", ... }
-    const [apiOnline, setApiOnline] = useState(true); 
-    const [jobStatuses, setJobStatuses] = useState({}); // { [jobName]: 'loading' | 'success' | 'error' }
+    const [state, dispatch] = useReducer(reducer, initialState);
+    const { jobs, loading, message, automationStatus, ttsStatus, refreshing, feedback, apiOnline, jobStatuses } = state;
 
     const TABS = [
         { id: 'diagnostics', label: 'Diagnostics', icon: Activity },
@@ -56,24 +89,21 @@ export default function DeveloperSettingsView() {
     };
 
     const executeRefresh = async (target) => {
-        setRefreshing(target);
-        // Clear old feedback for this target
-        setFeedback(prev => ({ ...prev, [target]: null }));
+        dispatch({ type: 'START_REFRESH', target });
         
         let feedbackMsg = null;
 
         if (target === 'api') {
             try {
-                // Direct ping to check connectivity
-                const res = await fetch('/api/health'); // Use endpoint that just returns state
+                const res = await fetch('/api/health');
                 if (res.ok) {
-                     setApiOnline(true);
+                     dispatch({ type: 'SET_API_ONLINE', online: true });
                      feedbackMsg = "Online";
                 } else {
                      throw new Error('Status ' + res.status);
                 }
             } catch (e) {
-                setApiOnline(false);
+                dispatch({ type: 'SET_API_ONLINE', online: false });
                 feedbackMsg = "Unreachable";
             }
         } else {
@@ -82,34 +112,30 @@ export default function DeveloperSettingsView() {
                  const item = res[target];
                  feedbackMsg = item.message || (item.healthy ? "Online" : "Offline");
             } else if (res && res.error) {
-                 // Handle Rate Limit or other explicit errors
                  feedbackMsg = res.error;
             }
         }
 
         if (feedbackMsg) {
-            setFeedback(prev => ({ ...prev, [target]: feedbackMsg }));
+            dispatch({ type: 'SET_FEEDBACK', target, message: feedbackMsg });
             
             setTimeout(() => {
-                setFeedback(prev => ({ ...prev, [target]: null }));
+                dispatch({ type: 'CLEAR_FEEDBACK', target });
             }, 3000);
         }
-        setRefreshing(null);
+        dispatch({ type: 'END_REFRESH' });
     };
 
     const fetchJobs = () => {
         fetch('/api/system/jobs')
             .then(res => res.json())
             .then(data => {
-                // Ensure data is object with maintenance/automation or fallback to empty
                 if (Array.isArray(data)) {
-                     // Legacy or fallback support
-                     setJobs(data);
+                     dispatch({ type: 'SET_JOBS', jobs: data });
                 } else if (data && (data.maintenance || data.automation)) {
-                     // We only want to show maintenance jobs in the "Active Jobs" card per FR-05
-                     setJobs(data.maintenance || []);
+                     dispatch({ type: 'SET_JOBS', jobs: data.maintenance || [] });
                 } else {
-                     setJobs([]);
+                     dispatch({ type: 'SET_JOBS', jobs: [] });
                 }
             })
             .catch(err => console.error("Failed to fetch jobs", err));
@@ -129,8 +155,7 @@ export default function DeveloperSettingsView() {
                 ttsRes.json()
             ]);
             
-            setAutomationStatus(autoData);
-            setTtsStatus(ttsData);
+            dispatch({ type: 'SET_DIAGNOSTICS', automationStatus: autoData, ttsStatus: ttsData });
             return true;
         } catch (err) {
             console.error("Failed to fetch diagnostics", err);
@@ -149,8 +174,8 @@ export default function DeveloperSettingsView() {
     }, []);
 
     const callSystemAction = async (action, endpoint) => {
-        setLoading(action);
-        setMessage(null);
+        dispatch({ type: 'SET_LOADING', loading: action });
+        dispatch({ type: 'CLEAR_MESSAGE' });
         try {
             const res = await fetch(endpoint, { 
                 method: 'POST',
@@ -158,19 +183,21 @@ export default function DeveloperSettingsView() {
             });
             const data = await res.json();
             if(!res.ok) throw new Error(data.message || data.error || 'Failed');
-            setMessage({ 
+            dispatch({ type: 'SET_MESSAGE', message: { 
                 type: data.warnings && data.warnings.length > 0 ? 'warning' : 'success', 
                 text: data.message,
                 warnings: data.warnings
-            });
+            }});
         } catch (err) {
-            setMessage({ type: 'error', text: err.message });
+            dispatch({ type: 'SET_MESSAGE', message: { type: 'error', text: err.message } });
         } finally {
-            setLoading(null);
+            dispatch({ type: 'SET_LOADING', loading: null });
             if (action === 'config') {
-                await refresh();
-                await refreshHealth('primarySource');
-                await refreshHealth('backupSource');
+                await Promise.all([
+                    refresh(),
+                    refreshHealth('primarySource'),
+                    refreshHealth('backupSource')
+                ]);
             }
             fetchJobs();
             fetchDiagnostics();
@@ -178,7 +205,7 @@ export default function DeveloperSettingsView() {
     };
 
     const handleRunJob = async (jobName) => {
-        setJobStatuses(prev => ({ ...prev, [jobName]: 'loading' }));
+        dispatch({ type: 'SET_JOB_STATUS', jobName, status: 'loading' });
         try {
             const res = await fetch('/api/system/run-job', {
                 method: 'POST',
@@ -187,15 +214,15 @@ export default function DeveloperSettingsView() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || data.error || 'Failed to trigger job');
-            setMessage({ type: 'success', text: `Job "${jobName}" executed successfully.` });
-            setJobStatuses(prev => ({ ...prev, [jobName]: 'success' }));
-            fetchJobs(); // Refresh next run times
+            dispatch({ type: 'SET_MESSAGE', message: { type: 'success', text: `Job "${jobName}" executed successfully.` } });
+            dispatch({ type: 'SET_JOB_STATUS', jobName, status: 'success' });
+            fetchJobs();
         } catch (error) {
-            setMessage({ type: 'error', text: error.message });
-            setJobStatuses(prev => ({ ...prev, [jobName]: 'error' }));
+            dispatch({ type: 'SET_MESSAGE', message: { type: 'error', text: error.message } });
+            dispatch({ type: 'SET_JOB_STATUS', jobName, status: 'error' });
         } finally {
             setTimeout(() => {
-                setJobStatuses(prev => ({ ...prev, [jobName]: null }));
+                dispatch({ type: 'SET_JOB_STATUS', jobName, status: null });
             }, 3000);
         }
     };
@@ -239,12 +266,12 @@ export default function DeveloperSettingsView() {
                             <div className="font-semibold text-sm">{message.text}</div>
                             {message.warnings && message.warnings.length > 0 && (
                                 <ul className="mt-2 text-xs opacity-70 list-disc list-inside space-y-0.5">
-                                    {message.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                                    {message.warnings.map((w) => <li key={w}>{w}</li>)}
                                 </ul>
                             )}
                         </div>
                         <button 
-                            onClick={() => setMessage(null)}
+                            onClick={() => dispatch({ type: 'CLEAR_MESSAGE' })}
                             className="text-app-dim hover:text-app-text transition-colors"
                             aria-label="Close message"
                         >
