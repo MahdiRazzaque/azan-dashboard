@@ -156,7 +156,7 @@ export default function IqamahTimingCard({
                     {anyProvidesIqamah && (
                         <div className="flex items-center justify-between pb-3 border-b border-app-border">
                             <div>
-                                <label className="text-xs font-medium text-app-dim">Override source schedule</label>
+                                <p className="text-xs font-medium text-app-dim">Override source schedule</p>
                                 <p className="text-[10px] text-app-dim mt-0.5">Calculate iqamah locally</p>
                             </div>
                             <button
@@ -183,7 +183,7 @@ export default function IqamahTimingCard({
                     ) && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="space-y-2">
-                                <label className="text-[10px] text-app-dim font-bold uppercase tracking-wider">Mode</label>
+                                <p className="text-[10px] text-app-dim font-bold uppercase tracking-wider">Mode</p>
                                 <div className="grid grid-cols-2 gap-1 bg-app-bg/20 p-1 rounded-lg border border-app-border">
                                     <button
                                         onClick={() => updatePrayerConfig('fixedTime', null)}

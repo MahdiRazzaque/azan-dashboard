@@ -74,8 +74,9 @@ export default function SetupView() {
 
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-medium text-app-dim mb-1 ml-1 uppercase tracking-wider">New Password</label>
+                            <label htmlFor="setup-new-password" className="block text-xs font-medium text-app-dim mb-1 ml-1 uppercase tracking-wider">New Password</label>
                             <PasswordInput 
+                                id="setup-new-password"
                                 value={password} 
                                 onChange={setPassword} 
                                 showStrength={true} 
@@ -83,8 +84,9 @@ export default function SetupView() {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-medium text-app-dim mb-1 ml-1 uppercase tracking-wider">Confirm Password</label>
+                            <label htmlFor="setup-confirm-password" className="block text-xs font-medium text-app-dim mb-1 ml-1 uppercase tracking-wider">Confirm Password</label>
                             <PasswordInput 
+                                id="setup-confirm-password"
                                 value={confirm} 
                                 onChange={setConfirm}
                                 placeholder="Repeat password"

@@ -58,7 +58,6 @@ export default function LoginView() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
           className="w-full p-3 mb-4 bg-app-bg rounded border border-app-border focus:border-emerald-500 focus:outline-none transition-colors text-app-text"
-          autoFocus
         />
         
         <button 
