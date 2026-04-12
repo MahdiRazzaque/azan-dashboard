@@ -2,7 +2,7 @@ import edge_tts
 import uuid
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import subprocess
+import subprocess  # nosec B404  # only used via asyncio.create_subprocess_exec, no shell=True
 import os
 import asyncio
 import sys
@@ -138,4 +138,4 @@ async def generate_tts(request: TTSRequest):
 if __name__ == "__main__":
     import uvicorn
     # Use port 8000 as per PRD
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)  # nosec B104  # Docker-only, Nginx controls external access
