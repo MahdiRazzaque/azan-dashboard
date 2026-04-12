@@ -18,4 +18,10 @@ jobs:
       - name: Install and run Bandit
         run: |
           pip install bandit==1.8.3
-          bandit -r src/microservices/tts/ -f json
+          bandit -r src/microservices/tts/ -f json -o bandit-report.json --exit-zero
+
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json

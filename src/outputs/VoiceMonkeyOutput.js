@@ -64,16 +64,22 @@ class VoiceMonkeyOutput extends BaseOutput {
             const projectPublicRoot = path.join(__dirname, '../../public/audio');
             const srcPublicRoot = path.join(__dirname, '../public/audio');
             const relativePath = path.relative(projectPublicRoot, payload.source.filePath);
-            // nosemgrep: path-join-resolve-traversal -- relativePath from path.relative() on internal paths, not user input
-            const metaPath = path.join(srcPublicRoot, relativePath + '.json');
 
-            try {
-                await fs.access(metaPath);
-                const metaContent = await fs.readFile(metaPath, 'utf8');
-                const meta = JSON.parse(metaContent);
-                
-                // REQ-015: Read from nested compatibility object only
-                const isCompatible = meta.compatibility?.voicemonkey?.valid;
+            // Defence-in-depth: reject relative paths that escape the audio root
+            if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+                console.warn(`${prefix} SECURITY WARNING: Sidecar path traversal attempt blocked`);
+                // Fall through without metadata — execution continues with URL only
+            } else {
+                // nosemgrep: path-join-resolve-traversal -- relativePath validated above to not escape srcPublicRoot
+                const metaPath = path.join(srcPublicRoot, relativePath + '.json');
+
+                try {
+                    await fs.access(metaPath);
+                    const metaContent = await fs.readFile(metaPath, 'utf8');
+                    const meta = JSON.parse(metaContent);
+
+                    // REQ-015: Read from nested compatibility object only
+                    const isCompatible = meta.compatibility?.voicemonkey?.valid;
 
                     if (isCompatible === false) {
                         console.warn(`${prefix} Skipped: Audio incompatible with Alexa`);
@@ -83,6 +89,7 @@ class VoiceMonkeyOutput extends BaseOutput {
                     // Silently ignore corrupted or missing metadata
                 }
             }
+        }
 
         const config = ConfigService.get();
         // Prefer parameters provided in the trigger payload, then fall back to global config.

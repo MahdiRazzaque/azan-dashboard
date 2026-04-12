@@ -53,17 +53,22 @@ describe('VoiceMonkeyOutput Comprehensive', () => {
         expect(meta.id).toBe('voicemonkey');
     });
 
+    // Use a filePath under the audio root so it passes the path traversal guard
+    const audioRoot = path.resolve(__dirname, '../../../../public/audio');
+    const testFilePath = path.join(audioRoot, 'test.mp3');
+
     it('should execute successfully', async () => {
         fs.promises.access.mockResolvedValue(undefined);
         fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: true } } }));
         axios.get.mockResolvedValue({ data: { success: true } });
-        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' } }, {});
+        await output.execute({ source: { url: '/t.mp3', filePath: testFilePath } }, {});
         expect(axios.get).toHaveBeenCalled();
     });
 
     it('should skip incompatible', async () => {
+        fs.promises.access.mockResolvedValue(undefined);
         fs.promises.readFile.mockResolvedValue(JSON.stringify({ compatibility: { voicemonkey: { valid: false } } }));
-        await output.execute({ source: { url: '/t.mp3', filePath: '/f.mp3' } }, {});
+        await output.execute({ source: { url: '/t.mp3', filePath: testFilePath } }, {});
         expect(axios.get).not.toHaveBeenCalled();
     });
 
