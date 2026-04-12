@@ -42,12 +42,9 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
         // Populate the fields whenever server values change.
         // We also reset isDirty because these values now match the server.
         setValues(parsed);
-        setIsDirty(false);
-    }, [initialValuesJson]);
-
-    useEffect(() => {
         setIsVerified(verified || false);
-    }, [verified]);
+        setIsDirty(false);
+    }, [initialValuesJson, verified]);
 
     const { id, label, params } = strategy;
     const sensitiveParams = params.filter(p => p.sensitive);
