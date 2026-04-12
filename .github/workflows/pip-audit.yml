@@ -1,0 +1,28 @@
+name: Pip Audit
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/microservices/tts/requirements.txt'
+      - '.github/workflows/pip-audit.yml'
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  pip-audit:
+    name: Audit Python Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install and run pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit -r src/microservices/tts/requirements.txt
