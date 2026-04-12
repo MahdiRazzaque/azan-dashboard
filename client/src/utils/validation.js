@@ -63,6 +63,7 @@ export const validateSourceSettings = (source, providerMetadata) => {
 
         // Check Pattern (Regex)
         if (param.constraints?.pattern && val) {
+            // nosemgrep: detect-non-literal-regexp -- pattern comes from Zod-validated server config schema, not raw user input
             const regex = new RegExp(param.constraints.pattern);
             if (!regex.test(String(val))) {
                 return `Invalid format for ${param.label}`;

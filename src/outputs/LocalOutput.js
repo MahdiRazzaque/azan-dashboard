@@ -71,8 +71,10 @@ class LocalOutput extends BaseOutput {
         // Path resolution logic
         if (!filePath) {
             if (payload.source.path) {
+                // nosemgrep: path-join-resolve-traversal -- internal payload data; containment check at L87 validates against AUDIO_ROOT
                 filePath = path.resolve(__dirname, '../../public/audio', payload.source.path);
             } else if (payload.type && payload.filename) {
+                // nosemgrep: path-join-resolve-traversal -- internal payload data; containment check at L87 validates against AUDIO_ROOT
                 filePath = path.join(__dirname, `../../public/audio/${payload.type}/${payload.filename}`);
             }
         }
@@ -83,6 +85,7 @@ class LocalOutput extends BaseOutput {
         }
 
         // Security: Path traversal protection
+        // nosemgrep: path-join-resolve-traversal -- resolved path is checked with startsWith(AUDIO_ROOT) on next line
         const normalizedPath = path.resolve(filePath);
         if (!normalizedPath.startsWith(AUDIO_ROOT)) {
             console.error(`${prefix} SECURITY WARNING: Path traversal attempt blocked`);

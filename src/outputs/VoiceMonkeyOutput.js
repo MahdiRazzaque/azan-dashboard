@@ -64,6 +64,7 @@ class VoiceMonkeyOutput extends BaseOutput {
             const projectPublicRoot = path.join(__dirname, '../../public/audio');
             const srcPublicRoot = path.join(__dirname, '../public/audio');
             const relativePath = path.relative(projectPublicRoot, payload.source.filePath);
+            // nosemgrep: path-join-resolve-traversal -- relativePath from path.relative() on internal paths, not user input
             const metaPath = path.join(srcPublicRoot, relativePath + '.json');
 
             try {

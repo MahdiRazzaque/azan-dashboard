@@ -100,6 +100,7 @@ const analyzeFile = async (audioPath) => {
     const filename = path.basename(audioPath);
     const isCache = audioPath.includes('cache');
     const metaDir = isCache ? META_CACHE_DIR : META_CUSTOM_DIR;
+    // nosemgrep: path-join-resolve-traversal -- filename from path.basename() of internal audioPath, not user input
     const metaPath = path.join(metaDir, filename + '.json');
     
     // Read existing metadata to preserve fields like 'text', 'voice', 'protected'
@@ -224,6 +225,7 @@ const generateTTS = async (filename, text, serviceUrl, voice) => {
         });
         console.log(`[AudioService] Successfully generated: ${filename}`);
     } catch (error) {
+        // nosemgrep: unsafe-formatstring -- filename is a hash-based internal value, not user HTTP input
         console.error(`[AudioService] TTS Generation failed for ${filename}:`, error.message);
         throw error;
     }
@@ -301,6 +303,7 @@ const ensureTTSFile = async (prayer, event, settings, config) => {
         }));
         return { success: true, message: 'Successfully generated', generated: true };
     } catch (e) {
+        // nosemgrep: unsafe-formatstring -- filename is a hash-based internal value, not user HTTP input
         console.error(`[AudioService] TTS generation failed for ${filename}:`, e.message);
         return { success: false, message: e.message, generated: false };
     }
@@ -327,6 +330,7 @@ const syncAudioAssets = async (forceClean = false) => {
             try {
                 await fsp.access(dir);
                 const files = await fsp.readdir(dir);
+                // nosemgrep: path-join-resolve-traversal -- f comes from fs.readdir(), not user input
                 await Promise.all(files.map(f => fsp.unlink(path.join(dir, f))));
             } catch { /* ignore */ }
         }
@@ -355,6 +359,7 @@ const syncAudioAssets = async (forceClean = false) => {
         const niceName = `${task.prayer.charAt(0).toUpperCase() + task.prayer.slice(1)} ${task.event.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
         
         if (result.status === 'rejected') {
+            // nosemgrep: unsafe-formatstring -- task.prayer and task.event are internal config constants, not user HTTP input
             console.error(`[AudioService] Asset sync failed for ${task.prayer} ${task.event}:`, result.reason.message);
             warnings.push(`${niceName}: ${result.reason.message}`);
         } else if (!result.value.success) {
@@ -444,6 +449,7 @@ const previewTTS = async (template, prayerKey, offsetMinutes, voice) => {
 
     const hash = crypto.createHash('md5').update(`${text}|${voice}`).digest('hex').slice(0, 12);
     const filename = `preview_${hash}.mp3`;
+    // nosemgrep: path-join-resolve-traversal -- filename is derived from MD5 hash, not user input
     const audioPath = path.join(AUDIO_TEMP_DIR, filename);
 
     try {
@@ -527,6 +533,7 @@ const generateMetadataForExistingFiles = async () => {
                     try { await fsp.unlink(redundantMetaPath); } catch { /* ignore */ }
                     
                 } catch (error) {
+                    // nosemgrep: unsafe-formatstring -- file comes from fs.readdir(), not user HTTP input
                     console.error(`[AudioService] Metadata generation failed for ${file}:`, error.message);
                 }
             }

@@ -322,6 +322,7 @@ function applyOverrides(prayers, config) {
                     const iqamah = calculateIqamah(prayers[prayer], pConfig, config.location.timezone);
                     processed.iqamah[prayer] = iqamah;
                 } catch (e) {
+                    // nosemgrep: unsafe-formatstring -- prayer is from PRAYER_NAMES constant array, not user HTTP input
                     console.warn(`Failed to override iqamah for ${prayer}:`, e.message);
                 }
             }

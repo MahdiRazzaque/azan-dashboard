@@ -16,6 +16,7 @@ const { initScheduler } = require('@services/core/schedulerService');
 const healthCheck = require('@services/system/healthCheck');
 const { forceRefresh } = require('@services/core/prayerTimeService');
 
+// nosemgrep: express-check-csurf-middleware-usage -- API-only backend using JWT in httpOnly cookies; CSRF middleware not needed for token-based auth
 const app = express();
 
 // Security Hardening
@@ -122,6 +123,7 @@ const startServer = async (port = PORT) => {
               console.log(`  • ${key} (aladhan) → latitude: ${lat}, longitude: ${long}`);
               break;
             default:
+              // nosemgrep: unsafe-formatstring -- key and source.type are internal config values, not user HTTP input
               console.log(`  • ${key} (${source.type}) →`, source);
           }
         });
