@@ -106,7 +106,7 @@ class VoiceMonkeyOutput extends BaseOutput {
             ? payload.source.url
             : `${baseUrl}${payload.source.url}`;
 
-        console.log(`${prefix} Triggering announcement for device: ${device}`);
+        console.log(`${prefix} Triggering announcement for device: ${String(device).replace(/[\x00-\x1F\x7F-\x9F]/g, '_')}`);
 
         try {
             // Use the request queue to prevent rate-limiting by the VoiceMonkey API.

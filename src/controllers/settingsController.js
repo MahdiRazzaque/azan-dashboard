@@ -12,6 +12,24 @@ const OutputFactory = require('../outputs');
 const workflowService = require('@services/system/configurationWorkflowService');
 
 /**
+ * Sanitises a filename from user input for safe use in path operations.
+ * Strips path separators and traversal sequences; rejects the input if it was modified.
+ * @param {string} raw - The raw filename from the request body.
+ * @returns {string} The sanitised filename (identical to input if valid).
+ * @throws {Error} If the filename is empty, non-string, or contains unsafe characters.
+ */
+function sanitizeFilename(raw) {
+    if (!raw || typeof raw !== 'string') {
+        throw new Error('Invalid filename');
+    }
+    const cleaned = path.basename(raw).replace(/[^\w._-]/g, '_');
+    if (!cleaned || cleaned !== raw) {
+        throw new Error('Invalid filename');
+    }
+    return cleaned;
+}
+
+/**
  * Controller for settings-related operations, managing application configuration,
  * system resets, and external service credentials.
  */
@@ -317,11 +335,18 @@ const settingsController = {
         const { filename } = req.body;
         if (!filename) return res.status(400).json({ error: 'Missing filename' });
         
-        const audioPath = path.join(__dirname, '../../public/audio/custom', filename);
-        const metaPath = path.join(__dirname, '../public/audio/custom', filename + '.json');
-        
-        // Prevent directory traversal attacks
-        if (filename.includes('..') || /[\\/]/.test(filename)) {
+        let sanitised;
+        try { sanitised = sanitizeFilename(filename); } catch {
+            return res.status(400).json({ error: 'Invalid filename' });
+        }
+
+        const audioDir = path.resolve(__dirname, '../../public/audio/custom');
+        const metaDir = path.resolve(__dirname, '../public/audio/custom');
+        const audioPath = path.join(audioDir, sanitised);
+        const metaPath = path.join(metaDir, sanitised + '.json');
+
+        // Containment check — ensure resolved paths stay within expected directories
+        if (!audioPath.startsWith(audioDir + path.sep) || !metaPath.startsWith(metaDir + path.sep)) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
@@ -380,16 +405,21 @@ const settingsController = {
             return res.status(400).json({ error: 'Filename and type are required' });
         }
 
-        // Prevent directory traversal attacks
-        if (filename.includes('..') || /[\\/]/.test(filename)) {
+        let sanitised;
+        try { sanitised = sanitizeFilename(filename); } catch {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
-        const audioDir = type === 'cache' 
-            ? path.join(__dirname, '../../public/audio/cache')
-            : path.join(__dirname, '../../public/audio/custom');
+        const audioDir = path.resolve(__dirname, type === 'cache' 
+            ? '../../public/audio/cache'
+            : '../../public/audio/custom');
         
-        const filePath = path.join(audioDir, filename);
+        const filePath = path.join(audioDir, sanitised);
+
+        // Containment check — ensure resolved path stays within expected directory
+        if (!filePath.startsWith(audioDir + path.sep)) {
+            return res.status(400).json({ error: 'Invalid filename' });
+        }
 
         try {
             await fsAsync.access(filePath);
