@@ -16,6 +16,16 @@ export default function CredentialsSettingsView() {
   const { logout } = useAuth();
   const { updateEnvSetting, config, refreshHealth, loading: settingsLoading } = useSettings();
   const [strategies, setStrategies] = useState([]);
+
+  const loadStrategies = () => {
+      fetch('/api/system/outputs/registry')
+          .then(res => {
+              if (!res.ok) throw new Error('Failed to fetch strategies');
+              return res.json();
+          })
+          .then(data => setStrategies(data.filter(s => s.params.some(p => p.sensitive))))
+          .catch(console.error);
+  };
   
   // New handlers to support card-level saving
   const handleStrategySave = async (strategyId, secrets, isReset = false) => {
@@ -58,13 +68,7 @@ export default function CredentialsSettingsView() {
   };
 
   useEffect(() => {
-      fetch('/api/system/outputs/registry')
-          .then(res => {
-              if (!res.ok) throw new Error('Failed to fetch strategies');
-              return res.json();
-          })
-          .then(data => setStrategies(data.filter(s => s.params.some(p => p.sensitive))))
-          .catch(console.error);
+      loadStrategies();
   }, []);
   
   // --- Password Change State ---

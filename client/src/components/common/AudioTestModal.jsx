@@ -26,15 +26,19 @@ export default function AudioTestModal({
     const { systemHealth, config } = useSettings();
     const [strategies, setStrategies] = useState([]);
 
+    const loadStrategies = () => {
+        fetch('/api/system/outputs/registry')
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch strategies');
+                return res.json();
+            })
+            .then(data => setStrategies(data))
+            .catch(console.error);
+    };
+
     useEffect(() => {
         if (isOpen) {
-            fetch('/api/system/outputs/registry')
-                .then(res => {
-                    if (!res.ok) throw new Error('Failed to fetch strategies');
-                    return res.json();
-                })
-                .then(data => setStrategies(data))
-                .catch(console.error);
+            loadStrategies();
         }
     }, [isOpen]);
 

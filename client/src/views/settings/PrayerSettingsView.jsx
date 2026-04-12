@@ -2,17 +2,7 @@ import { useState, useEffect } from "react";
 import { useSettings } from "@/hooks/useSettings";
 import TriggerCard from "@/components/settings/TriggerCard";
 import IqamahTimingCard from "@/components/settings/IqamahTimingCard";
-import { Clock, AlertTriangle, Info } from "lucide-react";
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-/**
- * A utility function for conditionally joining CSS classes using tailwind-merge and clsx.
- *
- * @param {...any} inputs - The class names or objects to merge.
- * @returns {string} The merged class string.
- */
-function cn(...inputs) { return twMerge(clsx(inputs)); }
+import { AlertTriangle, Info } from "lucide-react";
 
 const PRAYERS = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
 
@@ -36,8 +26,7 @@ export default function PrayerSettingsView() {
     
     // Local state for UI only
 
-    useEffect(() => {
-        // Fetch audio files for the dropdowns
+    const loadAudioFiles = () => {
         fetch('/api/system/audio-files')
             .then(res => res.json())
             .then(data => {
@@ -48,12 +37,18 @@ export default function PrayerSettingsView() {
                 setAudioFiles(filtered);
             })
             .catch(err => console.error("Failed to load audio files", err));
+    };
 
-        // Fetch strategies for trigger card targets
+    const loadStrategies = () => {
         fetch('/api/system/outputs/registry')
             .then(res => res.json())
             .then(setStrategies)
             .catch(err => console.error("Failed to fetch output strategies", err));
+    };
+
+    useEffect(() => {
+        loadAudioFiles();
+        loadStrategies();
     }, []);
 
 
