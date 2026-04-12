@@ -66,7 +66,7 @@ class VoiceMonkeyOutput extends BaseOutput {
             const relativePath = path.relative(projectPublicRoot, payload.source.filePath);
 
             // Defence-in-depth: reject relative paths that escape the audio root
-            if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+            if (relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath)) {
                 console.warn(`${prefix} SECURITY WARNING: Sidecar path traversal attempt blocked`);
                 // Fall through without metadata — execution continues with URL only
             } else {

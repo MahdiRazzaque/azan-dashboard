@@ -35,13 +35,13 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
     const [saving, setSaving] = useState(false);
 
     // Reset the local override when the server-provided `verified` prop changes.
-    // This avoids the "derived state in useEffect" anti-pattern by comparing
-    // against the previous prop value during render.
     const prevVerifiedRef = useRef(verified);
-    if (prevVerifiedRef.current !== verified) {
-        prevVerifiedRef.current = verified;
-        setVerifiedOverride(null);
-    }
+    useEffect(() => {
+        if (prevVerifiedRef.current !== verified) {
+            prevVerifiedRef.current = verified;
+            setVerifiedOverride(null);
+        }
+    }, [verified]);
 
     // Derive isVerified: use local override when set, otherwise fall back to prop.
     const isVerified = verifiedOverride !== null ? verifiedOverride : (verified || false);

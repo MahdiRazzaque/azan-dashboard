@@ -89,7 +89,7 @@ class LocalOutput extends BaseOutput {
         const normalizedPath = path.resolve(filePath);
         const relativePath = path.relative(AUDIO_ROOT, normalizedPath);
         const isWithinAudioRoot = relativePath === '' ||
-            (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+            (relativePath !== '..' && !relativePath.startsWith('..' + path.sep) && !path.isAbsolute(relativePath));
 
         if (!isWithinAudioRoot) {
             console.error(`${prefix} SECURITY WARNING: Path traversal attempt blocked`);

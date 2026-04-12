@@ -23,7 +23,7 @@ function sanitizeFilename(raw) {
         throw new Error('Invalid filename');
     }
     const cleaned = path.basename(raw).replace(/[^\w._-]/g, '_');
-    if (!cleaned || cleaned !== raw) {
+    if (!cleaned || cleaned !== raw || cleaned === '.' || cleaned === '..') {
         throw new Error('Invalid filename');
     }
     return cleaned;
@@ -348,7 +348,10 @@ const settingsController = {
         const metaPath = path.join(metaDir, sanitised + '.json');
 
         // Containment check — ensure resolved paths stay within expected directories
-        if (!audioPath.startsWith(audioDir + path.sep) || !metaPath.startsWith(metaDir + path.sep)) {
+        const audioRel = path.relative(audioDir, path.resolve(audioPath));
+        const metaRel = path.relative(metaDir, path.resolve(metaPath));
+        if (audioRel.startsWith('..') || path.isAbsolute(audioRel) ||
+            metaRel.startsWith('..') || path.isAbsolute(metaRel)) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
@@ -425,7 +428,8 @@ const settingsController = {
         const filePath = path.join(audioDir, sanitised);
 
         // Containment check — ensure resolved path stays within expected directory
-        if (!filePath.startsWith(audioDir + path.sep)) {
+        const rel = path.relative(audioDir, path.resolve(filePath));
+        if (rel.startsWith('..') || path.isAbsolute(rel)) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
