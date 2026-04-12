@@ -113,6 +113,15 @@ describe('LocalOutput', () => {
 
             await expect(output.execute(payload, {})).rejects.toThrow('Access denied');
         });
+
+        it('should block sibling-directory bypass attempts', async () => {
+            const payload = {
+                source: { path: '../audio-evil/pwn.mp3' }
+            };
+
+            await expect(output.execute(payload, {})).rejects.toThrow('Access denied');
+            expect(mockPlay).not.toHaveBeenCalled();
+        });
     });
 
     describe('healthCheck', () => {
