@@ -73,7 +73,9 @@ class AssetMigrationService {
      * @private
      */
     async _migrateFile(file, dirSet) {
+        // nosemgrep: path-join-resolve-traversal -- file comes from fs.readdir(), not user input
         const audioPath = path.join(dirSet.audio, file);
+        // nosemgrep: path-join-resolve-traversal -- file comes from fs.readdir(), not user input
         const metaPath = path.join(dirSet.meta, file + '.json');
 
         try {
@@ -106,6 +108,7 @@ class AssetMigrationService {
                     // If missing from sidecar, re-analyse (shouldn't happen with newer files)
                     if (!metadata.format || !metadata.bitrate) {
                         const analysed = await audioValidator.analyseAudioFile(audioPath);
+                        // nosemgrep: insecure-object-assign -- both metadata (JSON.parse from file) and analysed (audioValidator) are trusted server-side data
                         Object.assign(metadata, analysed);
                     }
                     

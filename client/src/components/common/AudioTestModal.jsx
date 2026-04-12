@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, Volume2, Monitor, Radio, AlertCircle, Server } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
 
@@ -26,17 +26,21 @@ export default function AudioTestModal({
     const { systemHealth, config } = useSettings();
     const [strategies, setStrategies] = useState([]);
 
+    const loadStrategies = useCallback(() => {
+        fetch('/api/system/outputs/registry')
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch strategies');
+                return res.json();
+            })
+            .then(data => setStrategies(data))
+            .catch(console.error);
+    }, []);
+
     useEffect(() => {
         if (isOpen) {
-            fetch('/api/system/outputs/registry')
-                .then(res => {
-                    if (!res.ok) throw new Error('Failed to fetch strategies');
-                    return res.json();
-                })
-                .then(data => setStrategies(data))
-                .catch(console.error);
+            loadStrategies();
         }
-    }, [isOpen]);
+    }, [isOpen, loadStrategies]);
 
     if (!isOpen || !file) return null;
 

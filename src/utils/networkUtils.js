@@ -53,6 +53,7 @@ const getSafeAgent = (protocol, options = {}) => {
         keepAlive: false,
         ...options 
     };
+    // nosemgrep: using-http-server -- intentional HTTP fallback for internal network resources; function handles both protocols by design
     return protocol === 'https:' ? new https.Agent(agentOptions) : new http.Agent(agentOptions);
 };
 

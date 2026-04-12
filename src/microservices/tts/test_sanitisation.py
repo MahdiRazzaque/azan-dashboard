@@ -14,12 +14,12 @@ def test_sanitisation():
         return filename
 
     # Test cases
-    assert preview_logic("../../../etc/passwd") == "passwd"
-    assert preview_logic("safe.mp3") == "safe.mp3"
-    assert preview_logic(None).startswith("preview_")
+    assert preview_logic("../../../etc/passwd") == "passwd"  # nosec B101
+    assert preview_logic("safe.mp3") == "safe.mp3"  # nosec B101
+    assert preview_logic(None).startswith("preview_")  # nosec B101
     
-    assert generate_logic("../../evil.mp3") == "evil.mp3"
-    assert generate_logic("C:\\Windows\\System32\\cmd.exe") == "cmd.exe"
+    assert generate_logic("../../evil.mp3") == "evil.mp3"  # nosec B101
+    assert generate_logic("C:\\Windows\\System32\\cmd.exe") == "cmd.exe"  # nosec B101
 
 if __name__ == "__main__":
     test_sanitisation()

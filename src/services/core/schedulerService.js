@@ -399,6 +399,7 @@ const getJobs = () => {
         try { 
             next = j.nextInvocation(); 
         } catch (e) {
+            // nosemgrep: unsafe-formatstring -- j.jobName is an internal scheduler constant, not user HTTP input
             console.error(`[Scheduler] Error calculating next invocation for ${j.jobName}:`, e);
         }
         
@@ -422,6 +423,7 @@ const getJobs = () => {
                     nextISO = new Date(next).toISOString();
                 }
             } catch (err) {
+                 // nosemgrep: unsafe-formatstring -- j.jobName is an internal scheduler constant, not user HTTP input
                  console.error(`[Scheduler] Date conversion failed for ${j.jobName}:`, err);
             }
         }
@@ -467,6 +469,7 @@ const runJob = async (jobName) => {
         await callback();
         return { success: true, message: `Job "${jobName}" executed successfully.` };
     } catch (error) {
+        // nosemgrep: unsafe-formatstring -- jobName is from internal job registry, not user HTTP input
         console.error(`[Scheduler] Manual execution of "${jobName}" failed:`, error);
         return { success: false, message: error.message || 'Job execution failed.' };
     }

@@ -233,6 +233,7 @@ const systemController = {
         // To satisfy the <50ms requirement for large file counts, we must cache the metadata too.
         // This means we read ALL metadata once and cache it.
         const allResults = await Promise.all(allEntries.map(({ f, type, metaDir }) => fsLimiter.schedule(async () => {
+            // nosemgrep: path-join-resolve-traversal -- f comes from fs.readdir(), not user input
             const metaPath = path.join(metaDir, f + '.json');
             
             let metadata = {};

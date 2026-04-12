@@ -59,6 +59,7 @@ const analyseAudioFile = async (filePath) => {
             mimeType: getMimeType(metadata.format, filePath)
         };
     } catch (error) {
+        // nosemgrep: unsafe-formatstring -- filePath is an internal server path, not user HTTP input
         console.error(`[AudioValidator] Failed to analyse file ${filePath}:`, error.message);
         throw error;
     }

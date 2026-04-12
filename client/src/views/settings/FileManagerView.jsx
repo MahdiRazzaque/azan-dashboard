@@ -4,6 +4,163 @@ import AudioTestModal from '@/components/common/AudioTestModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { useSettings } from '@/hooks/useSettings';
 
+function FileRow({
+    file,
+    type,
+    expandedFile,
+    revalidating,
+    setExpandedFile,
+    playingFile,
+    serverPlaying,
+    setTestModalFile,
+    strategies,
+    handleBrowserPlay,
+    handleRevalidate,
+    handleDelete
+}) {
+    const isExpanded = expandedFile === file.path;
+    const isRevalidating = revalidating === file.path;
+    const compatibility = file.metadata?.compatibility || {};
+
+    return (
+        <div className="divide-y divide-app-border">
+            <div className="p-3 flex items-center justify-between hover:bg-app-card-hover transition-colors group">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded bg-app-bg flex items-center justify-center text-emerald-500">
+                        <Volume2 className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-sm font-medium text-app-text">{file.name}</span>
+                        {file.metadata?.duration && (
+                            <span className="text-[10px] text-app-dim font-mono">
+                                {Math.round(file.metadata.duration)}s • {file.metadata.codec?.toUpperCase()} • {Math.round(file.metadata.bitrate / 1000)}kbps
+                            </span>
+                        )}
+                    </div>
+                </div>
+                
+                <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <button 
+                        onClick={() => setExpandedFile(isExpanded ? null : file.path)}
+                        className={`p-1.5 rounded transition-colors ${isExpanded ? 'bg-emerald-500/20 text-emerald-400' : 'hover:bg-app-card-hover text-app-dim hover:text-app-text'}`}
+                        title="View Compatibility"
+                    >
+                        <Info className="w-4 h-4" />
+                    </button>
+
+                    <button 
+                        onClick={() => handleBrowserPlay(file)}
+                        className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
+                        title="Preview in Browser"
+                    >
+                        {playingFile === file.name ? <StopCircle className="w-4 h-4 text-emerald-400" /> : <Play className="w-4 h-4" />}
+                    </button>
+                    
+                    <button 
+                        onClick={() => setTestModalFile(file)}
+                        className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
+                        title="Test on Speakers"
+                    >
+                        <Server className={`w-4 h-4 ${serverPlaying === file.name ? 'text-emerald-400 animate-pulse' : ''}`} />
+                    </button>
+
+                    {type === 'custom' && !file.metadata?.protected && (
+                        <button 
+                            onClick={() => handleDelete(file.name)}
+                            className="p-1.5 hover:bg-red-900/20 rounded text-app-dim hover:text-red-400"
+                            title="Delete File"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {isExpanded && (
+                <div className="bg-app-bg/40 p-4 animate-in slide-in-from-top-2 duration-200">
+                    <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-xs font-bold text-app-dim uppercase tracking-wider">Compatibility Analysis</h4>
+                        <button 
+                            onClick={() => handleRevalidate(file)}
+                            disabled={isRevalidating}
+                            className="flex items-center gap-1.5 px-2 py-1 bg-app-card border border-app-border rounded text-[10px] font-bold text-app-text hover:bg-app-card-hover transition-all disabled:opacity-50"
+                        >
+                            <RefreshCw className={`w-3 h-3 ${isRevalidating ? 'animate-spin' : ''}`} />
+                            {isRevalidating ? 'Analysing...' : 'Revalidate'}
+                        </button>
+                    </div>
+
+                    <div className="overflow-hidden rounded-lg border border-app-border bg-app-card/30">
+                        <table className="w-full text-left text-[11px]">
+                            <thead className="bg-app-card/50 text-app-dim uppercase tracking-tighter border-b border-app-border">
+                                <tr>
+                                    <th className="px-3 py-2 font-bold">Strategy</th>
+                                    <th className="px-3 py-2 font-bold">Status</th>
+                                    <th className="px-3 py-2 font-bold">Issues</th>
+                                    <th className="px-3 py-2 font-bold text-right">Last Checked</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-app-border">
+                                {[...strategies].sort((a, b) => a.label.localeCompare(b.label)).map(strategy => {
+                                    const status = compatibility[strategy.id];
+                                    return (
+                                        <tr key={strategy.id} className="hover:bg-app-card-hover/20">
+                                            <td className="px-3 py-2 font-medium text-app-text">{strategy.label}</td>
+                                            <td className="px-3 py-2">
+                                                {status?.valid ? (
+                                                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                                ) : status?.valid === false ? (
+                                                    <XCircle className="w-4 h-4 text-red-500" />
+                                                ) : (
+                                                    <span className="text-app-dim italic">Pending</span>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-2 text-app-dim">
+                                                {status?.issues?.length > 0 ? (
+                                                    <ul className="list-disc list-inside">
+                                                        {status.issues.map((issue, i) => <li key={i}>{issue}</li>)}
+                                                    </ul>
+                                                ) : status?.valid ? (
+                                                    <span className="text-emerald-500/70">Compatible</span>
+                                                ) : (
+                                                    "—"
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-2 text-right text-app-dim font-mono">
+                                                {status?.lastChecked ? new Date(status.lastChecked).toLocaleString() : 'Never'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function FileList({ title, type, items, fileRowProps }) {
+    return (
+        <div className="bg-app-card/40 border border-app-border rounded-xl overflow-hidden">
+            <div className="px-4 py-3 bg-app-card/60 border-b border-app-border flex justify-between items-center">
+                <h3 className="font-semibold text-app-dim">{title}</h3>
+                <span className="text-xs text-app-dim/50">{items.length} files</span>
+            </div>
+            {items.length === 0 ? (
+                <div className="p-8 text-center text-app-dim text-sm">No files found</div>
+            ) : (
+                <div className="divide-y divide-app-border">
+                    {items.map(file => (
+                        <FileRow key={file.path} file={file} type={type} {...fileRowProps} />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 /**
  * A view component for managing audio files, allowing users to upload, preview,
  * and delete custom audio assets for prayer alerts.
@@ -11,7 +168,7 @@ import { useSettings } from '@/hooks/useSettings';
  * @returns {JSX.Element} The rendered file manager view.
  */
 export default function FileManagerView() {
-    const { systemHealth, config } = useSettings();
+    const { config } = useSettings();
     const [files, setFiles] = useState([]);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState(null);
@@ -48,14 +205,16 @@ export default function FileManagerView() {
             });
     };
 
-    useEffect(() => {
-        loadFiles();
-        
-        // Fetch output strategies for testing
+    const loadStrategies = () => {
         fetch('/api/system/outputs/registry')
             .then(res => res.json())
             .then(setStrategies)
             .catch(err => console.error("Failed to fetch strategies", err));
+    };
+
+    useEffect(() => {
+        loadFiles();
+        loadStrategies();
 
         // Cleanup audio on unmount
         const audio = audioRef.current;
@@ -246,155 +405,21 @@ export default function FileManagerView() {
         }));
     };
 
-    const FileRow = ({ file, type }) => {
-        const isExpanded = expandedFile === file.path;
-        const isRevalidating = revalidating === file.path;
-        const compatibility = file.metadata?.compatibility || {};
-
-        return (
-            <div className="divide-y divide-app-border">
-                <div className="p-3 flex items-center justify-between hover:bg-app-card-hover transition-colors group">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded bg-app-bg flex items-center justify-center text-emerald-500">
-                            <Volume2 className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-sm font-medium text-app-text">{file.name}</span>
-                            {file.metadata?.duration && (
-                                <span className="text-[10px] text-app-dim font-mono">
-                                    {Math.round(file.metadata.duration)}s • {file.metadata.codec?.toUpperCase()} • {Math.round(file.metadata.bitrate / 1000)}kbps
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                        {/* Info Button */}
-                        <button 
-                            onClick={() => setExpandedFile(isExpanded ? null : file.path)}
-                            className={`p-1.5 rounded transition-colors ${isExpanded ? 'bg-emerald-500/20 text-emerald-400' : 'hover:bg-app-card-hover text-app-dim hover:text-app-text'}`}
-                            title="View Compatibility"
-                        >
-                            <Info className="w-4 h-4" />
-                        </button>
-
-                        {/* Browser Play */}
-                        <button 
-                            onClick={() => handleBrowserPlay(file)}
-                            className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
-                            title="Preview in Browser"
-                        >
-                            {playingFile === file.name ? <StopCircle className="w-4 h-4 text-emerald-400" /> : <Play className="w-4 h-4" />}
-                        </button>
-                        
-                        {/* Server Play - Opens Modal */}
-                        <button 
-                            onClick={() => setTestModalFile(file)}
-                            className="p-1.5 hover:bg-app-card-hover rounded text-app-dim hover:text-app-text"
-                            title="Test on Speakers"
-                        >
-                            <Server className={`w-4 h-4 ${serverPlaying === file.name ? 'text-emerald-400 animate-pulse' : ''}`} />
-                        </button>
-
-                        {/* Delete (Custom only) */}
-                        {type === 'custom' && !file.metadata?.protected && (
-                            <button 
-                                onClick={() => handleDelete(file.name)}
-                                className="p-1.5 hover:bg-red-900/20 rounded text-app-dim hover:text-red-400"
-                                title="Delete File"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Compatibility Panel */}
-                {isExpanded && (
-                    <div className="bg-app-bg/40 p-4 animate-in slide-in-from-top-2 duration-200">
-                        <div className="flex justify-between items-center mb-3">
-                            <h4 className="text-xs font-bold text-app-dim uppercase tracking-wider">Compatibility Analysis</h4>
-                            <button 
-                                onClick={() => handleRevalidate(file)}
-                                disabled={isRevalidating}
-                                className="flex items-center gap-1.5 px-2 py-1 bg-app-card border border-app-border rounded text-[10px] font-bold text-app-text hover:bg-app-card-hover transition-all disabled:opacity-50"
-                            >
-                                <RefreshCw className={`w-3 h-3 ${isRevalidating ? 'animate-spin' : ''}`} />
-                                {isRevalidating ? 'Analysing...' : 'Revalidate'}
-                            </button>
-                        </div>
-
-                        <div className="overflow-hidden rounded-lg border border-app-border bg-app-card/30">
-                            <table className="w-full text-left text-[11px]">
-                                <thead className="bg-app-card/50 text-app-dim uppercase tracking-tighter border-b border-app-border">
-                                    <tr>
-                                        <th className="px-3 py-2 font-bold">Strategy</th>
-                                        <th className="px-3 py-2 font-bold">Status</th>
-                                        <th className="px-3 py-2 font-bold">Issues</th>
-                                        <th className="px-3 py-2 font-bold text-right">Last Checked</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-app-border">
-                                    {[...strategies].sort((a, b) => a.label.localeCompare(b.label)).map(strategy => {
-                                        const status = compatibility[strategy.id];
-                                        return (
-                                            <tr key={strategy.id} className="hover:bg-app-card-hover/20">
-                                                <td className="px-3 py-2 font-medium text-app-text">{strategy.label}</td>
-                                                <td className="px-3 py-2">
-                                                    {status?.valid ? (
-                                                        <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                                    ) : status?.valid === false ? (
-                                                        <XCircle className="w-4 h-4 text-red-500" />
-                                                    ) : (
-                                                        <span className="text-app-dim italic">Pending</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2 text-app-dim">
-                                                    {status?.issues?.length > 0 ? (
-                                                        <ul className="list-disc list-inside">
-                                                            {status.issues.map((issue, i) => <li key={i}>{issue}</li>)}
-                                                        </ul>
-                                                    ) : status?.valid ? (
-                                                        <span className="text-emerald-500/70">Compatible</span>
-                                                    ) : (
-                                                        "—"
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2 text-right text-app-dim font-mono">
-                                                    {status?.lastChecked ? new Date(status.lastChecked).toLocaleString() : 'Never'}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
-    };
-
-    const FileList = ({ title, type, items }) => (
-        <div className="bg-app-card/40 border border-app-border rounded-xl overflow-hidden">
-            <div className="px-4 py-3 bg-app-card/60 border-b border-app-border flex justify-between items-center">
-                <h3 className="font-semibold text-app-dim">{title}</h3>
-                <span className="text-xs text-app-dim/50">{items.length} files</span>
-            </div>
-            {items.length === 0 ? (
-                <div className="p-8 text-center text-app-dim text-sm">No files found</div>
-            ) : (
-                <div className="divide-y divide-app-border">
-                    {items.map(file => (
-                        <FileRow key={file.path} file={file} type={type} />
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-
     const customFiles = Array.isArray(files) ? files.filter(f => f.type === 'custom') : [];
     const cacheFiles = Array.isArray(files) ? files.filter(f => f.type === 'cache') : [];
+
+    const fileRowProps = {
+        expandedFile,
+        revalidating,
+        setExpandedFile,
+        playingFile,
+        serverPlaying,
+        setTestModalFile,
+        strategies,
+        handleBrowserPlay,
+        handleRevalidate,
+        handleDelete
+    };
 
     // Grouping logic for TTS
     const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
@@ -449,7 +474,7 @@ export default function FileManagerView() {
             )}
 
             <div className="grid gap-8">
-                <FileList title="Custom Files" type="custom" items={customFiles} />
+                <FileList title="Custom Files" type="custom" items={customFiles} fileRowProps={fileRowProps} />
                 
                 {/* TTS Grouped List */}
                 <div className="space-y-4">
@@ -480,7 +505,7 @@ export default function FileManagerView() {
                                 {!isCollapsed && (
                                     <div className="divide-y divide-app-border">
                                         {items.map(file => (
-                                            <FileRow key={file.path} file={file} type="cache" />
+                                            <FileRow key={file.path} file={file} type="cache" {...fileRowProps} />
                                         ))}
                                     </div>
                                 )}

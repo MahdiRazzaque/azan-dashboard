@@ -41,6 +41,14 @@ describe('Encryption Utils', () => {
             await expect(decrypt(tampered, secretKey)).rejects.toThrow();
         });
 
+        it('should reject a truncated auth tag', async () => {
+            const ciphertext = await encrypt(plaintext, secretKey);
+            const [iv, authTag, encrypted] = ciphertext.split(':');
+            const truncatedAuthTag = authTag.slice(0, -2);
+
+            await expect(decrypt(`${iv}:${truncatedAuthTag}:${encrypted}`, secretKey)).rejects.toThrow();
+        });
+
         it('should return plaintext if empty or null', async () => {
             expect(await encrypt('', secretKey)).toBe('');
             expect(await encrypt(null, secretKey)).toBe(null);

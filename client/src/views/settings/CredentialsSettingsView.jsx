@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSettings } from '@/hooks/useSettings';
 import { Lock, ShieldCheck, Key } from 'lucide-react';
@@ -16,6 +16,16 @@ export default function CredentialsSettingsView() {
   const { logout } = useAuth();
   const { updateEnvSetting, config, refreshHealth, loading: settingsLoading } = useSettings();
   const [strategies, setStrategies] = useState([]);
+
+  const loadStrategies = useCallback(() => {
+      fetch('/api/system/outputs/registry')
+          .then(res => {
+              if (!res.ok) throw new Error('Failed to fetch strategies');
+              return res.json();
+          })
+          .then(data => setStrategies(data.filter(s => s.params.some(p => p.sensitive))))
+          .catch(console.error);
+  }, []);
   
   // New handlers to support card-level saving
   const handleStrategySave = async (strategyId, secrets, isReset = false) => {
@@ -58,14 +68,8 @@ export default function CredentialsSettingsView() {
   };
 
   useEffect(() => {
-      fetch('/api/system/outputs/registry')
-          .then(res => {
-              if (!res.ok) throw new Error('Failed to fetch strategies');
-              return res.json();
-          })
-          .then(data => setStrategies(data.filter(s => s.params.some(p => p.sensitive))))
-          .catch(console.error);
-  }, []);
+      loadStrategies();
+  }, [loadStrategies]);
   
   // --- Password Change State ---
   const [newPassword, setNewPassword] = useState('');

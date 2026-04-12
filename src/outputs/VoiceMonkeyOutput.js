@@ -64,15 +64,22 @@ class VoiceMonkeyOutput extends BaseOutput {
             const projectPublicRoot = path.join(__dirname, '../../public/audio');
             const srcPublicRoot = path.join(__dirname, '../public/audio');
             const relativePath = path.relative(projectPublicRoot, payload.source.filePath);
-            const metaPath = path.join(srcPublicRoot, relativePath + '.json');
 
-            try {
-                await fs.access(metaPath);
-                const metaContent = await fs.readFile(metaPath, 'utf8');
-                const meta = JSON.parse(metaContent);
-                
-                // REQ-015: Read from nested compatibility object only
-                const isCompatible = meta.compatibility?.voicemonkey?.valid;
+            // Defence-in-depth: reject relative paths that escape the audio root
+            if (relativePath === '..' || relativePath.startsWith('..' + path.sep) || path.isAbsolute(relativePath)) {
+                console.warn(`${prefix} SECURITY WARNING: Sidecar path traversal attempt blocked`);
+                // Fall through without metadata — execution continues with URL only
+            } else {
+                // nosemgrep: path-join-resolve-traversal -- relativePath validated above to not escape srcPublicRoot
+                const metaPath = path.join(srcPublicRoot, relativePath + '.json');
+
+                try {
+                    await fs.access(metaPath);
+                    const metaContent = await fs.readFile(metaPath, 'utf8');
+                    const meta = JSON.parse(metaContent);
+
+                    // REQ-015: Read from nested compatibility object only
+                    const isCompatible = meta.compatibility?.voicemonkey?.valid;
 
                     if (isCompatible === false) {
                         console.warn(`${prefix} Skipped: Audio incompatible with Alexa`);
@@ -82,6 +89,7 @@ class VoiceMonkeyOutput extends BaseOutput {
                     // Silently ignore corrupted or missing metadata
                 }
             }
+        }
 
         const config = ConfigService.get();
         // Prefer parameters provided in the trigger payload, then fall back to global config.
@@ -106,7 +114,7 @@ class VoiceMonkeyOutput extends BaseOutput {
             ? payload.source.url
             : `${baseUrl}${payload.source.url}`;
 
-        console.log(`${prefix} Triggering announcement for device: ${device}`);
+        console.log(`${prefix} Triggering announcement for device: ${String(device).replace(/[\x00-\x1F\x7F-\x9F]/g, '_')}`);
 
         try {
             // Use the request queue to prevent rate-limiting by the VoiceMonkey API.
