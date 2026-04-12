@@ -1,0 +1,27 @@
+name: Semgrep
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'client/**'
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:1.114
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            source:
+              - 'src/**'
+              - 'client/**'
+      - name: Run Semgrep
+        if: steps.filter.outputs.source == 'true'
+        run: semgrep scan --config auto src/ client/src/
