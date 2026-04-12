@@ -1,0 +1,57 @@
+name: NPM Audit
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'client/package.json'
+      - 'client/package-lock.json'
+      - '.github/workflows/npm-audit.yml'
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  npm-audit:
+    name: Audit NPM Dependencies
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.x]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for dependency changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            root:
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/npm-audit.yml'
+            client:
+              - 'client/package.json'
+              - 'client/package-lock.json'
+              - '.github/workflows/npm-audit.yml'
+
+      - name: Setup Node.js
+        if: steps.changes.outputs.root == 'true' || steps.changes.outputs.client == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Audit root dependencies
+        if: steps.changes.outputs.root == 'true'
+        run: |
+          npm ci
+          npm audit --audit-level=moderate
+
+      - name: Audit client dependencies
+        if: steps.changes.outputs.client == 'true'
+        run: |
+          cd client && npm ci
+          npm audit --audit-level=moderate
