@@ -1,10 +1,8 @@
 name: Semgrep
+
 on:
   pull_request:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'client/**'
+    branches: [ main ]
   workflow_dispatch:
   workflow_call:
 
@@ -22,6 +20,7 @@ jobs:
             source:
               - 'src/**'
               - 'client/**'
+              - '.github/workflows/semgrep.yml'
       - name: Run Semgrep
         if: steps.filter.outputs.source == 'true'
         env:
