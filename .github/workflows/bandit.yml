@@ -33,7 +33,7 @@ jobs:
         if: steps.changes.outputs.python == 'true'
         run: |
           pip install bandit==1.8.3
-          bandit -r src/microservices/tts/ -f json -o bandit-report.json --exit-zero
+          bandit -r src/microservices/tts/ -f json -o bandit-report.json
 
       - name: Upload Bandit report
         if: steps.changes.outputs.python == 'true'
