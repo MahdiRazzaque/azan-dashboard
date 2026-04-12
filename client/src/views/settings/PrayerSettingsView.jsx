@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSettings } from "@/hooks/useSettings";
 import TriggerCard from "@/components/settings/TriggerCard";
 import IqamahTimingCard from "@/components/settings/IqamahTimingCard";
@@ -26,7 +26,7 @@ export default function PrayerSettingsView() {
     
     // Local state for UI only
 
-    const loadAudioFiles = () => {
+    const loadAudioFiles = useCallback(() => {
         fetch('/api/system/audio-files')
             .then(res => res.json())
             .then(data => {
@@ -37,19 +37,19 @@ export default function PrayerSettingsView() {
                 setAudioFiles(filtered);
             })
             .catch(err => console.error("Failed to load audio files", err));
-    };
+    }, []);
 
-    const loadStrategies = () => {
+    const loadStrategies = useCallback(() => {
         fetch('/api/system/outputs/registry')
             .then(res => res.json())
             .then(setStrategies)
             .catch(err => console.error("Failed to fetch output strategies", err));
-    };
+    }, []);
 
     useEffect(() => {
         loadAudioFiles();
         loadStrategies();
-    }, []);
+    }, [loadAudioFiles, loadStrategies]);
 
 
     if (!draftConfig) {

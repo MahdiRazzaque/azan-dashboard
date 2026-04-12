@@ -344,14 +344,16 @@ const settingsController = {
 
         const audioDir = path.resolve(__dirname, '../../public/audio/custom');
         const metaDir = path.resolve(__dirname, '../public/audio/custom');
-        const audioPath = path.join(audioDir, sanitised);
-        const metaPath = path.join(metaDir, sanitised + '.json');
+        const audioPath = path.resolve(audioDir, sanitised);
+        const metaPath = path.resolve(metaDir, sanitised + '.json');
 
-        // Containment check — ensure resolved paths stay within expected directories
-        const audioRel = path.relative(audioDir, path.resolve(audioPath));
-        const metaRel = path.relative(metaDir, path.resolve(metaPath));
-        if (audioRel.startsWith('..') || path.isAbsolute(audioRel) ||
-            metaRel.startsWith('..') || path.isAbsolute(metaRel)) {
+         // Containment check — ensure resolved paths stay within expected directories
+         const audioRelative = path.relative(audioDir, audioPath);
+         const metaRelative = path.relative(metaDir, metaPath);
+         const isAudioContained = audioRelative === '' || (!audioRelative.startsWith('..') && !path.isAbsolute(audioRelative));
+         const isMetaContained = metaRelative === '' || (!metaRelative.startsWith('..') && !path.isAbsolute(metaRelative));
+
+         if (!isAudioContained || !isMetaContained) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
@@ -425,11 +427,13 @@ const settingsController = {
             ? '../../public/audio/cache'
             : '../../public/audio/custom');
         
-        const filePath = path.join(audioDir, sanitised);
+        const filePath = path.resolve(audioDir, sanitised);
 
-        // Containment check — ensure resolved path stays within expected directory
-        const rel = path.relative(audioDir, path.resolve(filePath));
-        if (rel.startsWith('..') || path.isAbsolute(rel)) {
+         // Containment check — ensure resolved path stays within expected directory
+         const fileRelative = path.relative(audioDir, filePath);
+         const isContained = fileRelative === '' || (!fileRelative.startsWith('..') && !path.isAbsolute(fileRelative));
+
+         if (!isContained) {
             return res.status(400).json({ error: 'Invalid filename' });
         }
 
