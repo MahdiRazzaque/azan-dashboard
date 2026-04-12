@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, XCircle, Loader2, Play, Lock, Trash2, Undo2 } from 'lucide-react';
 import PasswordInput from '@/components/common/PasswordInput';
 import ConfirmModal from '@/components/common/ConfirmModal';
@@ -30,9 +30,21 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
     const [result, setResult] = useState(null);
     const [showResetModal, setShowResetModal] = useState(false);
     const [values, setValues] = useState(initialValues || {});
-    const [isVerified, setIsVerified] = useState(verified || false);
+    const [verifiedOverride, setVerifiedOverride] = useState(null);
     const [isDirty, setIsDirty] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    // Reset the local override when the server-provided `verified` prop changes.
+    // This avoids the "derived state in useEffect" anti-pattern by comparing
+    // against the previous prop value during render.
+    const prevVerifiedRef = useRef(verified);
+    if (prevVerifiedRef.current !== verified) {
+        prevVerifiedRef.current = verified;
+        setVerifiedOverride(null);
+    }
+
+    // Derive isVerified: use local override when set, otherwise fall back to prop.
+    const isVerified = verifiedOverride !== null ? verifiedOverride : (verified || false);
 
     // Sync local state when server config finishes loading.
     // Uses JSON.stringify for stable deep comparison.
@@ -42,9 +54,8 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
         // Populate the fields whenever server values change.
         // We also reset isDirty because these values now match the server.
         setValues(parsed);
-        setIsVerified(verified || false);
         setIsDirty(false);
-    }, [initialValuesJson, verified]);
+    }, [initialValuesJson]);
 
     const { id, label, params } = strategy;
     const sensitiveParams = params.filter(p => p.sensitive);
@@ -53,14 +64,14 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
         const newValues = { ...values, [key]: value };
         setValues(newValues);
         setIsDirty(true);
-        setIsVerified(false);
+        setVerifiedOverride(false);
         setResult(null);
     };
 
     const handleDiscard = () => {
         setValues(initialValues || {});
         setIsDirty(false);
-        setIsVerified(verified || false);
+        setVerifiedOverride(null);
         setResult(null);
     };
 
@@ -80,7 +91,7 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
         try {
             // Pass 'true' to indicate this is a reset operation specifically.
             await onSave(newValues, true); 
-            setIsVerified(false);
+            setVerifiedOverride(false);
             setResult({ success: true, message: 'Credentials Cleared' });
         } catch (e) {
             setResult({ success: false, message: e.message || 'Reset Failed' });
@@ -127,7 +138,7 @@ export default function CredentialStrategyCard({ strategy, initialValues, verifi
             // Once the user confirms they heard the test, persist the validated credentials to the backend.
             const res = await onSave(values, false);
             if (res.success) {
-                setIsVerified(true);
+                setVerifiedOverride(true);
                 setResult({ success: true, message: 'Verified & Saved' });
             } else {
                 setResult({ success: false, message: res.error || 'Save Failed' });
