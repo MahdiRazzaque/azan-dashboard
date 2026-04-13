@@ -1,20 +1,10 @@
 const normalizeSource = require('@utils/normalizeSource');
+const { isWithinRoot } = require('@utils/pathUtils');
 const fs = require('fs').promises;
 const path = require('path');
 
 const PROJECT_PUBLIC_ROOT = path.join(__dirname, '../../public/audio');
 const SRC_PUBLIC_ROOT = path.join(__dirname, '../public/audio');
-
-/**
- * Checks whether a target path resolves inside a root directory boundary.
- * @param {string} rootPath - Allowed root directory.
- * @param {string} targetPath - Target path to validate.
- * @returns {boolean} True when targetPath is within rootPath.
- */
-function isWithinRoot(rootPath, targetPath) {
-    const relativePath = path.relative(rootPath, path.resolve(targetPath));
-    return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
-}
 
 /**
  * Abstract base class defining the contract for automation output strategies.

@@ -2,9 +2,7 @@ const BaseOutput = require('./BaseOutput');
 const player = require('play-sound')({});
 const { execFile } = require('child_process');
 const fs = require('fs').promises;
-const path = require('path');
 
-const AUDIO_ROOT = path.resolve(__dirname, '../../public/audio');
 const ALLOWED_AUDIO_PLAYERS = ['mpg123', 'omxplayer', 'aplay', 'mplayer', 'cvlc'];
 
 /**
