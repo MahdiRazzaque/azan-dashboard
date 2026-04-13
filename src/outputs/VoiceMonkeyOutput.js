@@ -341,7 +341,7 @@ class VoiceMonkeyOutput extends BaseOutput {
      * Validates an audio asset for compatibility with VoiceMonkey/Alexa.
      * 
      * @param {string} _filePath - Path to the audio file.
-     * @param {Object} metadata - Audio metadata.
+     * @param {Object} _metadata - Audio metadata.
      * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>} A promise that resolves to the validation result.
      */
     async validateAsset(_filePath, _metadata) {

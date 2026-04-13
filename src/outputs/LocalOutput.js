@@ -1,3 +1,4 @@
+const path = require('path');
 const BaseOutput = require('./BaseOutput');
 const player = require('play-sound')({});
 const { execFile } = require('child_process');
