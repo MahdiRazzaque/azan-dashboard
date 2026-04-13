@@ -24,9 +24,25 @@ function normalizeSource(source) {
     }
 
     if (source.type === 'file') {
-        return { type: 'file', filePath: source.filePath, url: source.url };
+        const hasFilePath = typeof source.filePath === 'string' && source.filePath.length > 0;
+        const hasUrl = typeof source.url === 'string' && source.url.length > 0;
+
+        if (!hasFilePath && !hasUrl) {
+            throw new Error('Invalid source: typed file source requires filePath or url');
+        }
+
+        if (hasUrl && _hasProtocol(source.url)) {
+            _validateUrlProtocol(source.url);
+        }
+
+        return _buildFileSource(source, false, hasFilePath, hasUrl);
     }
     if (source.type === 'url') {
+        if (typeof source.url !== 'string' || source.url.length === 0) {
+            throw new Error('Invalid source: typed url source requires url');
+        }
+
+        _validateUrlProtocol(source.url);
         return { type: 'url', url: source.url };
     }
 

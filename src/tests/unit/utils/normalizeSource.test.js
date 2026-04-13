@@ -108,8 +108,8 @@ describe('normalizeSource', () => {
         });
     });
 
-    describe('already-typed sources (passthrough)', () => {
-        it('should pass through a valid file source', () => {
+    describe('already-typed sources', () => {
+        it('should validate and preserve a valid file source', () => {
             const absolutePath = path.join(AUDIO_ROOT, 'custom/test.mp3');
             const source = {
                 type: 'file',
@@ -120,13 +120,30 @@ describe('normalizeSource', () => {
             expect(result).toEqual(source);
         });
 
-        it('should pass through a valid url source', () => {
+        it('should validate and preserve a valid url source', () => {
             const source = {
                 type: 'url',
                 url: 'https://example.com/audio.mp3'
             };
             const result = normalizeSource(source);
             expect(result).toEqual(source);
+        });
+
+        it('should reject typed file sources with path traversal in filePath', () => {
+            const traversalPath = path.resolve(AUDIO_ROOT, '../outside.mp3');
+
+            expect(() => normalizeSource({
+                type: 'file',
+                filePath: traversalPath,
+                url: '/public/audio/custom/test.mp3'
+            })).toThrow('Path traversal detected');
+        });
+
+        it('should reject typed url sources with forbidden protocols', () => {
+            expect(() => normalizeSource({
+                type: 'url',
+                url: 'file:///etc/passwd'
+            })).toThrow('Only http and https URLs are allowed');
         });
     });
 
