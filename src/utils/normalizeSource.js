@@ -112,7 +112,9 @@ function _buildFileSource(source, hasPath, hasFilePath, hasUrl) {
     // Normalise platform-specific separators to forward slashes for URL safety
     relativePath = relativePath.split(path.sep).join('/');
 
-    const absolutePath = hasFilePath ? source.filePath : path.resolve(AUDIO_ROOT, relativePath);
+    const absolutePath = hasFilePath
+        ? path.normalize(source.filePath)
+        : path.normalize(`${AUDIO_ROOT}${path.sep}${relativePath}`);
     _validatePathTraversal(absolutePath);
 
     const url = hasUrl ? source.url : `${PUBLIC_AUDIO_PREFIX}${relativePath}`;

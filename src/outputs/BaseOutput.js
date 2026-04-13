@@ -75,7 +75,7 @@ class BaseOutput {
 
         const meta = this.constructor.getMetadata();
         const relativePath = path.relative(PROJECT_PUBLIC_ROOT, filePath);
-        const metaPath = path.resolve(SRC_PUBLIC_ROOT, relativePath + '.json');
+        const metaPath = path.normalize(`${SRC_PUBLIC_ROOT}${path.sep}${relativePath}.json`);
 
         // Path traversal protection: sidecar must resolve within src/public/audio
         if (!isWithinRoot(SRC_PUBLIC_ROOT, metaPath)) return undefined;
