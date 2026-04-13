@@ -33,7 +33,7 @@ jobs:
       - name: Install and run Bandit
         if: steps.changes.outputs.python == 'true'
         run: |
-          pip install bandit==1.8.3
+          pip install bandit==1.9.4
           bandit -r src/microservices/tts/ -c .config/bandit.yaml -f json -o bandit-report.json
 
       - name: Upload Bandit report
