@@ -10,7 +10,6 @@ const { DateTime } = require('luxon');
 const jobConstants = require('@utils/jobConstants');
 
 jest.mock('node-schedule');
-jest.mock('@config');
 jest.mock('@services/core/prayerTimeService');
 jest.mock('@services/core/automationService');
 jest.mock('@services/system/audioAssetService'); 

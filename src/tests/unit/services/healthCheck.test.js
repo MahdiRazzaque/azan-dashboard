@@ -4,10 +4,8 @@ const OutputFactory = require('../../../outputs');
 const { ProviderFactory } = require('@providers');
 const axios = require('axios');
 
-jest.mock('@config');
 jest.mock('../../../outputs');
 jest.mock('@providers');
-jest.mock('axios');
 
 describe('HealthCheck Service', () => {
     let mockLocalStrategy, mockVMStrategy;
