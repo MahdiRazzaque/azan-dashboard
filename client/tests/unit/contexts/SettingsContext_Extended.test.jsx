@@ -67,7 +67,7 @@ describe('SettingsContext Extended Coverage', () => {
     // Note: fetchHealth is no longer called on page load, so we test refreshHealth instead
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     fetch.mockImplementationOnce(async () => mockResponse({ message: 'Rate limited' }, false, 429));
     const result = await context.refreshHealth();
     expect(result.success).toBe(false);
@@ -87,7 +87,7 @@ describe('SettingsContext Extended Coverage', () => {
   it('should handle rate limit in refreshHealth', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     fetch.mockImplementationOnce(async () => mockResponse({ message: 'Rate limited' }, false, 429));
     const result = await context.refreshHealth();
     expect(result.error).toBe('Rate limited');
@@ -96,7 +96,7 @@ describe('SettingsContext Extended Coverage', () => {
   it('should handle rate limit in saveSettings', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     // Must modify config first, otherwise saveSettings returns early with "No configuration to save"
     act(() => {
       context.updateSetting('id', 'modified');
@@ -109,7 +109,7 @@ describe('SettingsContext Extended Coverage', () => {
   it('should handle saveSettings failure', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     // Must modify config first, otherwise saveSettings returns early with "No configuration to save"
     act(() => {
       context.updateSetting('id', 'modified');
@@ -122,7 +122,7 @@ describe('SettingsContext Extended Coverage', () => {
   it('should handle resetToDefaults failure', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     fetch.mockImplementationOnce(async () => mockResponse({ error: 'Reset failed' }, false, 400));
     const result = await context.resetToDefaults();
     expect(result.error).toBe('Reset failed');
@@ -131,7 +131,7 @@ describe('SettingsContext Extended Coverage', () => {
   it('should handle updateEnvSetting failure', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     fetch.mockImplementationOnce(async () => mockResponse({ message: 'Env update failed' }, false, 400));
     const result = await context.updateEnvSetting('KEY', 'VAL');
     expect(result.error).toBe('Env update failed');
@@ -140,7 +140,7 @@ describe('SettingsContext Extended Coverage', () => {
   it('should cover getSectionHealth issues', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     await act(async () => {
         fetch.mockImplementation(async (url) => {
             if (url.includes('/api/system/health')) return mockResponse({ tts: { healthy: false }, local: { healthy: false } });
@@ -160,7 +160,7 @@ describe('SettingsContext Extended Coverage', () => {
   it('should cover getSectionHealth with disabled output', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     await act(async () => {
         context.updateSetting('automation.outputs.local.enabled', false);
     });
@@ -172,7 +172,7 @@ describe('SettingsContext Extended Coverage', () => {
   it('should cover bulkUpdateOffsets edge case', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     act(() => {
         context.bulkUpdateOffsets('preIqamah', 10);
     });
@@ -181,7 +181,7 @@ describe('SettingsContext Extended Coverage', () => {
   it('should cover hasUnsavedChanges', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     expect(context.hasUnsavedChanges()).toBe(false);
     act(() => {
         context.updateSetting('id', 'changed');
@@ -193,21 +193,21 @@ describe('SettingsContext Extended Coverage', () => {
     fetch.mockImplementationOnce(async () => mockResponse(null));
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     expect(context.hasUnsavedChanges()).toBe(false);
   });
 
   it('should cover validateBeforeSave', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     expect(context.validateBeforeSave().success).toBe(true);
   });
 
   it('should cover resetDraft', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     act(() => {
         context.updateSetting('id', 'changed');
     });
@@ -221,7 +221,7 @@ describe('SettingsContext Extended Coverage', () => {
   it('should cover getSectionHealth for automation section', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     await act(async () => {
         fetch.mockImplementation(async (url) => {
             if (url.includes('/api/system/health')) return mockResponse({ tts: { healthy: false } });
@@ -236,7 +236,7 @@ describe('SettingsContext Extended Coverage', () => {
   it('should cover saveSettings success with warnings', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
     
     // Replace the entire mock implementation with URL-specific routing
     fetch.mockImplementation(async (url) => {
