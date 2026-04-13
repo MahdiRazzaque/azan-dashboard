@@ -12,7 +12,6 @@ const voiceService = require('@services/system/voiceService');
 const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../outputs');
 const configUnmasker = require('@utils/configUnmasker');
-const normalizeSource = require('@utils/normalizeSource');
 const { getSafeAgent } = require('@utils/networkUtils');
 const { 
     CALCULATION_METHODS, 
@@ -653,11 +652,9 @@ const systemController = {
                 return res.status(400).json({ error: 'Audio source is required for testing' });
             }
 
-            const normalizedSource = normalizeSource(source);
-
             const payload = {
                 params,
-                source: normalizedSource,
+                source,
                 baseUrl: currentConfig.automation?.baseUrl
             };
 

@@ -97,7 +97,7 @@ describe('SystemController', () => {
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('Audio source is required') }));
         });
 
-        it('should normalize source and execute in testOutput', async () => {
+        it('should pass raw source to strategy.execute in testOutput', async () => {
             const mockStrategy = { execute: jest.fn().mockResolvedValue({ success: true }) };
             OutputFactory.getStrategy.mockReturnValue(mockStrategy);
             req.params.strategyId = 'voicemonkey';
@@ -112,7 +112,7 @@ describe('SystemController', () => {
             await systemController.testOutput(req, res);
             expect(mockStrategy.execute).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    source: expect.objectContaining({ type: 'file', url: expect.stringContaining('/public/audio/custom/test.mp3') }),
+                    source: { path: 'custom/test.mp3' },
                     baseUrl: 'https://test.com'
                 }),
                 { isTest: true }
@@ -120,8 +120,8 @@ describe('SystemController', () => {
             expect(res.json).toHaveBeenCalledWith({ success: true });
         });
 
-        it('should return 400 for invalid source in testOutput', async () => {
-            const mockStrategy = { execute: jest.fn() };
+        it('should return 400 when strategy.execute rejects with validation error in testOutput', async () => {
+            const mockStrategy = { execute: jest.fn().mockRejectedValue(new Error('Path traversal detected: resolved path is outside audio directory')) };
             OutputFactory.getStrategy.mockReturnValue(mockStrategy);
             req.params.strategyId = 'voicemonkey';
             req.body = { source: { path: '../../../etc/passwd' } };
@@ -131,15 +131,14 @@ describe('SystemController', () => {
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('Path traversal') }));
         });
 
-        it('should return 400 for typed url sources with forbidden protocols in testOutput', async () => {
-            const mockStrategy = { execute: jest.fn() };
+        it('should return 400 when strategy.execute rejects with protocol error in testOutput', async () => {
+            const mockStrategy = { execute: jest.fn().mockRejectedValue(new Error('Only http and https URLs are allowed')) };
             OutputFactory.getStrategy.mockReturnValue(mockStrategy);
             req.params.strategyId = 'voicemonkey';
             req.body = { source: { type: 'url', url: 'file:///etc/passwd' } };
 
             await systemController.testOutput(req, res);
 
-            expect(mockStrategy.execute).not.toHaveBeenCalled();
             expect(res.status).toHaveBeenCalledWith(400);
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('Only http and https URLs are allowed') }));
         });

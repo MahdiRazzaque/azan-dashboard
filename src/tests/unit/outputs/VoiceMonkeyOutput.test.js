@@ -126,7 +126,7 @@ describe('VoiceMonkeyOutput', () => {
     });
 
     describe('_executeFromUrl', () => {
-        it('should send absolute URL directly to API', async () => {
+        it('should send HTTPS URL directly to API', async () => {
             const payload = {
                 source: { type: 'url', url: 'https://cdn.example.com/audio.mp3' },
                 params: { token: 't1', device: 'd1' }
@@ -141,11 +141,24 @@ describe('VoiceMonkeyOutput', () => {
             );
         });
 
-        it('should skip if baseUrl is not HTTPS for relative URL', async () => {
-            ConfigService.get.mockReturnValue({ automation: { baseUrl: 'http://insecure.com' } });
-            const payload = { source: { type: 'url', url: '/public/audio/test.mp3' } };
+        it('should skip if URL is not HTTPS', async () => {
+            const payload = {
+                source: { type: 'url', url: 'http://cdn.example.com/audio.mp3' },
+                params: { token: 't1', device: 'd1' }
+            };
             await output._executeFromUrl(payload, {});
             expect(axios.get).not.toHaveBeenCalled();
+        });
+
+        it('should log warning when URL is not HTTPS', async () => {
+            const payload = {
+                source: { type: 'url', url: 'http://cdn.example.com/audio.mp3' },
+                params: { token: 't1', device: 'd1' }
+            };
+            const spy = jest.spyOn(console, 'warn').mockImplementation();
+            await output._executeFromUrl(payload, {});
+            expect(spy).toHaveBeenCalledWith(expect.stringContaining('Alexa requires HTTPS audio URL'));
+            spy.mockRestore();
         });
     });
 
