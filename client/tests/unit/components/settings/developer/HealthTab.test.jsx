@@ -1,10 +1,6 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import HealthTab from '../../../../../src/components/settings/developer/HealthTab';
-
-// Mock fetch
-global.fetch = vi.fn();
 
 describe('HealthTab', () => {
     const mockConfig = {

@@ -1,7 +1,6 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import SettingsLayout from '../../../../src/components/layout/SettingsLayout';
 import { useAuth } from '../../../../src/hooks/useAuth';
 import { useSettings } from '../../../../src/hooks/useSettings';
@@ -50,8 +49,6 @@ describe('SettingsLayout', () => {
       startTour: mockStartTour,
       stopTour: mockStopTour
     });
-    global.fetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => cb());
   });
 
   afterEach(() => {
@@ -161,13 +158,13 @@ describe('SettingsLayout', () => {
     expect(container.querySelector('.bg-orange-500')).toBeDefined();
   });
 
-  it('should show welcome modal when adminSeen is false', () => {
+  it('should show welcome modal when adminSeen is false', async () => {
     useSettings.mockReturnValue({
       ...baseMock,
       config: { system: { tours: { adminSeen: false } } }
     });
     render(<MemoryRouter><SettingsLayout /></MemoryRouter>);
-    expect(screen.getByText('Welcome to the Admin Panel')).toBeDefined();
+    expect(await screen.findByText('Welcome to the Admin Panel')).toBeDefined();
   })
 
   it('should have Restart Tour button in sidebar', () => {
