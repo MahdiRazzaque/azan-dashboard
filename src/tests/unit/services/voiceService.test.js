@@ -14,8 +14,6 @@ jest.mock('fs', () => ({
         access: jest.fn()
     }
 }));
-jest.mock('axios');
-jest.mock('@config');
 
 describe('VoiceService (Async Refactor)', () => {
     let service;

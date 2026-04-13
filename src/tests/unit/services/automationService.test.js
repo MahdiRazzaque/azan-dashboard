@@ -11,7 +11,6 @@ jest.mock('fs', () => ({
         access: jest.fn()
     }
 }));
-jest.mock('@config');
 jest.mock('@services/system/audioAssetService');
 jest.mock('@services/system/sseService');
 jest.mock('@outputs');

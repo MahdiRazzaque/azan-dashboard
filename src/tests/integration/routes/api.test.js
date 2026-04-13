@@ -5,7 +5,6 @@ const mockMockFactory = require('../../helpers/mockFactory');
 
 // --- 1. Define Mocks BEFORE requiring modules ---
 
-jest.mock('axios'); 
 const axios = require('axios');
 
 jest.mock('fs', () => {

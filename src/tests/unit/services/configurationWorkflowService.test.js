@@ -7,7 +7,6 @@ const healthCheck = require('@services/system/healthCheck');
 const validationService = require('@services/core/validationService');
 const sseService = require('@services/system/sseService');
 
-jest.mock('@config');
 jest.mock('@services/core/prayerTimeService');
 jest.mock('@services/core/schedulerService');
 jest.mock('@services/system/audioAssetService');

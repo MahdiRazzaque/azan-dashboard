@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ClientSettingsModal from '../../../../src/components/settings/ClientSettingsModal';
@@ -47,7 +46,6 @@ describe('ClientSettingsModal', () => {
     });
     useSettings.mockReturnValue({ config: baseConfig });
     useWakeLock.mockReturnValue({ isSupported: true });
-    global.fetch = vi.fn().mockResolvedValue({ ok: true });
   });
 
   it('should render correctly and default to Appearance tab', () => {

@@ -6,7 +6,6 @@ const automationService = require('@services/core/automationService');
 const { DateTime } = require('luxon');
 
 jest.mock('node-schedule');
-jest.mock('@config');
 jest.mock('@services/core/prayerTimeService');
 jest.mock('@services/core/automationService');
 jest.mock('@services/system/healthCheck');

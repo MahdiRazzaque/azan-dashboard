@@ -5,8 +5,6 @@ const fs = require('fs');
 
 // --- 1. Define Mocks BEFORE requiring modules ---
 
-jest.mock('axios'); 
-
 jest.mock('fs', () => {
     const originalFs = jest.requireActual('fs');
     return {

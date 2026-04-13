@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SettingsProvider } from '../../../src/contexts/SettingsContext';
 import { useSettings } from '../../../src/hooks/useSettings';
@@ -64,9 +64,8 @@ describe('SettingsContext Ultimate Coverage', () => {
   });
 
   it('should handle all initialization and state', async () => {
-    let context;
-    render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    render(<SettingsProvider><TestComponent /></SettingsProvider>);
+    expect(await screen.findByTestId('done')).toBeDefined();
     
     // Auth change
     useAuth.mockReturnValue({ isAuthenticated: false });
@@ -77,7 +76,7 @@ describe('SettingsContext Ultimate Coverage', () => {
   it('should cover all validation branches', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
 
     // Validation failures
     await act(async () => { context.updateSetting('location.coordinates.lat', '100'); });
@@ -98,7 +97,7 @@ describe('SettingsContext Ultimate Coverage', () => {
   it('should cover health and dirty branches', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
 
     // Section health
     context.getSectionHealth('prayers.fajr');
@@ -116,7 +115,7 @@ describe('SettingsContext Ultimate Coverage', () => {
   it('should cover utility methods and errors', async () => {
     let context;
     render(<SettingsProvider><TestComponent callback={(s) => context = s} /></SettingsProvider>);
-    await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+    expect(await screen.findByTestId('done')).toBeDefined();
 
     await context.resetToDefaults();
     await context.updateEnvSetting('BASE_URL', 'v');
@@ -132,7 +131,7 @@ describe('SettingsContext Ultimate Coverage', () => {
   });
 
   it('should cover rate limit status branches', async () => {
-      fetch.mockImplementation(async (url) => mockResponse({}, false, 429));
+      fetch.mockImplementation(async () => mockResponse({}, false, 429));
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       render(<SettingsProvider><TestComponent /></SettingsProvider>);
       await waitFor(() => expect(consoleSpy).toHaveBeenCalled());
@@ -180,7 +179,7 @@ describe('SettingsContext Ultimate Coverage', () => {
       fetch.mockImplementation(iqamahFetchMock);
       let context;
       render(<SettingsProvider><IqamahTestComponent callback={(s) => context = s} /></SettingsProvider>);
-      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+      expect(await screen.findByTestId('done')).toBeDefined();
 
       act(() => { context.bulkUpdateIqamahOffsets(25); });
 
@@ -198,7 +197,7 @@ describe('SettingsContext Ultimate Coverage', () => {
       fetch.mockImplementation(iqamahFetchMock);
       let context;
       render(<SettingsProvider><IqamahTestComponent callback={(s) => context = s} /></SettingsProvider>);
-      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+      expect(await screen.findByTestId('done')).toBeDefined();
 
       act(() => { context.bulkUpdateIqamahOffsets(30); });
 
@@ -211,7 +210,7 @@ describe('SettingsContext Ultimate Coverage', () => {
       fetch.mockImplementation(iqamahFetchMock);
       let context;
       render(<SettingsProvider><IqamahTestComponent callback={(s) => context = s} /></SettingsProvider>);
-      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+      expect(await screen.findByTestId('done')).toBeDefined();
 
       act(() => { context.bulkUpdateIqamahOffsets(100); });
       await waitFor(() => {
@@ -228,7 +227,7 @@ describe('SettingsContext Ultimate Coverage', () => {
       fetch.mockImplementation(iqamahFetchMock);
       let context;
       render(<SettingsProvider><IqamahTestComponent callback={(s) => context = s} /></SettingsProvider>);
-      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+      expect(await screen.findByTestId('done')).toBeDefined();
 
       act(() => { context.bulkUpdateIqamahOffsets('abc'); });
       await waitFor(() => {
@@ -240,7 +239,7 @@ describe('SettingsContext Ultimate Coverage', () => {
       fetch.mockImplementation(async () => mockResponse(null));
       let context;
       render(<SettingsProvider><IqamahTestComponent callback={(s) => context = s} /></SettingsProvider>);
-      await waitFor(() => expect(screen.getByTestId('loading')).toBeDefined());
+      expect(await screen.findByTestId('loading')).toBeDefined();
 
       const count = context.bulkUpdateIqamahOffsets(10);
       expect(count).toBe(0);
@@ -276,7 +275,7 @@ describe('SettingsContext Ultimate Coverage', () => {
       });
 
       render(<SettingsProvider><HealthTestComponent /></SettingsProvider>);
-      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+      expect(await screen.findByTestId('done')).toBeDefined();
 
       // Verify health endpoint was called on mount
       const healthCalls = fetch.mock.calls.filter(([url]) => 
@@ -301,7 +300,7 @@ describe('SettingsContext Ultimate Coverage', () => {
 
       let context;
       render(<SettingsProvider><HealthTestComponent callback={(s) => context = s} /></SettingsProvider>);
-      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+      expect(await screen.findByTestId('done')).toBeDefined();
 
       // After mount, systemHealth should reflect the API response (unhealthy services)
       // NOT the optimistic defaults (all healthy)
@@ -325,7 +324,7 @@ describe('SettingsContext Ultimate Coverage', () => {
       });
 
       render(<SettingsProvider><HealthTestComponent /></SettingsProvider>);
-      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+      expect(await screen.findByTestId('done')).toBeDefined();
 
       // Health endpoint requires no auth, should be called regardless
       const healthCalls = fetch.mock.calls.filter(([url]) => 
@@ -351,7 +350,7 @@ describe('SettingsContext Ultimate Coverage', () => {
 
       let context;
       render(<SettingsProvider><HealthTestComponent callback={(s) => context = s} /></SettingsProvider>);
-      await waitFor(() => expect(screen.getByTestId('done')).toBeDefined());
+      expect(await screen.findByTestId('done')).toBeDefined();
 
       // Even though the response is 503, the health data should be parsed and used
       await waitFor(() => {

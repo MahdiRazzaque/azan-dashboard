@@ -4,8 +4,6 @@ const configService = require('@config');
 const fs = require('fs');
 const fsp = fs.promises;
 
-jest.mock('axios');
-jest.mock('@config');
 jest.mock('fs', () => ({
     promises: {
         access: jest.fn(),

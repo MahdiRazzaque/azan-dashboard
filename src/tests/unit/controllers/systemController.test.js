@@ -34,7 +34,6 @@ jest.mock('dns', () => ({
     }
 }));
 
-jest.mock('axios');
 jest.mock('@services/system/healthCheck');
 jest.mock('@services/core/schedulerService');
 jest.mock('@services/system/sseService');
@@ -42,7 +41,6 @@ jest.mock('@services/core/automationService');
 jest.mock('@services/system/audioAssetService');
 jest.mock('@services/system/diagnosticsService');
 jest.mock('@services/system/voiceService');
-jest.mock('@config');
 jest.mock('@providers');
 jest.mock('@outputs');
 

@@ -1,6 +1,5 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import DashboardView from '../../../src/views/DashboardView';
 
 vi.mock('../../../src/components/layout/DashboardLayout', () => ({ default: ({ children }) => <div data-testid="dashboard-layout">{children}</div> }));
@@ -14,6 +13,16 @@ vi.mock('react-dom', () => ({ flushSync: (cb) => cb() }));
 
 import { useSettings } from '../../../src/hooks/useSettings';
 import { useTour } from '../../../src/hooks/useTour';
+
+// DashboardView uses requestAnimationFrame to defer modal show/tour start.
+// Override with synchronous execution so tests don't need to await rAF timing.
+const originalRAF = global.requestAnimationFrame;
+beforeEach(() => {
+  global.requestAnimationFrame = (cb) => { cb(); return 0; };
+});
+afterEach(() => {
+  global.requestAnimationFrame = originalRAF;
+});
 describe('DashboardView', () => {
   const defaultProps = {
     prayers: {},
@@ -39,8 +48,6 @@ describe('DashboardView', () => {
       startTour: mockStartTour,
       stopTour: mockStopTour
     });
-    global.fetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => cb());
   });
 
   afterEach(() => {
@@ -54,13 +61,13 @@ describe('DashboardView', () => {
     expect(screen.getByTestId('focus-card')).toBeDefined();
   });
 
-  it('shows WelcomeModal when dashboardSeen is false', () => {
+  it('shows WelcomeModal when dashboardSeen is false', async () => {
     useSettings.mockReturnValue({
       config: { system: { tours: { dashboardSeen: false } } },
       fetchSettings: mockFetchSettings
     });
     render(<DashboardView {...defaultProps} />);
-    expect(screen.getByTestId('welcome-modal')).toBeDefined();
+    expect(await screen.findByTestId('welcome-modal')).toBeDefined();
   });
 
   it('hides WelcomeModal when dashboardSeen is true', () => {
@@ -78,8 +85,8 @@ describe('DashboardView', () => {
       refresh: vi.fn()
     });
     render(<DashboardView {...defaultProps} />);
-    expect(screen.getByTestId('welcome-modal')).toBeDefined();
-    fireEvent.click(screen.getByText('Start'));
+    expect(await screen.findByTestId('welcome-modal')).toBeDefined();
+    fireEvent.click(await screen.findByText('Start'));
     expect(mockStartTour).toHaveBeenCalledWith('dashboard', expect.any(Array), expect.any(Function));
     expect(screen.queryByTestId('welcome-modal')).toBeNull();
   });
@@ -91,7 +98,7 @@ describe('DashboardView', () => {
       refresh
     });
     render(<DashboardView {...defaultProps} />);
-    fireEvent.click(screen.getByText('Start'));
+    fireEvent.click(await screen.findByText('Start'));
     const onComplete = mockStartTour.mock.calls[0][2];
     await onComplete();
     expect(global.fetch).toHaveBeenCalledWith('/api/settings/tour-state', expect.objectContaining({ method: 'PATCH' }));
@@ -106,7 +113,7 @@ describe('DashboardView', () => {
       refresh
     });
     render(<DashboardView {...defaultProps} />);
-    await fireEvent.click(screen.getByText('Skip'));
+    fireEvent.click(await screen.findByText('Skip'));
     await vi.waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(screen.queryByTestId('welcome-modal')).toBeNull();
   });
@@ -119,7 +126,7 @@ describe('DashboardView', () => {
       refresh
     });
     render(<DashboardView {...defaultProps} />);
-    fireEvent.click(screen.getByText('Skip'));
+    fireEvent.click(await screen.findByText('Skip'));
     await vi.waitFor(() => expect(screen.queryByTestId('welcome-modal')).toBeNull());
   });
 
