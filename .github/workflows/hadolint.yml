@@ -26,6 +26,6 @@ jobs:
 
       - name: Run Hadolint
         if: steps.changes.outputs.docker == 'true'
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: docker/Dockerfile
