@@ -25,6 +25,7 @@ export default function DynamicField({ param, value, onChange }) {
             return;
         }
         if (param.constraints?.pattern && val) {
+            // nosemgrep: detect-non-literal-regexp -- pattern comes from Zod-validated server config schema, not raw user input
             const regex = new RegExp(param.constraints.pattern);
             if (!regex.test(val)) {
                 setError(`Invalid ${param.label} format`);

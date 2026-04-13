@@ -21,6 +21,7 @@ const storageService = {
      */
     async getDirSize(dirPath, visitedPaths = new Set()) {
         let size = 0;
+        // nosemgrep: path-join-resolve-traversal -- dirPath is a constant (CUSTOM_DIR/CACHE_DIR), not user input
         const realPath = path.resolve(dirPath);
         if (visitedPaths.has(realPath)) return 0;
         visitedPaths.add(realPath);
@@ -30,6 +31,7 @@ const storageService = {
             
             const files = await fs.readdir(dirPath);
             for (const file of files) {
+                // nosemgrep: path-join-resolve-traversal -- dirPath is a constant and file comes from fs.readdir(), not user input
                 const filePath = path.join(dirPath, file);
                 try {
                     const stats = await fs.lstat(filePath);
@@ -42,12 +44,14 @@ const storageService = {
                         size += stats.size;
                     }
                 } catch (statError) {
+                    // nosemgrep: unsafe-formatstring -- filePath is derived from internal constants + fs.readdir(), not user HTTP input
                     console.warn(`[StorageService] Could not lstat file: ${filePath}`, statError.message);
                 }
             }
         } catch (dirError) {
             // Only log error if it's not a 'file not found' error
             if (dirError.code !== 'ENOENT' && dirError.message !== 'ENOENT') {
+                // nosemgrep: unsafe-formatstring -- dirPath is a constant (CUSTOM_DIR/CACHE_DIR), not user input
                 console.error(`[StorageService] Error reading directory: ${dirPath}`, dirError.message);
             }
         }

@@ -3,12 +3,6 @@ name: NPM Audit
 on:
   pull_request:
     branches: [ main ]
-    paths:
-      - 'package.json'
-      - 'package-lock.json'
-      - 'client/package.json'
-      - 'client/package-lock.json'
-      - '.github/workflows/npm-audit.yml'
   workflow_dispatch:
   workflow_call:
 

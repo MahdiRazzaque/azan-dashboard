@@ -72,7 +72,7 @@ function PrayerSourceStatusRow({ label, source, target, disabled, results, loadi
                 <button
                     onClick={() => testConnection(target)}
                     disabled={isLoading || disabled}
-                    className="flex items-center justify-center gap-2 px-3 py-2 bg-app-card' hover:bg-app-card-hover text-app-dim rounded border border-app-border transition-all disabled:opacity-50 w-full"
+                    className="flex items-center justify-center gap-2 px-3 py-2 bg-app-card hover:bg-app-card-hover text-app-dim rounded border border-app-border transition-all disabled:opacity-50 w-full"
                 >
                     {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
                     <span className="text-xs font-semibold">Test Connectivity</span>

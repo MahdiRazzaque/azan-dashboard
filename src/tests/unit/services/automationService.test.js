@@ -170,7 +170,13 @@ describe('AutomationService Comprehensive', () => {
             
             const spyErr = jest.spyOn(console, 'error').mockImplementation();
             await service.triggerEvent('fajr', 'adhan');
-            expect(spyErr).toHaveBeenCalledWith(expect.stringContaining('Error executing target'), 'Execution failed');
+            expect(spyErr).toHaveBeenCalledWith(
+                '[Automation] Error executing target %s for %s %s:',
+                expect.any(String),
+                'fajr',
+                'adhan',
+                'Execution failed'
+            );
             spyErr.mockRestore();
         });
         it('should handle successful custom file access', async () => {
