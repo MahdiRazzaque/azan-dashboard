@@ -60,7 +60,7 @@ describe('BaseOutput', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
-        fs.promises.access.mockRejectedValue(new Error('ENOENT'));
+        fs.promises.access.mockResolvedValue(undefined);
         output = new TestOutput();
     });
 
@@ -184,6 +184,19 @@ describe('BaseOutput', () => {
             await expect(output.execute(payload, {})).rejects.toThrow('Only http and https URLs are allowed');
             expect(output.lastCall).toBeUndefined();
         });
+
+        it('should throw if audio file does not exist on disk', async () => {
+            fs.promises.access.mockRejectedValue(new Error('ENOENT'));
+            const payload = {
+                source: {
+                    type: 'file',
+                    filePath: path.join(PROJECT_PUBLIC_ROOT, 'nonexistent.mp3'),
+                    url: '/public/audio/nonexistent.mp3'
+                }
+            };
+            await expect(output.execute(payload, {})).rejects.toThrow('Audio file not found: nonexistent.mp3');
+            expect(output.lastCall).toBeUndefined();
+        });
     });
 
     describe('execute — sidecar compatibility', () => {
@@ -211,7 +224,9 @@ describe('BaseOutput', () => {
         });
 
         it('should proceed if sidecar is missing (ENOENT)', async () => {
-            fs.promises.access.mockRejectedValue(new Error('ENOENT'));
+            fs.promises.access
+                .mockResolvedValueOnce(undefined)
+                .mockRejectedValueOnce(new Error('ENOENT'));
             await output.execute(filePayload, {});
             expect(output.lastCall.hook).toBe('file');
         });
