@@ -129,6 +129,15 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                              }
                          });
 
+                          // Source type compatibility checks
+                         const sourceType = trigger.type === 'url' ? 'url' : 'file';
+                         (trigger.targets || []).forEach(targetId => {
+                             const strategy = strategies.find(s => s.id === targetId);
+                             if (strategy?.supportedSourceTypes && !strategy.supportedSourceTypes.includes(sourceType)) {
+                                 issues.push(`${strategy.label} does not support ${trigger.type.toUpperCase()} sources`);
+                             }
+                         });
+
                          // Strategy-specific compatibility checks (e.g. Alexa/VoiceMonkey)
                          if (trigger.type === 'file') {
                              (trigger.targets || []).forEach(targetId => {
@@ -343,32 +352,39 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                                   const outputConfig = config.automation?.outputs?.[strategy.id];
                                   const isDisabled = outputConfig && !outputConfig.enabled;
                                   const isOffline = health && !health.healthy;
+                                  const triggerSourceType = trigger.type === 'url' ? 'url' : 'file';
+                                  const isIncompatible = strategy.supportedSourceTypes && !strategy.supportedSourceTypes.includes(triggerSourceType);
+                                  const hasWarning = isDisabled || isOffline || isIncompatible;
                                   
                                   const Icon = strategy.id === 'local' ? Server : Zap; // Fallback or dynamic icons?
                                   
                                   let colorClasses = "bg-app-bg border-app-border text-app-dim hover:bg-app-card-hover";
                                   if (isSelected) {
-                                      if (isDisabled || isOffline) {
+                                      if (hasWarning) {
                                           colorClasses = "bg-amber-900/20 border-amber-800 text-amber-400";
                                       } else {
                                           colorClasses = "bg-emerald-900/20 border-emerald-800 text-emerald-400";
                                       }
-                                  } else if (isDisabled || isOffline) {
+                                  } else if (hasWarning) {
                                       colorClasses = "bg-app-bg border-amber-900/30 text-amber-600/50";
                                   }
+
+                                  const warningTitle = isIncompatible
+                                      ? `${strategy.label} does not support ${trigger.type.toUpperCase()} sources`
+                                      : isDisabled ? "Output Strategy Disabled" : (isOffline ? `Offline: ${health.message}` : "");
 
                                   return (
                                       <label key={strategy.id} className={cn(
                                           "flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors text-sm relative",
                                           colorClasses
-                                      )} title={isDisabled ? "Output Strategy Disabled" : (isOffline ? `Offline: ${health.message}` : "")}>
+                                      )} title={warningTitle}>
                                           <input 
                                              type="checkbox" 
                                              className="hidden" 
                                              checked={isSelected || false} 
                                              onChange={() => toggleTarget(strategy.id)} 
                                            />
-                                          {(isDisabled || isOffline) && <AlertTriangle className="w-3 h-3 text-amber-500 absolute -top-1 -right-1 bg-app-card rounded-full" />}
+                                          {hasWarning && <AlertTriangle className="w-3 h-3 text-amber-500 absolute -top-1 -right-1 bg-app-card rounded-full" />}
                                           <Icon className="w-4 h-4" /> {strategy.label}
                                       </label>
                                   );

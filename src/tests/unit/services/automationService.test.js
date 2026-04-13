@@ -73,11 +73,28 @@ describe('AutomationService Comprehensive', () => {
     });
 
     describe('getAudioSource', () => {
+        it('should handle tts type', () => {
+            const settings = { type: 'tts' };
+            const result = service.getAudioSource(settings, 'fajr', 'adhan');
+            expect(result.type).toBe('file');
+            expect(result.filePath).toContain('tts_fajr_adhan.mp3');
+            expect(result.url).toBe('/public/audio/cache/tts_fajr_adhan.mp3');
+        });
+
         it('should handle file type', () => {
             const settings = { type: 'file', path: 'custom.mp3' };
             const result = service.getAudioSource(settings, 'fajr', 'adhan');
+            expect(result.type).toBe('file');
             expect(result.filePath).toContain('custom.mp3');
             expect(result.url).toBe('/public/audio/custom.mp3');
+        });
+
+        it('should handle url type', () => {
+            const settings = { type: 'url', url: 'https://example.com/audio.mp3' };
+            const result = service.getAudioSource(settings, 'fajr', 'adhan');
+            expect(result.type).toBe('url');
+            expect(result.url).toBe('https://example.com/audio.mp3');
+            expect(result.filePath).toBeNull();
         });
 
         it('should handle unknown type', () => {

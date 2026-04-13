@@ -19,18 +19,21 @@ const getAudioSource = (settings, prayer, event) => {
     if (settings.type === 'tts') {
         const filename = `tts_${prayer}_${event}.mp3`;
         return {
+            type: 'file',
             filePath: path.join(AUDIO_DIR, 'cache', filename),
             url: `/public/audio/cache/${filename}`
         };
     } else if (settings.type === 'file') {
         const relativePath = settings.path;
         return {
+            type: 'file',
             filePath: path.join(AUDIO_DIR, relativePath),
             url: `/public/audio/${relativePath}`
         };
     } else if (settings.type === 'url') {
         return {
-            filePath: null, // URLs don't have local paths usually
+            type: 'url',
+            filePath: null,
             url: settings.url
         };
     }
