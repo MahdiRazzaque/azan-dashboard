@@ -13,7 +13,6 @@ jest.mock('bottleneck', () => {
     return jest.fn(() => m);
 });
 
-jest.mock('axios');
 jest.mock('fs', () => ({
     promises: {
         readFile: jest.fn(),
@@ -22,7 +21,6 @@ jest.mock('fs', () => ({
     existsSync: jest.fn(),
     readFileSync: jest.fn()
 }));
-jest.mock('@config');
 
 jest.mock('@utils/normalizeSource', () => {
     return jest.fn((source) => {

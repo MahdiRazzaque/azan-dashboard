@@ -24,7 +24,6 @@ jest.mock('fs', () => ({
     existsSync: jest.fn(),
     readFileSync: jest.fn()
 }));
-jest.mock('@config');
 
 const AUDIO_ROOT = path.resolve(__dirname, '../../../../public/audio');
 
