@@ -19,7 +19,7 @@ def test_sanitisation():
     assert preview_logic(None).startswith("preview_")  # nosec B101
     
     assert generate_logic("../../evil.mp3") == "evil.mp3"  # nosec B101
-    assert generate_logic("C:\\Windows\\System32\\cmd.exe") == "cmd.exe"  # nosec B101
+    assert generate_logic("/var/cache/cmd.exe") == "cmd.exe"  # nosec B101
 
 if __name__ == "__main__":
     test_sanitisation()
