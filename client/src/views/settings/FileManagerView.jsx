@@ -359,22 +359,12 @@ export default function FileManagerView() {
     const handleServerPlay = async (file, targetId = 'local') => {
         setServerPlaying(file.name);
         try {
-            // Polymorphic strategy test endpoint
             const endpoint = `/api/system/outputs/${targetId}/test`;
             
-            // Construct payload consistent with automationService expectations
             const payload = {
-                prayer: 'test',
-                event: file.name,
                 source: {
-                    filePath: null,
-                    path: file.path,
-                    url: file.url
-                },
-                baseUrl: config.automation?.baseUrl,
-                // Include filename/type for strategy compatibility (e.g. LocalOutput resolution)
-                filename: file.name,
-                type: file.type
+                    path: file.path
+                }
             };
 
             const res = await fetch(endpoint, {

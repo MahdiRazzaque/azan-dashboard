@@ -649,12 +649,15 @@ const systemController = {
 
             const strategy = OutputFactory.getStrategy(strategyId);
 
-            if (!source || !source.path) {
-                return res.status(400).json({ error: 'Audio source path is required for testing' });
+            if (!source || typeof source !== 'object') {
+                return res.status(400).json({ error: 'Audio source is required for testing' });
             }
 
-            // Dynamic source from request (e.g., File Manager preview)
-            const payload = { params, source };
+            const payload = {
+                params,
+                source,
+                baseUrl: currentConfig.automation?.baseUrl
+            };
 
             await strategy.execute(payload, { isTest: true });
             res.json({ success: true });
