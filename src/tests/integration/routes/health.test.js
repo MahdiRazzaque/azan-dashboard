@@ -7,8 +7,6 @@ const axios = require('axios');
 const networkUtils = require('@utils/networkUtils');
 
 jest.mock('@services/system/healthCheck');
-jest.mock('@config');
-jest.mock('axios');
 jest.mock('@utils/networkUtils', () => {
     const actual = jest.requireActual('../../../utils/networkUtils');
     return {

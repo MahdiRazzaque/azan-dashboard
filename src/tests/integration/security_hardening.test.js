@@ -2,6 +2,10 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const dns = require('dns');
 
+// Opt out of the global axios auto-mock — this test needs real axios behaviour
+// for SSRF validation (axios.head resolves/rejects based on DNS lookup)
+jest.unmock('axios');
+
 // Mock Config
 jest.mock('@config', () => ({
     get: jest.fn().mockReturnValue({
