@@ -109,6 +109,9 @@ function _buildFileSource(source, hasPath, hasFilePath, hasUrl) {
         throw new Error('Invalid source: could not determine source type');
     }
 
+    // Normalise platform-specific separators to forward slashes for URL safety
+    relativePath = relativePath.split(path.sep).join('/');
+
     const absolutePath = hasFilePath ? source.filePath : path.resolve(AUDIO_ROOT, relativePath);
     _validatePathTraversal(absolutePath);
 
