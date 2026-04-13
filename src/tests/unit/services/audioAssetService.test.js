@@ -21,8 +21,6 @@ jest.mock('fs', () => ({
     }
 }));
 
-jest.mock('@config');
-jest.mock('axios');
 jest.mock('@utils/audioValidator', () => ({
     analyseAudioFile: jest.fn().mockResolvedValue({ format: 'mp3', duration: 10 })
 }));
