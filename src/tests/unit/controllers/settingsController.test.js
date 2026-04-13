@@ -12,7 +12,6 @@ const path = require('path');
 const OutputFactory = require('../../../outputs');
 const workflowService = require('@services/system/configurationWorkflowService');
 
-jest.mock('@config');
 jest.mock('@services/system/sseService');
 jest.mock('@services/system/audioAssetService');
 jest.mock('@services/core/schedulerService', () => ({

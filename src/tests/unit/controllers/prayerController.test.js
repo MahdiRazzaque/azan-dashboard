@@ -2,7 +2,6 @@ const prayerController = require('@controllers/prayerController');
 const configService = require('@config');
 const { getPrayersWithNext, getPrayerCalendarWindow } = require('@services/core/prayerTimeService');
 
-jest.mock('@config');
 jest.mock('@services/core/prayerTimeService');
 
 describe('prayerController Unit Tests', () => {

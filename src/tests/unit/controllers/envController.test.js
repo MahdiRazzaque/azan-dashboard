@@ -4,7 +4,6 @@ const configService = require('@config');
 const { envUpdateSchema } = require('@config/schemas');
 
 jest.mock('@utils/envManager');
-jest.mock('@config');
 
 describe('EnvController', () => {
     let req, res;
