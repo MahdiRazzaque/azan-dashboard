@@ -10,7 +10,7 @@ jobs:
   semgrep:
     runs-on: ubuntu-latest
     container:
-      image: semgrep/semgrep:1.114
+      image: semgrep/semgrep:1.159.0
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -25,4 +25,5 @@ jobs:
         if: steps.filter.outputs.source == 'true'
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+          SEMGREP_GHA_MIN_FETCH_DEPTH: "10"
         run: semgrep ci
