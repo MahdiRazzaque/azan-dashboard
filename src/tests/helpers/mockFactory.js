@@ -119,6 +119,50 @@ const createMockProviderFactory = (mockProvider = createMockProvider()) => ({
     create: jest.fn(() => mockProvider)
 });
 
+const createMockFs = (overrides = {}) => {
+    const { promises: promiseOverrides = {}, ...fsOverrides } = overrides;
+
+    return {
+        existsSync: jest.fn(),
+        mkdirSync: jest.fn(),
+        readFileSync: jest.fn(),
+        writeFileSync: jest.fn(),
+        readdirSync: jest.fn(),
+        lstatSync: jest.fn(),
+        statSync: jest.fn(),
+        unlinkSync: jest.fn(),
+        ...fsOverrides,
+        promises: {
+            access: jest.fn(),
+            mkdir: jest.fn(),
+            readFile: jest.fn(),
+            writeFile: jest.fn(),
+            readdir: jest.fn(),
+            lstat: jest.fn(),
+            stat: jest.fn(),
+            unlink: jest.fn(),
+            copyFile: jest.fn(),
+            rename: jest.fn(),
+            utimes: jest.fn(),
+            ...promiseOverrides
+        }
+    };
+};
+
+const createMockBottleneck = (overrides = {}) => {
+    const limiter = {
+        schedule: jest.fn((fn) => fn()),
+        on: jest.fn(),
+        stop: jest.fn(),
+        ...overrides
+    };
+
+    const MockBottleneck = jest.fn(() => limiter);
+    MockBottleneck.limiter = limiter;
+
+    return MockBottleneck;
+};
+
 module.exports = {
     createMockConfig,
     createMockConfigService,
@@ -132,5 +176,7 @@ module.exports = {
     createMockEnvManager,
     createMockAuthUtils,
     createMockProvider,
-    createMockProviderFactory
+    createMockProviderFactory,
+    createMockFs,
+    createMockBottleneck
 };
