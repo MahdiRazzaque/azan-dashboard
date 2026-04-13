@@ -47,6 +47,11 @@ class BaseOutput {
         const dispatchPayload = { ...payload, source: normalized };
 
         if (normalized.type === 'file') {
+            try {
+                await fs.access(normalized.filePath);
+            } catch {
+                throw new Error(`Audio file not found: ${path.basename(normalized.filePath)}`);
+            }
             const isCompatible = await this._checkSidecarCompatibility(normalized.filePath);
             if (isCompatible === false) return;
             return this._executeFromFile(dispatchPayload, metadata, signal);

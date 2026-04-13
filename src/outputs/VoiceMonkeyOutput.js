@@ -74,8 +74,7 @@ class VoiceMonkeyOutput extends BaseOutput {
 
         // REQ-001: Alexa requires audio URLs to be served over HTTPS.
         if (!audioUrl.startsWith('https://')) {
-            console.warn(`${prefix} Skipped: Alexa requires HTTPS audio URL`);
-            return;
+            throw new Error('Alexa requires HTTPS audio URLs');
         }
 
         await this._sendToApi(audioUrl, payload, prefix, signal);
