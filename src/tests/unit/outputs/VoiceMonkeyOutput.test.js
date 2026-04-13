@@ -141,30 +141,27 @@ describe('VoiceMonkeyOutput', () => {
             );
         });
 
-        it('should skip if URL is not HTTPS', async () => {
+        it('should throw if URL is not HTTPS', async () => {
             const payload = {
                 source: { type: 'url', url: 'http://cdn.example.com/audio.mp3' },
                 params: { token: 't1', device: 'd1' }
             };
-            await output._executeFromUrl(payload, {});
+            await expect(output._executeFromUrl(payload, {})).rejects.toThrow('Alexa requires HTTPS audio URLs');
             expect(axios.get).not.toHaveBeenCalled();
         });
 
-        it('should log warning when URL is not HTTPS', async () => {
+        it('should include error message when URL is not HTTPS', async () => {
             const payload = {
                 source: { type: 'url', url: 'http://cdn.example.com/audio.mp3' },
                 params: { token: 't1', device: 'd1' }
             };
-            const spy = jest.spyOn(console, 'warn').mockImplementation();
-            await output._executeFromUrl(payload, {});
-            expect(spy).toHaveBeenCalledWith(expect.stringContaining('Alexa requires HTTPS audio URL'));
-            spy.mockRestore();
+            await expect(output._executeFromUrl(payload, {})).rejects.toThrow('Alexa requires HTTPS audio URLs');
         });
     });
 
     describe('execute (integration via BaseOutput template method)', () => {
         it('should dispatch file source to _executeFromFile', async () => {
-            fs.promises.access.mockRejectedValue(new Error('ENOENT'));
+            fs.promises.access.mockResolvedValue(undefined);
             axios.get.mockResolvedValue({ data: { success: true } });
             await output.execute(
                 { source: { path: 'custom/test.mp3' }, params: { token: 't1', device: 'd1' } },

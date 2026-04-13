@@ -2,6 +2,14 @@ const BrowserOutput = require('../../../outputs/BrowserOutput');
 const sseService = require('../../../services/system/sseService');
 
 jest.mock('../../../services/system/sseService');
+jest.mock('fs', () => ({
+    promises: {
+        readFile: jest.fn(),
+        access: jest.fn().mockResolvedValue(undefined)
+    },
+    existsSync: jest.fn(),
+    readFileSync: jest.fn()
+}));
 jest.mock('@utils/normalizeSource', () => {
     return jest.fn((source) => {
         if (source.type) return source;

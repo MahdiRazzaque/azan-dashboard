@@ -30,7 +30,7 @@ jest.mock('child_process');
 jest.mock('fs', () => ({
     promises: {
         readFile: jest.fn(),
-        access: jest.fn()
+        access: jest.fn().mockResolvedValue(undefined)
     },
     existsSync: jest.fn(),
     readFileSync: jest.fn()
@@ -45,6 +45,7 @@ describe('LocalOutput', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        fs.promises.access.mockResolvedValue(undefined);
         output = new LocalOutput();
         mockPlay = require('play-sound')().play;
         ConfigService.get.mockReturnValue({
@@ -278,6 +279,7 @@ describe('LocalOutput', () => {
             const originalPlatform = process.platform;
             Object.defineProperty(process, 'platform', { value: 'linux' });
             fs.promises.readFile.mockResolvedValue('microsoft');
+            fs.promises.access.mockResolvedValue(undefined);
             
             const testFile = path.join(AUDIO_ROOT, 'custom/test.mp3');
             const payload = {
@@ -295,6 +297,7 @@ describe('LocalOutput', () => {
             const controller = new AbortController();
             const mockProcess = { kill: jest.fn() };
             mockPlay.mockReturnValue(mockProcess);
+            fs.promises.access.mockResolvedValue(undefined);
 
             const testFile = path.join(AUDIO_ROOT, 'custom/test.mp3');
             const payload = {
@@ -313,6 +316,7 @@ describe('LocalOutput', () => {
             controller.abort();
             const mockProcess = { kill: jest.fn() };
             mockPlay.mockReturnValue(mockProcess);
+            fs.promises.access.mockResolvedValue(undefined);
 
             const testFile = path.join(AUDIO_ROOT, 'custom/test.mp3');
             const payload = {
@@ -327,6 +331,7 @@ describe('LocalOutput', () => {
             const err = new Error('Killed');
             err.killed = true;
             mockPlay.mockImplementationOnce((file, opts, cb) => cb(err));
+            fs.promises.access.mockResolvedValue(undefined);
 
             const testFile = path.join(AUDIO_ROOT, 'custom/test.mp3');
             const payload = {
