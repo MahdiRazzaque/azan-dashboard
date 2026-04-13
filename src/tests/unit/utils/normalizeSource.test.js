@@ -139,6 +139,16 @@ describe('normalizeSource', () => {
             })).toThrow('Path traversal detected');
         });
 
+        it('should reject typed file sources from sibling prefix directories', () => {
+            const siblingPath = path.resolve(AUDIO_ROOT, '../audio-evil/test.mp3');
+
+            expect(() => normalizeSource({
+                type: 'file',
+                filePath: siblingPath,
+                url: '/public/audio/custom/test.mp3'
+            })).toThrow('Path traversal detected');
+        });
+
         it('should reject typed url sources with forbidden protocols', () => {
             expect(() => normalizeSource({
                 type: 'url',
@@ -155,6 +165,11 @@ describe('normalizeSource', () => {
 
         it('should reject path that resolves outside AUDIO_ROOT', () => {
             expect(() => normalizeSource({ path: 'custom/../../outside.mp3' }))
+                .toThrow('Path traversal detected');
+        });
+
+        it('should reject sibling prefix escapes like ../audio-evil/test.mp3', () => {
+            expect(() => normalizeSource({ path: '../audio-evil/test.mp3' }))
                 .toThrow('Path traversal detected');
         });
     });
