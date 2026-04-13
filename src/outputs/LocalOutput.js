@@ -14,7 +14,7 @@ class LocalOutput extends BaseOutput {
 
     /**
      * Helper to detect if running in WSL (Windows Subsystem for Linux).
-     * @returns {Promise<boolean>} A promise that resolves to true if running in WSL, false otherwise.
+     * @returns {Promise<boolean>}
      */
     async _isWSL() {
         if (process.platform !== 'linux') return false;
@@ -34,6 +34,7 @@ class LocalOutput extends BaseOutput {
         return {
             id: 'local',
             label: 'Local Audio',
+            supportedSourceTypes: ['file', 'url'],
             timeoutMs: 30000,
             defaultLeadTimeMs: 0,
             hidden: false,
@@ -53,42 +54,38 @@ class LocalOutput extends BaseOutput {
     }
 
     /**
-     * Executes the audio playback locally on the server host using the configured audio player.
-     *
-     * @param {Object} payload - The execution payload containing audio source information.
-     * @param {Object} metadata - Additional metadata for the execution.
-     * @param {AbortSignal} signal - An optional signal to abort the playback.
-     * @returns {Promise<void>} A promise that resolves when playback is complete.
+     * Plays audio from a local file.
+     * @param {Object} payload - Payload with normalized source ({ type: 'file', filePath, url }).
+     * @param {Object} metadata - Execution metadata.
+     * @param {AbortSignal} [signal] - Abort signal.
+     * @returns {Promise<void>}
      */
-    async execute(payload, metadata, signal) {
+    async _executeFromFile(payload, metadata, signal) {
+        return this._playAudio(payload.source.filePath, payload, metadata, signal);
+    }
+
+    /**
+     * Plays audio from a remote URL (mpg123 supports HTTP/HTTPS natively).
+     * @param {Object} payload - Payload with normalized source ({ type: 'url', url }).
+     * @param {Object} metadata - Execution metadata.
+     * @param {AbortSignal} [signal] - Abort signal.
+     * @returns {Promise<void>}
+     */
+    async _executeFromUrl(payload, metadata, signal) {
+        return this._playAudio(payload.source.url, payload, metadata, signal);
+    }
+
+    /**
+     * Core playback logic shared by both file and URL sources.
+     * @param {string} audioSource - File path or URL to play.
+     * @param {Object} payload - Full execution payload.
+     * @param {Object} metadata - Execution metadata.
+     * @param {AbortSignal} [signal] - Abort signal.
+     * @returns {Promise<void>}
+     */
+    async _playAudio(audioSource, payload, metadata, signal) {
         const isTest = metadata?.isTest;
         const prefix = isTest ? '[Test Output: Local]' : '[Output: Local]';
-
-        if (!payload.source) return;
-
-        let filePath = payload.source.filePath;
-
-        // Path resolution logic
-        if (!filePath) {
-            if (payload.source.path) {
-                filePath = path.resolve(__dirname, '../../public/audio', payload.source.path);
-            } else if (payload.type && payload.filename) {
-                filePath = path.join(__dirname, `../../public/audio/${payload.type}/${payload.filename}`);
-            }
-        }
-
-        if (!filePath) {
-            console.warn(`${prefix} Playback skipped: No filePath provided`);
-            return;
-        }
-
-        // Security: Path traversal protection
-        const normalizedPath = path.resolve(filePath);
-        if (!normalizedPath.startsWith(AUDIO_ROOT)) {
-            console.error(`${prefix} SECURITY WARNING: Path traversal attempt blocked`);
-            throw new Error('Invalid audio path: Access denied');
-        }
-        filePath = normalizedPath;
 
         const audioPlayer = (payload.params && payload.params.audioPlayer) || 'mpg123';
 
@@ -96,21 +93,18 @@ class LocalOutput extends BaseOutput {
             throw new Error('Invalid audio player');
         }
 
-        console.log(`${prefix} Starting playback: ${path.basename(filePath)}`);
+        console.log(`${prefix} Starting playback: ${path.basename(audioSource)}`);
 
-        // Detect WSL and inject the PulseAudio flag if using mpg123
         const isWsl = await this._isWSL();
         const playOptions = { player: audioPlayer };
 
         if (isWsl && audioPlayer === 'mpg123') {
-            // "play-sound" library allows passing player-specific args using the player name as the key
             playOptions.mpg123 = ['-o', 'pulse'];
             console.log(`${prefix} WSL detected: Forcing mpg123 pulse output`);
         }
-        // --- WSL FIX END ---
 
         return new Promise((resolve, reject) => {
-            const audioProcess = player.play(filePath, playOptions, (err) => {
+            const audioProcess = player.play(audioSource, playOptions, (err) => {
                 if (err) {
                     if (err.killed) {
                         console.warn(`${prefix} Playback killed`);
@@ -139,9 +133,7 @@ class LocalOutput extends BaseOutput {
     }
 
     /**
-     * Performs a health check for the local audio output by verifying the availability 
-     * of the audio player and access to audio hardware on Linux systems.
-     *
+     * Performs a health check for the local audio output.
      * @param {Object} requestedParams - The parameters to check.
      * @returns {Promise<Object>} The health status result.
      */
@@ -159,7 +151,6 @@ class LocalOutput extends BaseOutput {
         }
 
         try {
-            // 1. Check if player binary exists
             await new Promise((resolve, reject) => {
                 execFile(audioPlayer, ['--version'], (error) => {
                     if (error) reject(error);
@@ -167,15 +158,12 @@ class LocalOutput extends BaseOutput {
                 });
             });
 
-            // 2. Hardware Access Check (Modified for WSL)
             if (process.platform === 'linux') {
                 const isWsl = await this._isWSL();
                 
                 if (isWsl) {
-                    // --- WSL FIX ---
                     console.log('[Output: Local] WSL Environment detected - Bypassing /dev/snd check');
                 } else {
-                    // Standard Linux Check
                     console.log('[Output: Local] Checking for audio hardware access');
                     let hasSnd = true;
                     try {
@@ -185,7 +173,6 @@ class LocalOutput extends BaseOutput {
                     }
 
                     if (!hasSnd) {
-                        // Docker check logic...
                         let isDocker = false;
                         try {
                             await fs.access('/.dockerenv');
@@ -217,23 +204,19 @@ class LocalOutput extends BaseOutput {
     }
 
     /**
-     * Verifies the credentials for the local audio output strategy. 
-     * As no credentials are typically required, this always returns a successful result.
-     *
+     * Verifies credentials for local audio (no credentials required).
      * @param {Object} _credentials - The credentials to verify.
-     * @returns {Promise<Object>} The verification result.
+     * @returns {Promise<Object>}
      */
     async verifyCredentials(_credentials) {
         return { success: true };
     }
 
     /**
-     * Validates an audio asset for compatibility with local playback.
-     * Local playback is generally considered compatible with all audio formats supported by the installed player.
-     * 
+     * Validates audio asset compatibility with local playback.
      * @param {string} _filePath - Path to the audio file.
      * @param {Object} _metadata - Audio metadata.
-     * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>} A promise that resolves to the validation result.
+     * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>}
      */
     async validateAsset(_filePath, _metadata) {
         return {
