@@ -1,3 +1,5 @@
+jest.unmock('@config');
+
 const fs = require('fs/promises');
 const fsHelper = require('../../helpers/fsHelper');
 const configService = require('@config');
