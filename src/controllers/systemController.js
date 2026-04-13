@@ -12,6 +12,7 @@ const voiceService = require('@services/system/voiceService');
 const { ProviderFactory } = require('@providers');
 const OutputFactory = require('../outputs');
 const configUnmasker = require('@utils/configUnmasker');
+const normalizeSource = require('@utils/normalizeSource');
 const { getSafeAgent } = require('@utils/networkUtils');
 const { 
     CALCULATION_METHODS, 
@@ -648,12 +649,17 @@ const systemController = {
 
             const strategy = OutputFactory.getStrategy(strategyId);
 
-            if (!source || !source.path) {
-                return res.status(400).json({ error: 'Audio source path is required for testing' });
+            if (!source || typeof source !== 'object') {
+                return res.status(400).json({ error: 'Audio source is required for testing' });
             }
 
-            // Dynamic source from request (e.g., File Manager preview)
-            const payload = { params, source };
+            const normalizedSource = normalizeSource(source);
+
+            const payload = {
+                params,
+                source: normalizedSource,
+                baseUrl: currentConfig.automation?.baseUrl
+            };
 
             await strategy.execute(payload, { isTest: true });
             res.json({ success: true });
