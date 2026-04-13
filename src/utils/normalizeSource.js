@@ -1,18 +1,8 @@
 const path = require('path');
+const { isWithinRoot } = require('./pathUtils');
 
 const AUDIO_ROOT = path.resolve(__dirname, '../../public/audio');
 const PUBLIC_AUDIO_PREFIX = '/public/audio/';
-
-/**
- * Checks whether a target path resolves inside a root directory boundary.
- * @param {string} rootPath - Allowed root directory.
- * @param {string} targetPath - Target path to validate.
- * @returns {boolean} True when targetPath is within rootPath.
- */
-function _isWithinRoot(rootPath, targetPath) {
-    const relativePath = path.relative(rootPath, path.resolve(targetPath));
-    return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
-}
 
 /**
  * Normalizes any source shape into a canonical ExecutionSource.
@@ -133,7 +123,7 @@ function _buildFileSource(source, hasPath, hasFilePath, hasUrl) {
  * @throws {Error} If the path traverses outside the audio directory.
  */
 function _validatePathTraversal(absolutePath) {
-    if (!_isWithinRoot(AUDIO_ROOT, absolutePath)) {
+    if (!isWithinRoot(AUDIO_ROOT, absolutePath)) {
         throw new Error('Path traversal detected: resolved path is outside audio directory');
     }
 }
