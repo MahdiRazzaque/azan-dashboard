@@ -1,6 +1,5 @@
 const BaseOutput = require('./BaseOutput');
 const axios = require('axios');
-const path = require('path');
 const Bottleneck = require('bottleneck');
 const ConfigService = require('../config');
 
@@ -62,7 +61,7 @@ class VoiceMonkeyOutput extends BaseOutput {
     }
 
     /**
-     * Handles URL-based audio sources. Sends the URL directly to the API.
+     * Handles URL-based audio sources. Validates HTTPS and sends directly to the API.
      *
      * @param {Object} payload - Payload with normalized source ({ type: 'url', url }).
      * @param {Object} metadata - Execution context flags (isTest, etc).
@@ -71,19 +70,23 @@ class VoiceMonkeyOutput extends BaseOutput {
      */
     async _executeFromUrl(payload, metadata, signal) {
         const prefix = this._getLogPrefix(metadata);
+        const audioUrl = payload.source.url;
 
-        const audioUrl = this._resolvePublicUrl(payload.source.url, payload, prefix);
-        if (!audioUrl) return;
+        // REQ-001: Alexa requires audio URLs to be served over HTTPS.
+        if (!audioUrl.startsWith('https://')) {
+            console.warn(`${prefix} Skipped: Alexa requires HTTPS audio URL`);
+            return;
+        }
 
         await this._sendToApi(audioUrl, payload, prefix, signal);
     }
 
     /**
-     * Returns the log prefix based on test mode.
-     * @param {Object} metadata - Execution metadata.
-     * @returns {string}
-     * @private
-     */
+      * Returns the log prefix based on test mode.
+      * @param {Object} metadata - Execution metadata.
+      * @returns {string} Formatted log prefix string.
+      * @private
+      */
     _getLogPrefix(metadata) {
         return metadata?.isTest ? '[Test Output: VoiceMonkey]' : '[Output: VoiceMonkey]';
     }

@@ -137,11 +137,11 @@ class BaseOutput {
     }
 
     /**
-     * Validates an audio asset for compatibility with this output strategy.
-     * @param {string} _filePath - Path to the audio file.
-     * @param {Object} _metadata - Audio metadata (format, bitrate, duration, etc).
-     * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>}
-     */
+      * Validates an audio asset for compatibility with this output strategy.
+      * @param {string} _filePath - Path to the audio file.
+      * @param {Object} _metadata - Audio metadata (format, bitrate, duration, etc).
+      * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>} Validation result with compatibility status.
+      */
     async validateAsset(_filePath, _metadata) {
         return {
             valid: true,

@@ -13,9 +13,9 @@ const ALLOWED_AUDIO_PLAYERS = ['mpg123', 'omxplayer', 'aplay', 'mplayer', 'cvlc'
 class LocalOutput extends BaseOutput {
 
     /**
-     * Helper to detect if running in WSL (Windows Subsystem for Linux).
-     * @returns {Promise<boolean>}
-     */
+      * Helper to detect if running in WSL (Windows Subsystem for Linux).
+      * @returns {Promise<boolean>} True if running in WSL, false otherwise.
+      */
     async _isWSL() {
         if (process.platform !== 'linux') return false;
         try {
@@ -204,20 +204,20 @@ class LocalOutput extends BaseOutput {
     }
 
     /**
-     * Verifies credentials for local audio (no credentials required).
-     * @param {Object} _credentials - The credentials to verify.
-     * @returns {Promise<Object>}
-     */
+      * Verifies credentials for local audio (no credentials required).
+      * @param {Object} _credentials - The credentials to verify.
+      * @returns {Promise<Object>} Success response object.
+      */
     async verifyCredentials(_credentials) {
         return { success: true };
     }
 
     /**
-     * Validates audio asset compatibility with local playback.
-     * @param {string} _filePath - Path to the audio file.
-     * @param {Object} _metadata - Audio metadata.
-     * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>}
-     */
+      * Validates audio asset compatibility with local playback.
+      * @param {string} _filePath - Path to the audio file.
+      * @param {Object} _metadata - Audio metadata.
+      * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>} Validation result with compatibility status.
+      */
     async validateAsset(_filePath, _metadata) {
         return {
             valid: true,
