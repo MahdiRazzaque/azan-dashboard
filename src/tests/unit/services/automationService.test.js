@@ -85,10 +85,30 @@ describe('AutomationService Comprehensive', () => {
             expect(result).toEqual({ path: 'custom.mp3' });
         });
 
+        it('should return null for file type with missing path', () => {
+            const result = service.getAudioSource({ type: 'file' }, 'fajr', 'adhan');
+            expect(result).toBeNull();
+        });
+
+        it('should return null for file type with empty path', () => {
+            const result = service.getAudioSource({ type: 'file', path: '' }, 'fajr', 'adhan');
+            expect(result).toBeNull();
+        });
+
         it('should handle url type', () => {
             const settings = { type: 'url', url: 'https://example.com/audio.mp3' };
             const result = service.getAudioSource(settings, 'fajr', 'adhan');
             expect(result).toEqual({ url: 'https://example.com/audio.mp3' });
+        });
+
+        it('should return null for url type with missing url', () => {
+            const result = service.getAudioSource({ type: 'url' }, 'fajr', 'adhan');
+            expect(result).toBeNull();
+        });
+
+        it('should return null for url type with empty url', () => {
+            const result = service.getAudioSource({ type: 'url', url: '' }, 'fajr', 'adhan');
+            expect(result).toBeNull();
         });
 
         it('should return null for unknown type', () => {

@@ -24,10 +24,18 @@ const getAudioSource = (settings, prayer, event) => {
             const filename = `tts_${prayer}_${event}.mp3`;
             return { path: `cache/${filename}` };
         }
-        case 'file':
+        case 'file': {
+            if (typeof settings.path !== 'string' || settings.path.length === 0) {
+                return null;
+            }
             return { path: settings.path };
-        case 'url':
+        }
+        case 'url': {
+            if (typeof settings.url !== 'string' || settings.url.length === 0) {
+                return null;
+            }
             return { url: settings.url };
+        }
         default:
             return null;
     }
