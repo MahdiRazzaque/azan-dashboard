@@ -4,37 +4,41 @@ const configService = require('@config'); // Singleton
 const sseService = require('@services/system/sseService');
 const audioAssetService = require('@services/system/audioAssetService');
 const OutputFactory = require('@outputs');
+const { isWithinRoot } = require('@utils/pathUtils');
 
 const AUDIO_DIR = path.join(__dirname, '../../../public/audio');
 
 /**
- * Resolves the audio source path and URL based on the trigger settings.
+ * Resolves the raw audio source hint based on trigger settings.
+ * Returns a minimal shape that normalizeSource (in BaseOutput.execute) will canonicalize
+ * into a full ExecutionSource with path traversal and protocol validation.
  *
  * @param {Object} settings - The trigger settings object.
  * @param {string} prayer - The name of the prayer.
  * @param {string} event - The name of the event (e.g., 'azan', 'pre-azan').
- * @returns {Object} An object containing the filePath and url of the audio source.
+ * @returns {{ path: string } | { url: string } | null} Raw source hint, or null for unknown types.
  */
 const getAudioSource = (settings, prayer, event) => {
-    if (settings.type === 'tts') {
-        const filename = `tts_${prayer}_${event}.mp3`;
-        return {
-            filePath: path.join(AUDIO_DIR, 'cache', filename),
-            url: `/public/audio/cache/${filename}`
-        };
-    } else if (settings.type === 'file') {
-        const relativePath = settings.path;
-        return {
-            filePath: path.join(AUDIO_DIR, relativePath),
-            url: `/public/audio/${relativePath}`
-        };
-    } else if (settings.type === 'url') {
-        return {
-            filePath: null, // URLs don't have local paths usually
-            url: settings.url
-        };
+    switch (settings.type) {
+        case 'tts': {
+            const filename = `tts_${prayer}_${event}.mp3`;
+            return { path: `cache/${filename}` };
+        }
+        case 'file': {
+            if (typeof settings.path !== 'string' || settings.path.length === 0) {
+                return null;
+            }
+            return { path: settings.path };
+        }
+        case 'url': {
+            if (typeof settings.url !== 'string' || settings.url.length === 0) {
+                return null;
+            }
+            return { url: settings.url };
+        }
+        default:
+            return null;
     }
-    return { filePath: null, url: null };
 };
 
 /**
@@ -97,45 +101,50 @@ const delay = (ms, signal) => {
 const _validateAndPrepareAudio = async (settings, prayer, event, config) => {
     const source = getAudioSource(settings, prayer, event);
 
-    if (settings.type === 'tts') {
-        try {
-            const ttsResult = await audioAssetService.ensureTTSFile(prayer, event, settings, config);
-            if (!ttsResult.success) {
-                console.error(`[Automation] Aborting ${prayer} ${event}: TTS generation failed (${ttsResult.message})`);
+    switch (settings.type) {
+        case 'tts':
+            try {
+                const ttsResult = await audioAssetService.ensureTTSFile(prayer, event, settings, config);
+                if (!ttsResult.success) {
+                    console.error(`[Automation] Aborting ${prayer} ${event}: TTS generation failed (${ttsResult.message})`);
+                    sseService.broadcast({
+                        type: 'LOG',
+                        payload: { 
+                            message: `Skipped ${prayer} ${event}: TTS Service Offline`, 
+                            timestamp: new Date().toISOString(),
+                            type: 'error'
+                        }
+                    });
+                    return { success: false };
+                }
+            } catch (e) {
+                console.error(`[Automation] Critical error during TTS preparation:`, e.message);
+                return { success: false };
+            }
+            break;
+        case 'file': {
+            const filePath = source?.path ? path.join(AUDIO_DIR, source.path) : null;
+            let exists = false;
+            if (filePath && isWithinRoot(AUDIO_DIR, filePath)) {
+                try {
+                    await fs.promises.access(filePath);
+                    exists = true;
+                } catch { /* ignore */ }
+            }
+
+            if (!exists) {
+                console.error(`[Automation] Aborting ${prayer} ${event}: Custom file missing (${filePath})`);
                 sseService.broadcast({
                     type: 'LOG',
                     payload: { 
-                        message: `Skipped ${prayer} ${event}: TTS Service Offline`, 
+                        message: `Skipped ${prayer} ${event}: Custom file missing`, 
                         timestamp: new Date().toISOString(),
                         type: 'error'
                     }
                 });
                 return { success: false };
             }
-        } catch (e) {
-            console.error(`[Automation] Critical error during TTS preparation:`, e.message);
-            return { success: false };
-        }
-    } else if (settings.type === 'file') {
-        let exists = false;
-        if (source.filePath) {
-            try {
-                await fs.promises.access(source.filePath);
-                exists = true;
-            } catch { /* ignore */ }
-        }
-
-        if (!exists) {
-            console.error(`[Automation] Aborting ${prayer} ${event}: Custom file missing (${source.filePath})`);
-            sseService.broadcast({
-                type: 'LOG',
-                payload: { 
-                    message: `Skipped ${prayer} ${event}: Custom file missing`, 
-                    timestamp: new Date().toISOString(),
-                    type: 'error'
-                }
-            });
-            return { success: false };
+            break;
         }
     }
     return { success: true, source };

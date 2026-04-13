@@ -73,16 +73,47 @@ describe('AutomationService Comprehensive', () => {
     });
 
     describe('getAudioSource', () => {
+        it('should handle tts type', () => {
+            const settings = { type: 'tts' };
+            const result = service.getAudioSource(settings, 'fajr', 'adhan');
+            expect(result).toEqual({ path: 'cache/tts_fajr_adhan.mp3' });
+        });
+
         it('should handle file type', () => {
             const settings = { type: 'file', path: 'custom.mp3' };
             const result = service.getAudioSource(settings, 'fajr', 'adhan');
-            expect(result.filePath).toContain('custom.mp3');
-            expect(result.url).toBe('/public/audio/custom.mp3');
+            expect(result).toEqual({ path: 'custom.mp3' });
         });
 
-        it('should handle unknown type', () => {
+        it('should return null for file type with missing path', () => {
+            const result = service.getAudioSource({ type: 'file' }, 'fajr', 'adhan');
+            expect(result).toBeNull();
+        });
+
+        it('should return null for file type with empty path', () => {
+            const result = service.getAudioSource({ type: 'file', path: '' }, 'fajr', 'adhan');
+            expect(result).toBeNull();
+        });
+
+        it('should handle url type', () => {
+            const settings = { type: 'url', url: 'https://example.com/audio.mp3' };
+            const result = service.getAudioSource(settings, 'fajr', 'adhan');
+            expect(result).toEqual({ url: 'https://example.com/audio.mp3' });
+        });
+
+        it('should return null for url type with missing url', () => {
+            const result = service.getAudioSource({ type: 'url' }, 'fajr', 'adhan');
+            expect(result).toBeNull();
+        });
+
+        it('should return null for url type with empty url', () => {
+            const result = service.getAudioSource({ type: 'url', url: '' }, 'fajr', 'adhan');
+            expect(result).toBeNull();
+        });
+
+        it('should return null for unknown type', () => {
             const result = service.getAudioSource({ type: 'unknown' }, 'fajr', 'adhan');
-            expect(result).toEqual({ filePath: null, url: null });
+            expect(result).toBeNull();
         });
     });
 
@@ -109,6 +140,21 @@ describe('AutomationService Comprehensive', () => {
             });
             fs.promises.access.mockRejectedValue(new Error('ENOENT'));
             await service.triggerEvent('fajr', 'adhan');
+            expect(sseService.broadcast).toHaveBeenCalledWith(expect.objectContaining({
+                payload: expect.objectContaining({ message: expect.stringContaining('Custom file missing') })
+            }));
+        });
+
+        it('should reject custom file paths outside the audio directory', async () => {
+            configService.get.mockReturnValue({
+                automation: {
+                    triggers: { fajr: { adhan: { enabled: true, type: 'file', path: '../outside.mp3' } } }
+                }
+            });
+
+            await service.triggerEvent('fajr', 'adhan');
+
+            expect(fs.promises.access).not.toHaveBeenCalled();
             expect(sseService.broadcast).toHaveBeenCalledWith(expect.objectContaining({
                 payload: expect.objectContaining({ message: expect.stringContaining('Custom file missing') })
             }));

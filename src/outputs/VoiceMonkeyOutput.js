@@ -1,7 +1,5 @@
 const BaseOutput = require('./BaseOutput');
 const axios = require('axios');
-const fs = require('fs').promises;
-const path = require('path');
 const Bottleneck = require('bottleneck');
 const ConfigService = require('../config');
 
@@ -36,6 +34,7 @@ class VoiceMonkeyOutput extends BaseOutput {
             timeoutMs: 10000,
             defaultLeadTimeMs: 2000,
             hidden: false,
+            supportedSourceTypes: ['file', 'url'],
             params: [
                 { key: 'token', type: 'string', label: 'API Token', sensitive: true, requiredForHealth: true },
                 { key: 'device', type: 'string', label: 'Device ID', sensitive: true, requiredForHealth: false }
@@ -44,78 +43,110 @@ class VoiceMonkeyOutput extends BaseOutput {
     }
 
     /**
-     * Executes the VoiceMonkey announcement via the remote API.
-     * Validates that the audio is Alexa-compatible and that the system's
-     * base URL is secured with HTTPS, as required by Amazon.
+     * Handles file-based audio sources. Constructs a public URL and sends to the API.
+     * Sidecar compatibility is checked by BaseOutput.execute() before this hook runs.
      *
-     * @param {Object} payload The announcement data including source URL and parameters.
-     * @param {import('./BaseOutput').ExecutionMetadata} metadata Execution context flags.
-     * @param {AbortSignal} [signal] Optional signal to abort the network request.
-     * @returns {Promise<void>} A promise that resolves when the announcement is triggered.
+     * @param {Object} payload - Payload with normalized source ({ type: 'file', filePath, url }).
+     * @param {Object} metadata - Execution context flags (isTest, etc).
+     * @param {AbortSignal} [signal] - Optional signal to abort the network request.
+     * @returns {Promise<void>}
      */
-    async execute(payload, metadata, signal) {
-        const isTest = metadata?.isTest;
-        const prefix = isTest ? '[Test Output: VoiceMonkey]' : '[Output: VoiceMonkey]';
+    async _executeFromFile(payload, metadata, signal) {
+        const prefix = this._getLogPrefix(metadata);
 
-        if (!payload.source || !payload.source.url) return;
+        const audioUrl = this._resolvePublicUrl(payload.source.url, payload, prefix);
+        if (!audioUrl) return;
 
-        // Verify compatibility metadata stored in the sidecar JSON.
-        if (payload.source.filePath) {
-            const projectPublicRoot = path.join(__dirname, '../../public/audio');
-            const srcPublicRoot = path.join(__dirname, '../public/audio');
-            const relativePath = path.relative(projectPublicRoot, payload.source.filePath);
-            const metaPath = path.join(srcPublicRoot, relativePath + '.json');
+        await this._sendToApi(audioUrl, payload, prefix, signal);
+    }
 
-            try {
-                await fs.access(metaPath);
-                const metaContent = await fs.readFile(metaPath, 'utf8');
-                const meta = JSON.parse(metaContent);
-                
-                // REQ-015: Read from nested compatibility object only
-                const isCompatible = meta.compatibility?.voicemonkey?.valid;
+    /**
+     * Handles URL-based audio sources. Validates HTTPS and sends directly to the API.
+     *
+     * @param {Object} payload - Payload with normalized source ({ type: 'url', url }).
+     * @param {Object} metadata - Execution context flags (isTest, etc).
+     * @param {AbortSignal} [signal] - Optional signal to abort the network request.
+     * @returns {Promise<void>}
+     */
+    async _executeFromUrl(payload, metadata, signal) {
+        const prefix = this._getLogPrefix(metadata);
+        const audioUrl = payload.source.url;
 
-                    if (isCompatible === false) {
-                        console.warn(`${prefix} Skipped: Audio incompatible with Alexa`);
-                        return; // Skip
-                    }
-                } catch {
-                    // Silently ignore corrupted or missing metadata
-                }
-            }
+        // REQ-001: Alexa requires audio URLs to be served over HTTPS.
+        if (!audioUrl.startsWith('https://')) {
+            throw new Error('Alexa requires HTTPS audio URLs');
+        }
+
+        await this._sendToApi(audioUrl, payload, prefix, signal);
+    }
+
+    /**
+      * Returns the log prefix based on test mode.
+      * @param {Object} metadata - Execution metadata.
+      * @returns {string} Formatted log prefix string.
+      * @private
+      */
+    _getLogPrefix(metadata) {
+        return metadata?.isTest ? '[Test Output: VoiceMonkey]' : '[Output: VoiceMonkey]';
+    }
+
+    /**
+     * Resolves the final public URL for the VoiceMonkey API.
+     * Absolute URLs (http/https) pass through; relative URLs are prefixed
+     * with the configured HTTPS base URL.
+     *
+     * @param {string} sourceUrl - The source URL (relative or absolute).
+     * @param {Object} payload - The full payload (for baseUrl and params).
+     * @param {string} prefix - Log prefix.
+     * @returns {string|null} The resolved URL, or null if requirements not met.
+     * @private
+     */
+    _resolvePublicUrl(sourceUrl, payload, prefix) {
+        if (sourceUrl.startsWith('https://')) return sourceUrl;
+        if (sourceUrl.startsWith('http://')) {
+            console.warn(`${prefix} Skipped: Alexa requires HTTPS, got HTTP URL`);
+            return null;
+        }
 
         const config = ConfigService.get();
-        // Prefer parameters provided in the trigger payload, then fall back to global config.
-        const token = (payload.params && payload.params.token) ||
-                      config.automation?.outputs?.voicemonkey?.params?.token;
-        const device = (payload.params && payload.params.device) ||
-                       config.automation?.outputs?.voicemonkey?.params?.device;
-
         const baseUrl = payload.baseUrl || config.automation?.baseUrl;
 
         // REQ-001: Alexa requires public URLs to be served over HTTPS.
         if (!baseUrl || !baseUrl.startsWith('https://')) {
             console.warn(`${prefix} Skipped: HTTPS Base URL required`);
-            return;
+            return null;
         }
+
+        return `${baseUrl}${sourceUrl}`;
+    }
+
+    /**
+     * Sends the audio URL to the VoiceMonkey API via the rate-limited queue.
+     *
+     * @param {string} audioUrl - The fully-resolved public audio URL.
+     * @param {Object} payload - The full payload (for params).
+     * @param {string} prefix - Log prefix.
+     * @param {AbortSignal} [signal] - Optional abort signal.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async _sendToApi(audioUrl, payload, prefix, signal) {
+        const config = ConfigService.get();
+        const token = (payload.params && payload.params.token) ||
+                      config.automation?.outputs?.voicemonkey?.params?.token;
+        const device = (payload.params && payload.params.device) ||
+                       config.automation?.outputs?.voicemonkey?.params?.device;
+
         if (!token || !device) {
             console.warn(`${prefix} Skipped: Token or Device ID missing`);
             return;
         }
 
-        const publicUrl = payload.source.url.startsWith('http')
-            ? payload.source.url
-            : `${baseUrl}${payload.source.url}`;
-
         console.log(`${prefix} Triggering announcement for device: ${device}`);
 
         try {
-            // Use the request queue to prevent rate-limiting by the VoiceMonkey API.
             await VoiceMonkeyOutput.queue.schedule(() => axios.get('https://api-v2.voicemonkey.io/announcement', {
-                params: {
-                    token: token,
-                    device: device,
-                    audio: publicUrl
-                },
+                params: { token, device, audio: audioUrl },
                 signal, // REQ-007: Support aborting network requests on timeout
                 maxContentLength: 5000000
             }));
@@ -312,12 +343,12 @@ class VoiceMonkeyOutput extends BaseOutput {
     /**
      * Validates an audio asset for compatibility with VoiceMonkey/Alexa.
      * 
-     * @param {string} filePath - Path to the audio file.
-     * @param {Object} metadata - Audio metadata.
+     * @param {string} _filePath - Path to the audio file.
+     * @param {Object} _metadata - Audio metadata.
      * @returns {Promise<{valid: boolean, lastChecked: string, issues: string[]}>} A promise that resolves to the validation result.
      */
-    async validateAsset(filePath, metadata) {
-        const issues = VoiceMonkeyOutput._getValidationIssues(metadata);
+    async validateAsset(_filePath, _metadata) {
+        const issues = VoiceMonkeyOutput._getValidationIssues(_metadata);
 
         return {
             valid: issues.length === 0,
