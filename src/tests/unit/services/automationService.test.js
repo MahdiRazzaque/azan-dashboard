@@ -125,6 +125,21 @@ describe('AutomationService Comprehensive', () => {
             }));
         });
 
+        it('should reject custom file paths outside the audio directory', async () => {
+            configService.get.mockReturnValue({
+                automation: {
+                    triggers: { fajr: { adhan: { enabled: true, type: 'file', path: '../outside.mp3' } } }
+                }
+            });
+
+            await service.triggerEvent('fajr', 'adhan');
+
+            expect(fs.promises.access).not.toHaveBeenCalled();
+            expect(sseService.broadcast).toHaveBeenCalledWith(expect.objectContaining({
+                payload: expect.objectContaining({ message: expect.stringContaining('Custom file missing') })
+            }));
+        });
+
         it('should handle generic error in withTimeout', async () => {
             audioAssetService.ensureTTSFile.mockResolvedValue({ success: true });
             const mockStrategy = {

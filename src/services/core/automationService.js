@@ -4,6 +4,7 @@ const configService = require('@config'); // Singleton
 const sseService = require('@services/system/sseService');
 const audioAssetService = require('@services/system/audioAssetService');
 const OutputFactory = require('@outputs');
+const { isWithinRoot } = require('@utils/pathUtils');
 
 const AUDIO_DIR = path.join(__dirname, '../../../public/audio');
 
@@ -116,7 +117,7 @@ const _validateAndPrepareAudio = async (settings, prayer, event, config) => {
         case 'file': {
             const filePath = source?.path ? path.join(AUDIO_DIR, source.path) : null;
             let exists = false;
-            if (filePath) {
+            if (filePath && isWithinRoot(AUDIO_DIR, filePath)) {
                 try {
                     await fs.promises.access(filePath);
                     exists = true;
