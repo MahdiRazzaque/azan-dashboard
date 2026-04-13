@@ -13,7 +13,6 @@ const fs = require('fs');
 const BaseOutput = require('../../../outputs/BaseOutput');
 
 const PROJECT_PUBLIC_ROOT = path.resolve(__dirname, '../../../../public/audio');
-const SRC_PUBLIC_ROOT = path.resolve(__dirname, '../../../../src/public/audio');
 
 describe('BaseOutput', () => {
     class TestOutput extends BaseOutput {
@@ -163,6 +162,20 @@ describe('BaseOutput', () => {
             expect(output.lastCall).toBeUndefined();
         });
 
+        it('should reject typed file sources from sibling prefix directories before dispatching', async () => {
+            const payload = {
+                source: {
+                    type: 'file',
+                    filePath: path.resolve(PROJECT_PUBLIC_ROOT, '../audio-evil/test.mp3'),
+                    url: '/public/audio/custom/test.mp3'
+                }
+            };
+
+            await expect(output.execute(payload, {})).rejects.toThrow('Path traversal detected');
+            expect(output.lastCall).toBeUndefined();
+            expect(fs.promises.access).not.toHaveBeenCalled();
+        });
+
         it('should reject typed url sources with forbidden protocols before dispatching', async () => {
             const payload = {
                 source: { type: 'url', url: 'file:///etc/passwd' }
@@ -256,6 +269,16 @@ describe('BaseOutput', () => {
             await expect(output.execute(payload, {})).rejects.toThrow('Path traversal detected');
             expect(output.lastCall).toBeUndefined();
             expect(fs.promises.access).not.toHaveBeenCalled();
+        });
+
+        it('should ignore sidecar lookup for sibling prefix metadata paths', async () => {
+            const result = await output._checkSidecarCompatibility(
+                path.resolve(PROJECT_PUBLIC_ROOT, '../audio-evil/test.mp3')
+            );
+
+            expect(result).toBeUndefined();
+            expect(fs.promises.access).not.toHaveBeenCalled();
+            expect(fs.promises.readFile).not.toHaveBeenCalled();
         });
 
         it('should log warning when skipping incompatible file', async () => {

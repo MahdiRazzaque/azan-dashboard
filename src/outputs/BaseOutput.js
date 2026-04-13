@@ -6,6 +6,17 @@ const PROJECT_PUBLIC_ROOT = path.join(__dirname, '../../public/audio');
 const SRC_PUBLIC_ROOT = path.join(__dirname, '../public/audio');
 
 /**
+ * Checks whether a target path resolves inside a root directory boundary.
+ * @param {string} rootPath - Allowed root directory.
+ * @param {string} targetPath - Target path to validate.
+ * @returns {boolean} True when targetPath is within rootPath.
+ */
+function isWithinRoot(rootPath, targetPath) {
+    const relativePath = path.relative(rootPath, path.resolve(targetPath));
+    return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+}
+
+/**
  * Abstract base class defining the contract for automation output strategies.
  * All output integrations must inherit from this class.
  *
@@ -59,13 +70,14 @@ class BaseOutput {
      */
     async _checkSidecarCompatibility(filePath) {
         if (!filePath) return undefined;
+        if (!isWithinRoot(PROJECT_PUBLIC_ROOT, filePath)) return undefined;
 
         const meta = this.constructor.getMetadata();
         const relativePath = path.relative(PROJECT_PUBLIC_ROOT, filePath);
         const metaPath = path.resolve(SRC_PUBLIC_ROOT, relativePath + '.json');
 
         // Path traversal protection: sidecar must resolve within src/public/audio
-        if (!metaPath.startsWith(SRC_PUBLIC_ROOT)) return undefined;
+        if (!isWithinRoot(SRC_PUBLIC_ROOT, metaPath)) return undefined;
 
         try {
             await fs.access(metaPath);
