@@ -7,7 +7,9 @@ const path = require('path');
  * @returns {boolean} True when targetPath is within rootPath.
  */
 function isWithinRoot(rootPath, targetPath) {
-    const relativePath = path.relative(rootPath, path.resolve(targetPath));
+    const resolvedRoot = path.resolve(rootPath);
+    const resolvedTarget = path.resolve(targetPath);
+    const relativePath = path.relative(resolvedRoot, resolvedTarget);
     return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
 }
 

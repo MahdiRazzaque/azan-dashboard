@@ -134,7 +134,7 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                          (trigger.targets || []).forEach(targetId => {
                              const strategy = strategies.find(s => s.id === targetId);
                              if (strategy?.supportedSourceTypes && !strategy.supportedSourceTypes.includes(sourceType)) {
-                                 issues.push(`${strategy.label} does not support ${trigger.type.toUpperCase()} sources`);
+                                 issues.push(`${strategy.label} does not support ${sourceType.toUpperCase()} sources`);
                              }
                          });
 
@@ -369,8 +369,8 @@ export default function TriggerCard({ label, trigger, onChange, files, error, is
                                       colorClasses = "bg-app-bg border-amber-900/30 text-amber-600/50";
                                   }
 
-                                  const warningTitle = isIncompatible
-                                      ? `${strategy.label} does not support ${trigger.type.toUpperCase()} sources`
+                                   const warningTitle = isIncompatible
+                                       ? `${strategy.label} does not support ${triggerSourceType.toUpperCase()} sources`
                                       : isDisabled ? "Output Strategy Disabled" : (isOffline ? `Offline: ${health.message}` : "");
 
                                   return (

@@ -30,6 +30,12 @@ class BaseOutput {
      * @returns {Promise<void>}
      */
     async execute(payload, metadata, signal) {
+        if (!payload || typeof payload !== 'object') {
+            throw new Error('BaseOutput.execute() requires payload to be a non-null object');
+        }
+        if (payload.source == null) {
+            throw new Error('BaseOutput.execute() requires payload.source');
+        }
         const normalized = normalizeSource(payload.source);
         const meta = this.constructor.getMetadata();
         const supported = meta.supportedSourceTypes || [];

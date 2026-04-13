@@ -103,7 +103,11 @@ class VoiceMonkeyOutput extends BaseOutput {
      * @private
      */
     _resolvePublicUrl(sourceUrl, payload, prefix) {
-        if (sourceUrl.startsWith('http')) return sourceUrl;
+        if (sourceUrl.startsWith('https://')) return sourceUrl;
+        if (sourceUrl.startsWith('http://')) {
+            console.warn(`${prefix} Skipped: Alexa requires HTTPS, got HTTP URL`);
+            return null;
+        }
 
         const config = ConfigService.get();
         const baseUrl = payload.baseUrl || config.automation?.baseUrl;
