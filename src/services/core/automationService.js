@@ -1,12 +1,9 @@
-const path = require('path');
 const fs = require('fs');
 const configService = require('@config'); // Singleton
 const sseService = require('@services/system/sseService');
 const audioAssetService = require('@services/system/audioAssetService');
 const OutputFactory = require('@outputs');
-const { isWithinRoot } = require('@utils/pathUtils');
-
-const AUDIO_DIR = path.join(__dirname, '../../../public/audio');
+const normalizeSource = require('@utils/normalizeSource');
 
 /**
  * Resolves the raw audio source hint based on trigger settings.
@@ -123,9 +120,17 @@ const _validateAndPrepareAudio = async (settings, prayer, event, config) => {
             }
             break;
         case 'file': {
-            const filePath = source?.path ? path.join(AUDIO_DIR, source.path) : null;
+            let normalizedSource = null;
+
+            try {
+                normalizedSource = source ? normalizeSource(source) : null;
+            } catch {
+                normalizedSource = null;
+            }
+
+            const filePath = normalizedSource?.type === 'file' ? normalizedSource.filePath : null;
             let exists = false;
-            if (filePath && isWithinRoot(AUDIO_DIR, filePath)) {
+            if (filePath) {
                 try {
                     await fs.promises.access(filePath);
                     exists = true;
@@ -209,7 +214,13 @@ const _executeTarget = async (target, masterLeadTime, payload, executionMetadata
             `Strategy ${targetId} timed out after ${timeoutMs}ms`
         );
     } catch (error) {
-        console.error(`[Automation] Error executing target '${targetId}' for ${payload.prayer} ${payload.event}:`, error.message);
+        console.error(
+            '[Automation] Error executing target %s for %s %s:',
+            targetId,
+            payload.prayer,
+            payload.event,
+            error.message
+        );
     }
 };
 
