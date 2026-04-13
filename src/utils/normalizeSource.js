@@ -8,14 +8,15 @@ const PUBLIC_AUDIO_PREFIX = '/public/audio/';
  *
  * Accepted input shapes:
  * - { path }                       (OutputStrategyCard test flow)
- * - { filePath, url }              (automationService.getAudioSource)
+ * - { path }                       (automationService.getAudioSource — tts/file)
+ * - { url }                        (automationService.getAudioSource — url)
  * - { path, url, filePath: null }  (FileManagerView)
  * - { url }                        (external URL or relative server URL)
  * - { type: 'file', filePath, url } (already normalized)
  * - { type: 'url', url }            (already normalized)
  *
  * @param {Object} source - Raw source object from any caller.
- * @returns {{ type: 'file', filePath: string, url: string } | { type: 'url', url: string }}
+ * @returns {{ type: 'file', filePath: string, url: string } | { type: 'url', url: string }} Canonical ExecutionSource object.
  * @throws {Error} If source is invalid, contains path traversal, or uses forbidden URL protocol.
  */
 function normalizeSource(source) {
@@ -66,16 +67,34 @@ function normalizeSource(source) {
     throw new Error('Invalid source: could not determine source type');
 }
 
+/**
+ * Checks if a string has a URL protocol scheme.
+ * @param {string} url - The URL string to check.
+ * @returns {boolean} True if the URL has a protocol scheme.
+ */
 function _hasProtocol(url) {
-    return /^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(url);
-}
+     return /^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(url);
+ }
 
+/**
+ * Validates that a URL uses http or https protocol.
+ * @param {string} url - The URL string to validate.
+ * @throws {Error} If the URL does not use http or https protocol.
+ */
 function _validateUrlProtocol(url) {
-    if (!/^https?:\/\//i.test(url)) {
-        throw new Error('Only http and https URLs are allowed');
-    }
-}
+     if (!/^https?:\/\//i.test(url)) {
+         throw new Error('Only http and https URLs are allowed');
+     }
+ }
 
+/**
+ * Builds a normalized file source object from various input shapes.
+ * @param {Object} source - The raw source object.
+ * @param {boolean} hasPath - Whether the source has a path property.
+ * @param {boolean} hasFilePath - Whether the source has a filePath property.
+ * @param {boolean} hasUrl - Whether the source has a url property.
+ * @returns {{ type: 'file', filePath: string, url: string }} Normalized file source object.
+ */
 function _buildFileSource(source, hasPath, hasFilePath, hasUrl) {
     let relativePath;
 
@@ -97,11 +116,16 @@ function _buildFileSource(source, hasPath, hasFilePath, hasUrl) {
     return { type: 'file', filePath: absolutePath, url };
 }
 
+/**
+ * Validates that an absolute path does not traverse outside the audio directory.
+ * @param {string} absolutePath - The absolute file path to validate.
+ * @throws {Error} If the path traverses outside the audio directory.
+ */
 function _validatePathTraversal(absolutePath) {
-    const normalized = path.resolve(absolutePath);
-    if (!normalized.startsWith(AUDIO_ROOT)) {
-        throw new Error('Path traversal detected: resolved path is outside audio directory');
-    }
-}
+     const normalized = path.resolve(absolutePath);
+     if (!normalized.startsWith(AUDIO_ROOT)) {
+         throw new Error('Path traversal detected: resolved path is outside audio directory');
+     }
+ }
 
 module.exports = normalizeSource;
