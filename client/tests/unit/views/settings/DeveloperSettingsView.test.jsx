@@ -56,7 +56,7 @@ describe('DeveloperSettingsView', () => {
   it('should render correctly and fetch initial data', async () => {
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
     expect(screen.getByText('Developer Tools')).toBeDefined();
-    await waitFor(() => expect(screen.getByText('Job1')).toBeDefined());
+    expect(await screen.findByText('Job1')).toBeDefined();
   });
 
   it('should handle run job failure with error field', async () => {
@@ -66,7 +66,7 @@ describe('DeveloperSettingsView', () => {
     });
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
     fireEvent.click(screen.getByText('Run Job'));
-    await waitFor(() => expect(screen.getByText('Job Error')).toBeDefined());
+    expect(await screen.findByText('Job Error')).toBeDefined();
   });
 
   it('should handle diagnostics partial failure (autoRes fail)', async () => {
@@ -98,7 +98,7 @@ describe('DeveloperSettingsView', () => {
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
     
     fireEvent.click(screen.getByText('Refresh API'));
-    await waitFor(() => expect(screen.getByText('Online')).toBeDefined());
+    expect(await screen.findByText('Online')).toBeDefined();
   });
 
   it('should handle manual refresh of other services failure', async () => {
@@ -116,9 +116,9 @@ describe('DeveloperSettingsView', () => {
     });
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
     
-    await waitFor(() => screen.getByText('Call TTS'));
+    await screen.findByText('Call TTS');
     fireEvent.click(screen.getByText('Call TTS'));
-    await waitFor(() => expect(screen.getByText('TTS Rebuilt')).toBeDefined());
+    expect(await screen.findByText('TTS Rebuilt')).toBeDefined();
   });
 
   it('should handle special config action', async () => {
@@ -128,7 +128,7 @@ describe('DeveloperSettingsView', () => {
     });
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
     
-    await waitFor(() => screen.getByText('Call Config'));
+    await screen.findByText('Call Config');
     fireEvent.click(screen.getByText('Call Config'));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(refreshHealth).toHaveBeenCalledWith('primarySource');
@@ -141,9 +141,9 @@ describe('DeveloperSettingsView', () => {
     });
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
     
-    await waitFor(() => screen.getByText('Run Job'));
+    await screen.findByText('Run Job');
     fireEvent.click(screen.getByText('Run Job'));
-    await waitFor(() => expect(screen.getByText(/executed successfully/)).toBeDefined());
+    expect(await screen.findByText(/executed successfully/)).toBeDefined();
   });
 
   it('should handle fetchJobs with legacy array format', async () => {
@@ -152,7 +152,7 @@ describe('DeveloperSettingsView', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
     });
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
-    await waitFor(() => expect(screen.getByText('LegacyJob')).toBeDefined());
+    expect(await screen.findByText('LegacyJob')).toBeDefined();
   });
 
   it('should handle fetchJobs with automation only', async () => {
@@ -161,7 +161,7 @@ describe('DeveloperSettingsView', () => {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
     });
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
-    await waitFor(() => expect(screen.getByText('No active maintenance jobs')).toBeDefined());
+    expect(await screen.findByText('No active maintenance jobs')).toBeDefined();
   });
 
   it('should handle fetchJobs error', async () => {
@@ -185,7 +185,7 @@ describe('DeveloperSettingsView', () => {
     });
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
     fireEvent.click(screen.getByText('Call TTS'));
-    await waitFor(() => expect(screen.getByText('W1')).toBeDefined());
+    expect(await screen.findByText('W1')).toBeDefined();
   });
 
   it('should handle diagnostics fetch failure', async () => {
@@ -206,7 +206,7 @@ describe('DeveloperSettingsView', () => {
     });
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
     fireEvent.click(screen.getByText('Call TTS'));
-    await waitFor(() => expect(screen.getByText('Specific Error')).toBeDefined());
+    expect(await screen.findByText('Specific Error')).toBeDefined();
   });
 
   it('should handle system action failure with no details', async () => {
@@ -216,6 +216,6 @@ describe('DeveloperSettingsView', () => {
     });
     render(<MemoryRouter><DeveloperSettingsView /></MemoryRouter>);
     fireEvent.click(screen.getByText('Call TTS'));
-    await waitFor(() => expect(screen.getByText('Failed')).toBeDefined());
+    expect(await screen.findByText('Failed')).toBeDefined();
   });
 });
