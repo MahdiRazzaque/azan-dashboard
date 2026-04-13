@@ -5,9 +5,13 @@
   "main": "src/server.js",
   "scripts": {
     "test": "npm run test:src",
-    "test:src": "jest --config .config/jest.config.js --runInBand --forceExit",
+    "test:src": "npm run test:src:unit && npm run test:src:integration",
+    "test:src:unit": "jest --config .config/jest.config.js --testPathPatterns=src/tests/unit --forceExit",
+    "test:src:integration": "jest --config .config/jest.config.js --testPathPatterns=src/tests/integration --runInBand --forceExit",
     "test:client": "vitest --config .config/vitest.config.mjs run",
-    "test:src:coverage": "jest --config .config/jest.config.js --coverage --runInBand --forceExit",
+    "test:src:coverage": "npm run test:src:coverage:unit && npm run test:src:coverage:integration",
+    "test:src:coverage:unit": "jest --config .config/jest.config.js --coverage --testPathPatterns=src/tests/unit --forceExit",
+    "test:src:coverage:integration": "jest --config .config/jest.config.js --coverage --testPathPatterns=src/tests/integration --runInBand --forceExit",
     "test:client:coverage": "vitest --config .config/vitest.config.mjs run --coverage",
     "start": "node src/server.js",
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
@@ -59,6 +63,7 @@
     "@routes": "src/routes"
   },
   "devDependencies": {
+    "@swc/jest": "^0.2.39",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^5.1.2",
@@ -70,6 +75,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.26",
     "globals": "^17.0.0",
+    "happy-dom": "^20.8.9",
     "jest": "^30.2.0",
     "jsdom": "^27.4.0",
     "supertest": "^7.2.2",

@@ -1,11 +1,15 @@
 module.exports = {
   rootDir: '../',
   testEnvironment: 'node',
-  verbose: true,
+  verbose: false,
+  maxWorkers: '50%',
   moduleFileExtensions: ['js', 'json', 'node'],
   roots: ['<rootDir>/src'],
   testMatch: ['**/*.test.js'],
   clearMocks: true,
+  transform: {
+    '^.+\\.js$': ['@swc/jest']
+  },
   collectCoverage: false,
   coveragePathIgnorePatterns: [
     "/node_modules/",

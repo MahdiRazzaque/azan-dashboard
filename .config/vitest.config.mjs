@@ -8,10 +8,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: 'jsdom',
+    environment: 'happy-dom',
     globals: true,
+    pool: 'threads',
     setupFiles: [path.resolve(__dirname, '../client/tests/setup.js')],
     include: ['client/tests/**/*.test.{js,jsx}'],
+    deps: {
+      optimizer: {
+        web: { enabled: true },
+      },
+    },
     coverage: {
       provider: 'v8',
       all: true,
