@@ -130,6 +130,19 @@ describe('SystemController', () => {
             expect(res.status).toHaveBeenCalledWith(400);
             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('Path traversal') }));
         });
+
+        it('should return 400 for typed url sources with forbidden protocols in testOutput', async () => {
+            const mockStrategy = { execute: jest.fn() };
+            OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+            req.params.strategyId = 'voicemonkey';
+            req.body = { source: { type: 'url', url: 'file:///etc/passwd' } };
+
+            await systemController.testOutput(req, res);
+
+            expect(mockStrategy.execute).not.toHaveBeenCalled();
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('Only http and https URLs are allowed') }));
+        });
     });
 
     describe('getHealth', () => {

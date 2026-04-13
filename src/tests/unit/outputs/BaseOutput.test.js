@@ -67,12 +67,17 @@ describe('BaseOutput', () => {
 
     describe('execute — Template Method', () => {
         it('should dispatch file source to _executeFromFile', async () => {
+            const fileSource = {
+                type: 'file',
+                filePath: path.join(PROJECT_PUBLIC_ROOT, 'test.mp3'),
+                url: '/public/audio/test.mp3'
+            };
             const payload = {
-                source: { type: 'file', filePath: '/audio/test.mp3', url: '/public/audio/test.mp3' }
+                source: fileSource
             };
             await output.execute(payload, { isTest: true });
             expect(output.lastCall.hook).toBe('file');
-            expect(output.lastCall.payload.source).toEqual(payload.source);
+            expect(output.lastCall.payload.source).toEqual(fileSource);
         });
 
         it('should dispatch url source to _executeFromUrl', async () => {
@@ -143,6 +148,28 @@ describe('BaseOutput', () => {
             };
             await output.execute(payload, {});
             expect(fs.promises.access).not.toHaveBeenCalled();
+        });
+
+        it('should reject typed file sources with traversal before dispatching', async () => {
+            const payload = {
+                source: {
+                    type: 'file',
+                    filePath: path.resolve(PROJECT_PUBLIC_ROOT, '../outside.mp3'),
+                    url: '/public/audio/custom/test.mp3'
+                }
+            };
+
+            await expect(output.execute(payload, {})).rejects.toThrow('Path traversal detected');
+            expect(output.lastCall).toBeUndefined();
+        });
+
+        it('should reject typed url sources with forbidden protocols before dispatching', async () => {
+            const payload = {
+                source: { type: 'url', url: 'file:///etc/passwd' }
+            };
+
+            await expect(output.execute(payload, {})).rejects.toThrow('Only http and https URLs are allowed');
+            expect(output.lastCall).toBeUndefined();
         });
     });
 
@@ -215,18 +242,19 @@ describe('BaseOutput', () => {
             expect(alexa.lastCall).toBeUndefined();
         });
 
-        it('should proceed if filePath is null in normalized source', async () => {
+        it('should derive filePath from typed file URLs before checking sidecar compatibility', async () => {
             const payload = { source: { type: 'file', filePath: null, url: '/public/audio/test.mp3' } };
             await output.execute(payload, {});
             expect(output.lastCall.hook).toBe('file');
-            expect(fs.promises.access).not.toHaveBeenCalled();
+            expect(output.lastCall.payload.source.filePath).toBe(path.join(PROJECT_PUBLIC_ROOT, 'test.mp3'));
+            expect(fs.promises.access).toHaveBeenCalled();
         });
 
-        it('should reject path traversal attempts in sidecar resolution', async () => {
+        it('should reject path traversal attempts before sidecar resolution', async () => {
             const traversalPath = path.join(PROJECT_PUBLIC_ROOT, '../../etc/passwd');
             const payload = { source: { type: 'file', filePath: traversalPath, url: '/public/audio/test.mp3' } };
-            await output.execute(payload, {});
-            expect(output.lastCall.hook).toBe('file');
+            await expect(output.execute(payload, {})).rejects.toThrow('Path traversal detected');
+            expect(output.lastCall).toBeUndefined();
             expect(fs.promises.access).not.toHaveBeenCalled();
         });
 
@@ -259,7 +287,11 @@ describe('BaseOutput', () => {
         it('should throw "Not supported" from default _executeFromFile', async () => {
             const noHooks = new NoHooksOutput();
             const payload = {
-                source: { type: 'file', filePath: '/audio/test.mp3', url: '/public/audio/test.mp3' }
+                source: {
+                    type: 'file',
+                    filePath: path.join(PROJECT_PUBLIC_ROOT, 'test.mp3'),
+                    url: '/public/audio/test.mp3'
+                }
             };
             await expect(noHooks.execute(payload, {})).rejects.toThrow(
                 'No Hooks does not support file sources'
