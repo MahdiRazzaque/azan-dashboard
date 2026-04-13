@@ -7,19 +7,8 @@ jest.mock('play-sound', () => {
 });
 
 jest.mock('@utils/normalizeSource', () => {
-    const mockPath = require('path');
-    return jest.fn((source) => {
-        if (source.type) return source;
-        if (source.url && /^https?:\/\//i.test(source.url)) {
-            return { type: 'url', url: source.url };
-        }
-        const relativePath = source.path || 'custom/test.mp3';
-        return {
-            type: 'file',
-            filePath: mockPath.resolve(__dirname, '../../../../public/audio', relativePath),
-            url: `/public/audio/${relativePath}`
-        };
-    });
+    const actualNormalizeSource = jest.requireActual('@utils/normalizeSource');
+    return jest.fn((source) => actualNormalizeSource(source));
 });
 
 const LocalOutput = require('@outputs/LocalOutput');
@@ -161,7 +150,7 @@ describe('LocalOutput', () => {
                 source: { path: '../audio-evil/pwn.mp3' }
             };
 
-            await expect(output.execute(payload, {})).rejects.toThrow('Access denied');
+            await expect(output.execute(payload, {})).rejects.toThrow('Path traversal detected');
             expect(mockPlay).not.toHaveBeenCalled();
         });
     });
