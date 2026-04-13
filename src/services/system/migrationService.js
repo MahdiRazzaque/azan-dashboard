@@ -2,6 +2,24 @@
  * Handles configuration schema migrations.
  */
 class MigrationService {
+    constructor() {
+        /**
+         * Resolver function: () => Array<{strategyId, key}>.
+         * Injected at startup to avoid importing the outputs barrel.
+         * @type {(() => Array<{strategyId: string, key: string}>)|null}
+         * @private
+         */
+        this._outputSecretKeysResolver = null;
+    }
+
+    /**
+     * Registers a resolver that returns output secret requirement keys.
+     * @param {() => Array<{strategyId: string, key: string}>} resolver - The resolver function.
+     */
+    setOutputSecretKeysResolver(resolver) {
+        this._outputSecretKeysResolver = resolver;
+    }
+
     /**
      * Migrates configuration object to the latest version.
      * @param {Object} config - The raw configuration object.
@@ -41,8 +59,10 @@ class MigrationService {
         const migratedKeys = [];
         
         // 1. Output Strategy Migration
-        const OutputFactory = require('../../outputs');
-        const outputSecrets = OutputFactory.getSecretRequirementKeys();
+        if (!this._outputSecretKeysResolver) {
+            throw new Error('[MigrationService] Output secret keys resolver not wired. Call setOutputSecretKeysResolver() before migrateEnvSecrets().');
+        }
+        const outputSecrets = this._outputSecretKeysResolver();
 
         outputSecrets.forEach(({ strategyId, key }) => {
             const envKey = `${strategyId.toUpperCase()}_${key.toUpperCase()}`;
