@@ -1,4 +1,5 @@
 const migrationService = require('../../../services/system/migrationService');
+const OutputFactory = require('../../../outputs');
 
 describe('migrationService Env Migration', () => {
     const originalEnv = process.env;
@@ -7,6 +8,7 @@ describe('migrationService Env Migration', () => {
         process.env = { ...originalEnv };
         delete process.env.VOICEMONKEY_TOKEN;
         delete process.env.VOICEMONKEY_DEVICE;
+        migrationService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
     });
 
     afterAll(() => {
