@@ -3,6 +3,13 @@ name: Deploy Multiple Instances
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'client/**'
+      - 'public/**'
+      - 'docker/**'
+      - 'package*.json'
+      - 'client/package*.json'
   workflow_dispatch:
 
 jobs:
