@@ -1,0 +1,64 @@
+#!/usr/bin/env sh
+
+# Get the remote and branch being pushed to
+remote="$1"
+branch=$(git rev-parse --abbrev-ref HEAD)
+
+# Get list of files changed vs remote (or all files if no upstream)
+if git rev-parse @{u} > /dev/null 2>&1; then
+  CHANGED_FILES=$(git diff --name-only @{u}...HEAD)
+else
+  CHANGED_FILES=$(git diff --name-only HEAD~1...HEAD 2>/dev/null || git diff --name-only HEAD)
+fi
+
+echo "🔍 Running pre-push checks..."
+
+# --- Always: Full unit test suite ---
+echo "▶ Backend unit tests..."
+npm run test:src:unit
+if [ $? -ne 0 ]; then
+  echo "❌ Backend unit tests failed. Push aborted."
+  exit 1
+fi
+
+# --- Always: Integration tests ---
+echo "▶ Backend integration tests..."
+npm run test:src:integration
+if [ $? -ne 0 ]; then
+  echo "❌ Backend integration tests failed. Push aborted."
+  exit 1
+fi
+
+# --- Always: Frontend tests ---
+echo "▶ Frontend tests..."
+npm run test:client
+if [ $? -ne 0 ]; then
+  echo "❌ Frontend tests failed. Push aborted."
+  exit 1
+fi
+
+# --- Always: Circular dependency check ---
+echo "▶ Checking for circular dependencies..."
+npx madge@8.0.0 --circular --webpack-config .config/madge-aliases.js src/
+if [ $? -ne 0 ]; then
+  echo "❌ Circular dependencies found in backend. Push aborted."
+  exit 1
+fi
+npx madge@8.0.0 --circular client/src/
+if [ $? -ne 0 ]; then
+  echo "❌ Circular dependencies found in frontend. Push aborted."
+  exit 1
+fi
+
+# --- Conditional: React Doctor (only if client/ files changed) ---
+if echo "$CHANGED_FILES" | grep -q "^client/"; then
+  echo "▶ Running React Doctor (client changes detected)..."
+  npx -y react-doctor@latest . --fail-on error --yes
+  if [ $? -ne 0 ]; then
+    echo "❌ React Doctor found errors. Push aborted."
+    exit 1
+  fi
+fi
+
+echo "✅ All pre-push checks passed."
+exit 0
