@@ -17,6 +17,7 @@
     "@routes/*": ["./src/routes/*"]
   },
   "ignoreBinaries": [
+    "prettier",
     "gitnexus",
     "knip",
     "venv/bin/python",
