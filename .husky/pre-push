@@ -60,6 +60,14 @@ if echo "$CHANGED_FILES" | grep -q "^client/"; then
   fi
 fi
 
+# --- Always: Dead code check ---
+echo "▶ Running Knip dead code check..."
+npx knip --config .config/knip.json --no-progress
+if [ $? -ne 0 ]; then
+  echo "❌ Knip found dead code. Push aborted."
+  exit 1
+fi
+
 # --- Always: Regenerate GitNexus index with embeddings ---
 echo "▶ Regenerating GitNexus index with embeddings..."
 npx gitnexus analyze --embeddings || echo "⚠️  GitNexus analyze --embeddings failed — embeddings may be stale."
