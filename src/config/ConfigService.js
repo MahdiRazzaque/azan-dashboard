@@ -690,4 +690,4 @@ class ConfigService {
     }
 }
 
-module.exports = { ConfigService, ConfigNotInitializedError, CriticalConfigurationError };
+module.exports = { ConfigService };

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/server.js"],
+  "project": ["src/**/*.js"],
+  "paths": {
+    "@adapters/*": ["./src/adapters/*"],
+    "@providers": ["./src/providers/index.js"],
+    "@providers/*": ["./src/providers/*"],
+    "@config": ["./src/config/index.js"],
+    "@config/*": ["./src/config/*"],
+    "@outputs": ["./src/outputs/index.js"],
+    "@outputs/*": ["./src/outputs/*"],
+    "@services/*": ["./src/services/*"],
+    "@utils/*": ["./src/utils/*"],
+    "@controllers/*": ["./src/controllers/*"],
+    "@middleware/*": ["./src/middleware/*"],
+    "@routes/*": ["./src/routes/*"]
+  },
+  "ignoreBinaries": [
+    "gitnexus",
+    "knip",
+    "venv/bin/python",
+    "nodemon",
+    "docker-compose"
+  ],
+  "ignore": [
+    "src/tests/**"
+  ],
+  "exclude": [
+    "unlisted"
+  ],
+  "ignoreExportsUsedInFile": true
+}

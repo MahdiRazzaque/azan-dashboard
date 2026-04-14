@@ -6,7 +6,6 @@ describe('Constants Unit Test', () => {
         expect(constants.ASR_JURISTIC_METHODS).toBeDefined();
         expect(constants.LATITUDE_ADJUSTMENT_METHODS).toBeDefined();
         expect(constants.MIDNIGHT_MODES).toBeDefined();
-        expect(constants.IQAMAH_PRAYERS).toBeDefined();
         expect(constants.API_BASE_URL).toBeDefined();
     });
 

@@ -1,0 +1,39 @@
+name: Dead Code Check
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  knip:
+    name: Run Knip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.config/knip.json'
+              - '.github/workflows/knip.yml'
+
+      - uses: actions/setup-node@v4
+        if: steps.changes.outputs.code == 'true'
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.changes.outputs.code == 'true'
+        run: npm ci
+
+      - name: Run Knip
+        if: steps.changes.outputs.code == 'true'
+        run: npx knip --config .config/knip.json --no-progress
+
