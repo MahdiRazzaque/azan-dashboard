@@ -45,8 +45,6 @@ const MIDNIGHT_MODES = {
     1: "Jafari (Mid Sunset to Fajr)"
 };
 
-const IQAMAH_PRAYERS = ["fajr", "zuhr", "asr", "maghrib", "isha"];
-
 const API_BASE_URL = "http://api.aladhan.com/v1";
 
 const TTS_TEMPLATE_MAX_LENGTH = 50;
@@ -64,7 +62,6 @@ module.exports = {
     ASR_JURISTIC_METHODS,
     LATITUDE_ADJUSTMENT_METHODS,
     MIDNIGHT_MODES,
-    IQAMAH_PRAYERS,
     API_BASE_URL,
     TTS_TEMPLATE_MAX_LENGTH,
     AUDIO_PATHS,
