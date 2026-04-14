@@ -3,42 +3,50 @@
 @tailwind utilities;
 
 :root {
-  --bg-app: #09090b;       /* Zinc 950 */
-  --bg-card: #18181b;      /* Zinc 900 */
+  --bg-app: #09090b; /* Zinc 950 */
+  --bg-card: #18181b; /* Zinc 900 */
   --bg-card-hover: #27272a; /* Zinc 800 */
-  --border-app: #27272a;   /* Zinc 800 */
+  --border-app: #27272a; /* Zinc 800 */
   --text-primary: #fafafa; /* Zinc 50 */
-  --text-dim: #a1a1aa;    /* Zinc 400 */
-  --accent: #ffd700;       /* Gold */
+  --text-dim: #a1a1aa; /* Zinc 400 */
+  --accent: #ffd700; /* Gold */
   --accent-rgb: 255, 215, 0;
-  --danger: #ef4444;       /* Red 500 */
+  --danger: #ef4444; /* Red 500 */
 }
 
 .light-mode {
-  --bg-app: #f8fafc;       /* Slate 50 */
-  --bg-card: #ffffff;      
+  --bg-app: #f8fafc; /* Slate 50 */
+  --bg-card: #ffffff;
   --bg-card-hover: #f1f5f9; /* Slate 100 */
-  --border-app: #e2e8f0;   /* Slate 200 */
+  --border-app: #e2e8f0; /* Slate 200 */
   --text-primary: #0f172a; /* Slate 900 */
-  --text-dim: #64748b;    /* Slate 500 */
-  --accent: #d97706;       /* Amber 600 */
+  --text-dim: #64748b; /* Slate 500 */
+  --accent: #d97706; /* Amber 600 */
   --accent-rgb: 217, 119, 6;
-  --danger: #dc2626;       /* Red 600 */
+  --danger: #dc2626; /* Red 600 */
 }
 
 /* Base styles Reset */
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   padding: 0;
   background-color: var(--bg-app);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  transition: background-color 0.5s ease, color 0.5s ease;
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  transition:
+    background-color 0.5s ease,
+    color 0.5s ease;
 }
 
 @media (min-width: 1024px) {
   body {
     overflow: hidden; /* Prevent scrolling for dashboard on larger screens */
   }
-} 
+}

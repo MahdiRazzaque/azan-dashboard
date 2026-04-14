@@ -1,21 +1,21 @@
-import { useState, useEffect } from 'react';
-import { ClientPreferencesContext } from '@/hooks/useClientPreferences';
+import { useState, useEffect } from "react";
+import { ClientPreferencesContext } from "@/hooks/useClientPreferences";
 
-const STORAGE_KEY = 'azan-client-prefs';
+const STORAGE_KEY = "azan-client-prefs";
 
 const DEFAULT_PREFERENCES = {
   appearance: {
-    theme: 'dark',
-    clockFormat: '24h',
+    theme: "dark",
+    clockFormat: "24h",
     showSeconds: true,
-    countdownMode: 'normal', // 'normal' | 'digital' | 'minimal'
+    countdownMode: "normal", // 'normal' | 'digital' | 'minimal'
     enableDateNavigation: true,
-    prayerNameLanguage: 'english',
+    prayerNameLanguage: "english",
     skipSunriseCountdown: false,
     wakeLockAutoStart: false,
-    autoUnmute: false
+    autoUnmute: false,
   },
-  audioExclusions: [] // Array of "prayer-event" strings, e.g., ["fajr-adhan"]
+  audioExclusions: [], // Array of "prayer-event" strings, e.g., ["fajr-adhan"]
 };
 
 const mergePreferences = (storedPreferences = {}) => ({
@@ -23,11 +23,11 @@ const mergePreferences = (storedPreferences = {}) => ({
   ...storedPreferences,
   appearance: {
     ...DEFAULT_PREFERENCES.appearance,
-    ...(storedPreferences.appearance || {})
+    ...(storedPreferences.appearance || {}),
   },
   audioExclusions: Array.isArray(storedPreferences.audioExclusions)
     ? storedPreferences.audioExclusions
-    : DEFAULT_PREFERENCES.audioExclusions
+    : DEFAULT_PREFERENCES.audioExclusions,
 });
 
 export const ClientPreferencesProvider = ({ children }) => {
@@ -37,7 +37,7 @@ export const ClientPreferencesProvider = ({ children }) => {
     try {
       return mergePreferences(JSON.parse(stored));
     } catch (e) {
-      console.error('Failed to parse client preferences:', e);
+      console.error("Failed to parse client preferences:", e);
       return DEFAULT_PREFERENCES;
     }
   });
@@ -45,29 +45,29 @@ export const ClientPreferencesProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
     // Apply theme to document root
-    if (preferences.appearance.theme === 'light') {
-      document.documentElement.classList.add('light-mode');
+    if (preferences.appearance.theme === "light") {
+      document.documentElement.classList.add("light-mode");
     } else {
-      document.documentElement.classList.remove('light-mode');
+      document.documentElement.classList.remove("light-mode");
     }
   }, [preferences]);
 
   const updateAppearance = (key, value) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
       appearance: {
         ...prev.appearance,
-        [key]: value
-      }
+        [key]: value,
+      },
     }));
   };
 
   const toggleAudioExclusion = (prayer, event) => {
     const key = `${prayer}-${event}`;
-    setPreferences(prev => {
+    setPreferences((prev) => {
       const current = prev.audioExclusions || [];
       const next = current.includes(key)
-        ? current.filter(k => k !== key)
+        ? current.filter((k) => k !== key)
         : [...current, key];
       return { ...prev, audioExclusions: next };
     });
@@ -79,30 +79,35 @@ export const ClientPreferencesProvider = ({ children }) => {
   };
 
   const muteAll = () => {
-    const allPrayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    const allPrayers = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
     const exclusions = [];
-    allPrayers.forEach(p => {
-      const events = p === 'sunrise' ? ['preAdhan', 'adhan'] : ['preAdhan', 'adhan', 'preIqamah', 'iqamah'];
-      events.forEach(e => {
+    allPrayers.forEach((p) => {
+      const events =
+        p === "sunrise"
+          ? ["preAdhan", "adhan"]
+          : ["preAdhan", "adhan", "preIqamah", "iqamah"];
+      events.forEach((e) => {
         exclusions.push(`${p}-${e}`);
       });
     });
-    setPreferences(prev => ({ ...prev, audioExclusions: exclusions }));
+    setPreferences((prev) => ({ ...prev, audioExclusions: exclusions }));
   };
 
   const unmuteAll = () => {
-    setPreferences(prev => ({ ...prev, audioExclusions: [] }));
+    setPreferences((prev) => ({ ...prev, audioExclusions: [] }));
   };
 
   return (
-    <ClientPreferencesContext.Provider value={{
-      preferences,
-      updateAppearance,
-      toggleAudioExclusion,
-      isAudioExcluded,
-      muteAll,
-      unmuteAll
-    }}>
+    <ClientPreferencesContext.Provider
+      value={{
+        preferences,
+        updateAppearance,
+        toggleAudioExclusion,
+        isAudioExcluded,
+        muteAll,
+        unmuteAll,
+      }}
+    >
       {children}
     </ClientPreferencesContext.Provider>
   );

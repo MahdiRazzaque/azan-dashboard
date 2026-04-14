@@ -1,6 +1,6 @@
-import { useAuth } from '@/hooks/useAuth';
-import { Navigate, useLocation } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { useAuth } from "@/hooks/useAuth";
+import { Navigate, useLocation } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
 /**
  * A wrapper component that restricts access to its children based on the user's
@@ -16,9 +16,9 @@ export default function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-        <div className="flex h-screen w-full items-center justify-center bg-app-bg text-emerald-500">
-            <Loader2 className="w-8 h-8 animate-spin" />
-        </div>
+      <div className="flex h-screen w-full items-center justify-center bg-app-bg text-emerald-500">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
     );
   }
 

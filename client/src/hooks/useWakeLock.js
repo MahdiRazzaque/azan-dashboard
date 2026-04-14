@@ -1,80 +1,90 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
 /**
  * Custom hook to manage the Screen Wake Lock API.
  * Prevents the screen from dimming or turning off.
- * 
+ *
  * @returns {object} Wake lock state and control functions.
  */
 export const useWakeLock = () => {
-    const [isActive, setIsActive] = useState(false);
-    const [error, setError] = useState(null);
-    const sentinelRef = useRef(null);
+  const [isActive, setIsActive] = useState(false);
+  const [error, setError] = useState(null);
+  const sentinelRef = useRef(null);
 
-    const isSupported = typeof window !== 'undefined' && 'wakeLock' in navigator && window.isSecureContext;
+  const isSupported =
+    typeof window !== "undefined" &&
+    "wakeLock" in navigator &&
+    window.isSecureContext;
 
-    const request = useCallback(async () => {
-        if (!isSupported) return;
+  const request = useCallback(async () => {
+    if (!isSupported) return;
 
-        try {
-            const sentinel = await navigator.wakeLock.request('screen');
-            
-            sentinel.addEventListener('release', () => {
-                setIsActive(false);
-                sentinelRef.current = null;
-            });
+    try {
+      const sentinel = await navigator.wakeLock.request("screen");
 
-            sentinelRef.current = sentinel;
-            setIsActive(true);
-            setError(null);
-        } catch (err) {
-            console.error('Wake Lock Request Error:', err);
-            setIsActive(false);
-            setError(err);
-        }
-    }, [isSupported]);
+      sentinel.addEventListener("release", () => {
+        setIsActive(false);
+        sentinelRef.current = null;
+      });
 
-    const release = useCallback(async () => {
-        if (sentinelRef.current) {
-            try {
-                await sentinelRef.current.release();
-            } catch (err) {
-                console.error('Wake Lock Release Error:', err);
-            }
-        }
-    }, []);
+      sentinelRef.current = sentinel;
+      setIsActive(true);
+      setError(null);
+    } catch (err) {
+      console.error("Wake Lock Request Error:", err);
+      setIsActive(false);
+      setError(err);
+    }
+  }, [isSupported]);
 
-    // Re-acquire lock on visibility change
-    useEffect(() => {
-        const handleVisibilityChange = async () => {
-            if (isActive && document.visibilityState === 'visible' && !sentinelRef.current) {
-                await request();
-            }
-        };
+  const release = useCallback(async () => {
+    if (sentinelRef.current) {
+      try {
+        await sentinelRef.current.release();
+      } catch (err) {
+        console.error("Wake Lock Release Error:", err);
+      }
+    }
+  }, []);
 
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        document.addEventListener('fullscreenchange', handleVisibilityChange);
+  // Re-acquire lock on visibility change
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (
+        isActive &&
+        document.visibilityState === "visible" &&
+        !sentinelRef.current
+      ) {
+        await request();
+      }
+    };
 
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            document.removeEventListener('fullscreenchange', handleVisibilityChange);
-        };
-    }, [isActive, request]);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("fullscreenchange", handleVisibilityChange);
 
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            if (sentinelRef.current) {
-                sentinelRef.current.release().catch(console.error);
-            }
-        };
-    }, []);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("fullscreenchange", handleVisibilityChange);
+    };
+  }, [isActive, request]);
 
-    return useMemo(() => ({
-        isSupported,
-        isActive,
-        error,
-        request,
-        release
-    }), [isSupported, isActive, error, request, release]);
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (sentinelRef.current) {
+        sentinelRef.current.release().catch(console.error);
+      }
+    };
+  }, []);
+
+  return useMemo(
+    () => ({
+      isSupported,
+      isActive,
+      error,
+      request,
+      release,
+    }),
+    [isSupported, isActive, error, request, release],
+  );
 };

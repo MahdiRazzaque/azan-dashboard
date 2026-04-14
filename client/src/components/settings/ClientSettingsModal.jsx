@@ -1,19 +1,32 @@
-import { useState } from 'react';
-import { X, Monitor, Palette, Clock, Bell, VolumeX, Volume2, Layout, Timer, AlertTriangle, Cpu, Compass } from 'lucide-react';
-import { useClientPreferences } from '@/hooks/useClientPreferences';
-import { useSettings } from '@/hooks/useSettings';
-import { useWakeLock } from '@/hooks/useWakeLock';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
+import { useState } from "react";
+import {
+  X,
+  Monitor,
+  Palette,
+  Clock,
+  Bell,
+  VolumeX,
+  Volume2,
+  Layout,
+  Timer,
+  AlertTriangle,
+  Cpu,
+  Compass,
+} from "lucide-react";
+import { useClientPreferences } from "@/hooks/useClientPreferences";
+import { useSettings } from "@/hooks/useSettings";
+import { useWakeLock } from "@/hooks/useWakeLock";
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 /**
  * Utility to merge Tailwind class names conditionally.
  * @param {...*} inputs - Class values passed to clsx.
  * @returns {string} Merged class string.
  */
-function cn(...inputs) { return twMerge(clsx(inputs)); }
-
+function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
 
 /**
  * Modal component for managing client-side display and audio preferences.
@@ -22,37 +35,46 @@ function cn(...inputs) { return twMerge(clsx(inputs)); }
  * @returns {JSX.Element} The rendered client settings modal.
  */
 const ClientSettingsModal = ({ onClose }) => {
-  const { preferences, updateAppearance, toggleAudioExclusion, isAudioExcluded, muteAll, unmuteAll } = useClientPreferences();
+  const {
+    preferences,
+    updateAppearance,
+    toggleAudioExclusion,
+    isAudioExcluded,
+    muteAll,
+    unmuteAll,
+  } = useClientPreferences();
   const { config, refresh } = useSettings();
   const wakeLock = useWakeLock();
-  const [activeTab, setActiveTab] = useState('appearance');
+  const [activeTab, setActiveTab] = useState("appearance");
 
   const handleRestartDashboardTour = () => {
-    fetch('/api/settings/tour-state', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+    fetch("/api/settings/tour-state", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dashboardSeen: false }),
-    }).then(() => {
-      refresh();
-      onClose();
-    }).catch(() => {
-      onClose();
-    });
+    })
+      .then(() => {
+        refresh();
+        onClose();
+      })
+      .catch(() => {
+        onClose();
+      });
   };
   const prayers = [
-    { id: 'fajr', label: 'Fajr' },
-    { id: 'sunrise', label: 'Sunrise' },
-    { id: 'dhuhr', label: 'Dhuhr' },
-    { id: 'asr', label: 'Asr' },
-    { id: 'maghrib', label: 'Maghrib' },
-    { id: 'isha', label: 'Isha' }
+    { id: "fajr", label: "Fajr" },
+    { id: "sunrise", label: "Sunrise" },
+    { id: "dhuhr", label: "Dhuhr" },
+    { id: "asr", label: "Asr" },
+    { id: "maghrib", label: "Maghrib" },
+    { id: "isha", label: "Isha" },
   ];
 
   const events = [
-    { id: 'preAdhan', label: 'Pre-Adhan' },
-    { id: 'adhan', label: 'Adhan' },
-    { id: 'preIqamah', label: 'Pre-Iqamah' },
-    { id: 'iqamah', label: 'Iqamah' }
+    { id: "preAdhan", label: "Pre-Adhan" },
+    { id: "adhan", label: "Adhan" },
+    { id: "preIqamah", label: "Pre-Iqamah" },
+    { id: "iqamah", label: "Iqamah" },
   ];
 
   return (
@@ -62,7 +84,7 @@ const ClientSettingsModal = ({ onClose }) => {
         className="absolute inset-0 bg-black/80 backdrop-blur-sm"
         onClick={onClose}
         onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
+          if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             onClose();
           }
@@ -74,41 +96,48 @@ const ClientSettingsModal = ({ onClose }) => {
 
       {/* Modal Content */}
       <div className="relative w-full max-w-2xl bg-app-card border border-app-border rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[80vh] md:h-auto max-h-[90vh]">
-        
         {/* Sidebar */}
         <div className="w-full md:w-48 bg-app-bg/50 border-b md:border-b-0 md:border-r border-app-border p-4 flex md:flex-col gap-2 overflow-x-auto md:overflow-visible custom-scrollbar no-scrollbar scroll-smooth">
           <div className="hidden md:flex items-center gap-2 px-2 py-4 mb-2">
             <Monitor size={20} className="text-app-accent" />
-            <span className="font-bold text-app-text text-sm uppercase tracking-widest">Display</span>
+            <span className="font-bold text-app-text text-sm uppercase tracking-widest">
+              Display
+            </span>
           </div>
-          
-          <button 
-            onClick={() => setActiveTab('appearance')}
+
+          <button
+            onClick={() => setActiveTab("appearance")}
             className={cn(
               "flex-shrink-0 md:w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-medium transition-all duration-300",
-              activeTab === 'appearance' ? "bg-app-accent text-app-bg" : "text-app-dim hover:text-app-text hover:bg-app-card-hover"
+              activeTab === "appearance"
+                ? "bg-app-accent text-app-bg"
+                : "text-app-dim hover:text-app-text hover:bg-app-card-hover",
             )}
           >
             <Palette size={16} className="lg:size-[18px]" />
             <span>Appearance</span>
           </button>
-          
-          <button 
-            onClick={() => setActiveTab('prayers')}
+
+          <button
+            onClick={() => setActiveTab("prayers")}
             className={cn(
               "flex-shrink-0 md:w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-medium transition-all duration-300",
-              activeTab === 'prayers' ? "bg-app-accent text-app-bg" : "text-app-dim hover:text-app-text hover:bg-app-card-hover"
+              activeTab === "prayers"
+                ? "bg-app-accent text-app-bg"
+                : "text-app-dim hover:text-app-text hover:bg-app-card-hover",
             )}
           >
             <Bell size={16} className="lg:size-[18px]" />
             <span>Prayer Audio</span>
           </button>
 
-          <button 
-            onClick={() => setActiveTab('system')}
+          <button
+            onClick={() => setActiveTab("system")}
             className={cn(
               "flex-shrink-0 md:w-full flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-medium transition-all duration-300",
-              activeTab === 'system' ? "bg-app-accent text-app-bg" : "text-app-dim hover:text-app-text hover:bg-app-card-hover"
+              activeTab === "system"
+                ? "bg-app-accent text-app-bg"
+                : "text-app-dim hover:text-app-text hover:bg-app-card-hover",
             )}
           >
             <Cpu size={16} className="lg:size-[18px]" />
@@ -120,33 +149,39 @@ const ClientSettingsModal = ({ onClose }) => {
         <div className="flex-1 flex flex-col min-h-0">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-app-border">
-            <h2 className="text-xl font-bold text-app-text capitalize">{activeTab === 'prayers' ? 'Prayer Audio' : activeTab} Settings</h2>
-            <button onClick={onClose} className="p-2 text-app-dim hover:text-app-text transition-colors">
+            <h2 className="text-xl font-bold text-app-text capitalize">
+              {activeTab === "prayers" ? "Prayer Audio" : activeTab} Settings
+            </h2>
+            <button
+              onClick={onClose}
+              className="p-2 text-app-dim hover:text-app-text transition-colors"
+            >
               <X size={20} />
             </button>
           </div>
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-            
-            {activeTab === 'appearance' && (
+            {activeTab === "appearance" && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 {/* Clock Format */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-app-dim">
                     <Clock size={16} />
-                    <span className="text-xs font-bold uppercase tracking-wider">Clock Format</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                      Clock Format
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    {['12h', '24h'].map(format => (
+                    {["12h", "24h"].map((format) => (
                       <button
                         key={format}
-                        onClick={() => updateAppearance('clockFormat', format)}
+                        onClick={() => updateAppearance("clockFormat", format)}
                         className={cn(
                           "py-3 rounded-2xl border transition-all duration-300 font-medium",
                           preferences.appearance.clockFormat === format
                             ? "bg-app-accent/10 border-app-accent text-app-accent shadow-[0_0_15px_rgba(var(--accent-rgb),0.2)]"
-                            : "bg-app-card border-app-border text-app-dim hover:border-app-card-hover"
+                            : "bg-app-card border-app-border text-app-dim hover:border-app-card-hover",
                         )}
                       >
                         {format.toUpperCase()}
@@ -158,60 +193,95 @@ const ClientSettingsModal = ({ onClose }) => {
                 {/* Show Seconds */}
                 <div className="flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border">
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-app-text">Show Seconds</span>
-                    <span className="text-xs text-app-dim">Display seconds on the main clock</span>
+                    <span className="text-sm font-semibold text-app-text">
+                      Show Seconds
+                    </span>
+                    <span className="text-xs text-app-dim">
+                      Display seconds on the main clock
+                    </span>
                   </div>
                   <button
-                    onClick={() => updateAppearance('showSeconds', !preferences.appearance.showSeconds)}
+                    onClick={() =>
+                      updateAppearance(
+                        "showSeconds",
+                        !preferences.appearance.showSeconds,
+                      )
+                    }
                     className={cn(
                       "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                      preferences.appearance.showSeconds ? "bg-app-accent" : "bg-app-card-hover"
+                      preferences.appearance.showSeconds
+                        ? "bg-app-accent"
+                        : "bg-app-card-hover",
                     )}
                   >
-                    <span className={cn(
-                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
-                      preferences.appearance.showSeconds ? "translate-x-6" : "translate-x-1"
-                    )} />
+                    <span
+                      className={cn(
+                        "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                        preferences.appearance.showSeconds
+                          ? "translate-x-6"
+                          : "translate-x-1",
+                      )}
+                    />
                   </button>
                 </div>
 
                 <div className="flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border">
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-app-text">Date Navigation</span>
-                    <span className="text-xs text-app-dim">Enable swipe and arrow navigation between timetable days</span>
+                    <span className="text-sm font-semibold text-app-text">
+                      Date Navigation
+                    </span>
+                    <span className="text-xs text-app-dim">
+                      Enable swipe and arrow navigation between timetable days
+                    </span>
                   </div>
                   <button
-                    onClick={() => updateAppearance('enableDateNavigation', !preferences.appearance.enableDateNavigation)}
+                    onClick={() =>
+                      updateAppearance(
+                        "enableDateNavigation",
+                        !preferences.appearance.enableDateNavigation,
+                      )
+                    }
                     className={cn(
                       "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                      preferences.appearance.enableDateNavigation ? "bg-app-accent" : "bg-app-card-hover"
+                      preferences.appearance.enableDateNavigation
+                        ? "bg-app-accent"
+                        : "bg-app-card-hover",
                     )}
                   >
-                    <span className={cn(
-                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
-                      preferences.appearance.enableDateNavigation ? "translate-x-6" : "translate-x-1"
-                    )} />
+                    <span
+                      className={cn(
+                        "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                        preferences.appearance.enableDateNavigation
+                          ? "translate-x-6"
+                          : "translate-x-1",
+                      )}
+                    />
                   </button>
                 </div>
 
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-app-dim">
                     <Layout size={16} />
-                    <span className="text-xs font-bold uppercase tracking-wider">Prayer Name Language</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                      Prayer Name Language
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      { id: 'english', label: 'English' },
-                      { id: 'arabic', label: 'Arabic' }
-                    ].map(option => (
+                      { id: "english", label: "English" },
+                      { id: "arabic", label: "Arabic" },
+                    ].map((option) => (
                       <button
                         key={option.id}
-                        onClick={() => updateAppearance('prayerNameLanguage', option.id)}
+                        onClick={() =>
+                          updateAppearance("prayerNameLanguage", option.id)
+                        }
                         className={cn(
                           "py-3 rounded-2xl border transition-all duration-300 font-medium",
-                          preferences.appearance.prayerNameLanguage === option.id
+                          preferences.appearance.prayerNameLanguage ===
+                            option.id
                             ? "bg-app-accent/10 border-app-accent text-app-accent shadow-[0_0_15px_rgba(var(--accent-rgb),0.2)]"
-                            : "bg-app-card border-app-border text-app-dim hover:border-app-card-hover"
+                            : "bg-app-card border-app-border text-app-dim hover:border-app-card-hover",
                         )}
                       >
                         {option.label}
@@ -224,26 +294,32 @@ const ClientSettingsModal = ({ onClose }) => {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-app-dim">
                     <Timer size={16} />
-                    <span className="text-xs font-bold uppercase tracking-wider">Countdown Style</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                      Countdown Style
+                    </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
-                      { id: 'normal', label: 'Natural', desc: '1hr 30min' },
-                      { id: 'digital', label: 'Digital', desc: '01:30:00' },
-                      { id: 'minimal', label: 'Minimal', desc: 'Smart focus' }
-                    ].map(mode => (
+                      { id: "normal", label: "Natural", desc: "1hr 30min" },
+                      { id: "digital", label: "Digital", desc: "01:30:00" },
+                      { id: "minimal", label: "Minimal", desc: "Smart focus" },
+                    ].map((mode) => (
                       <button
                         key={mode.id}
-                        onClick={() => updateAppearance('countdownMode', mode.id)}
+                        onClick={() =>
+                          updateAppearance("countdownMode", mode.id)
+                        }
                         className={cn(
                           "p-4 rounded-2xl border transition-all duration-300 text-left flex flex-col gap-1",
                           preferences.appearance.countdownMode === mode.id
                             ? "bg-app-accent/10 border-app-accent text-app-accent"
-                            : "bg-app-card border-app-border text-app-dim hover:border-app-card-hover"
+                            : "bg-app-card border-app-border text-app-dim hover:border-app-card-hover",
                         )}
                       >
                         <span className="text-sm font-bold">{mode.label}</span>
-                        <span className="text-[10px] opacity-60 font-mono tracking-tighter">{mode.desc}</span>
+                        <span className="text-[10px] opacity-60 font-mono tracking-tighter">
+                          {mode.desc}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -253,21 +329,23 @@ const ClientSettingsModal = ({ onClose }) => {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-app-dim">
                     <Palette size={16} />
-                    <span className="text-xs font-bold uppercase tracking-wider">Visual Theme</span>
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                      Visual Theme
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      { id: 'dark', label: 'Night Mode' },
-                      { id: 'light', label: 'Day Mode' }
-                    ].map(theme => (
+                      { id: "dark", label: "Night Mode" },
+                      { id: "light", label: "Day Mode" },
+                    ].map((theme) => (
                       <button
                         key={theme.id}
-                        onClick={() => updateAppearance('theme', theme.id)}
+                        onClick={() => updateAppearance("theme", theme.id)}
                         className={cn(
                           "py-3 rounded-2xl border transition-all duration-300 font-medium",
                           preferences.appearance.theme === theme.id
                             ? "bg-app-accent/10 border-app-accent text-app-accent"
-                            : "bg-app-card border-app-border text-app-dim hover:border-app-card-hover"
+                            : "bg-app-card border-app-border text-app-dim hover:border-app-card-hover",
                         )}
                       >
                         {theme.label}
@@ -278,16 +356,16 @@ const ClientSettingsModal = ({ onClose }) => {
               </div>
             )}
 
-            {activeTab === 'prayers' && (
+            {activeTab === "prayers" && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex gap-2 mb-2">
-                  <button 
+                  <button
                     onClick={unmuteAll}
                     className="flex-1 py-3 px-4 rounded-2xl bg-app-bg/50 border border-app-border text-app-dim hover:text-app-text hover:bg-app-card-hover transition-all duration-300 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
                   >
                     <Volume2 size={14} /> Unmute All
                   </button>
-                  <button 
+                  <button
                     onClick={muteAll}
                     className="flex-1 py-3 px-4 rounded-2xl bg-app-bg/50 border border-app-border text-app-dim hover:text-app-text hover:bg-app-card-hover transition-all duration-300 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2"
                   >
@@ -296,82 +374,130 @@ const ClientSettingsModal = ({ onClose }) => {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr>
-                                <th className="text-left py-2 px-3 text-[10px] uppercase tracking-widest text-app-dim font-bold bg-app-bg/20 backdrop-blur rounded-tl-xl">Prayer</th>
-                                {events.map(e => (
-                                    <th key={e.id} className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-app-dim font-bold bg-app-bg/20 backdrop-blur">{e.label.split('-')[0]}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-app-border/50">
-                            {prayers.map(p => (
-                                <tr key={p.id}>
-                                    <td className="py-4 px-3 text-sm font-bold text-app-dim uppercase tracking-tighter">{p.label}</td>
-                                    {events.map(e => {
-                                        // Skip iqamah events for sunrise
-                                        if (p.id === 'sunrise' && (e.id === 'preIqamah' || e.id === 'iqamah')) {
-                                            return <td key={e.id} className="py-4 px-3 text-center text-app-dim opacity-10">—</td>;
-                                        }
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="text-left py-2 px-3 text-[10px] uppercase tracking-widest text-app-dim font-bold bg-app-bg/20 backdrop-blur rounded-tl-xl">
+                          Prayer
+                        </th>
+                        {events.map((e) => (
+                          <th
+                            key={e.id}
+                            className="text-center py-2 px-3 text-[10px] uppercase tracking-widest text-app-dim font-bold bg-app-bg/20 backdrop-blur"
+                          >
+                            {e.label.split("-")[0]}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-app-border/50">
+                      {prayers.map((p) => (
+                        <tr key={p.id}>
+                          <td className="py-4 px-3 text-sm font-bold text-app-dim uppercase tracking-tighter">
+                            {p.label}
+                          </td>
+                          {events.map((e) => {
+                            // Skip iqamah events for sunrise
+                            if (
+                              p.id === "sunrise" &&
+                              (e.id === "preIqamah" || e.id === "iqamah")
+                            ) {
+                              return (
+                                <td
+                                  key={e.id}
+                                  className="py-4 px-3 text-center text-app-dim opacity-10"
+                                >
+                                  —
+                                </td>
+                              );
+                            }
 
-                                        const isExcluded = isAudioExcluded(p.id, e.id);
-                                        
-                                        // Trigger Active Logic
-                                        const globalEnabled = config?.automation?.global?.enabled ?? true;
-                                        const eventTypeEnabled = config?.automation?.global?.[`${e.id}Enabled`] ?? true;
-                                        const triggerEnabled = config?.automation?.triggers?.[p.id]?.[e.id]?.enabled ?? false;
-                                        
-                                        const isActive = globalEnabled && eventTypeEnabled && triggerEnabled;
-                                        
-                                        let disabledReason = null;
-                                        if (!globalEnabled) disabledReason = "Automation is globally disabled";
-                                        else if (!eventTypeEnabled) disabledReason = `${e.label} events are disabled globally`;
-                                        else if (!triggerEnabled) disabledReason = `This automation is disabled system-wide`;
+                            const isExcluded = isAudioExcluded(p.id, e.id);
 
-                                        return (
-                                            <td key={e.id} className="py-4 px-3 text-center">
-                                                <div className="relative inline-block group">
-                                                    <button
-                                                        onClick={() => toggleAudioExclusion(p.id, e.id)}
-                                                        className={cn(
-                                                            "w-10 h-10 rounded-xl border flex items-center justify-center transition-all duration-300",
-                                                            isExcluded 
-                                                                ? "bg-app-card border-app-border text-app-dim opacity-50 hover:bg-app-card-hover" 
-                                                                : "bg-app-accent/20 border-app-accent/40 text-app-accent hover:bg-app-accent/30"
-                                                        )}
-                                                        title={isExcluded ? "Unmute on this device" : "Mute on this device"}
-                                                    >
-                                                        {isExcluded ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                                                    </button>
-                                                    
-                                                    {!isActive && (
-                                                        <div 
-                                                            className="absolute -top-1.5 -right-1.5 p-1 bg-amber-500 text-black rounded-full shadow-lg cursor-help z-10"
-                                                            title={disabledReason}
-                                                        >
-                                                            <AlertTriangle size={10} strokeWidth={3} />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            // Trigger Active Logic
+                            const globalEnabled =
+                              config?.automation?.global?.enabled ?? true;
+                            const eventTypeEnabled =
+                              config?.automation?.global?.[`${e.id}Enabled`] ??
+                              true;
+                            const triggerEnabled =
+                              config?.automation?.triggers?.[p.id]?.[e.id]
+                                ?.enabled ?? false;
+
+                            const isActive =
+                              globalEnabled &&
+                              eventTypeEnabled &&
+                              triggerEnabled;
+
+                            let disabledReason = null;
+                            if (!globalEnabled)
+                              disabledReason =
+                                "Automation is globally disabled";
+                            else if (!eventTypeEnabled)
+                              disabledReason = `${e.label} events are disabled globally`;
+                            else if (!triggerEnabled)
+                              disabledReason = `This automation is disabled system-wide`;
+
+                            return (
+                              <td key={e.id} className="py-4 px-3 text-center">
+                                <div className="relative inline-block group">
+                                  <button
+                                    onClick={() =>
+                                      toggleAudioExclusion(p.id, e.id)
+                                    }
+                                    className={cn(
+                                      "w-10 h-10 rounded-xl border flex items-center justify-center transition-all duration-300",
+                                      isExcluded
+                                        ? "bg-app-card border-app-border text-app-dim opacity-50 hover:bg-app-card-hover"
+                                        : "bg-app-accent/20 border-app-accent/40 text-app-accent hover:bg-app-accent/30",
+                                    )}
+                                    title={
+                                      isExcluded
+                                        ? "Unmute on this device"
+                                        : "Mute on this device"
+                                    }
+                                  >
+                                    {isExcluded ? (
+                                      <VolumeX size={16} />
+                                    ) : (
+                                      <Volume2 size={16} />
+                                    )}
+                                  </button>
+
+                                  {!isActive && (
+                                    <div
+                                      className="absolute -top-1.5 -right-1.5 p-1 bg-amber-500 text-black rounded-full shadow-lg cursor-help z-10"
+                                      title={disabledReason}
+                                    >
+                                      <AlertTriangle
+                                        size={10}
+                                        strokeWidth={3}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
 
-            {activeTab === 'system' && (
+            {activeTab === "system" && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 {/* Dashboard Tour */}
                 <div className="flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border">
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-app-text">Dashboard Tour</span>
-                    <span className="text-xs text-app-dim">Restart the guided dashboard tour</span>
+                    <span className="text-sm font-semibold text-app-text">
+                      Dashboard Tour
+                    </span>
+                    <span className="text-xs text-app-dim">
+                      Restart the guided dashboard tour
+                    </span>
                   </div>
                   <button
                     onClick={handleRestartDashboardTour}
@@ -384,69 +510,114 @@ const ClientSettingsModal = ({ onClose }) => {
                 {/* Target Dhuhr after Fajr */}
                 <div className="flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border">
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-app-text">Target Dhuhr after Fajr</span>
-                    <span className="text-xs text-app-dim">Skip Sunrise in the main dashboard countdown</span>
+                    <span className="text-sm font-semibold text-app-text">
+                      Target Dhuhr after Fajr
+                    </span>
+                    <span className="text-xs text-app-dim">
+                      Skip Sunrise in the main dashboard countdown
+                    </span>
                   </div>
                   <button
-                    onClick={() => updateAppearance('skipSunriseCountdown', !preferences.appearance.skipSunriseCountdown)}
+                    onClick={() =>
+                      updateAppearance(
+                        "skipSunriseCountdown",
+                        !preferences.appearance.skipSunriseCountdown,
+                      )
+                    }
                     className={cn(
                       "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                      preferences.appearance.skipSunriseCountdown ? "bg-app-accent" : "bg-app-card-hover"
+                      preferences.appearance.skipSunriseCountdown
+                        ? "bg-app-accent"
+                        : "bg-app-card-hover",
                     )}
                   >
-                    <span className={cn(
-                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
-                      preferences.appearance.skipSunriseCountdown ? "translate-x-6" : "translate-x-1"
-                    )} />
+                    <span
+                      className={cn(
+                        "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                        preferences.appearance.skipSunriseCountdown
+                          ? "translate-x-6"
+                          : "translate-x-1",
+                      )}
+                    />
                   </button>
                 </div>
 
                 {/* Wake Lock */}
-                <div className={cn(
-                  "flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border",
-                  !wakeLock.isSupported && "opacity-50 grayscale"
-                )}>
+                <div
+                  className={cn(
+                    "flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border",
+                    !wakeLock.isSupported && "opacity-50 grayscale",
+                  )}
+                >
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-app-text">Auto-enable Wake Lock</span>
+                    <span className="text-sm font-semibold text-app-text">
+                      Auto-enable Wake Lock
+                    </span>
                     <span className="text-xs text-app-dim">
-                      {wakeLock.isSupported 
-                        ? "Keep screen on automatically when dashboard loads" 
+                      {wakeLock.isSupported
+                        ? "Keep screen on automatically when dashboard loads"
                         : "Not supported (Requires HTTPS)"}
                     </span>
                   </div>
                   <button
                     disabled={!wakeLock.isSupported}
-                    onClick={() => updateAppearance('wakeLockAutoStart', !preferences.appearance.wakeLockAutoStart)}
+                    onClick={() =>
+                      updateAppearance(
+                        "wakeLockAutoStart",
+                        !preferences.appearance.wakeLockAutoStart,
+                      )
+                    }
                     className={cn(
                       "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                      preferences.appearance.wakeLockAutoStart ? "bg-app-accent" : "bg-app-card-hover",
-                      !wakeLock.isSupported && "cursor-not-allowed"
+                      preferences.appearance.wakeLockAutoStart
+                        ? "bg-app-accent"
+                        : "bg-app-card-hover",
+                      !wakeLock.isSupported && "cursor-not-allowed",
                     )}
                   >
-                    <span className={cn(
-                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
-                      preferences.appearance.wakeLockAutoStart ? "translate-x-6" : "translate-x-1"
-                    )} />
+                    <span
+                      className={cn(
+                        "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                        preferences.appearance.wakeLockAutoStart
+                          ? "translate-x-6"
+                          : "translate-x-1",
+                      )}
+                    />
                   </button>
                 </div>
 
                 {/* Auto Unmute */}
                 <div className="flex items-center justify-between p-4 bg-app-card/20 rounded-2xl border border-app-border">
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold text-app-text">Auto-unmute on Load</span>
-                    <span className="text-xs text-app-dim">Attempt to enable audio automatically when page loads</span>
+                    <span className="text-sm font-semibold text-app-text">
+                      Auto-unmute on Load
+                    </span>
+                    <span className="text-xs text-app-dim">
+                      Attempt to enable audio automatically when page loads
+                    </span>
                   </div>
                   <button
-                    onClick={() => updateAppearance('autoUnmute', !preferences.appearance.autoUnmute)}
+                    onClick={() =>
+                      updateAppearance(
+                        "autoUnmute",
+                        !preferences.appearance.autoUnmute,
+                      )
+                    }
                     className={cn(
                       "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                      preferences.appearance.autoUnmute ? "bg-app-accent" : "bg-app-card-hover"
+                      preferences.appearance.autoUnmute
+                        ? "bg-app-accent"
+                        : "bg-app-card-hover",
                     )}
                   >
-                    <span className={cn(
-                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
-                      preferences.appearance.autoUnmute ? "translate-x-6" : "translate-x-1"
-                    )} />
+                    <span
+                      className={cn(
+                        "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                        preferences.appearance.autoUnmute
+                          ? "translate-x-6"
+                          : "translate-x-1",
+                      )}
+                    />
                   </button>
                 </div>
               </div>

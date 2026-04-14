@@ -1,17 +1,22 @@
-import { useEffect, useState } from 'react';
-import { DateTime } from 'luxon';
+import { useEffect, useState } from "react";
+import { DateTime } from "luxon";
 
-const getNow = (timezone) => (timezone ? DateTime.now().setZone(timezone) : DateTime.now());
+const getNow = (timezone) =>
+  timezone ? DateTime.now().setZone(timezone) : DateTime.now();
 
 const getReferenceDate = (timezone) => getNow(timezone).toISODate();
 
 const getDelayUntilMidnight = (timezone) => {
   const now = getNow(timezone);
-  const nextMidnight = now.plus({ days: 1 }).startOf('day');
+  const nextMidnight = now.plus({ days: 1 }).startOf("day");
   return Math.max(1, Math.ceil(nextMidnight.diff(now).toMillis()));
 };
 
-export const useMidnightObserver = ({ timezone, initialReferenceDate, onMidnight } = {}) => {
+export const useMidnightObserver = ({
+  timezone,
+  initialReferenceDate,
+  onMidnight,
+} = {}) => {
   const [observedReferenceDate, setObservedReferenceDate] = useState(null);
 
   useEffect(() => {
@@ -39,7 +44,9 @@ export const useMidnightObserver = ({ timezone, initialReferenceDate, onMidnight
         return observedReferenceDate;
       }
 
-      return observedReferenceDate > initialReferenceDate ? observedReferenceDate : initialReferenceDate;
+      return observedReferenceDate > initialReferenceDate
+        ? observedReferenceDate
+        : initialReferenceDate;
     }
 
     return initialReferenceDate || getReferenceDate(timezone);

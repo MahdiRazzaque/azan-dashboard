@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Lock, ArrowLeft } from 'lucide-react';
+import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { Lock, ArrowLeft } from "lucide-react";
 
 /**
  * A view component that renders the login screen, allowing users to authenticate
@@ -10,48 +10,54 @@ import { Lock, ArrowLeft } from 'lucide-react';
  * @returns {JSX.Element} The rendered login view.
  */
 export default function LoginView() {
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     const result = await login(password);
     if (result.success) {
-      const from = location.state?.from?.pathname || '/settings';
+      const from = location.state?.from?.pathname || "/settings";
       navigate(from, { replace: true });
     } else {
-      setError(result.error || 'Invalid Password');
+      setError(result.error || "Invalid Password");
     }
   };
 
   return (
     <div className="flex flex-col h-screen w-full items-center justify-center bg-app-bg text-app-text p-4">
-      <Link 
-        to="/" 
+      <Link
+        to="/"
         className="mb-8 flex items-center gap-2 text-app-dim hover:text-app-text transition-colors group"
       >
-        <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
+        <ArrowLeft
+          size={18}
+          className="transition-transform group-hover:-translate-x-1"
+        />
         <span className="font-medium">Back to Dashboard</span>
       </Link>
 
-      <form onSubmit={handleLogin} className="w-full max-w-sm p-8 bg-app-card rounded-lg shadow-xl border border-app-border">
+      <form
+        onSubmit={handleLogin}
+        className="w-full max-w-sm p-8 bg-app-card rounded-lg shadow-xl border border-app-border"
+      >
         <div className="flex flex-col items-center mb-6">
-            <div className="p-3 bg-emerald-500/10 rounded-full mb-3">
-                <Lock className="w-8 h-8 text-emerald-500" />
-            </div>
-            <h2 className="text-2xl font-semibold">Admin Access</h2>
+          <div className="p-3 bg-emerald-500/10 rounded-full mb-3">
+            <Lock className="w-8 h-8 text-emerald-500" />
+          </div>
+          <h2 className="text-2xl font-semibold">Admin Access</h2>
         </div>
 
         {error && (
-            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded text-sm text-center">
-                {error}
-            </div>
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-500 rounded text-sm text-center">
+            {error}
+          </div>
         )}
-        
+
         <input
           type="password"
           value={password}
@@ -60,10 +66,10 @@ export default function LoginView() {
           className="w-full p-3 mb-4 bg-app-bg rounded border border-app-border focus:border-emerald-500 focus:outline-none transition-colors text-app-text"
           autoFocus
         />
-        
-        <button 
-            type="submit" 
-            className="w-full p-3 bg-emerald-600 hover:bg-emerald-500 rounded font-medium transition-colors text-app-text"
+
+        <button
+          type="submit"
+          className="w-full p-3 bg-emerald-600 hover:bg-emerald-500 rounded font-medium transition-colors text-app-text"
         >
           Unlock Settings
         </button>
