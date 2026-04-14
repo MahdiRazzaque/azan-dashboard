@@ -14,10 +14,10 @@ The recommended deployment is a single Docker container hosting all three compon
 
 Supervisord orchestrates two processes within the container:
 
-| Process        | Command              | Role                                         |
-| -------------- | -------------------- | -------------------------------------------- |
-| `node-app`     | `node src/server.js` | Express backend + serves React static build  |
-| `python-tts`   | `uvicorn server:app` | FastAPI TTS microservice on port 8000        |
+| Process      | Command              | Role                                        |
+| ------------ | -------------------- | ------------------------------------------- |
+| `node-app`   | `node src/server.js` | Express backend + serves React static build |
+| `python-tts` | `uvicorn server:app` | FastAPI TTS microservice on port 8000       |
 
 Both processes are configured with `autorestart=true`. If either crashes, Supervisord restarts it automatically.
 
@@ -25,12 +25,12 @@ Both processes are configured with `autorestart=true`. If either crashes, Superv
 
 To ensure data persistence across container rebuilds, the following paths **must** be mapped to the host:
 
-| Container Path               | Purpose                                    | Content                               |
-| ---------------------------- | ------------------------------------------ | ------------------------------------- |
-| `/app/config/`               | Configuration files                        | `local.json` (settings), `.env` (secrets) |
-| `/app/data/`                 | Prayer time cache                          | `cache.json`                          |
-| `/app/public/audio/custom/`  | User-uploaded custom audio files           | MP3/WAV/AAC/OGG/OPUS/FLAC/M4A files  |
-| `/app/public/audio/cache/`   | Generated TTS audio cache                  | Auto-generated audio + sidecar JSON   |
+| Container Path              | Purpose                          | Content                                   |
+| --------------------------- | -------------------------------- | ----------------------------------------- |
+| `/app/config/`              | Configuration files              | `local.json` (settings), `.env` (secrets) |
+| `/app/data/`                | Prayer time cache                | `cache.json`                              |
+| `/app/public/audio/custom/` | User-uploaded custom audio files | MP3/WAV/AAC/OGG/OPUS/FLAC/M4A files       |
+| `/app/public/audio/cache/`  | Generated TTS audio cache        | Auto-generated audio + sidecar JSON       |
 
 > **Note:** The `.env` file resides inside the `config/` directory in the container (`/app/config/.env`), enabling a single volume mapping for all configuration data.
 
@@ -38,10 +38,10 @@ To ensure data persistence across container rebuilds, the following paths **must
 
 For the system to play audio through the host's physical speakers (e.g., a Raspberry Pi connected to a mosque PA system), the container requires access to the ALSA sound device.
 
-| Setting         | Value                                            |
-| --------------- | ------------------------------------------------ |
-| Docker flag     | `--device /dev/snd`                              |
-| Compose overlay | `docker/docker-compose.audio.yml`                |
+| Setting         | Value                                                                                                      |
+| --------------- | ---------------------------------------------------------------------------------------------------------- |
+| Docker flag     | `--device /dev/snd`                                                                                        |
+| Compose overlay | `docker/docker-compose.audio.yml`                                                                          |
 | Constraint      | Linux hosts only (ALSA). Docker Desktop on Windows/macOS does not support hardware pass-through for audio. |
 
 **Standard setup** (no local audio):
@@ -129,13 +129,13 @@ Cloudflare buffers responses by default. Create a **Page Rule** for `yourdomain.
 
 ### 1. Authentication
 
-| Aspect              | Implementation                                                                         |
-| ------------------- | -------------------------------------------------------------------------------------- |
-| **Password Hashing**| `scrypt` (N=16384, r=8, p=1) with a random salt.                                      |
-| **JWT Signing**      | HMAC with a persistent 64-byte secret stored in `.env` (`JWT_SECRET`).                |
+| Aspect               | Implementation                                                                                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Password Hashing** | `scrypt` (N=16384, r=8, p=1) with a random salt.                                                                                                                                |
+| **JWT Signing**      | HMAC with a persistent 64-byte secret stored in `.env` (`JWT_SECRET`).                                                                                                          |
 | **Token Versioning** | Each JWT contains a `tokenVersion` claim checked on every request. Changing the admin password increments the server's version, immediately invalidating all existing sessions. |
-| **Cookie Flags**     | `HttpOnly`, `SameSite=Strict`, `Secure` (production). Prevents XSS and CSRF attacks.  |
-| **Session Duration** | 24 hours. No refresh token mechanism — the user must re-authenticate after expiry.     |
+| **Cookie Flags**     | `HttpOnly`, `SameSite=Strict`, `Secure` (production). Prevents XSS and CSRF attacks.                                                                                            |
+| **Session Duration** | 24 hours. No refresh token mechanism — the user must re-authenticate after expiry.                                                                                              |
 
 > **Upgrade Notice:** Deploying token versioning for the first time causes a one-time logout for all active users, as existing tokens lack the `tokenVersion` field.
 
@@ -143,13 +143,13 @@ Cloudflare buffers responses by default. Create a **Page Rule** for `yourdomain.
 
 The API implements five tiered rate limiters using `express-rate-limit`:
 
-| Tier            | Window     | Max Requests | Purpose                                                  |
-| --------------- | ---------- | ------------ | --------------------------------------------------------- |
-| **Security**    | 1 minute   | 20           | Blocks brute-force login attempts.                        |
-| **Operations**  | 10 seconds | 10           | Prevents abuse of resource-heavy actions (TTS, uploads).  |
-| **Global Read** | 10 seconds | 50           | Allows multiple dashboard screens to poll simultaneously. |
-| **Global Write**| 10 seconds | 10           | Limits configuration changes and mutations.               |
-| **SSE**         | 1 minute   | 50           | Limits new SSE connection creation rate.                  |
+| Tier             | Window     | Max Requests | Purpose                                                   |
+| ---------------- | ---------- | ------------ | --------------------------------------------------------- |
+| **Security**     | 1 minute   | 20           | Blocks brute-force login attempts.                        |
+| **Operations**   | 10 seconds | 10           | Prevents abuse of resource-heavy actions (TTS, uploads).  |
+| **Global Read**  | 10 seconds | 50           | Allows multiple dashboard screens to poll simultaneously. |
+| **Global Write** | 10 seconds | 10           | Limits configuration changes and mutations.               |
+| **SSE**          | 1 minute   | 50           | Limits new SSE connection creation rate.                  |
 
 All limiters are bypassed during automated testing (`NODE_ENV=test`) unless `FORCE_RATE_LIMIT` is set.
 
@@ -167,16 +167,16 @@ All configuration updates are validated against strict **Zod schemas** before be
 
 ### 4. File Upload Security
 
-| Check                  | Implementation                                                                         |
-| ---------------------- | -------------------------------------------------------------------------------------- |
-| **Extension filter**   | Only `.mp3`, `.wav`, `.aac`, `.ogg`, `.opus`, `.flac`, `.m4a` accepted.                |
-| **MIME type check**    | Must start with `audio/`.                                                              |
-| **Magic bytes**        | File content is validated via `audioValidator.analyseAudioFile()` after upload.         |
-| **Size limit**         | 10 MB maximum enforced by Multer.                                                      |
-| **File count limit**   | Maximum 500 custom files.                                                              |
+| Check                     | Implementation                                                                                        |
+| ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Extension filter**      | Only `.mp3`, `.wav`, `.aac`, `.ogg`, `.opus`, `.flac`, `.m4a` accepted.                               |
+| **MIME type check**       | Must start with `audio/`.                                                                             |
+| **Magic bytes**           | File content is validated via `audioValidator.analyseAudioFile()` after upload.                       |
+| **Size limit**            | 10 MB maximum enforced by Multer.                                                                     |
+| **File count limit**      | Maximum 500 custom files.                                                                             |
 | **Filename sanitisation** | Non-alphanumeric characters (except `.`) replaced with `_`. Path traversal (`..`, `/`, `\`) rejected. |
-| **Storage quota**      | `storageCheck` middleware rejects uploads when disk quota is exceeded.                  |
-| **Protected files**    | Metadata sidecar can mark files as `protected: true`, preventing deletion.             |
+| **Storage quota**         | `storageCheck` middleware rejects uploads when disk quota is exceeded.                                |
+| **Protected files**       | Metadata sidecar can mark files as `protected: true`, preventing deletion.                            |
 
 ### 5. DNS Rebinding Protection
 
@@ -212,13 +212,13 @@ Push to main
          Deployment
 ```
 
-| Stage              | Workflow File          | Trigger                | Description                                              |
-| ------------------ | ---------------------- | ---------------------- | -------------------------------------------------------- |
-| **Lint**           | `lint.yml`             | Push to `main`, PR to `main` | ESLint on Node.js 22.                              |
-| **Backend Tests**  | `src-tests.yml`        | Push to `main`, PR to `main` | Jest (`npm run test:src`).                         |
-| **Frontend Tests** | `client-tests.yml`     | Push to `main`, PR to `main` | Vitest (`npm run test:client`).                    |
-| **Docker Build**   | `docker-build.yml`     | After lint + tests pass, PR to `main` | Docker Buildx with GitHub Actions cache. Build verification only (no push). |
-| **Deployment**     | `deploy.yml`           | After Docker build, manual dispatch | SSH deployment to production instance(s).    |
+| Stage              | Workflow File      | Trigger                               | Description                                                                 |
+| ------------------ | ------------------ | ------------------------------------- | --------------------------------------------------------------------------- |
+| **Lint**           | `lint.yml`         | Push to `main`, PR to `main`          | ESLint on Node.js 22.                                                       |
+| **Backend Tests**  | `src-tests.yml`    | Push to `main`, PR to `main`          | Jest (`npm run test:src`).                                                  |
+| **Frontend Tests** | `client-tests.yml` | Push to `main`, PR to `main`          | Vitest (`npm run test:client`).                                             |
+| **Docker Build**   | `docker-build.yml` | After lint + tests pass, PR to `main` | Docker Buildx with GitHub Actions cache. Build verification only (no push). |
+| **Deployment**     | `deploy.yml`       | After Docker build, manual dispatch   | SSH deployment to production instance(s).                                   |
 
 ### Orchestration
 
@@ -255,22 +255,22 @@ The system broadcasts internal logs to the frontend via **Server-Sent Events** o
 
 The SSE stream emits three event types:
 
-| Event             | Purpose                                                           |
-| ----------------- | ----------------------------------------------------------------- |
-| `LOG`             | General system log messages with level and timestamp.             |
-| `AUDIO_PLAY`      | Signal to browser clients to play a specific audio URL.           |
-| `PROCESS_UPDATE`  | Progress updates during long-running operations.                  |
+| Event            | Purpose                                                 |
+| ---------------- | ------------------------------------------------------- |
+| `LOG`            | General system log messages with level and timestamp.   |
+| `AUDIO_PLAY`     | Signal to browser clients to play a specific audio URL. |
+| `PROCESS_UPDATE` | Progress updates during long-running operations.        |
 
 ### Health Checks
 
 The `GET /api/system/health` endpoint provides a JSON status of critical subsystems:
 
-| Component          | What It Checks                                                          |
-| ------------------ | ----------------------------------------------------------------------- |
-| **Local Audio**    | Whether `mpg123` is installed and `/dev/snd` is accessible.             |
-| **TTS Service**    | Pings the Python FastAPI microservice on port 8000.                     |
+| Component          | What It Checks                                                              |
+| ------------------ | --------------------------------------------------------------------------- |
+| **Local Audio**    | Whether `mpg123` is installed and `/dev/snd` is accessible.                 |
+| **TTS Service**    | Pings the Python FastAPI microservice on port 8000.                         |
 | **Primary Source** | Verifies connectivity to the configured primary prayer API (e.g., Aladhan). |
-| **Backup Source**  | Verifies connectivity to the backup prayer API (if configured).         |
+| **Backup Source**  | Verifies connectivity to the backup prayer API (if configured).             |
 
 Individual health checks can be toggled on or off via `POST /api/system/health/toggle` without restarting the server.
 
@@ -292,31 +292,31 @@ The backend uses **Winston** (`@utils/logger`) for structured logging. Direct `c
 
 ### Caching Strategy
 
-| Layer                | Strategy                                                                                        |
-| -------------------- | ----------------------------------------------------------------------------------------------- |
-| **Prayer Data**      | Fetched once per year (Aladhan) or in bulk (MyMasjid) and cached to `data/cache.json`. Eliminates daily API latency. Stale data detection triggers automatic refresh after a configurable number of days. |
-| **Audio Assets**     | TTS files are generated once and reused until the template text or voice changes. The system uses file metadata to manage the cache. |
-| **Audio File List**  | In-memory cache with a 60-second TTL. File metadata is pre-loaded and paginated from cache.     |
-| **Voice List**       | TTS voice catalogue is cached in-memory by `voiceService` after initial fetch from the Python microservice. |
-| **API Responses**    | All `/api/*` responses include `no-cache` headers to prevent stale data on kiosk displays.      |
+| Layer               | Strategy                                                                                                                                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Prayer Data**     | Fetched once per year (Aladhan) or in bulk (MyMasjid) and cached to `data/cache.json`. Eliminates daily API latency. Stale data detection triggers automatic refresh after a configurable number of days. |
+| **Audio Assets**    | TTS files are generated once and reused until the template text or voice changes. The system uses file metadata to manage the cache.                                                                      |
+| **Audio File List** | In-memory cache with a 60-second TTL. File metadata is pre-loaded and paginated from cache.                                                                                                               |
+| **Voice List**      | TTS voice catalogue is cached in-memory by `voiceService` after initial fetch from the Python microservice.                                                                                               |
+| **API Responses**   | All `/api/*` responses include `no-cache` headers to prevent stale data on kiosk displays.                                                                                                                |
 
 ### Debouncing and Deduplication
 
-| Mechanism              | Description                                                                                   |
-| ---------------------- | --------------------------------------------------------------------------------------------- |
-| **Automation triggers**| Each event (e.g., Fajr Adhan) triggers only once per day, preventing double-playback if the scheduler re-evaluates. |
-| **Frontend polling**   | The dashboard polls for status updates every 10 seconds but immediately backs off upon receiving a `429 Too Many Requests` response. |
+| Mechanism                  | Description                                                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Automation triggers**    | Each event (e.g., Fajr Adhan) triggers only once per day, preventing double-playback if the scheduler re-evaluates.                                          |
+| **Frontend polling**       | The dashboard polls for status updates every 10 seconds but immediately backs off upon receiving a `429 Too Many Requests` response.                         |
 | **File system operations** | `systemController` uses **Bottleneck** to limit concurrent file system operations to 50, preventing EMFILE errors and memory spikes during audio file scans. |
 
 ### Resource Constraints
 
-| Resource        | Limit                                                                      |
-| --------------- | -------------------------------------------------------------------------- |
-| Upload size     | 10 MB per file (Multer).                                                   |
-| File count      | 500 custom audio files maximum.                                            |
-| Storage quota   | Configurable (default 1.0 GB), checked before uploads.                     |
-| TTS template    | 50 characters maximum.                                                     |
-| URL validation  | 5-second timeout, 5 MB max response size.                                  |
+| Resource       | Limit                                                  |
+| -------------- | ------------------------------------------------------ |
+| Upload size    | 10 MB per file (Multer).                               |
+| File count     | 500 custom audio files maximum.                        |
+| Storage quota  | Configurable (default 1.0 GB), checked before uploads. |
+| TTS template   | 50 characters maximum.                                 |
+| URL validation | 5-second timeout, 5 MB max response size.              |
 
 ### Startup Sequence
 

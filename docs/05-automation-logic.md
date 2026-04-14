@@ -37,12 +37,12 @@ On server startup (after the prayer cache is populated), the scheduler:
 
 The scheduler iterates through every prayer (Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha) and every configured trigger event (Pre-Adhan, Adhan, Pre-Iqamah, Iqamah):
 
-| Event | Time Calculation |
-| :--- | :--- |
-| **Adhan** | Exact prayer start time from the provider |
-| **Pre-Adhan** | Prayer start time **minus** `offsetMinutes` (configurable 0–60 minutes) |
-| **Iqamah** | Calculated via offset + rounding, or a fixed time override |
-| **Pre-Iqamah** | Iqamah time **minus** `offsetMinutes` |
+| Event          | Time Calculation                                                        |
+| :------------- | :---------------------------------------------------------------------- |
+| **Adhan**      | Exact prayer start time from the provider                               |
+| **Pre-Adhan**  | Prayer start time **minus** `offsetMinutes` (configurable 0–60 minutes) |
+| **Iqamah**     | Calculated via offset + rounding, or a fixed time override              |
+| **Pre-Iqamah** | Iqamah time **minus** `offsetMinutes`                                   |
 
 > [!NOTE]
 > Sunrise supports only **Pre-Adhan** and **Adhan** events. It has no Iqamah.
@@ -89,19 +89,19 @@ The system supports complex rules for determining the congregation time for each
 
 ### Calculation Modes
 
-| Mode | Description | Example |
-| :--- | :--- | :--- |
-| **Dynamic Offset** | Prayer start time + configured offset | Maghrib at 18:03 + 10 minutes = 18:13 |
-| **Fixed Time** | Hardcoded time (ignores sun position) | Isha fixed at 20:00 |
+| Mode                  | Description                            | Example                                 |
+| :-------------------- | :------------------------------------- | :-------------------------------------- |
+| **Dynamic Offset**    | Prayer start time + configured offset  | Maghrib at 18:03 + 10 minutes = 18:13   |
+| **Fixed Time**        | Hardcoded time (ignores sun position)  | Isha fixed at 20:00                     |
 | **Provider Override** | Uses the provider's native Iqamah time | MyMasjid provides its own Iqamah values |
 
 ### Rounding
 
 When using **Dynamic Offset**, the calculated result is rounded **up** to the next configured interval:
 
-| `roundTo` | Calculation | Result |
-| :--- | :--- | :--- |
-| 5 minutes | 18:03 + 10 = 18:13 | **18:15** |
+| `roundTo`  | Calculation        | Result    |
+| :--------- | :----------------- | :-------- |
+| 5 minutes  | 18:03 + 10 = 18:13 | **18:15** |
 | 10 minutes | 18:03 + 10 = 18:13 | **18:20** |
 | 15 minutes | 18:03 + 10 = 18:13 | **18:15** |
 
@@ -121,22 +121,22 @@ When a scheduled job fires, the automation service executes the following pipeli
 
 The system determines **what** to play based on the trigger's `type` configuration:
 
-| Type | Resolution | Location |
-| :--- | :--- | :--- |
-| **`tts`** | Resolves the TTS template to a cached audio file | `public/audio/cache/` |
-| **`file`** | Resolves the path to a user-uploaded MP3 | `public/audio/custom/` |
-| **`url`** | Uses the provided external URL directly | Remote HTTP(S) |
+| Type       | Resolution                                       | Location               |
+| :--------- | :----------------------------------------------- | :--------------------- |
+| **`tts`**  | Resolves the TTS template to a cached audio file | `public/audio/cache/`  |
+| **`file`** | Resolves the path to a user-uploaded MP3         | `public/audio/custom/` |
+| **`url`**  | Uses the provided external URL directly          | Remote HTTP(S)         |
 
 #### TTS Template Resolution
 
 TTS templates contain placeholder variables that are resolved at generation time:
 
-| Placeholder | Resolved Value | Example |
-| :--- | :--- | :--- |
-| `{prayer}` | English prayer name | `Fajr` |
-| `{prayerArabic}` | Arabic prayer name | `الفجر` |
-| `{prayerEnglish}` | English prayer name (alias) | `Fajr` |
-| `{minutes}` | Minutes until the event | `15` |
+| Placeholder       | Resolved Value              | Example |
+| :---------------- | :-------------------------- | :------ |
+| `{prayer}`        | English prayer name         | `Fajr`  |
+| `{prayerArabic}`  | Arabic prayer name          | `الفجر` |
+| `{prayerEnglish}` | English prayer name (alias) | `Fajr`  |
+| `{minutes}`       | Minutes until the event     | `15`    |
 
 **Example:** The template `"{minutes} minutes till {prayerArabic}"` resolves to `"15 minutes till الفجر"` for a Pre-Adhan event with a 15-minute offset.
 
@@ -146,11 +146,11 @@ Audio is dispatched to one or more targets simultaneously using the polymorphic 
 
 #### Built-in Strategies
 
-| Target | Mechanism | Requirements |
-| :--- | :--- | :--- |
-| **Local** | Executes `mpg123` to play audio on the server's physical speakers (3.5mm / HDMI) | Linux with ALSA. Docker: `--device /dev/snd` |
-| **Browser** | Broadcasts an `AUDIO_PLAY` SSE event to all connected dashboard clients | Always implicitly enabled (no configuration required) |
-| **VoiceMonkey** | Sends an HTTP request to the VoiceMonkey API, which triggers Alexa announcements | HTTPS `BASE_URL`, valid API token, device ID |
+| Target          | Mechanism                                                                        | Requirements                                          |
+| :-------------- | :------------------------------------------------------------------------------- | :---------------------------------------------------- |
+| **Local**       | Executes `mpg123` to play audio on the server's physical speakers (3.5mm / HDMI) | Linux with ALSA. Docker: `--device /dev/snd`          |
+| **Browser**     | Broadcasts an `AUDIO_PLAY` SSE event to all connected dashboard clients          | Always implicitly enabled (no configuration required) |
+| **VoiceMonkey** | Sends an HTTP request to the VoiceMonkey API, which triggers Alexa announcements | HTTPS `BASE_URL`, valid API token, device ID          |
 
 #### Execution Flow
 
@@ -172,32 +172,32 @@ automationService.triggerEvent()
 
 Each output strategy can have a configurable `leadTimeMs` (range: −30,000 to +30,000 milliseconds). This adjusts the trigger time relative to the scheduled event:
 
-- **Positive value:** Triggers the output *earlier* (e.g., +5000ms means the audio starts 5 seconds before the scheduled time).
-- **Negative value:** Triggers the output *later*.
+- **Positive value:** Triggers the output _earlier_ (e.g., +5000ms means the audio starts 5 seconds before the scheduled time).
+- **Negative value:** Triggers the output _later_.
 - **Use case:** VoiceMonkey has inherent cloud API latency. A positive lead time compensates for this delay so the announcement arrives on time.
 
 #### Strategy Self-Containment
 
 Each output strategy is fully self-contained and defines its own:
 
-| Capability | Description |
-| :--- | :--- |
-| **Health Checks** | Verifies hardware presence (e.g., `/dev/snd`) or API connectivity |
-| **Configuration** | Manages specific parameters (tokens, device IDs) with sensitivity flags |
-| **Asset Validation** | Checks audio file compatibility (e.g., VoiceMonkey bitrate/duration constraints) |
-| **Safety Constraints** | Enforces execution timeouts and lead-time limits |
+| Capability             | Description                                                                      |
+| :--------------------- | :------------------------------------------------------------------------------- |
+| **Health Checks**      | Verifies hardware presence (e.g., `/dev/snd`) or API connectivity                |
+| **Configuration**      | Manages specific parameters (tokens, device IDs) with sensitivity flags          |
+| **Asset Validation**   | Checks audio file compatibility (e.g., VoiceMonkey bitrate/duration constraints) |
+| **Safety Constraints** | Enforces execution timeouts and lead-time limits                                 |
 
 ### 3. VoiceMonkey Audio Constraints
 
 Alexa (via VoiceMonkey) enforces strict requirements on audio files. The system automatically validates all audio and stores compatibility metadata in sidecar JSON files:
 
-| Constraint | Requirement |
-| :--- | :--- |
-| **Format** | MP3 |
-| **Bitrate** | Maximum 48 kbps |
+| Constraint      | Requirement                        |
+| :-------------- | :--------------------------------- |
+| **Format**      | MP3                                |
+| **Bitrate**     | Maximum 48 kbps                    |
 | **Sample Rate** | 16,000 Hz, 22,050 Hz, or 24,000 Hz |
-| **File Size** | Maximum 10 MB |
-| **Duration** | Maximum 90 seconds |
+| **File Size**   | Maximum 10 MB                      |
+| **Duration**    | Maximum 90 seconds                 |
 
 If a file violates these constraints, the system skips the VoiceMonkey target for that trigger and logs a warning:
 
@@ -216,16 +216,16 @@ The Python TTS microservice generates natural-sounding speech audio using Micros
 
 ### Microservice Endpoints
 
-| Method | Endpoint | Purpose |
-| :--- | :--- | :--- |
-| `GET` | `/voices` | Returns the list of available TTS voices (cached by the backend) |
-| `POST` | `/generate-tts` | Generates an MP3 file from text and voice parameters |
-| `POST` | `/preview-tts` | Generates a temporary preview MP3 (cleaned up automatically) |
+| Method | Endpoint        | Purpose                                                          |
+| :----- | :-------------- | :--------------------------------------------------------------- |
+| `GET`  | `/voices`       | Returns the list of available TTS voices (cached by the backend) |
+| `POST` | `/generate-tts` | Generates an MP3 file from text and voice parameters             |
+| `POST` | `/preview-tts`  | Generates a temporary preview MP3 (cleaned up automatically)     |
 
 ### TTS Generation Workflow
 
 ![Configuration Save Lifecycle Sequence](./images/save-lifecycle-sequence.png)
-*Figure 1: The settings save lifecycle, including TTS audio synchronisation.*
+_Figure 1: The settings save lifecycle, including TTS audio synchronisation._
 
 #### Trigger Conditions
 
@@ -249,15 +249,15 @@ TTS generation is triggered when:
 
 Every audio file (both uploaded and generated) has a companion `.json` metadata file stored in `src/public/audio/` (a non-publicly-served directory). This metadata includes:
 
-| Field | Description |
-| :--- | :--- |
-| `duration` | Audio length in seconds |
-| `bitrate` | Audio bitrate in kbps |
-| `sampleRate` | Sample rate in Hz |
-| `mimeType` | Detected MIME type |
-| `voiceMonkeyCompatible` | Boolean indicating Alexa compatibility |
-| `issues` | Array of compatibility issue descriptions |
-| `lastChecked` | ISO timestamp of the last validation |
+| Field                   | Description                               |
+| :---------------------- | :---------------------------------------- |
+| `duration`              | Audio length in seconds                   |
+| `bitrate`               | Audio bitrate in kbps                     |
+| `sampleRate`            | Sample rate in Hz                         |
+| `mimeType`              | Detected MIME type                        |
+| `voiceMonkeyCompatible` | Boolean indicating Alexa compatibility    |
+| `issues`                | Array of compatibility issue descriptions |
+| `lastChecked`           | ISO timestamp of the last validation      |
 
 ---
 

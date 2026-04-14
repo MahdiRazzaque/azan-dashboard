@@ -4,14 +4,14 @@ This guide covers all prerequisites, environment configuration, and deployment o
 
 ## Prerequisites
 
-| Requirement | Docker Deployment | Manual Deployment |
-| :--- | :--- | :--- |
-| **Docker Engine** | v20+ with Compose v2 | Not required |
-| **Node.js** | Not required (bundled) | v22.0.0 or higher |
-| **Python** | Not required (bundled) | v3.11+ (for TTS microservice) |
-| **mpg123** | Not required (bundled) | Required for local audio playback (Linux/macOS) |
-| **ALSA utilities** | Not required (bundled) | Required for local audio on Linux |
-| **Operating System** | Any (Linux recommended for local audio) | Any (Linux recommended for local audio) |
+| Requirement          | Docker Deployment                       | Manual Deployment                               |
+| :------------------- | :-------------------------------------- | :---------------------------------------------- |
+| **Docker Engine**    | v20+ with Compose v2                    | Not required                                    |
+| **Node.js**          | Not required (bundled)                  | v22.0.0 or higher                               |
+| **Python**           | Not required (bundled)                  | v3.11+ (for TTS microservice)                   |
+| **mpg123**           | Not required (bundled)                  | Required for local audio playback (Linux/macOS) |
+| **ALSA utilities**   | Not required (bundled)                  | Required for local audio on Linux               |
+| **Operating System** | Any (Linux recommended for local audio) | Any (Linux recommended for local audio)         |
 
 ## Environment Configuration
 
@@ -19,20 +19,20 @@ The application uses environment variables for sensitive configuration. Secrets 
 
 ### Environment Variables
 
-| Variable | Description | Default | Set By |
-| :--- | :--- | :--- | :--- |
-| `PORT` | HTTP port for the dashboard | `3000` | Manual |
-| `BASE_URL` | External HTTPS URL for VoiceMonkey and remote access | *None* | UI / Manual |
-| `ADMIN_PASSWORD` | Scrypt-hashed admin password | *None* | Setup Wizard |
-| `JWT_SECRET` | 64-byte secret for signing session tokens | *Auto-generated* | Startup |
-| `ENCRYPTION_SALT` | 32-byte salt for AES-256-GCM config encryption | *Auto-generated* | Startup |
-| `PYTHON_SERVICE_URL` | URL of the TTS microservice | `http://localhost:8000` | Manual |
-| `VOICEMONKEY_TOKEN` | API token for VoiceMonkey (Alexa integration) | *None* | UI |
-| `VOICEMONKEY_DEVICE` | Device ID for VoiceMonkey | *None* | UI |
-| `DOTENV_CONFIG_QUIET` | Suppresses dotenv warnings when `.env` is absent | `true` | Manual |
-| `ENV_FILE_PATH` | Override path for the `.env` file | *None* (defaults to project root) | Docker |
-| `LOCAL_CONFIG_PATH` | Override path for the `local.json` config file | *None* (defaults to `src/config/`) | Docker |
-| `TZ` | Timezone for the container (does **not** affect prayer calculations) | `UTC` | Docker Compose |
+| Variable              | Description                                                          | Default                            | Set By         |
+| :-------------------- | :------------------------------------------------------------------- | :--------------------------------- | :------------- |
+| `PORT`                | HTTP port for the dashboard                                          | `3000`                             | Manual         |
+| `BASE_URL`            | External HTTPS URL for VoiceMonkey and remote access                 | _None_                             | UI / Manual    |
+| `ADMIN_PASSWORD`      | Scrypt-hashed admin password                                         | _None_                             | Setup Wizard   |
+| `JWT_SECRET`          | 64-byte secret for signing session tokens                            | _Auto-generated_                   | Startup        |
+| `ENCRYPTION_SALT`     | 32-byte salt for AES-256-GCM config encryption                       | _Auto-generated_                   | Startup        |
+| `PYTHON_SERVICE_URL`  | URL of the TTS microservice                                          | `http://localhost:8000`            | Manual         |
+| `VOICEMONKEY_TOKEN`   | API token for VoiceMonkey (Alexa integration)                        | _None_                             | UI             |
+| `VOICEMONKEY_DEVICE`  | Device ID for VoiceMonkey                                            | _None_                             | UI             |
+| `DOTENV_CONFIG_QUIET` | Suppresses dotenv warnings when `.env` is absent                     | `true`                             | Manual         |
+| `ENV_FILE_PATH`       | Override path for the `.env` file                                    | _None_ (defaults to project root)  | Docker         |
+| `LOCAL_CONFIG_PATH`   | Override path for the `local.json` config file                       | _None_ (defaults to `src/config/`) | Docker         |
+| `TZ`                  | Timezone for the container (does **not** affect prayer calculations) | `UTC`                              | Docker Compose |
 
 > [!NOTE]
 > `JWT_SECRET` and `ENCRYPTION_SALT` are auto-generated on first startup if not present. The Setup Wizard automatically hashes the admin password and writes it to `.env`. There is no need to set these manually.
@@ -111,24 +111,24 @@ Open your browser at `http://localhost:3000` (or your configured `APP_PORT`). Yo
 
 #### Volume Mapping Summary
 
-| Host Path | Container Path | Purpose |
-| :--- | :--- | :--- |
-| `./config/` | `/app/config/` | `local.json` (settings) and `.env` (secrets) |
-| `./data/` | `/app/data/` | Prayer time cache (`cache.json`) |
-| `./public/audio/custom/` | `/app/public/audio/custom/` | User-uploaded MP3 files |
-| `./public/audio/cache/` | `/app/public/audio/cache/` | Generated TTS audio files |
+| Host Path                | Container Path              | Purpose                                      |
+| :----------------------- | :-------------------------- | :------------------------------------------- |
+| `./config/`              | `/app/config/`              | `local.json` (settings) and `.env` (secrets) |
+| `./data/`                | `/app/data/`                | Prayer time cache (`cache.json`)             |
+| `./public/audio/custom/` | `/app/public/audio/custom/` | User-uploaded MP3 files                      |
+| `./public/audio/cache/`  | `/app/public/audio/cache/`  | Generated TTS audio files                    |
 
 #### Docker Environment Variables
 
 The following environment variables are set inside the container by the Dockerfile:
 
-| Variable | Value | Purpose |
-| :--- | :--- | :--- |
-| `NODE_ENV` | `production` | Enables production optimisations |
-| `PORT` | `3000` | Internal application port |
-| `PYTHON_SERVICE_URL` | `http://localhost:8000` | TTS microservice address (same container) |
-| `ENV_FILE_PATH` | `/app/config/.env` | Redirects `.env` to the mapped volume |
-| `LOCAL_CONFIG_PATH` | `/app/config/local.json` | Redirects config to the mapped volume |
+| Variable             | Value                    | Purpose                                   |
+| :------------------- | :----------------------- | :---------------------------------------- |
+| `NODE_ENV`           | `production`             | Enables production optimisations          |
+| `PORT`               | `3000`                   | Internal application port                 |
+| `PYTHON_SERVICE_URL` | `http://localhost:8000`  | TTS microservice address (same container) |
+| `ENV_FILE_PATH`      | `/app/config/.env`       | Redirects `.env` to the mapped volume     |
+| `LOCAL_CONFIG_PATH`  | `/app/config/local.json` | Redirects config to the mapped volume     |
 
 ---
 
@@ -188,7 +188,7 @@ Edit `.env` to configure `PORT` and `BASE_URL` as needed.
 
 You need to run the Node.js server and Python TTS service simultaneously.
 
-*Terminal 1 — Python TTS:*
+_Terminal 1 — Python TTS:_
 
 ```bash
 cd src/microservices/tts
@@ -196,7 +196,7 @@ source venv/bin/activate
 python server.py
 ```
 
-*Terminal 2 — Node.js Backend:*
+_Terminal 2 — Node.js Backend:_
 
 ```bash
 npm start
@@ -218,9 +218,9 @@ To run with hot-reloading for both backend and frontend simultaneously:
 npm run dev
 ```
 
-| Component | Port | Tool | Details |
-| :--- | :--- | :--- | :--- |
-| **Backend** | `3000` | Nodemon | Watches `src/` for changes, auto-restarts |
+| Component    | Port   | Tool            | Details                                                             |
+| :----------- | :----- | :-------------- | :------------------------------------------------------------------ |
+| **Backend**  | `3000` | Nodemon         | Watches `src/` for changes, auto-restarts                           |
 | **Frontend** | `5173` | Vite dev server | Hot Module Replacement (HMR). Proxies `/api` requests to port 3000. |
 
 The `npm run dev` command uses `concurrently` to launch both services. You can also run them independently:
@@ -234,15 +234,15 @@ npm run client:dev    # Frontend only (Vite)
 
 1. Ensure the frontend is built:
 
-    ```bash
-    cd client && npm run build && cd ..
-    ```
+   ```bash
+   cd client && npm run build && cd ..
+   ```
 
 2. Start the server:
 
-    ```bash
-    npm start
-    ```
+   ```bash
+   npm start
+   ```
 
 3. Access the dashboard at `http://localhost:3000`.
 
