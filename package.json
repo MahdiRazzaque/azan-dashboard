@@ -22,7 +22,7 @@
     "lint": "eslint . --config .config/eslint.config.mjs",
     "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
     "docker:build": "docker-compose -f docker/docker-compose.yml build",
-    "prepare": "husky"
+    "prepare": "[ -f node_modules/.bin/husky ] && husky || true"
   },
   "keywords": [
     "azan",
