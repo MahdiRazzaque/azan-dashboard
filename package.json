@@ -67,7 +67,7 @@
   "lint-staged": {
     "src/**/*.js": [
       "eslint --fix --config .config/eslint.config.mjs",
-      "jest --config .config/jest.config.js --findRelatedTests --testPathPattern=unit --passWithNoTests --forceExit"
+      "jest --config .config/jest.config.js --findRelatedTests --testPathPatterns=unit --passWithNoTests --forceExit"
     ],
     "client/src/**/*.{js,jsx}": [
       "eslint --fix --config .config/eslint.config.mjs",
