@@ -19,6 +19,8 @@
     "server:dev": "nodemon --config .config/nodemon.json src/server.js",
     "client:dev": "cd client && npm run dev",
     "client:install": "cd client && npm install",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "lint": "eslint . --config .config/eslint.config.mjs",
     "knip": "knip --config .config/knip.json",
     "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
@@ -99,6 +101,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.26",
+    "gitnexus": "^1.6.1",
     "globals": "^17.0.0",
     "happy-dom": "^20.8.9",
     "husky": "^9.1.7",
@@ -106,6 +109,8 @@
     "jsdom": "^27.4.0",
     "knip": "^6.4.1",
     "lint-staged": "^16.4.0",
+    "madge": "^8.0.0",
+    "prettier": "^3.8.2",
     "supertest": "^7.2.2",
     "vitest": "^4.0.18"
   }
