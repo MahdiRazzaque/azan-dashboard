@@ -17,7 +17,17 @@ class MigrationService {
      * @param {() => Array<{strategyId: string, key: string}>} resolver - The resolver function.
      */
     setOutputSecretKeysResolver(resolver) {
+        if (typeof resolver !== 'function') {
+            throw new TypeError('[MigrationService] setOutputSecretKeysResolver() expects a function.');
+        }
         this._outputSecretKeysResolver = resolver;
+    }
+
+    /**
+     * Resets the singleton state. Used primarily for testing.
+     */
+    reset() {
+        this._outputSecretKeysResolver = null;
     }
 
     /**

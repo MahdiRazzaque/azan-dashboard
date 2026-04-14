@@ -63,6 +63,9 @@ class ConfigService {
      * @param {(id: string) => Object} resolver - The resolver function.
      */
     setOutputStrategyResolver(resolver) {
+        if (typeof resolver !== 'function') {
+            throw new TypeError('[ConfigService] setOutputStrategyResolver() expects a function.');
+        }
         this._outputStrategyResolver = resolver;
     }
 
@@ -71,6 +74,9 @@ class ConfigService {
      * @param {() => Array<{strategyId: string, key: string}>} resolver - The resolver function.
      */
     setOutputSecretKeysResolver(resolver) {
+        if (typeof resolver !== 'function') {
+            throw new TypeError('[ConfigService] setOutputSecretKeysResolver() expects a function.');
+        }
         this._outputSecretKeysResolver = resolver;
     }
 
@@ -83,6 +89,7 @@ class ConfigService {
         this._isSaving = false;
         this._outputStrategyResolver = null;
         this._outputSecretKeysResolver = null;
+        migrationService.reset();
     }
 
     /**
@@ -545,7 +552,7 @@ class ConfigService {
             if (process.env.BASE_URL) delete config.automation.baseUrl;
             if (process.env.PYTHON_SERVICE_URL) delete config.automation.pythonServiceUrl;
             
-                    // [Dynamic Output Secrets]
+            // [Dynamic Output Secrets]
             if (!this._outputSecretKeysResolver) {
                 throw new Error('[ConfigService] Output secret keys resolver not wired. Call setOutputSecretKeysResolver() before init().');
             }
@@ -613,36 +620,36 @@ class ConfigService {
             if (!this._outputStrategyResolver) {
                 throw new Error('[ConfigService] Output strategy resolver not wired. Call setOutputStrategyResolver() before init().');
             }
-                for (const [id, outputConfig] of Object.entries(obj.automation.outputs)) {
-                    try {
-                        const strategy = this._outputStrategyResolver(id);
-                        const metadata = strategy.constructor.getMetadata();
-                        const sensitiveKeys = metadata.params?.filter(p => p.sensitive).map(p => p.key) || [];
-                        
-                        if (outputConfig.params) {
-                            for (const sKey of sensitiveKeys) {
-                                const val = outputConfig.params[sKey];
-                                if (val && typeof val === 'string') {
-                                    if (action === 'encrypt') {
-                                        // Only encrypt if it's not already encrypted and not masked
-                                        if (!val.includes(':') && !encryption.isMasked(val)) {
-                                            outputConfig.params[sKey] = await encryption.encrypt(val, key);
-                                        }
-                                    } else {
-                                        // Decrypt if it looks like encrypted data
-                                        if (val.includes(':')) {
-                                            try {
-                                                outputConfig.params[sKey] = await encryption.decrypt(val, key);
-                                            } catch {
-                                                // Decryption failed (wrong key or corrupted), keep as is
-                                            }
+            for (const [id, outputConfig] of Object.entries(obj.automation.outputs)) {
+                try {
+                    const strategy = this._outputStrategyResolver(id);
+                    const metadata = strategy.constructor.getMetadata();
+                    const sensitiveKeys = metadata.params?.filter(p => p.sensitive).map(p => p.key) || [];
+                    
+                    if (outputConfig.params) {
+                        for (const sKey of sensitiveKeys) {
+                            const val = outputConfig.params[sKey];
+                            if (val && typeof val === 'string') {
+                                if (action === 'encrypt') {
+                                    // Only encrypt if it's not already encrypted and not masked
+                                    if (!val.includes(':') && !encryption.isMasked(val)) {
+                                        outputConfig.params[sKey] = await encryption.encrypt(val, key);
+                                    }
+                                } else {
+                                    // Decrypt if it looks like encrypted data
+                                    if (val.includes(':')) {
+                                        try {
+                                            outputConfig.params[sKey] = await encryption.decrypt(val, key);
+                                        } catch {
+                                            // Decryption failed (wrong key or corrupted), keep as is
                                         }
                                     }
                                 }
                             }
                         }
-                    } catch { /* strategy not found */ }
-                }
+                    }
+                } catch { /* strategy not found */ }
+            }
         }
 
         // 2. Process Sources
