@@ -26,8 +26,8 @@ jobs:
       - uses: actions/setup-node@v4
         if: steps.changes.outputs.code == 'true'
         with:
-          node-version: '22'
-          cache: 'npm'
+          node-version: "22"
+          cache: "npm"
 
       - name: Install dependencies
         if: steps.changes.outputs.code == 'true'
@@ -36,4 +36,3 @@ jobs:
       - name: Run Knip
         if: steps.changes.outputs.code == 'true'
         run: npx knip --config .config/knip.json --no-progress
-

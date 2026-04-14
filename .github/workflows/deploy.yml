@@ -2,14 +2,14 @@ name: Deploy Multiple Instances
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
     paths:
-      - 'src/**'
-      - 'client/**'
-      - 'public/**'
-      - 'docker/**'
-      - 'package*.json'
-      - 'client/package*.json'
+      - "src/**"
+      - "client/**"
+      - "public/**"
+      - "docker/**"
+      - "package*.json"
+      - "client/package*.json"
   workflow_dispatch:
 
 jobs:
@@ -27,9 +27,9 @@ jobs:
           script: |
             # Stop on error
             set -e
-            
+
             echo "🚀 Starting deployment"
-            
+
             # 1. Navigate
             cd ${{ secrets.PROJECT_PATH }}
 
@@ -45,7 +45,7 @@ jobs:
             touch .env
             sed -i '/^APP_PORT=/d' .env
             echo "APP_PORT=${{ secrets.APP_PORT }}" >> .env
-            
+
             sed -i '/^COMPOSE_PROJECT_NAME=/d' .env
             echo "COMPOSE_PROJECT_NAME=${{ secrets.COMPOSE_PROJECT_NAME }}" >> .env
 

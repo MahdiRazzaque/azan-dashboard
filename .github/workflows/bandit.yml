@@ -2,7 +2,7 @@ name: Bandit
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
   workflow_call:
 
@@ -28,7 +28,7 @@ jobs:
         if: steps.changes.outputs.python == 'true'
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install and run Bandit
         if: steps.changes.outputs.python == 'true'
