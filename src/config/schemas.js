@@ -158,11 +158,6 @@ const envUpdateSchema = z.object({
 module.exports = {
   configSchema,
   systemSchema,
-  automationSchema,
-  prayerTriggersSchema,
-  sunriseTriggersSchema,
   triggerEventSchema,
-  prayerSettingSchema,
-  envUpdateSchema,
-  securitySchema
+  envUpdateSchema
 };
