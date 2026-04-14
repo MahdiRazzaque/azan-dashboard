@@ -60,5 +60,9 @@ if echo "$CHANGED_FILES" | grep -q "^client/"; then
   fi
 fi
 
+# --- Always: Regenerate GitNexus index with embeddings ---
+echo "▶ Regenerating GitNexus index with embeddings..."
+npx gitnexus analyze --embeddings || echo "⚠️  GitNexus analyze --embeddings failed — embeddings may be stale."
+
 echo "✅ All pre-push checks passed."
 exit 0

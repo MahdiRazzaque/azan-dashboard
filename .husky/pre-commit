@@ -1,1 +1,4 @@
 npx lint-staged
+
+echo "▶ Updating GitNexus index..."
+npx gitnexus analyze || echo "⚠️  GitNexus analyze failed — index may be stale."
