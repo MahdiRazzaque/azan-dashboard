@@ -1,6 +1,7 @@
 const request = require('supertest');
 const app = require('../../server');
 const configService = require('@config');
+const migrationService = require('@services/system/migrationService');
 const healthCheck = require('@services/system/healthCheck');
 const { forceRefresh } = require('@services/core/prayerTimeService');
 const { initScheduler } = require('@services/core/schedulerService');
@@ -9,7 +10,13 @@ const audioAssetService = require('@services/system/audioAssetService');
 // Mocks
 jest.mock('@config', () => ({
     init: jest.fn(),
-    get: jest.fn()
+    get: jest.fn(),
+    setOutputStrategyResolver: jest.fn(),
+    setOutputSecretKeysResolver: jest.fn()
+}));
+
+jest.mock('@services/system/migrationService', () => ({
+    setOutputSecretKeysResolver: jest.fn()
 }));
 
 jest.mock('@services/system/healthCheck', () => ({
@@ -75,6 +82,33 @@ describe('Server Startup', () => {
         expect(forceRefresh).toHaveBeenCalled();
         expect(initScheduler).toHaveBeenCalled();
         expect(audioAssetService.syncAudioAssets).toHaveBeenCalled();
+    });
+
+    it('should wire output resolvers before configService.init()', async () => {
+        // Track call order via a shared array
+        const callOrder = [];
+        configService.setOutputStrategyResolver.mockImplementation(() => callOrder.push('setOutputStrategyResolver'));
+        configService.setOutputSecretKeysResolver.mockImplementation(() => callOrder.push('setOutputSecretKeysResolver'));
+        migrationService.setOutputSecretKeysResolver.mockImplementation(() => callOrder.push('migrationService.setOutputSecretKeysResolver'));
+        configService.init.mockImplementation(() => {
+            callOrder.push('init');
+            return Promise.resolve();
+        });
+        configService.get.mockReturnValue({ sources: {}, location: { coordinates: {} } });
+
+        server = await app.startServer(0);
+
+        // All three resolver setters must be called
+        expect(configService.setOutputStrategyResolver).toHaveBeenCalledTimes(1);
+        expect(configService.setOutputSecretKeysResolver).toHaveBeenCalledTimes(1);
+        expect(migrationService.setOutputSecretKeysResolver).toHaveBeenCalledTimes(1);
+
+        // All three must appear before init in the call order
+        const initIndex = callOrder.indexOf('init');
+        expect(initIndex).toBeGreaterThan(-1);
+        expect(callOrder.indexOf('setOutputStrategyResolver')).toBeLessThan(initIndex);
+        expect(callOrder.indexOf('setOutputSecretKeysResolver')).toBeLessThan(initIndex);
+        expect(callOrder.indexOf('migrationService.setOutputSecretKeysResolver')).toBeLessThan(initIndex);
     });
 
     it('should log specific source types and handle others', async () => {

@@ -5,6 +5,8 @@ const path = require('path');
 const fsHelper = require('../helpers/fsHelper');
 const authHelper = require('../helpers/authHelper');
 const configService = require('@config');
+const OutputFactory = require('../../outputs');
+const migrationService = require('@services/system/migrationService');
 
 describe('Test Helpers', () => {
     describe('fsHelper', () => {
@@ -32,6 +34,11 @@ describe('Test Helpers', () => {
             // Verify ConfigService has updated paths
             expect(configService._configPath).toContain(tempDir);
             
+            // Wire resolvers after createTempConfig (which calls reset())
+            configService.setOutputStrategyResolver((id) => OutputFactory.getStrategy(id));
+            configService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
+            migrationService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
+
             // Verify we can init and read config
             await configService.init();
             const config = configService.get();

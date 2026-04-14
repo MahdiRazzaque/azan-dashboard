@@ -1,0 +1,45 @@
+name: Circular Dependency Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-circular-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'src/**'
+              - '.github/workflows/madge.yml'
+            frontend:
+              - 'client/src/**'
+              - '.github/workflows/madge.yml'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        if: steps.filter.outputs.frontend == 'true'
+        run: npm --prefix client ci
+
+      - name: Check backend circular deps
+        if: steps.filter.outputs.backend == 'true'
+        run: npx madge@8.0.0 --circular --webpack-config .config/madge-aliases.js src/
+
+      - name: Check frontend circular deps
+        if: steps.filter.outputs.frontend == 'true'
+        run: npx madge@8.0.0 --circular client/src/

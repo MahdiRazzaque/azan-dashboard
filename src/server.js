@@ -95,6 +95,15 @@ const startServer = async (port = PORT) => {
 
         // Initialise Config Service
         const configService = require('@config');
+
+        // Wire output resolvers BEFORE init to break circular dependency (config <-> outputs).
+        // Resolvers use lazy require() inside the callback so the outputs barrel isn't
+        // imported at module evaluation time — only when ConfigService actually calls them.
+        const migrationService = require('@services/system/migrationService');
+        configService.setOutputStrategyResolver((id) => require('@outputs').getStrategy(id));
+        configService.setOutputSecretKeysResolver(() => require('@outputs').getSecretRequirementKeys());
+        migrationService.setOutputSecretKeysResolver(() => require('@outputs').getSecretRequirementKeys());
+
         try {
             await configService.init();
             console.log('[Startup] ConfigService initialised.');

@@ -3,7 +3,9 @@ jest.unmock('@config');
 const fs = require('fs/promises');
 const fsHelper = require('../../helpers/fsHelper');
 const configService = require('@config');
+const OutputFactory = require('../../../outputs');
 const encryption = require('@utils/encryption');
+const migrationService = require('@services/system/migrationService');
 const dotenv = require('dotenv');
 
 jest.mock('dotenv'); // Prevent loading real .env files
@@ -23,6 +25,9 @@ describe('ConfigService Encryption', () => {
         delete process.env.VOICEMONKEY_TOKEN;
         delete process.env.VOICEMONKEY_DEVICE;
         configService.reset();
+        configService.setOutputStrategyResolver((id) => OutputFactory.getStrategy(id));
+        configService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
+        migrationService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
         await configService.init();
     });
 
@@ -98,12 +103,18 @@ describe('ConfigService Encryption', () => {
     it('should throw error if JWT_SECRET is missing during init', async () => {
         delete process.env.JWT_SECRET;
         configService.reset();
+        configService.setOutputStrategyResolver((id) => OutputFactory.getStrategy(id));
+        configService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
+        migrationService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
         await expect(configService.init()).rejects.toThrow(/JWT_SECRET.*required/);
     });
 
     it('should throw error if ENCRYPTION_SALT is missing during init', async () => {
         delete process.env.ENCRYPTION_SALT;
         configService.reset();
+        configService.setOutputStrategyResolver((id) => OutputFactory.getStrategy(id));
+        configService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
+        migrationService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
         await expect(configService.init()).rejects.toThrow(/ENCRYPTION_SALT.*required/);
         // Restore salt for other tests (though beforeEach should handle it if moved)
         process.env.ENCRYPTION_SALT = 'test-salt';

@@ -8,6 +8,7 @@ jest.mock('@providers');
 describe('migrationService', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        migrationService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
     });
 
     describe('migrateConfig', () => {

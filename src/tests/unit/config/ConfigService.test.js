@@ -3,6 +3,8 @@ jest.unmock('@config');
 const fs = require('fs/promises');
 const fsHelper = require('../../helpers/fsHelper');
 const configService = require('@config');
+const OutputFactory = require('@outputs');
+const migrationService = require('@services/system/migrationService');
 const dotenv = require('dotenv');
 
 jest.mock('dotenv'); // Prevent loading real .env files
@@ -17,6 +19,10 @@ describe('ConfigService', () => {
 
     beforeEach(async () => {
         tempDir = await fsHelper.createTempConfig();
+        const secretKeysResolver = () => OutputFactory.getSecretRequirementKeys();
+        configService.setOutputStrategyResolver((id) => OutputFactory.getStrategy(id));
+        configService.setOutputSecretKeysResolver(secretKeysResolver);
+        migrationService.setOutputSecretKeysResolver(secretKeysResolver);
         await configService.init();
     });
 
@@ -326,6 +332,10 @@ describe('ConfigService', () => {
 
     it('should throw error if ENCRYPTION_SALT is missing during init', async () => {
         configService.reset();
+        const secretKeysResolver = () => OutputFactory.getSecretRequirementKeys();
+        configService.setOutputStrategyResolver((id) => OutputFactory.getStrategy(id));
+        configService.setOutputSecretKeysResolver(secretKeysResolver);
+        migrationService.setOutputSecretKeysResolver(secretKeysResolver);
         const originalSalt = process.env.ENCRYPTION_SALT;
         delete process.env.ENCRYPTION_SALT;
         try {
@@ -387,6 +397,7 @@ describe('ConfigService', () => {
         
         const { ConfigService } = require('../../../config/ConfigService');
         const myConfigService = new ConfigService();
+        myConfigService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
         myConfigService._applyEnvOverrides(config);
         
         expect(config.sources.primary.apiKey).toBe('env-api-key');
