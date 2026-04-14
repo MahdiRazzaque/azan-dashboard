@@ -18,6 +18,7 @@
   },
   "ignoreBinaries": [
     "gitnexus",
+    "knip",
     "venv/bin/python",
     "nodemon",
     "docker-compose"
@@ -27,5 +28,6 @@
   ],
   "exclude": [
     "unlisted"
-  ]
+  ],
+  "ignoreExportsUsedInFile": true
 }
