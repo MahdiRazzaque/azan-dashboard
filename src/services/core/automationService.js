@@ -1,9 +1,9 @@
-const fs = require('fs');
-const configService = require('@config'); // Singleton
-const sseService = require('@services/system/sseService');
-const audioAssetService = require('@services/system/audioAssetService');
-const OutputFactory = require('@outputs');
-const normalizeSource = require('@utils/normalizeSource');
+const fs = require("fs");
+const configService = require("@config"); // Singleton
+const sseService = require("@services/system/sseService");
+const audioAssetService = require("@services/system/audioAssetService");
+const OutputFactory = require("@outputs");
+const normalizeSource = require("@utils/normalizeSource");
 
 /**
  * Resolves the raw audio source hint based on trigger settings.
@@ -16,26 +16,26 @@ const normalizeSource = require('@utils/normalizeSource');
  * @returns {{ path: string } | { url: string } | null} Raw source hint, or null for unknown types.
  */
 const getAudioSource = (settings, prayer, event) => {
-    switch (settings.type) {
-        case 'tts': {
-            const filename = `tts_${prayer}_${event}.mp3`;
-            return { path: `cache/${filename}` };
-        }
-        case 'file': {
-            if (typeof settings.path !== 'string' || settings.path.length === 0) {
-                return null;
-            }
-            return { path: settings.path };
-        }
-        case 'url': {
-            if (typeof settings.url !== 'string' || settings.url.length === 0) {
-                return null;
-            }
-            return { url: settings.url };
-        }
-        default:
-            return null;
+  switch (settings.type) {
+    case "tts": {
+      const filename = `tts_${prayer}_${event}.mp3`;
+      return { path: `cache/${filename}` };
     }
+    case "file": {
+      if (typeof settings.path !== "string" || settings.path.length === 0) {
+        return null;
+      }
+      return { path: settings.path };
+    }
+    case "url": {
+      if (typeof settings.url !== "string" || settings.url.length === 0) {
+        return null;
+      }
+      return { url: settings.url };
+    }
+    default:
+      return null;
+  }
 };
 
 /**
@@ -47,20 +47,20 @@ const getAudioSource = (settings, prayer, event) => {
  * @returns {Promise<any>} A promise that resolves with the task result or rejects on timeout.
  */
 const withTimeout = async (task, ms, errorMsg) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), ms);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
 
-    try {
-        const result = await task(controller.signal);
-        clearTimeout(timer);
-        return result;
-    } catch (error) {
-        clearTimeout(timer);
-        if (error.name === 'AbortError') {
-            throw new Error(errorMsg);
-        }
-        throw error;
+  try {
+    const result = await task(controller.signal);
+    clearTimeout(timer);
+    return result;
+  } catch (error) {
+    clearTimeout(timer);
+    if (error.name === "AbortError") {
+      throw new Error(errorMsg);
     }
+    throw error;
+  }
 };
 
 /**
@@ -71,18 +71,22 @@ const withTimeout = async (task, ms, errorMsg) => {
  * @returns {Promise<void>} A promise that resolves after the delay.
  */
 const delay = (ms, signal) => {
-    return new Promise((resolve, reject) => {
-        if (signal?.aborted) {
-            return reject(new Error('Aborted'));
-        }
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      return reject(new Error("Aborted"));
+    }
 
-        const timer = setTimeout(resolve, ms);
+    const timer = setTimeout(resolve, ms);
 
-        signal?.addEventListener('abort', () => {
-            clearTimeout(timer);
-            reject(new Error('Aborted'));
-        }, { once: true });
-    });
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(new Error("Aborted"));
+      },
+      { once: true },
+    );
+  });
 };
 
 /**
@@ -96,63 +100,78 @@ const delay = (ms, signal) => {
  * @returns {Promise<Object>} A promise that resolves to an object indicating success and providing the source.
  */
 const _validateAndPrepareAudio = async (settings, prayer, event, config) => {
-    const source = getAudioSource(settings, prayer, event);
+  const source = getAudioSource(settings, prayer, event);
 
-    switch (settings.type) {
-        case 'tts':
-            try {
-                const ttsResult = await audioAssetService.ensureTTSFile(prayer, event, settings, config);
-                if (!ttsResult.success) {
-                    console.error(`[Automation] Aborting ${prayer} ${event}: TTS generation failed (${ttsResult.message})`);
-                    sseService.broadcast({
-                        type: 'LOG',
-                        payload: { 
-                            message: `Skipped ${prayer} ${event}: TTS Service Offline`, 
-                            timestamp: new Date().toISOString(),
-                            type: 'error'
-                        }
-                    });
-                    return { success: false };
-                }
-            } catch (e) {
-                console.error(`[Automation] Critical error during TTS preparation:`, e.message);
-                return { success: false };
-            }
-            break;
-        case 'file': {
-            let normalizedSource = null;
-
-            try {
-                normalizedSource = source ? normalizeSource(source) : null;
-            } catch {
-                normalizedSource = null;
-            }
-
-            const filePath = normalizedSource?.type === 'file' ? normalizedSource.filePath : null;
-            let exists = false;
-            if (filePath) {
-                try {
-                    await fs.promises.access(filePath);
-                    exists = true;
-                } catch { /* ignore */ }
-            }
-
-            if (!exists) {
-                console.error(`[Automation] Aborting ${prayer} ${event}: Custom file missing (${filePath})`);
-                sseService.broadcast({
-                    type: 'LOG',
-                    payload: { 
-                        message: `Skipped ${prayer} ${event}: Custom file missing`, 
-                        timestamp: new Date().toISOString(),
-                        type: 'error'
-                    }
-                });
-                return { success: false };
-            }
-            break;
+  switch (settings.type) {
+    case "tts":
+      try {
+        const ttsResult = await audioAssetService.ensureTTSFile(
+          prayer,
+          event,
+          settings,
+          config,
+        );
+        if (!ttsResult.success) {
+          console.error(
+            `[Automation] Aborting ${prayer} ${event}: TTS generation failed (${ttsResult.message})`,
+          );
+          sseService.broadcast({
+            type: "LOG",
+            payload: {
+              message: `Skipped ${prayer} ${event}: TTS Service Offline`,
+              timestamp: new Date().toISOString(),
+              type: "error",
+            },
+          });
+          return { success: false };
         }
+      } catch (e) {
+        console.error(
+          `[Automation] Critical error during TTS preparation:`,
+          e.message,
+        );
+        return { success: false };
+      }
+      break;
+    case "file": {
+      let normalizedSource = null;
+
+      try {
+        normalizedSource = source ? normalizeSource(source) : null;
+      } catch {
+        normalizedSource = null;
+      }
+
+      const filePath =
+        normalizedSource?.type === "file" ? normalizedSource.filePath : null;
+      let exists = false;
+      if (filePath) {
+        try {
+          await fs.promises.access(filePath);
+          exists = true;
+        } catch {
+          /* ignore */
+        }
+      }
+
+      if (!exists) {
+        console.error(
+          `[Automation] Aborting ${prayer} ${event}: Custom file missing (${filePath})`,
+        );
+        sseService.broadcast({
+          type: "LOG",
+          payload: {
+            message: `Skipped ${prayer} ${event}: Custom file missing`,
+            timestamp: new Date().toISOString(),
+            type: "error",
+          },
+        });
+        return { success: false };
+      }
+      break;
     }
-    return { success: true, source };
+  }
+  return { success: true, source };
 };
 
 /**
@@ -163,26 +182,29 @@ const _validateAndPrepareAudio = async (settings, prayer, event, config) => {
  * @returns {Object} An object containing the active targets and the maximum lead time required.
  */
 const _getActiveTargets = (config, settings) => {
-    const configuredTargets = settings.targets || [];
-    const targets = new Set([...configuredTargets, 'browser']);
-    
-    let masterLeadTime = 0;
-    const activeTargets = [];
+  const configuredTargets = settings.targets || [];
+  const targets = new Set([...configuredTargets, "browser"]);
 
-    targets.forEach(targetId => {
-        const outputConfig = config.automation?.outputs?.[targetId];
-        const isEnabled = targetId === 'browser' ? (outputConfig?.enabled !== false) : outputConfig?.enabled;
-        
-        if (isEnabled) {
-            const leadTime = outputConfig?.leadTimeMs || 0;
-            if (leadTime > masterLeadTime) {
-                masterLeadTime = leadTime;
-            }
-            activeTargets.push({ targetId, leadTime });
-        }
-    });
+  let masterLeadTime = 0;
+  const activeTargets = [];
 
-    return { activeTargets, masterLeadTime };
+  targets.forEach((targetId) => {
+    const outputConfig = config.automation?.outputs?.[targetId];
+    const isEnabled =
+      targetId === "browser"
+        ? outputConfig?.enabled !== false
+        : outputConfig?.enabled;
+
+    if (isEnabled) {
+      const leadTime = outputConfig?.leadTimeMs || 0;
+      if (leadTime > masterLeadTime) {
+        masterLeadTime = leadTime;
+      }
+      activeTargets.push({ targetId, leadTime });
+    }
+  });
+
+  return { activeTargets, masterLeadTime };
 };
 
 /**
@@ -194,34 +216,39 @@ const _getActiveTargets = (config, settings) => {
  * @param {Object} executionMetadata - Metadata for the execution (e.g., isTest).
  * @returns {Promise<void>} A promise that resolves when the target execution is finished.
  */
-const _executeTarget = async (target, masterLeadTime, payload, executionMetadata) => {
-    const { targetId, leadTime } = target;
-    try {
-        const strategy = OutputFactory.getStrategy(targetId);
-        const metadata = strategy.constructor.getMetadata();
-        
-        const waitDelay = masterLeadTime - leadTime;
-        const timeoutMs = metadata.timeoutMs || 5000;
-        
-        await withTimeout(
-            async (signal) => {
-                if (waitDelay > 0) {
-                    await delay(waitDelay, signal);
-                }
-                return strategy.execute(payload, executionMetadata, signal);
-            },
-            timeoutMs + waitDelay,
-            `Strategy ${targetId} timed out after ${timeoutMs}ms`
-        );
-    } catch (error) {
-        console.error(
-            '[Automation] Error executing target %s for %s %s:',
-            targetId,
-            payload.prayer,
-            payload.event,
-            error.message
-        );
-    }
+const _executeTarget = async (
+  target,
+  masterLeadTime,
+  payload,
+  executionMetadata,
+) => {
+  const { targetId, leadTime } = target;
+  try {
+    const strategy = OutputFactory.getStrategy(targetId);
+    const metadata = strategy.constructor.getMetadata();
+
+    const waitDelay = masterLeadTime - leadTime;
+    const timeoutMs = metadata.timeoutMs || 5000;
+
+    await withTimeout(
+      async (signal) => {
+        if (waitDelay > 0) {
+          await delay(waitDelay, signal);
+        }
+        return strategy.execute(payload, executionMetadata, signal);
+      },
+      timeoutMs + waitDelay,
+      `Strategy ${targetId} timed out after ${timeoutMs}ms`,
+    );
+  } catch (error) {
+    console.error(
+      "[Automation] Error executing target %s for %s %s:",
+      targetId,
+      payload.prayer,
+      payload.event,
+      error.message,
+    );
+  }
 };
 
 /**
@@ -232,41 +259,49 @@ const _executeTarget = async (target, masterLeadTime, payload, executionMetadata
  * @returns {Promise<void>} A promise that resolves when all target executions have been settled.
  */
 const triggerEvent = async (prayer, event) => {
-    const config = configService.get();
-    const settings = config.automation?.triggers?.[prayer]?.[event];
-    
-    if (!settings || !settings.enabled) {
-        return;
-    }
+  const config = configService.get();
+  const settings = config.automation?.triggers?.[prayer]?.[event];
 
-    const { success, source } = await _validateAndPrepareAudio(settings, prayer, event, config);
-    if (!success) return;
-    
-    console.log(`[Automation] Triggering ${prayer} ${event}...`);
-    sseService.broadcast({
-        type: 'LOG',
-        payload: { message: `Triggering ${prayer} ${event}`, timestamp: new Date().toISOString() }
-    });
+  if (!settings || !settings.enabled) {
+    return;
+  }
 
-    const { activeTargets, masterLeadTime } = _getActiveTargets(config, settings);
-    
-    const payload = {
-        prayer,
-        event,
-        source,
-        baseUrl: config.automation.baseUrl
-    };
-    
-    const executionMetadata = { isTest: false };
+  const { success, source } = await _validateAndPrepareAudio(
+    settings,
+    prayer,
+    event,
+    config,
+  );
+  if (!success) return;
 
-    const promises = activeTargets.map(target => 
-        _executeTarget(target, masterLeadTime, payload, executionMetadata)
-    );
+  console.log(`[Automation] Triggering ${prayer} ${event}...`);
+  sseService.broadcast({
+    type: "LOG",
+    payload: {
+      message: `Triggering ${prayer} ${event}`,
+      timestamp: new Date().toISOString(),
+    },
+  });
 
-    await Promise.allSettled(promises);
+  const { activeTargets, masterLeadTime } = _getActiveTargets(config, settings);
+
+  const payload = {
+    prayer,
+    event,
+    source,
+    baseUrl: config.automation.baseUrl,
+  };
+
+  const executionMetadata = { isTest: false };
+
+  const promises = activeTargets.map((target) =>
+    _executeTarget(target, masterLeadTime, payload, executionMetadata),
+  );
+
+  await Promise.allSettled(promises);
 };
 
 module.exports = {
-    getAudioSource,
-    triggerEvent
+  getAudioSource,
+  triggerEvent,
 };

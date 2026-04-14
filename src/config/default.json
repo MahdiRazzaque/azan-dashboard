@@ -4,21 +4,21 @@
     "coordinates": { "lat": 51.5074, "long": -0.1278 }
   },
   "prayers": {
-    "fajr":    { "iqamahOffset": 20, "roundTo": 15, "fixedTime": null },
-    "dhuhr":   { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null },
-    "asr":     { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null },
-    "maghrib": { "iqamahOffset": 10, "roundTo": 5,  "fixedTime": null },
-    "isha":    { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null }
+    "fajr": { "iqamahOffset": 20, "roundTo": 15, "fixedTime": null },
+    "dhuhr": { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null },
+    "asr": { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null },
+    "maghrib": { "iqamahOffset": 10, "roundTo": 5, "fixedTime": null },
+    "isha": { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null }
   },
   "sources": {
-    "primary": { 
+    "primary": {
       "type": "aladhan",
       "method": 15,
       "madhab": 1,
       "latitudeAdjustmentMethod": 0,
       "midnightMode": 0
     },
-    "backup":  null
+    "backup": null
   },
   "data": {
     "staleCheckDays": 7,
@@ -44,38 +44,159 @@
     },
     "triggers": {
       "fajr": {
-        "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes till {prayerArabic}", "targets": ["local"] },
-        "adhan": { "enabled": false, "type": "file", "path": "", "targets": ["local"] },
-        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "إِقَامَة for {prayerArabic} in {minutes} minutes", "targets": ["local"] },
-        "iqamah": { "enabled": false, "type": "tts", "template": "Time for {prayerArabic} إِقَامَة", "targets": ["local"] }
+        "preAdhan": {
+          "enabled": false,
+          "offsetMinutes": 15,
+          "type": "tts",
+          "template": "{minutes} minutes till {prayerArabic}",
+          "targets": ["local"]
+        },
+        "adhan": {
+          "enabled": false,
+          "type": "file",
+          "path": "",
+          "targets": ["local"]
+        },
+        "preIqamah": {
+          "enabled": false,
+          "offsetMinutes": 5,
+          "type": "tts",
+          "template": "إِقَامَة for {prayerArabic} in {minutes} minutes",
+          "targets": ["local"]
+        },
+        "iqamah": {
+          "enabled": false,
+          "type": "tts",
+          "template": "Time for {prayerArabic} إِقَامَة",
+          "targets": ["local"]
+        }
       },
       "sunrise": {
-        "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes until Sunrise", "targets": ["local"] },
-        "adhan": { "enabled": false, "type": "tts", "template": "The sun is rising. Fajr time is ending.", "targets": ["local"] }
+        "preAdhan": {
+          "enabled": false,
+          "offsetMinutes": 15,
+          "type": "tts",
+          "template": "{minutes} minutes until Sunrise",
+          "targets": ["local"]
+        },
+        "adhan": {
+          "enabled": false,
+          "type": "tts",
+          "template": "The sun is rising. Fajr time is ending.",
+          "targets": ["local"]
+        }
       },
       "dhuhr": {
-        "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes till {prayerArabic}", "targets": ["local"] },
-        "adhan": { "enabled": false, "type": "file", "path": "", "targets": ["local"] },
-        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "إِقَامَة for {prayerArabic} in {minutes} minutes", "targets": ["local"] },
-        "iqamah": { "enabled": false, "type": "tts", "template": "Time for {prayerArabic} إِقَامَة", "targets": ["local"] }
+        "preAdhan": {
+          "enabled": false,
+          "offsetMinutes": 15,
+          "type": "tts",
+          "template": "{minutes} minutes till {prayerArabic}",
+          "targets": ["local"]
+        },
+        "adhan": {
+          "enabled": false,
+          "type": "file",
+          "path": "",
+          "targets": ["local"]
+        },
+        "preIqamah": {
+          "enabled": false,
+          "offsetMinutes": 5,
+          "type": "tts",
+          "template": "إِقَامَة for {prayerArabic} in {minutes} minutes",
+          "targets": ["local"]
+        },
+        "iqamah": {
+          "enabled": false,
+          "type": "tts",
+          "template": "Time for {prayerArabic} إِقَامَة",
+          "targets": ["local"]
+        }
       },
       "asr": {
-        "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes till {prayerArabic}", "targets": ["local"] },
-        "adhan": { "enabled": false, "type": "file", "path": "", "targets": ["local"] },
-        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "إِقَامَة for {prayerArabic} in {minutes} minutes", "targets": ["local"] },
-        "iqamah": { "enabled": false, "type": "tts", "template": "Time for {prayerArabic} إِقَامَة", "targets": ["local"] }
+        "preAdhan": {
+          "enabled": false,
+          "offsetMinutes": 15,
+          "type": "tts",
+          "template": "{minutes} minutes till {prayerArabic}",
+          "targets": ["local"]
+        },
+        "adhan": {
+          "enabled": false,
+          "type": "file",
+          "path": "",
+          "targets": ["local"]
+        },
+        "preIqamah": {
+          "enabled": false,
+          "offsetMinutes": 5,
+          "type": "tts",
+          "template": "إِقَامَة for {prayerArabic} in {minutes} minutes",
+          "targets": ["local"]
+        },
+        "iqamah": {
+          "enabled": false,
+          "type": "tts",
+          "template": "Time for {prayerArabic} إِقَامَة",
+          "targets": ["local"]
+        }
       },
       "maghrib": {
-        "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes till {prayerArabic}", "targets": ["local"] },
-        "adhan": { "enabled": false, "type": "file", "path": "", "targets": ["local"] },
-        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "إِقَامَة for {prayerArabic} in {minutes} minutes", "targets": ["local"] },
-        "iqamah": { "enabled": false, "type": "tts", "template": "Time for {prayerArabic} إِقَامَة", "targets": ["local"] }
+        "preAdhan": {
+          "enabled": false,
+          "offsetMinutes": 15,
+          "type": "tts",
+          "template": "{minutes} minutes till {prayerArabic}",
+          "targets": ["local"]
+        },
+        "adhan": {
+          "enabled": false,
+          "type": "file",
+          "path": "",
+          "targets": ["local"]
+        },
+        "preIqamah": {
+          "enabled": false,
+          "offsetMinutes": 5,
+          "type": "tts",
+          "template": "إِقَامَة for {prayerArabic} in {minutes} minutes",
+          "targets": ["local"]
+        },
+        "iqamah": {
+          "enabled": false,
+          "type": "tts",
+          "template": "Time for {prayerArabic} إِقَامَة",
+          "targets": ["local"]
+        }
       },
       "isha": {
-        "preAdhan": { "enabled": false, "offsetMinutes": 15, "type": "tts", "template": "{minutes} minutes till {prayerArabic}", "targets": ["local"] },
-        "adhan": { "enabled": false, "type": "file", "path": "", "targets": ["local"] },
-        "preIqamah": { "enabled": false, "offsetMinutes": 5, "type": "tts", "template": "إِقَامَة for {prayerArabic} in {minutes} minutes", "targets": ["local"] },
-        "iqamah": { "enabled": false, "type": "tts", "template": "Time for {prayerArabic} إِقَامَة", "targets": ["local"] }
+        "preAdhan": {
+          "enabled": false,
+          "offsetMinutes": 15,
+          "type": "tts",
+          "template": "{minutes} minutes till {prayerArabic}",
+          "targets": ["local"]
+        },
+        "adhan": {
+          "enabled": false,
+          "type": "file",
+          "path": "",
+          "targets": ["local"]
+        },
+        "preIqamah": {
+          "enabled": false,
+          "offsetMinutes": 5,
+          "type": "tts",
+          "template": "إِقَامَة for {prayerArabic} in {minutes} minutes",
+          "targets": ["local"]
+        },
+        "iqamah": {
+          "enabled": false,
+          "type": "tts",
+          "template": "Time for {prayerArabic} إِقَامَة",
+          "targets": ["local"]
+        }
       }
     }
   },
