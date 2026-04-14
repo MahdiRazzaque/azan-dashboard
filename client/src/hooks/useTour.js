@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import '@/styles/tour.css';
+import { useCallback, useEffect, useRef, useState } from "react";
+import "@/styles/tour.css";
 
 export const useTour = () => {
   const [isActive, setIsActive] = useState(false);
@@ -19,7 +19,9 @@ export const useTour = () => {
     }
 
     if (keydownHandlerRef.current) {
-      document.removeEventListener('keydown', keydownHandlerRef.current, { capture: true });
+      document.removeEventListener("keydown", keydownHandlerRef.current, {
+        capture: true,
+      });
       keydownHandlerRef.current = null;
     }
 
@@ -29,8 +31,10 @@ export const useTour = () => {
   }, []);
 
   const startTour = useCallback(async (tourName, steps, onComplete) => {
-    const { driver } = await import('driver.js');
-    const filteredSteps = steps.filter((step) => document.querySelector(step.element));
+    const { driver } = await import("driver.js");
+    const filteredSteps = steps.filter((step) =>
+      document.querySelector(step.element),
+    );
 
     if (filteredSteps.length === 0) {
       if (onComplete) {
@@ -43,7 +47,7 @@ export const useTour = () => {
       showProgress: true,
       animate: true,
       allowClose: false,
-      overlayClickBehavior: 'nextStep',
+      overlayClickBehavior: "nextStep",
       stagePadding: 4,
       stageRadius: 8,
       steps: filteredSteps,
@@ -53,7 +57,7 @@ export const useTour = () => {
         }
         driverInstance.destroy();
       },
-      popoverClass: 'azan-tour-popover'
+      popoverClass: "azan-tour-popover",
     });
 
     driverRef.current = driverInstance;
@@ -62,7 +66,7 @@ export const useTour = () => {
     driverInstance.drive();
 
     const handleKeyDown = (event) => {
-      if (event.code === 'Space' && driverRef.current?.isActive()) {
+      if (event.code === "Space" && driverRef.current?.isActive()) {
         event.preventDefault();
         event.stopPropagation();
         driverRef.current.moveNext();
@@ -70,17 +74,20 @@ export const useTour = () => {
     };
 
     keydownHandlerRef.current = handleKeyDown;
-    document.addEventListener('keydown', handleKeyDown, { capture: true });
+    document.addEventListener("keydown", handleKeyDown, { capture: true });
   }, []);
 
-  useEffect(() => () => {
-    stopTour();
-  }, [stopTour]);
+  useEffect(
+    () => () => {
+      stopTour();
+    },
+    [stopTour],
+  );
 
   return {
     startTour,
     stopTour,
     isActive,
-    currentTour
+    currentTour,
   };
 };

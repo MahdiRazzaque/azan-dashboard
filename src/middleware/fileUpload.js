@@ -1,12 +1,12 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
-const UPLOAD_DIR = path.join(__dirname, '../../public/audio/temp');
+const UPLOAD_DIR = path.join(__dirname, "../../public/audio/temp");
 
 // Ensure directory exists at module level to avoid repeated I/O in request path
 if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
 /**
@@ -14,55 +14,65 @@ if (!fs.existsSync(UPLOAD_DIR)) {
  * Files are saved to public/audio/temp for validation.
  */
 const storage = multer.diskStorage({
-    /**
-     * Determines the destination directory for uploaded files.
-     * 
-     * @param {import('express').Request} req - The Express request object.
-     * @param {Object} file - The file object provided by Multer.
-     * @param {Function} cb - The callback function to signal the destination.
-     * @returns {void}
-     */
-    destination: (req, file, cb) => {
-        cb(null, UPLOAD_DIR);
-    },
-    /**
-     * Determines the filename for the uploaded file.
-     * 
-     * @param {import('express').Request} req - The Express request object.
-     * @param {Object} file - The file object provided by Multer.
-     * @param {Function} cb - The callback function to signal the filename.
-     * @returns {void}
-     */
-    filename: (req, file, cb) => {
-        // Sanitise the filename to prevent path traversal and ensure compatibility
-        const baseName = path.basename(file.originalname);
-        const safeName = baseName.replace(/[^a-z0-9.]/gi, '_');
-        cb(null, safeName);
-    }
+  /**
+   * Determines the destination directory for uploaded files.
+   *
+   * @param {import('express').Request} req - The Express request object.
+   * @param {Object} file - The file object provided by Multer.
+   * @param {Function} cb - The callback function to signal the destination.
+   * @returns {void}
+   */
+  destination: (req, file, cb) => {
+    cb(null, UPLOAD_DIR);
+  },
+  /**
+   * Determines the filename for the uploaded file.
+   *
+   * @param {import('express').Request} req - The Express request object.
+   * @param {Object} file - The file object provided by Multer.
+   * @param {Function} cb - The callback function to signal the filename.
+   * @returns {void}
+   */
+  filename: (req, file, cb) => {
+    // Sanitise the filename to prevent path traversal and ensure compatibility
+    const baseName = path.basename(file.originalname);
+    const safeName = baseName.replace(/[^a-z0-9.]/gi, "_");
+    cb(null, safeName);
+  },
 });
 
-const upload = multer({ 
-    storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-    /**
-     * Filters files based on their type and extension.
-     * 
-     * @param {import('express').Request} req - The Express request object.
-     * @param {Object} file - The file object provided by Multer.
-     * @param {Function} cb - The callback function to signal acceptance or rejection.
-     * @returns {void}
-     */
-    fileFilter: (req, file, cb) => {
-        const audioExtensions = ['.mp3', '.wav', '.aac', '.ogg', '.opus', '.flac', '.m4a'];
-        const isAudioMime = file.mimetype.startsWith('audio/');
-        const isSupportedExt = audioExtensions.includes(path.extname(file.originalname).toLowerCase());
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  /**
+   * Filters files based on their type and extension.
+   *
+   * @param {import('express').Request} req - The Express request object.
+   * @param {Object} file - The file object provided by Multer.
+   * @param {Function} cb - The callback function to signal acceptance or rejection.
+   * @returns {void}
+   */
+  fileFilter: (req, file, cb) => {
+    const audioExtensions = [
+      ".mp3",
+      ".wav",
+      ".aac",
+      ".ogg",
+      ".opus",
+      ".flac",
+      ".m4a",
+    ];
+    const isAudioMime = file.mimetype.startsWith("audio/");
+    const isSupportedExt = audioExtensions.includes(
+      path.extname(file.originalname).toLowerCase(),
+    );
 
-        if (isAudioMime || isSupportedExt) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only audio files are allowed'));
-        }
+    if (isAudioMime || isSupportedExt) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only audio files are allowed"));
     }
+  },
 });
 
 module.exports = upload;

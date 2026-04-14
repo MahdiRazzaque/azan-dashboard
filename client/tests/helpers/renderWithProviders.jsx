@@ -1,5 +1,5 @@
-import { render } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { render } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 /**
  * Renders a component wrapped in common providers for testing.
@@ -9,11 +9,12 @@ import { MemoryRouter } from 'react-router-dom';
  * @param {object} [options.renderOptions] - Additional render options
  * @returns {import('@testing-library/react').RenderResult} Render result
  */
-export function renderWithProviders(ui, { route = '/', ...renderOptions } = {}) {
+export function renderWithProviders(
+  ui,
+  { route = "/", ...renderOptions } = {},
+) {
   return render(
-    <MemoryRouter initialEntries={[route]}>
-      {ui}
-    </MemoryRouter>,
-    renderOptions
+    <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>,
+    renderOptions,
   );
 }

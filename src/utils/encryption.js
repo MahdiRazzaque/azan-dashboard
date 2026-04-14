@@ -1,9 +1,9 @@
-const crypto = require('crypto');
-const { promisify } = require('util');
+const crypto = require("crypto");
+const { promisify } = require("util");
 
 const scrypt = promisify(crypto.scrypt);
 
-const ALGORITHM = 'aes-256-gcm';
+const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 
 /**
@@ -13,14 +13,14 @@ const IV_LENGTH = 12;
  * @private
  */
 async function _deriveKey(secret) {
-    const salt = process.env.ENCRYPTION_SALT;
-    
-    if (!salt) {
-        throw new Error('ENCRYPTION_SALT environment variable is required');
-    }
+  const salt = process.env.ENCRYPTION_SALT;
 
-    // 16384 cost, 8 block size, 1 parallelisation - robust but fast enough for small secrets
-    return scrypt(secret, salt, 32, { N: 16384, r: 8, p: 1 });
+  if (!salt) {
+    throw new Error("ENCRYPTION_SALT environment variable is required");
+  }
+
+  // 16384 cost, 8 block size, 1 parallelisation - robust but fast enough for small secrets
+  return scrypt(secret, salt, 32, { N: 16384, r: 8, p: 1 });
 }
 
 /**
@@ -30,18 +30,18 @@ async function _deriveKey(secret) {
  * @returns {Promise<string>} A Promise resolving to the encrypted string in format iv:authTag:ciphertext.
  */
 async function encrypt(plaintext, key) {
-    if (!plaintext) return plaintext;
-    
-    const derivedKey = await _deriveKey(key);
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv(ALGORITHM, derivedKey, iv);
-    
-    let encrypted = cipher.update(plaintext, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    const authTag = cipher.getAuthTag().toString('hex');
-    
-    return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+  if (!plaintext) return plaintext;
+
+  const derivedKey = await _deriveKey(key);
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, derivedKey, iv);
+
+  let encrypted = cipher.update(plaintext, "utf8", "hex");
+  encrypted += cipher.final("hex");
+
+  const authTag = cipher.getAuthTag().toString("hex");
+
+  return `${iv.toString("hex")}:${authTag}:${encrypted}`;
 }
 
 /**
@@ -51,25 +51,27 @@ async function encrypt(plaintext, key) {
  * @returns {Promise<string>} A Promise resolving to the decrypted plaintext.
  */
 async function decrypt(ciphertext, key) {
-    if (!ciphertext || !ciphertext.includes(':')) return ciphertext;
-    
-    const parts = ciphertext.split(':');
-    if (parts.length !== 3) {
-        throw new Error('Invalid ciphertext format');
-    }
+  if (!ciphertext || !ciphertext.includes(":")) return ciphertext;
 
-    const [ivHex, authTagHex, encrypted] = parts;
-    const derivedKey = await _deriveKey(key);
-    const iv = Buffer.from(ivHex, 'hex');
-    const authTag = Buffer.from(authTagHex, 'hex');
-    
-    const decipher = crypto.createDecipheriv(ALGORITHM, derivedKey, iv, { authTagLength: 16 });
-    decipher.setAuthTag(authTag);
-    
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
+  const parts = ciphertext.split(":");
+  if (parts.length !== 3) {
+    throw new Error("Invalid ciphertext format");
+  }
+
+  const [ivHex, authTagHex, encrypted] = parts;
+  const derivedKey = await _deriveKey(key);
+  const iv = Buffer.from(ivHex, "hex");
+  const authTag = Buffer.from(authTagHex, "hex");
+
+  const decipher = crypto.createDecipheriv(ALGORITHM, derivedKey, iv, {
+    authTagLength: 16,
+  });
+  decipher.setAuthTag(authTag);
+
+  let decrypted = decipher.update(encrypted, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+
+  return decrypted;
 }
 
 /**
@@ -77,7 +79,7 @@ async function decrypt(ciphertext, key) {
  * @returns {string} A string consisting of eight asterisks to represent a masked value.
  */
 function mask() {
-    return '********';
+  return "********";
 }
 
 /**
@@ -86,12 +88,12 @@ function mask() {
  * @returns {boolean} True if the value matches the standard mask string, false otherwise.
  */
 function isMasked(value) {
-    return value === '********';
+  return value === "********";
 }
 
 module.exports = {
-    encrypt,
-    decrypt,
-    mask,
-    isMasked
+  encrypt,
+  decrypt,
+  mask,
+  isMasked,
 };

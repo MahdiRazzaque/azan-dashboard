@@ -8,12 +8,12 @@ This document provides an exhaustive reference for every REST API endpoint expos
 
 The API uses **HttpOnly cookie-based JWT authentication**. Upon successful login or setup, the server issues a signed JWT stored in an `auth_token` cookie with the following attributes:
 
-| Attribute    | Value                                      |
-| ------------ | ------------------------------------------ |
-| `httpOnly`   | `true`                                     |
-| `secure`     | `true` (production only)                   |
-| `sameSite`   | `strict`                                   |
-| `maxAge`     | 24 hours                                   |
+| Attribute    | Value                                       |
+| ------------ | ------------------------------------------- |
+| `httpOnly`   | `true`                                      |
+| `secure`     | `true` (production only)                    |
+| `sameSite`   | `strict`                                    |
+| `maxAge`     | 24 hours                                    |
 | Token Claims | `{ role: "admin", tokenVersion: <number> }` |
 
 No manual `Authorization` header is required — the browser sends the cookie automatically. Endpoints marked **Auth: Required** will return `401 Unauthorised` if the cookie is missing, expired, or its `tokenVersion` does not match the server's current version.
@@ -37,13 +37,13 @@ Surrogate-Control: no-store
 
 Every request passes through a global rate limiter before reaching its sub-router. Individual endpoints may apply additional, stricter limiters on top.
 
-| Tier              | Scope                                    | Window   | Max Requests | Applies To                                         |
-| ----------------- | ---------------------------------------- | -------- | ------------ | -------------------------------------------------- |
-| **Security**      | Login, setup, password change            | 1 minute | 20           | `/api/auth/login`, `/api/auth/setup`, `/api/auth/change-password` |
-| **Operations**    | Resource-heavy actions                   | 10 seconds | 10         | TTS preview/regenerate, uploads, scheduler restart, source test, URL validation, health refresh, job run, file revalidate, cache refresh, temp cleanup, output verify/test |
-| **Global Read**   | All `GET` requests (except SSE)          | 10 seconds | 50         | Automatic for all GET endpoints                     |
-| **Global Write**  | All `POST` / `PUT` / `DELETE` / `PATCH`  | 10 seconds | 10         | Automatic for all write endpoints                   |
-| **SSE**           | Log stream connections                   | 1 minute | 50           | `/api/logs`                                         |
+| Tier             | Scope                                   | Window     | Max Requests | Applies To                                                                                                                                                                 |
+| ---------------- | --------------------------------------- | ---------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Security**     | Login, setup, password change           | 1 minute   | 20           | `/api/auth/login`, `/api/auth/setup`, `/api/auth/change-password`                                                                                                          |
+| **Operations**   | Resource-heavy actions                  | 10 seconds | 10           | TTS preview/regenerate, uploads, scheduler restart, source test, URL validation, health refresh, job run, file revalidate, cache refresh, temp cleanup, output verify/test |
+| **Global Read**  | All `GET` requests (except SSE)         | 10 seconds | 50           | Automatic for all GET endpoints                                                                                                                                            |
+| **Global Write** | All `POST` / `PUT` / `DELETE` / `PATCH` | 10 seconds | 10           | Automatic for all write endpoints                                                                                                                                          |
+| **SSE**          | Log stream connections                  | 1 minute   | 50           | `/api/logs`                                                                                                                                                                |
 
 When a limit is exceeded, the API returns:
 
@@ -69,16 +69,16 @@ Unhandled errors are caught by centralised error-handling middleware and returne
 
 ### Standard Status Codes
 
-| Code  | Meaning                                                                  |
-| ----- | ------------------------------------------------------------------------ |
-| `200` | Request succeeded.                                                       |
-| `400` | Validation failure (missing fields, invalid format, Zod schema error).   |
-| `401` | Not authenticated (missing or invalid JWT cookie).                       |
+| Code  | Meaning                                                                                            |
+| ----- | -------------------------------------------------------------------------------------------------- |
+| `200` | Request succeeded.                                                                                 |
+| `400` | Validation failure (missing fields, invalid format, Zod schema error).                             |
+| `401` | Not authenticated (missing or invalid JWT cookie).                                                 |
 | `403` | Authenticated but action forbidden (e.g., setup when already configured, deleting protected file). |
-| `404` | Resource not found.                                                      |
-| `429` | Rate limit exceeded.                                                     |
-| `500` | Internal server error.                                                   |
-| `503` | Critical dependency offline (source APIs, TTS service).                  |
+| `404` | Resource not found.                                                                                |
+| `429` | Rate limit exceeded.                                                                               |
+| `500` | Internal server error.                                                                             |
+| `503` | Critical dependency offline (source APIs, TTS service).                                            |
 
 ---
 
@@ -88,10 +88,10 @@ Unhandled errors are caught by centralised error-handling middleware and returne
 
 Checks whether the system has been configured (admin password set).
 
-| Property      | Value                  |
-| ------------- | ---------------------- |
-| **Auth**      | None                   |
-| **Rate Limit**| Global Read            |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | None        |
+| **Rate Limit** | Global Read |
 
 **Response `200`:**
 
@@ -102,10 +102,10 @@ Checks whether the system has been configured (admin password set).
 }
 ```
 
-| Field            | Type      | Description                                              |
-| ---------------- | --------- | -------------------------------------------------------- |
-| `configured`     | `boolean` | Whether the `.env` file contains required secrets.       |
-| `requiresSetup`  | `boolean` | Whether `ADMIN_PASSWORD` is missing from the environment.|
+| Field           | Type      | Description                                               |
+| --------------- | --------- | --------------------------------------------------------- |
+| `configured`    | `boolean` | Whether the `.env` file contains required secrets.        |
+| `requiresSetup` | `boolean` | Whether `ADMIN_PASSWORD` is missing from the environment. |
 
 ---
 
@@ -113,10 +113,10 @@ Checks whether the system has been configured (admin password set).
 
 Performs initial system setup: hashes and stores the admin password, generates `JWT_SECRET` and `ENCRYPTION_SALT` if absent, and immediately logs the user in.
 
-| Property      | Value                              |
-| ------------- | ---------------------------------- |
-| **Auth**      | None                               |
-| **Rate Limit**| Security (20/min) + Global Write   |
+| Property       | Value                            |
+| -------------- | -------------------------------- |
+| **Auth**       | None                             |
+| **Rate Limit** | Security (20/min) + Global Write |
 
 **Request Body:**
 
@@ -126,9 +126,9 @@ Performs initial system setup: hashes and stores the admin password, generates `
 }
 ```
 
-| Field      | Type     | Required | Constraints            |
-| ---------- | -------- | -------- | ---------------------- |
-| `password` | `string` | Yes      | Minimum 5 characters   |
+| Field      | Type     | Required | Constraints          |
+| ---------- | -------- | -------- | -------------------- |
+| `password` | `string` | Yes      | Minimum 5 characters |
 
 **Response `200`:**
 
@@ -143,11 +143,11 @@ Sets the `auth_token` cookie on success.
 
 **Error Responses:**
 
-| Code  | Condition                               | Body                                                    |
-| ----- | --------------------------------------- | ------------------------------------------------------- |
-| `400` | Password shorter than 5 characters      | `{ "error": "Password too short" }`                     |
-| `403` | System already configured               | `{ "error": "System already configured. Login to change settings." }` |
-| `500` | Failed to write `.env`                  | `{ "error": "Failed to write configuration" }`          |
+| Code  | Condition                          | Body                                                                  |
+| ----- | ---------------------------------- | --------------------------------------------------------------------- |
+| `400` | Password shorter than 5 characters | `{ "error": "Password too short" }`                                   |
+| `403` | System already configured          | `{ "error": "System already configured. Login to change settings." }` |
+| `500` | Failed to write `.env`             | `{ "error": "Failed to write configuration" }`                        |
 
 ---
 
@@ -155,10 +155,10 @@ Sets the `auth_token` cookie on success.
 
 Authenticates with the admin password and issues a JWT cookie.
 
-| Property      | Value                              |
-| ------------- | ---------------------------------- |
-| **Auth**      | None                               |
-| **Rate Limit**| Security (20/min) + Global Write   |
+| Property       | Value                            |
+| -------------- | -------------------------------- |
+| **Auth**       | None                             |
+| **Rate Limit** | Security (20/min) + Global Write |
 
 **Request Body:**
 
@@ -180,11 +180,11 @@ Sets the `auth_token` cookie on success.
 
 **Error Responses:**
 
-| Code  | Condition                                    | Body                                                                    |
-| ----- | -------------------------------------------- | ----------------------------------------------------------------------- |
-| `401` | Invalid password                             | `{ "error": "Invalid password" }`                                       |
-| `500` | `ADMIN_PASSWORD` not configured              | `{ "error": "Server authentication not configured", "code": "SETUP_REQUIRED" }` |
-| `500` | `JWT_SECRET` missing                         | `{ "error": "System security not fully configured (Missing JWT Secret)" }` |
+| Code  | Condition                       | Body                                                                            |
+| ----- | ------------------------------- | ------------------------------------------------------------------------------- |
+| `401` | Invalid password                | `{ "error": "Invalid password" }`                                               |
+| `500` | `ADMIN_PASSWORD` not configured | `{ "error": "Server authentication not configured", "code": "SETUP_REQUIRED" }` |
+| `500` | `JWT_SECRET` missing            | `{ "error": "System security not fully configured (Missing JWT Secret)" }`      |
 
 ---
 
@@ -192,10 +192,10 @@ Sets the `auth_token` cookie on success.
 
 Clears the authentication cookie, ending the session.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | None             |
-| **Rate Limit**| Global Write     |
+| Property       | Value        |
+| -------------- | ------------ |
+| **Auth**       | None         |
+| **Rate Limit** | Global Write |
 
 **Response `200`:**
 
@@ -211,10 +211,10 @@ Clears the authentication cookie, ending the session.
 
 Validates the current session token. Used by the frontend to verify authentication state on page load.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Response `200`:**
 
@@ -232,10 +232,10 @@ Validates the current session token. Used by the frontend to verify authenticati
 
 Updates the admin password and increments `tokenVersion`, invalidating all existing sessions across all devices.
 
-| Property      | Value                                  |
-| ------------- | -------------------------------------- |
-| **Auth**      | Required                               |
-| **Rate Limit**| Security (20/min) + Global Write       |
+| Property       | Value                            |
+| -------------- | -------------------------------- |
+| **Auth**       | Required                         |
+| **Rate Limit** | Security (20/min) + Global Write |
 
 **Request Body:**
 
@@ -273,19 +273,19 @@ Updates the admin password and increments `tokenVersion`, invalidating all exist
 
 Retrieves prayer times for the current date, the calculated "next prayer" countdown, and an optional calendar window for navigation.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | None             |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | None        |
+| **Rate Limit** | Global Read |
 
 **Query Parameters:**
 
-| Param        | Type     | Required | Constraints                                  | Description                                |
-| ------------ | -------- | -------- | -------------------------------------------- | ------------------------------------------ |
-| `cursorDate` | `string` | No*      | `YYYY-MM-DD` format, must be a valid date    | Centre date for calendar window pagination |
-| `direction`  | `string` | No*      | `"future"` or `"past"`                       | Direction to paginate from `cursorDate`     |
+| Param        | Type     | Required | Constraints                               | Description                                |
+| ------------ | -------- | -------- | ----------------------------------------- | ------------------------------------------ |
+| `cursorDate` | `string` | No\*     | `YYYY-MM-DD` format, must be a valid date | Centre date for calendar window pagination |
+| `direction`  | `string` | No\*     | `"future"` or `"past"`                    | Direction to paginate from `cursorDate`    |
 
-*Both `cursorDate` and `direction` must be provided together or both omitted. Providing only one returns a `400` error.
+\*Both `cursorDate` and `direction` must be provided together or both omitted. Providing only one returns a `400` error.
 
 **Response `200`:**
 
@@ -307,18 +307,16 @@ Retrieves prayer times for the current date, the calculated "next prayer" countd
     "time": "12:15",
     "countdown": "02:43:12"
   },
-  "calendar": [
-    { "date": "2026-03-07", "prayers": { "...": "..." } }
-  ]
+  "calendar": [{ "date": "2026-03-07", "prayers": { "...": "..." } }]
 }
 ```
 
 **Error Responses:**
 
-| Code  | Condition                                     | Body                                                                |
-| ----- | --------------------------------------------- | ------------------------------------------------------------------- |
-| `400` | Invalid query (only one of cursor/direction)  | `{ "error": "Bad Request", "message": "Invalid prayer calendar query parameters." }` |
-| `500` | Internal error                                | `{ "error": "Internal Server Error", "message": "..." }`           |
+| Code  | Condition                                    | Body                                                                                 |
+| ----- | -------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `400` | Invalid query (only one of cursor/direction) | `{ "error": "Bad Request", "message": "Invalid prayer calendar query parameters." }` |
+| `500` | Internal error                               | `{ "error": "Internal Server Error", "message": "..." }`                             |
 
 ---
 
@@ -328,10 +326,10 @@ Retrieves prayer times for the current date, the calculated "next prayer" countd
 
 Retrieves a sanitised subset of configuration for unauthenticated dashboard display. All output strategy secrets are stripped.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | None             |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | None        |
+| **Rate Limit** | Global Read |
 
 **Response `200`:**
 
@@ -351,10 +349,10 @@ Retrieves a sanitised subset of configuration for unauthenticated dashboard disp
 
 Retrieves the full configuration object. Sensitive fields (provider credentials, output API keys) are masked with `"********"`.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Response `200`:** The complete `configSchema` object with sensitive values replaced by the mask string.
 
@@ -364,10 +362,10 @@ Retrieves the full configuration object. Sensitive fields (provider credentials,
 
 Validates and saves new configuration. Triggers a cascading workflow: Zod validation → config save → source refresh → audio asset synchronisation → scheduler reload.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Write     |
+| Property       | Value        |
+| -------------- | ------------ |
+| **Auth**       | Required     |
+| **Rate Limit** | Global Write |
 
 **Request Body:** A partial or full configuration object conforming to `configSchema`. Only the fields provided are merged.
 
@@ -375,10 +373,10 @@ Validates and saves new configuration. Triggers a cascading workflow: Zod valida
 
 **Error Responses:**
 
-| Code  | Condition             | Body                                                    |
-| ----- | --------------------- | ------------------------------------------------------- |
+| Code  | Condition             | Body                                                                |
+| ----- | --------------------- | ------------------------------------------------------------------- |
 | `400` | Zod validation failed | `{ "error": "Update Failed", "message": "Validation Failed: ..." }` |
-| `500` | Internal error        | `{ "error": "Update Failed", "message": "..." }`       |
+| `500` | Internal error        | `{ "error": "Update Failed", "message": "..." }`                    |
 
 ---
 
@@ -386,10 +384,10 @@ Validates and saves new configuration. Triggers a cascading workflow: Zod valida
 
 Securely updates an environment variable in the `.env` file. Only keys matching a strict whitelist pattern are permitted.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Write     |
+| Property       | Value        |
+| -------------- | ------------ |
+| **Auth**       | Required     |
+| **Rate Limit** | Global Write |
 
 **Request Body:**
 
@@ -400,10 +398,10 @@ Securely updates an environment variable in the `.env` file. Only keys matching 
 }
 ```
 
-| Field   | Type     | Required | Constraints                                                                                                  |
-| ------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| Field   | Type     | Required | Constraints                                                                                                                                                                                      |
+| ------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `key`   | `string` | Yes      | Must match one of: `AZAN_*`, `*_KEY`, `*_TOKEN`, `*_SECRET`, `*_URL`, `*_ID`, `*_DEVICE`, `PORT`, `TZ`, `LOG_LEVEL`. Blacklisted: `PATH`, `NODE_OPTIONS`, `SHELL`, `USER`, `HOME`, `LD_PRELOAD`. |
-| `value` | `string` | Yes      | Any string value.                                                                                            |
+| `value` | `string` | Yes      | Any string value.                                                                                                                                                                                |
 
 **Response `200`:**
 
@@ -417,10 +415,10 @@ Securely updates an environment variable in the `.env` file. Only keys matching 
 
 **Error Responses:**
 
-| Code  | Condition             | Body                                                                 |
-| ----- | --------------------- | -------------------------------------------------------------------- |
+| Code  | Condition             | Body                                                                    |
+| ----- | --------------------- | ----------------------------------------------------------------------- |
 | `400` | Zod validation failed | `{ "success": false, "message": "Validation failed", "errors": [...] }` |
-| `500` | Write failure         | `{ "success": false, "message": "Internal server error" }`          |
+| `500` | Write failure         | `{ "success": false, "message": "Internal server error" }`              |
 
 ---
 
@@ -428,10 +426,10 @@ Securely updates an environment variable in the `.env` file. Only keys matching 
 
 Resets all configuration to factory defaults by deleting `local.json`. Triggers a full refresh: config reload → prayer cache refresh → audio asset sync → scheduler reinitialisation.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Write     |
+| Property       | Value        |
+| -------------- | ------------ |
+| **Auth**       | Required     |
+| **Rate Limit** | Global Write |
 
 **Response `200`:**
 
@@ -445,9 +443,9 @@ Resets all configuration to factory defaults by deleting `local.json`. Triggers 
 
 **Error Responses:**
 
-| Code  | Condition                         | Body                                                                         |
-| ----- | --------------------------------- | ---------------------------------------------------------------------------- |
-| `400` | Audio synchronisation failed      | `{ "error": "Sync Failed", "message": "Settings reset, but audio synchronisation failed: ..." }` |
+| Code  | Condition                    | Body                                                                                             |
+| ----- | ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| `400` | Audio synchronisation failed | `{ "error": "Sync Failed", "message": "Settings reset, but audio synchronisation failed: ..." }` |
 
 ---
 
@@ -455,10 +453,10 @@ Resets all configuration to factory defaults by deleting `local.json`. Triggers 
 
 Forces a refresh of prayer time data from online sources. Verifies at least one source is reachable before discarding the cache.
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Response `200`:**
 
@@ -472,9 +470,9 @@ Forces a refresh of prayer time data from online sources. Verifies at least one 
 
 **Error Responses:**
 
-| Code  | Condition                             | Body                                                                                      |
-| ----- | ------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `400` | Audio sync failed after cache refresh | `{ "error": "Sync Failed", "message": "Cache refreshed, but audio synchronisation failed: ..." }` |
+| Code  | Condition                             | Body                                                                                                      |
+| ----- | ------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `400` | Audio sync failed after cache refresh | `{ "error": "Sync Failed", "message": "Cache refreshed, but audio synchronisation failed: ..." }`         |
 | `503` | No sources online                     | `{ "error": "System is relying on cache. Cannot reload cache until at least one Prayer API is online." }` |
 
 ---
@@ -483,21 +481,21 @@ Forces a refresh of prayer time data from online sources. Verifies at least one 
 
 Uploads a custom audio file. The file is validated via magic bytes, moved from temporary to permanent storage, and a metadata sidecar JSON is generated.
 
-| Property      | Value                                                            |
-| ------------- | ---------------------------------------------------------------- |
-| **Auth**      | Required                                                         |
-| **Rate Limit**| Operations (10/10s) + Global Write                               |
+| Property       | Value                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| **Auth**       | Required                                                                                 |
+| **Rate Limit** | Operations (10/10s) + Global Write                                                       |
 | **Middleware** | `storageCheck` (rejects if disk quota exceeded), Multer (single file, field name `file`) |
 
 **Request:** `multipart/form-data` with a single file field named `file`.
 
-| Constraint          | Value                                                              |
-| ------------------- | ------------------------------------------------------------------ |
-| Max file size       | 10 MB                                                              |
-| Accepted extensions | `.mp3`, `.wav`, `.aac`, `.ogg`, `.opus`, `.flac`, `.m4a`           |
-| Accepted MIME types | Any `audio/*`                                                      |
-| Max file count      | 500 custom files total                                             |
-| Filename sanitisation | Non-alphanumeric characters (except `.`) replaced with `_`       |
+| Constraint            | Value                                                      |
+| --------------------- | ---------------------------------------------------------- |
+| Max file size         | 10 MB                                                      |
+| Accepted extensions   | `.mp3`, `.wav`, `.aac`, `.ogg`, `.opus`, `.flac`, `.m4a`   |
+| Accepted MIME types   | Any `audio/*`                                              |
+| Max file count        | 500 custom files total                                     |
+| Filename sanitisation | Non-alphanumeric characters (except `.`) replaced with `_` |
 
 **Response `200`:**
 
@@ -514,12 +512,12 @@ Uploads a custom audio file. The file is validated via magic bytes, moved from t
 
 **Error Responses:**
 
-| Code  | Condition                           | Body                                                               |
-| ----- | ----------------------------------- | ------------------------------------------------------------------ |
-| `400` | No file provided                    | `{ "error": "No file uploaded" }`                                  |
-| `400` | Invalid audio (magic bytes check)   | `{ "error": "Invalid File", "message": "..." }`                   |
-| `400` | 500-file limit reached              | `{ "error": "Limit Reached", "message": "Maximum of 500 custom audio files allowed. ..." }` |
-| `500` | Processing failure                  | `{ "error": "Upload Failed", "message": "..." }`                  |
+| Code  | Condition                         | Body                                                                                        |
+| ----- | --------------------------------- | ------------------------------------------------------------------------------------------- |
+| `400` | No file provided                  | `{ "error": "No file uploaded" }`                                                           |
+| `400` | Invalid audio (magic bytes check) | `{ "error": "Invalid File", "message": "..." }`                                             |
+| `400` | 500-file limit reached            | `{ "error": "Limit Reached", "message": "Maximum of 500 custom audio files allowed. ..." }` |
+| `500` | Processing failure                | `{ "error": "Upload Failed", "message": "..." }`                                            |
 
 ---
 
@@ -527,10 +525,10 @@ Uploads a custom audio file. The file is validated via magic bytes, moved from t
 
 Deletes a custom audio file and its metadata sidecar.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Write     |
+| Property       | Value        |
+| -------------- | ------------ |
+| **Auth**       | Required     |
+| **Rate Limit** | Global Write |
 
 **Request Body:**
 
@@ -540,9 +538,9 @@ Deletes a custom audio file and its metadata sidecar.
 }
 ```
 
-| Field      | Type     | Required | Constraints                                             |
-| ---------- | -------- | -------- | ------------------------------------------------------- |
-| `filename` | `string` | Yes      | Must not contain `..` or path separators (`/`, `\`).    |
+| Field      | Type     | Required | Constraints                                          |
+| ---------- | -------- | -------- | ---------------------------------------------------- |
+| `filename` | `string` | Yes      | Must not contain `..` or path separators (`/`, `\`). |
 
 **Response `200`:**
 
@@ -555,13 +553,13 @@ Deletes a custom audio file and its metadata sidecar.
 
 **Error Responses:**
 
-| Code  | Condition                      | Body                                                              |
-| ----- | ------------------------------ | ----------------------------------------------------------------- |
-| `400` | Missing filename               | `{ "error": "Missing filename" }`                                 |
-| `400` | Path traversal attempt         | `{ "error": "Invalid filename" }`                                 |
-| `403` | File marked as protected       | `{ "error": "Forbidden: File is protected and cannot be deleted" }` |
-| `404` | File not found                 | `{ "error": "File not found" }`                                   |
-| `500` | Deletion failure               | `{ "error": "Internal Server Error: Failed to delete file" }`     |
+| Code  | Condition                | Body                                                                |
+| ----- | ------------------------ | ------------------------------------------------------------------- |
+| `400` | Missing filename         | `{ "error": "Missing filename" }`                                   |
+| `400` | Path traversal attempt   | `{ "error": "Invalid filename" }`                                   |
+| `403` | File marked as protected | `{ "error": "Forbidden: File is protected and cannot be deleted" }` |
+| `404` | File not found           | `{ "error": "File not found" }`                                     |
+| `500` | Deletion failure         | `{ "error": "Internal Server Error: Failed to delete file" }`       |
 
 ---
 
@@ -569,10 +567,10 @@ Deletes a custom audio file and its metadata sidecar.
 
 Re-analyses an existing audio file and regenerates its metadata sidecar.
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Request Body:**
 
@@ -583,21 +581,21 @@ Re-analyses an existing audio file and regenerates its metadata sidecar.
 }
 ```
 
-| Field      | Type     | Required | Constraints                                         |
-| ---------- | -------- | -------- | --------------------------------------------------- |
-| `filename` | `string` | Yes      | Must not contain `..` or path separators.            |
-| `type`     | `string` | Yes      | `"custom"` or `"cache"`.                             |
+| Field      | Type     | Required | Constraints                               |
+| ---------- | -------- | -------- | ----------------------------------------- |
+| `filename` | `string` | Yes      | Must not contain `..` or path separators. |
+| `type`     | `string` | Yes      | `"custom"` or `"cache"`.                  |
 
 **Response `200`:** The regenerated metadata object.
 
 **Error Responses:**
 
-| Code  | Condition            | Body                                                              |
-| ----- | -------------------- | ----------------------------------------------------------------- |
-| `400` | Missing fields       | `{ "error": "Filename and type are required" }`                   |
-| `400` | Path traversal       | `{ "error": "Invalid filename" }`                                 |
-| `404` | File not found       | `{ "error": "Revalidation Failed", "message": "..." }`           |
-| `500` | Analysis failure     | `{ "error": "Revalidation Failed", "message": "..." }`           |
+| Code  | Condition        | Body                                                   |
+| ----- | ---------------- | ------------------------------------------------------ |
+| `400` | Missing fields   | `{ "error": "Filename and type are required" }`        |
+| `400` | Path traversal   | `{ "error": "Invalid filename" }`                      |
+| `404` | File not found   | `{ "error": "Revalidation Failed", "message": "..." }` |
+| `500` | Analysis failure | `{ "error": "Revalidation Failed", "message": "..." }` |
 
 ---
 
@@ -605,10 +603,10 @@ Re-analyses an existing audio file and regenerates its metadata sidecar.
 
 Updates the onboarding tour completion state.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Write     |
+| Property       | Value        |
+| -------------- | ------------ |
+| **Auth**       | Required     |
+| **Rate Limit** | Global Write |
 
 **Request Body:**
 
@@ -619,10 +617,10 @@ Updates the onboarding tour completion state.
 }
 ```
 
-| Field            | Type      | Required | Description                                |
-| ---------------- | --------- | -------- | ------------------------------------------ |
-| `dashboardSeen`  | `boolean` | No       | Whether the dashboard tour has been seen.  |
-| `adminSeen`      | `boolean` | No       | Whether the admin panel tour has been seen.|
+| Field           | Type      | Required | Description                                 |
+| --------------- | --------- | -------- | ------------------------------------------- |
+| `dashboardSeen` | `boolean` | No       | Whether the dashboard tour has been seen.   |
+| `adminSeen`     | `boolean` | No       | Whether the admin panel tour has been seen. |
 
 **Response `200`:**
 
@@ -642,10 +640,10 @@ Updates the onboarding tour completion state.
 
 Returns the aggregated health status of all system components. Returns `503` if any critical component is offline.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | None             |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | None        |
+| **Rate Limit** | Global Read |
 
 **Response `200` / `503`:**
 
@@ -666,10 +664,10 @@ A `503` status is returned when `local`, `tts`, or all configured sources are un
 
 Enables or disables automated health monitoring for a specific service.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Write     |
+| Property       | Value        |
+| -------------- | ------------ |
+| **Auth**       | Required     |
+| **Rate Limit** | Global Write |
 
 **Request Body:**
 
@@ -680,10 +678,10 @@ Enables or disables automated health monitoring for a specific service.
 }
 ```
 
-| Field       | Type      | Required | Description                          |
-| ----------- | --------- | -------- | ------------------------------------ |
+| Field       | Type      | Required | Description                              |
+| ----------- | --------- | -------- | ---------------------------------------- |
 | `serviceId` | `string`  | Yes      | Service identifier (e.g., `api`, `tts`). |
-| `enabled`   | `boolean` | Yes      | Whether to enable monitoring.        |
+| `enabled`   | `boolean` | Yes      | Whether to enable monitoring.            |
 
 **Response `200`:**
 
@@ -701,10 +699,10 @@ Enables or disables automated health monitoring for a specific service.
 
 Forces an immediate health check, bypassing the "Monitoring Disabled" configuration.
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Request Body:**
 
@@ -715,10 +713,10 @@ Forces an immediate health check, bypassing the "Monitoring Disabled" configurat
 }
 ```
 
-| Field    | Type     | Required | Description                                          |
-| -------- | -------- | -------- | ---------------------------------------------------- |
-| `target` | `string` | No       | Specific component to check. Defaults to `"all"`.    |
-| `params` | `object` | No       | Additional parameters for the health check.          |
+| Field    | Type     | Required | Description                                       |
+| -------- | -------- | -------- | ------------------------------------------------- |
+| `target` | `string` | No       | Specific component to check. Defaults to `"all"`. |
+| `params` | `object` | No       | Additional parameters for the health check.       |
 
 **Response `200`:** The health check result object for the targeted component(s).
 
@@ -728,10 +726,10 @@ Forces an immediate health check, bypassing the "Monitoring Disabled" configurat
 
 Lists all currently scheduled background jobs, split into maintenance and automation categories.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Response `200`:**
 
@@ -752,17 +750,17 @@ Lists all currently scheduled background jobs, split into maintenance and automa
 
 Returns a paginated list of custom and cached audio files with their metadata.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Query Parameters:**
 
-| Param   | Type     | Default | Description                  |
-| ------- | -------- | ------- | ---------------------------- |
-| `page`  | `number` | `1`     | Page number (1-indexed).     |
-| `limit` | `number` | `50`    | Items per page.              |
+| Param   | Type     | Default | Description              |
+| ------- | -------- | ------- | ------------------------ |
+| `page`  | `number` | `1`     | Page number (1-indexed). |
+| `limit` | `number` | `50`    | Items per page.          |
 
 **Response `200`:**
 
@@ -792,19 +790,25 @@ Files with `metadata.hidden === true` are excluded from results. Results are cac
 
 Returns static reference data used by the settings UI: calculation methods, juristic schools, latitude adjustments, and midnight modes.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Response `200`:**
 
 ```json
 {
-  "calculationMethods": [{ "id": 1, "label": "University of Islamic Sciences, Karachi" }, "..."],
+  "calculationMethods": [
+    { "id": 1, "label": "University of Islamic Sciences, Karachi" },
+    "..."
+  ],
   "madhabs": [{ "id": 1, "label": "Shafi'i, Maliki, Hanbali" }, "..."],
   "latitudeAdjustments": [{ "id": 0, "label": "None" }, "..."],
-  "midnightModes": [{ "id": 0, "label": "Standard (Mid Sunset to Sunrise)" }, "..."]
+  "midnightModes": [
+    { "id": 0, "label": "Standard (Mid Sunset to Sunrise)" },
+    "..."
+  ]
 }
 ```
 
@@ -814,10 +818,10 @@ Returns static reference data used by the settings UI: calculation methods, juri
 
 Performs a diagnostic check on the automation pipeline and returns its current status.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Response `200`:** A diagnostic status object from `diagnosticsService.getAutomationStatus()`.
 
@@ -827,10 +831,10 @@ Performs a diagnostic check on the automation pipeline and returns its current s
 
 Performs a diagnostic check on the TTS engine's health and configuration.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Response `200`:** A diagnostic status object from `diagnosticsService.getTTSStatus()`.
 
@@ -840,10 +844,10 @@ Performs a diagnostic check on the TTS engine's health and configuration.
 
 Returns disk usage statistics, quota information, and a recommended storage limit.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Response `200`:**
 
@@ -866,10 +870,10 @@ Returns disk usage statistics, quota information, and a recommended storage limi
 
 Returns the list of available TTS voices from the Python microservice cache.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Response `200`:** An array of voice objects (locale, name, gender).
 
@@ -879,10 +883,10 @@ Returns the list of available TTS voices from the Python microservice cache.
 
 Generates a TTS audio preview by resolving template placeholders and invoking the TTS microservice.
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Request Body:**
 
@@ -895,22 +899,22 @@ Generates a TTS audio preview by resolving template placeholders and invoking th
 }
 ```
 
-| Field           | Type     | Required | Constraints                        |
-| --------------- | -------- | -------- | ---------------------------------- |
-| `template`      | `string` | Yes      | Maximum 50 characters.             |
-| `prayerKey`     | `string` | Yes      | Prayer name (e.g., `fajr`).        |
+| Field           | Type     | Required | Constraints                                |
+| --------------- | -------- | -------- | ------------------------------------------ |
+| `template`      | `string` | Yes      | Maximum 50 characters.                     |
+| `prayerKey`     | `string` | Yes      | Prayer name (e.g., `fajr`).                |
 | `offsetMinutes` | `number` | No       | Minutes value for `{minutes}` placeholder. |
-| `voice`         | `string` | Yes      | TTS voice identifier.              |
+| `voice`         | `string` | Yes      | TTS voice identifier.                      |
 
 **Response `200`:** Audio metadata object with preview file information.
 
 **Error Responses:**
 
-| Code  | Condition                     | Body                                                      |
-| ----- | ----------------------------- | --------------------------------------------------------- |
-| `400` | Missing required fields       | `{ "error": "Template, prayerKey, and voice are required" }` |
-| `400` | Template exceeds 50 chars     | `{ "error": "TTS template must be 50 characters or less" }` |
-| `500` | Generation failure            | `{ "error": "..." }`                                      |
+| Code  | Condition                 | Body                                                         |
+| ----- | ------------------------- | ------------------------------------------------------------ |
+| `400` | Missing required fields   | `{ "error": "Template, prayerKey, and voice are required" }` |
+| `400` | Template exceeds 50 chars | `{ "error": "TTS template must be 50 characters or less" }`  |
+| `500` | Generation failure        | `{ "error": "..." }`                                         |
 
 ---
 
@@ -918,10 +922,10 @@ Generates a TTS audio preview by resolving template placeholders and invoking th
 
 Clears all cached TTS files and regenerates them from current trigger configurations.
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Response `200`:**
 
@@ -940,10 +944,10 @@ Clears all cached TTS files and regenerates them from current trigger configurat
 
 Manually triggers a named scheduled job.
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Request Body:**
 
@@ -953,9 +957,9 @@ Manually triggers a named scheduled job.
 }
 ```
 
-| Field     | Type     | Required | Description                  |
-| --------- | -------- | -------- | ---------------------------- |
-| `jobName` | `string` | Yes      | Name of the job to trigger.  |
+| Field     | Type     | Required | Description                 |
+| --------- | -------- | -------- | --------------------------- |
+| `jobName` | `string` | Yes      | Name of the job to trigger. |
 
 **Response `200`:**
 
@@ -968,11 +972,11 @@ Manually triggers a named scheduled job.
 
 **Error Responses:**
 
-| Code  | Condition            | Body                                                  |
-| ----- | -------------------- | ----------------------------------------------------- |
+| Code  | Condition            | Body                                                     |
+| ----- | -------------------- | -------------------------------------------------------- |
 | `400` | Missing `jobName`    | `{ "success": false, "message": "jobName is required" }` |
-| `400` | Job execution failed | `{ "success": false, "message": "..." }`              |
-| `500` | Internal error       | `{ "success": false, "message": "..." }`              |
+| `400` | Job execution failed | `{ "success": false, "message": "..." }`                 |
+| `500` | Internal error       | `{ "success": false, "message": "..." }`                 |
 
 ---
 
@@ -980,10 +984,10 @@ Manually triggers a named scheduled job.
 
 Performs a hot reload of the prayer scheduler without terminating the server process.
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Response `200`:**
 
@@ -1000,10 +1004,10 @@ Performs a hot reload of the prayer scheduler without terminating the server pro
 
 Validates that an external URL is reachable. Uses DNS-pinned HTTP agents to prevent DNS rebinding attacks. Attempts `HEAD` first, then falls back to `GET` (streamed).
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Request Body:**
 
@@ -1013,8 +1017,8 @@ Validates that an external URL is reachable. Uses DNS-pinned HTTP agents to prev
 }
 ```
 
-| Field | Type     | Required | Constraints                         |
-| ----- | -------- | -------- | ----------------------------------- |
+| Field | Type     | Required | Constraints                            |
+| ----- | -------- | -------- | -------------------------------------- |
 | `url` | `string` | Yes      | Must use `http:` or `https:` protocol. |
 
 **Response `200`:**
@@ -1042,10 +1046,10 @@ Or on failure:
 
 Tests connectivity and data retrieval for a configured prayer time source by forcing a health check.
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Request Body:**
 
@@ -1055,9 +1059,9 @@ Tests connectivity and data retrieval for a configured prayer time source by for
 }
 ```
 
-| Field    | Type     | Required | Constraints                    |
-| -------- | -------- | -------- | ------------------------------ |
-| `target` | `string` | Yes      | `"primary"` or `"backup"`.     |
+| Field    | Type     | Required | Constraints                |
+| -------- | -------- | -------- | -------------------------- |
+| `target` | `string` | Yes      | `"primary"` or `"backup"`. |
 
 **Response `200`:**
 
@@ -1070,12 +1074,12 @@ Tests connectivity and data retrieval for a configured prayer time source by for
 
 **Error Responses:**
 
-| Code  | Condition                        | Body                                                                   |
-| ----- | -------------------------------- | ---------------------------------------------------------------------- |
-| `400` | Invalid target value             | `{ "success": false, "error": "Invalid target. Expected \"primary\" or \"backup\"." }` |
-| `400` | Source not configured            | `{ "success": false, "error": "Source \"backup\" is not configured." }` |
-| `400` | Backup source disabled           | `{ "success": false, "error": "Backup source is currently disabled." }` |
-| `400` | Source test failed               | `{ "success": false, "error": "Source test failed." }`                 |
+| Code  | Condition              | Body                                                                                   |
+| ----- | ---------------------- | -------------------------------------------------------------------------------------- |
+| `400` | Invalid target value   | `{ "success": false, "error": "Invalid target. Expected \"primary\" or \"backup\"." }` |
+| `400` | Source not configured  | `{ "success": false, "error": "Source \"backup\" is not configured." }`                |
+| `400` | Backup source disabled | `{ "success": false, "error": "Backup source is currently disabled." }`                |
+| `400` | Source test failed     | `{ "success": false, "error": "Source test failed." }`                                 |
 
 ---
 
@@ -1083,10 +1087,10 @@ Tests connectivity and data retrieval for a configured prayer time source by for
 
 Manually triggers cleanup of temporary TTS preview files from the `temp/` directory.
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Response `200`:**
 
@@ -1105,10 +1109,10 @@ Manually triggers cleanup of temporary TTS preview files from the `temp/` direct
 
 Returns the registry of all available prayer data providers and their configuration schemas.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Response `200`:** An array of provider metadata objects, each containing `id`, `label`, `description`, `requiresCoordinates`, and `parameters`.
 
@@ -1118,10 +1122,10 @@ Returns the registry of all available prayer data providers and their configurat
 
 Returns the list of system services that report health status, used by the frontend to render health monitoring rows dynamically.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Response `200`:**
 
@@ -1138,10 +1142,10 @@ Returns the list of system services that report health status, used by the front
 
 Returns all registered output strategies and their configuration schemas. Used by the frontend to dynamically render output configuration cards.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | Required         |
-| **Rate Limit**| Global Read      |
+| Property       | Value       |
+| -------------- | ----------- |
+| **Auth**       | Required    |
+| **Rate Limit** | Global Read |
 
 **Response `200`:** An array of strategy metadata objects, each containing `id`, `label`, `timeoutMs`, and `params` (an array of parameter schemas with `key`, `type`, `label`, `sensitive`).
 
@@ -1151,15 +1155,15 @@ Returns all registered output strategies and their configuration schemas. Used b
 
 Verifies credentials for a specific output strategy (e.g., tests VoiceMonkey API key validity).
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Path Parameters:**
 
-| Param        | Type     | Description                       |
-| ------------ | -------- | --------------------------------- |
+| Param        | Type     | Description                               |
+| ------------ | -------- | ----------------------------------------- |
 | `strategyId` | `string` | Output strategy ID (e.g., `voicemonkey`). |
 
 **Request Body:** Strategy-specific parameters. Masked values (from `GET /api/settings`) are automatically unmasked using stored configuration before verification.
@@ -1174,15 +1178,15 @@ Verifies credentials for a specific output strategy (e.g., tests VoiceMonkey API
 
 Executes a test playback through a specific output strategy using a provided audio source.
 
-| Property      | Value                                |
-| ------------- | ------------------------------------ |
-| **Auth**      | Required                             |
-| **Rate Limit**| Operations (10/10s) + Global Write   |
+| Property       | Value                              |
+| -------------- | ---------------------------------- |
+| **Auth**       | Required                           |
+| **Rate Limit** | Operations (10/10s) + Global Write |
 
 **Path Parameters:**
 
-| Param        | Type     | Description                       |
-| ------------ | -------- | --------------------------------- |
+| Param        | Type     | Description                         |
+| ------------ | -------- | ----------------------------------- |
 | `strategyId` | `string` | Output strategy ID (e.g., `local`). |
 
 **Request Body:**
@@ -1196,10 +1200,10 @@ Executes a test playback through a specific output strategy using a provided aud
 }
 ```
 
-| Field          | Type     | Required | Description                                  |
-| -------------- | -------- | -------- | -------------------------------------------- |
-| `source.path`  | `string` | Yes      | Path to the audio file to play.              |
-| `params`       | `object` | No       | Strategy-specific parameters (auto-unmasked).|
+| Field         | Type     | Required | Description                                   |
+| ------------- | -------- | -------- | --------------------------------------------- |
+| `source.path` | `string` | Yes      | Path to the audio file to play.               |
+| `params`      | `object` | No       | Strategy-specific parameters (auto-unmasked). |
 
 **Response `200`:**
 
@@ -1219,20 +1223,20 @@ Executes a test playback through a specific output strategy using a provided aud
 
 Establishes a Server-Sent Events (SSE) connection for streaming system logs in real-time.
 
-| Property      | Value                        |
-| ------------- | ---------------------------- |
-| **Auth**      | None                         |
-| **Rate Limit**| SSE (50 connections/min)     |
+| Property       | Value                    |
+| -------------- | ------------------------ |
+| **Auth**       | None                     |
+| **Rate Limit** | SSE (50 connections/min) |
 
 **Response:** `text/event-stream`
 
 The stream emits the following event types:
 
-| Event             | Description                                                                      |
-| ----------------- | -------------------------------------------------------------------------------- |
-| `LOG`             | General system log messages (info, warn, error).                                 |
-| `AUDIO_PLAY`      | Signal to browser clients to play a specific audio URL via the Web Audio API.    |
-| `PROCESS_UPDATE`  | Progress updates during long-running operations (e.g., "Generating TTS 3/6..."). |
+| Event            | Description                                                                      |
+| ---------------- | -------------------------------------------------------------------------------- |
+| `LOG`            | General system log messages (info, warn, error).                                 |
+| `AUDIO_PLAY`     | Signal to browser clients to play a specific audio URL via the Web Audio API.    |
+| `PROCESS_UPDATE` | Progress updates during long-running operations (e.g., "Generating TTS 3/6..."). |
 
 **Example SSE Frame:**
 
@@ -1251,10 +1255,10 @@ The connection remains open indefinitely. Clients should implement automatic rec
 
 A lightweight health probe mounted directly on the Express app (outside the API router). Intended for Docker `HEALTHCHECK` and load balancer probes.
 
-| Property      | Value            |
-| ------------- | ---------------- |
-| **Auth**      | None             |
-| **Rate Limit**| None             |
+| Property       | Value |
+| -------------- | ----- |
+| **Auth**       | None  |
+| **Rate Limit** | None  |
 
 **Response `200`:**
 
@@ -1268,46 +1272,46 @@ A lightweight health probe mounted directly on the Express app (outside the API 
 
 ## Endpoint Summary
 
-| Method   | Endpoint                                 | Auth     | Rate Limit Tier      |
-| -------- | ---------------------------------------- | -------- | -------------------- |
-| `GET`    | `/api/auth/status`                       | None     | Global Read          |
-| `POST`   | `/api/auth/setup`                        | None     | Security             |
-| `POST`   | `/api/auth/login`                        | None     | Security             |
-| `POST`   | `/api/auth/logout`                       | None     | Global Write         |
-| `GET`    | `/api/auth/check`                        | Required | Global Read          |
-| `POST`   | `/api/auth/change-password`              | Required | Security             |
-| `GET`    | `/api/prayers`                           | None     | Global Read          |
-| `GET`    | `/api/settings/public`                   | None     | Global Read          |
-| `GET`    | `/api/settings`                          | Required | Global Read          |
-| `POST`   | `/api/settings/update`                   | Required | Global Write         |
-| `POST`   | `/api/settings/env`                      | Required | Global Write         |
-| `POST`   | `/api/settings/reset`                    | Required | Global Write         |
-| `POST`   | `/api/settings/refresh-cache`            | Required | Operations           |
-| `POST`   | `/api/settings/upload`                   | Required | Operations           |
-| `DELETE` | `/api/settings/files`                    | Required | Global Write         |
-| `POST`   | `/api/settings/files/revalidate`         | Required | Operations           |
-| `PATCH`  | `/api/settings/tour-state`               | Required | Global Write         |
-| `GET`    | `/api/system/health`                     | None     | Global Read          |
-| `POST`   | `/api/system/health/toggle`              | Required | Global Write         |
-| `POST`   | `/api/system/health/refresh`             | Required | Operations           |
-| `GET`    | `/api/system/jobs`                       | Required | Global Read          |
-| `GET`    | `/api/system/audio-files`                | Required | Global Read          |
-| `GET`    | `/api/system/constants`                  | Required | Global Read          |
-| `GET`    | `/api/system/status/automation`          | Required | Global Read          |
-| `GET`    | `/api/system/status/tts`                 | Required | Global Read          |
-| `GET`    | `/api/system/storage`                    | Required | Global Read          |
-| `GET`    | `/api/system/voices`                     | Required | Global Read          |
-| `POST`   | `/api/system/preview-tts`                | Required | Operations           |
-| `POST`   | `/api/system/regenerate-tts`             | Required | Operations           |
-| `POST`   | `/api/system/run-job`                    | Required | Operations           |
-| `POST`   | `/api/system/restart-scheduler`          | Required | Operations           |
-| `POST`   | `/api/system/validate-url`               | Required | Operations           |
-| `POST`   | `/api/system/source/test`                | Required | Operations           |
-| `POST`   | `/api/system/cleanup-temp-tts`           | Required | Operations           |
-| `GET`    | `/api/system/providers`                  | Required | Global Read          |
-| `GET`    | `/api/system/services/registry`          | Required | Global Read          |
-| `GET`    | `/api/system/outputs/registry`           | Required | Global Read          |
-| `POST`   | `/api/system/outputs/:strategyId/verify` | Required | Operations           |
-| `POST`   | `/api/system/outputs/:strategyId/test`   | Required | Operations           |
-| `GET`    | `/api/logs`                              | None     | SSE                  |
-| `GET`    | `/api/health`                            | None     | None                 |
+| Method   | Endpoint                                 | Auth     | Rate Limit Tier |
+| -------- | ---------------------------------------- | -------- | --------------- |
+| `GET`    | `/api/auth/status`                       | None     | Global Read     |
+| `POST`   | `/api/auth/setup`                        | None     | Security        |
+| `POST`   | `/api/auth/login`                        | None     | Security        |
+| `POST`   | `/api/auth/logout`                       | None     | Global Write    |
+| `GET`    | `/api/auth/check`                        | Required | Global Read     |
+| `POST`   | `/api/auth/change-password`              | Required | Security        |
+| `GET`    | `/api/prayers`                           | None     | Global Read     |
+| `GET`    | `/api/settings/public`                   | None     | Global Read     |
+| `GET`    | `/api/settings`                          | Required | Global Read     |
+| `POST`   | `/api/settings/update`                   | Required | Global Write    |
+| `POST`   | `/api/settings/env`                      | Required | Global Write    |
+| `POST`   | `/api/settings/reset`                    | Required | Global Write    |
+| `POST`   | `/api/settings/refresh-cache`            | Required | Operations      |
+| `POST`   | `/api/settings/upload`                   | Required | Operations      |
+| `DELETE` | `/api/settings/files`                    | Required | Global Write    |
+| `POST`   | `/api/settings/files/revalidate`         | Required | Operations      |
+| `PATCH`  | `/api/settings/tour-state`               | Required | Global Write    |
+| `GET`    | `/api/system/health`                     | None     | Global Read     |
+| `POST`   | `/api/system/health/toggle`              | Required | Global Write    |
+| `POST`   | `/api/system/health/refresh`             | Required | Operations      |
+| `GET`    | `/api/system/jobs`                       | Required | Global Read     |
+| `GET`    | `/api/system/audio-files`                | Required | Global Read     |
+| `GET`    | `/api/system/constants`                  | Required | Global Read     |
+| `GET`    | `/api/system/status/automation`          | Required | Global Read     |
+| `GET`    | `/api/system/status/tts`                 | Required | Global Read     |
+| `GET`    | `/api/system/storage`                    | Required | Global Read     |
+| `GET`    | `/api/system/voices`                     | Required | Global Read     |
+| `POST`   | `/api/system/preview-tts`                | Required | Operations      |
+| `POST`   | `/api/system/regenerate-tts`             | Required | Operations      |
+| `POST`   | `/api/system/run-job`                    | Required | Operations      |
+| `POST`   | `/api/system/restart-scheduler`          | Required | Operations      |
+| `POST`   | `/api/system/validate-url`               | Required | Operations      |
+| `POST`   | `/api/system/source/test`                | Required | Operations      |
+| `POST`   | `/api/system/cleanup-temp-tts`           | Required | Operations      |
+| `GET`    | `/api/system/providers`                  | Required | Global Read     |
+| `GET`    | `/api/system/services/registry`          | Required | Global Read     |
+| `GET`    | `/api/system/outputs/registry`           | Required | Global Read     |
+| `POST`   | `/api/system/outputs/:strategyId/verify` | Required | Operations      |
+| `POST`   | `/api/system/outputs/:strategyId/test`   | Required | Operations      |
+| `GET`    | `/api/logs`                              | None     | SSE             |
+| `GET`    | `/api/health`                            | None     | None            |

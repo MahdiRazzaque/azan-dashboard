@@ -1,69 +1,75 @@
-const initLogger = require('@utils/loggerInitializer');
-const sseService = require('@services/system/sseService');
+const initLogger = require("@utils/loggerInitializer");
+const sseService = require("@services/system/sseService");
 
-jest.mock('@services/system/sseService', () => ({
-    log: jest.fn()
+jest.mock("@services/system/sseService", () => ({
+  log: jest.fn(),
 }));
 
-describe('Logger Initializer', () => {
-    let originalLog, originalError, originalWarn;
+describe("Logger Initializer", () => {
+  let originalLog, originalError, originalWarn;
 
-    beforeEach(() => {
-        originalLog = console.log;
-        originalError = console.error;
-        originalWarn = console.warn;
-    });
+  beforeEach(() => {
+    originalLog = console.log;
+    originalError = console.error;
+    originalWarn = console.warn;
+  });
 
-    afterEach(() => {
-        console.log = originalLog;
-        console.error = originalError;
-        console.warn = originalWarn;
-        jest.clearAllMocks();
-    });
+  afterEach(() => {
+    console.log = originalLog;
+    console.error = originalError;
+    console.warn = originalWarn;
+    jest.clearAllMocks();
+  });
 
-    test('should wrap console.log and call sseService', () => {
-        const spy = jest.fn();
-        console.log = spy;
+  test("should wrap console.log and call sseService", () => {
+    const spy = jest.fn();
+    console.log = spy;
 
-        initLogger();
+    initLogger();
 
-        console.log('test message');
-        expect(sseService.log).toHaveBeenCalledWith('test message', 'info');
-        expect(spy).toHaveBeenCalledWith('test message');
-    });
+    console.log("test message");
+    expect(sseService.log).toHaveBeenCalledWith("test message", "info");
+    expect(spy).toHaveBeenCalledWith("test message");
+  });
 
-    test('should handle objects in console.log', () => {
-        const spy = jest.fn();
-        console.log = spy;
+  test("should handle objects in console.log", () => {
+    const spy = jest.fn();
+    console.log = spy;
 
-        initLogger();
+    initLogger();
 
-        const obj = { key: 'value' };
-        console.log('Obj:', obj);
-        
-        expect(sseService.log).toHaveBeenCalledWith('Obj: {"key":"value"}', 'info');
-        expect(spy).toHaveBeenCalledWith('Obj:', obj);
-    });
+    const obj = { key: "value" };
+    console.log("Obj:", obj);
 
-    test('should wrap console.error', () => {
-        const spy = jest.fn();
-        console.error = spy;
-        
-        initLogger();
-        
-        console.error('error msg', { detail: 'err' });
-        expect(sseService.log).toHaveBeenCalledWith('error msg {"detail":"err"}', 'error');
-        expect(spy).toHaveBeenCalledWith('error msg', { detail: 'err' });
-    });
+    expect(sseService.log).toHaveBeenCalledWith('Obj: {"key":"value"}', "info");
+    expect(spy).toHaveBeenCalledWith("Obj:", obj);
+  });
 
-    test('should wrap console.warn', () => {
-        const spy = jest.fn();
-        console.warn = spy;
-        
-        initLogger();
-        
-        console.warn('warn msg', { detail: 'warn' });
-        expect(sseService.log).toHaveBeenCalledWith('warn msg {"detail":"warn"}', 'warn');
-        expect(spy).toHaveBeenCalledWith('warn msg', { detail: 'warn' });
-    });
+  test("should wrap console.error", () => {
+    const spy = jest.fn();
+    console.error = spy;
+
+    initLogger();
+
+    console.error("error msg", { detail: "err" });
+    expect(sseService.log).toHaveBeenCalledWith(
+      'error msg {"detail":"err"}',
+      "error",
+    );
+    expect(spy).toHaveBeenCalledWith("error msg", { detail: "err" });
+  });
+
+  test("should wrap console.warn", () => {
+    const spy = jest.fn();
+    console.warn = spy;
+
+    initLogger();
+
+    console.warn("warn msg", { detail: "warn" });
+    expect(sseService.log).toHaveBeenCalledWith(
+      'warn msg {"detail":"warn"}',
+      "warn",
+    );
+    expect(spy).toHaveBeenCalledWith("warn msg", { detail: "warn" });
+  });
 });

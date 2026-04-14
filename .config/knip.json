@@ -17,17 +17,14 @@
     "@routes/*": ["./src/routes/*"]
   },
   "ignoreBinaries": [
+    "prettier",
     "gitnexus",
     "knip",
     "venv/bin/python",
     "nodemon",
     "docker-compose"
   ],
-  "ignore": [
-    "src/tests/**"
-  ],
-  "exclude": [
-    "unlisted"
-  ],
+  "ignore": ["src/tests/**"],
+  "exclude": ["unlisted"],
   "ignoreExportsUsedInFile": true
 }

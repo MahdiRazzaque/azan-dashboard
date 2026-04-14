@@ -1,15 +1,15 @@
-import React from 'react';
-import { renderHook } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
-import { useProviders } from '../../../src/hooks/useProviders';
-import { SettingsContext } from '../../../src/hooks/useSettings';
+import React from "react";
+import { renderHook } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { useProviders } from "../../../src/hooks/useProviders";
+import { SettingsContext } from "../../../src/hooks/useSettings";
 
-describe('useProviders', () => {
-  it('should return provider metadata from SettingsContext', () => {
+describe("useProviders", () => {
+  it("should return provider metadata from SettingsContext", () => {
     const mockContextValue = {
-      providers: [{ id: 'aladhan', name: 'Aladhan' }],
+      providers: [{ id: "aladhan", name: "Aladhan" }],
       providersLoading: false,
-      fetchProviders: vi.fn()
+      fetchProviders: vi.fn(),
     };
 
     const wrapper = ({ children }) => (

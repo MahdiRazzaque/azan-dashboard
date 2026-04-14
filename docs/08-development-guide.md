@@ -37,11 +37,11 @@ The backend runs on port `3000` by default. The Vite dev server runs on port `51
 
 ### Language and Module System
 
-| Layer | Language | Module System | Entry Point |
-|-------|----------|---------------|-------------|
-| Backend | JavaScript (ES2020+) | CommonJS (`require` / `module.exports`) | `src/server.js` |
-| Frontend | JavaScript + JSX | ES Modules (`import` / `export`) | `client/src/main.jsx` |
-| TTS Microservice | Python 3.9+ | Standard Python imports | `src/microservices/tts/server.py` |
+| Layer            | Language             | Module System                           | Entry Point                       |
+| ---------------- | -------------------- | --------------------------------------- | --------------------------------- |
+| Backend          | JavaScript (ES2020+) | CommonJS (`require` / `module.exports`) | `src/server.js`                   |
+| Frontend         | JavaScript + JSX     | ES Modules (`import` / `export`)        | `client/src/main.jsx`             |
+| TTS Microservice | Python 3.9+          | Standard Python imports                 | `src/microservices/tts/server.py` |
 
 There is **no TypeScript** in this project. Do not introduce TypeScript files, `as any` casts, `@ts-ignore`, or `@ts-expect-error` comments.
 
@@ -51,33 +51,33 @@ Both backend and frontend use path aliases for cleaner imports. Always prefer al
 
 **Backend** (configured via `module-alias` in `package.json`, mirrored in Jest's `moduleNameMapper`):
 
-| Alias | Resolves To |
-|-------|-------------|
-| `@services/` | `src/services/` |
-| `@config` / `@config/` | `src/config` / `src/config/` |
-| `@utils/` | `src/utils/` |
-| `@controllers/` | `src/controllers/` |
-| `@middleware/` | `src/middleware/` |
+| Alias                        | Resolves To                        |
+| ---------------------------- | ---------------------------------- |
+| `@services/`                 | `src/services/`                    |
+| `@config` / `@config/`       | `src/config` / `src/config/`       |
+| `@utils/`                    | `src/utils/`                       |
+| `@controllers/`              | `src/controllers/`                 |
+| `@middleware/`               | `src/middleware/`                  |
 | `@providers` / `@providers/` | `src/providers` / `src/providers/` |
-| `@outputs` / `@outputs/` | `src/outputs` / `src/outputs/` |
-| `@routes/` | `src/routes/` |
+| `@outputs` / `@outputs/`     | `src/outputs` / `src/outputs/`     |
+| `@routes/`                   | `src/routes/`                      |
 
 > **Note:** An `@adapters/` alias is registered in `package.json` but the directory does not exist. Do not create it without intentional design.
 
 **Frontend** (configured via Vite's `resolve.alias`):
 
-| Alias | Resolves To |
-|-------|-------------|
-| `@/` | `client/src/` |
+| Alias | Resolves To   |
+| ----- | ------------- |
+| `@/`  | `client/src/` |
 
 ```javascript
 // Backend example
-const configService = require('@config/ConfigService');
-const logger = require('@utils/logger');
+const configService = require("@config/ConfigService");
+const logger = require("@utils/logger");
 
 // Frontend example
-import { useAuth } from '@/hooks/useAuth';
-import StatusBadge from '@/components/common/StatusBadge';
+import { useAuth } from "@/hooks/useAuth";
+import StatusBadge from "@/components/common/StatusBadge";
 ```
 
 ### JSDoc Requirements
@@ -95,7 +95,7 @@ JSDoc is enforced by ESLint with differing strictness per layer:
  * @returns {string} The calculated Iqamah time in HH:mm format.
  */
 function calculateIqamah(prayer, adhanTime, settings) {
-    // ...
+  // ...
 }
 ```
 
@@ -109,7 +109,7 @@ function calculateIqamah(prayer, adhanTime, settings) {
  * @returns {{ prayers: Array, nextPrayer: Object|null, loading: boolean }} Prayer state.
  */
 const usePrayerTimes = (settings, isConnected) => {
-    // ...
+  // ...
 };
 ```
 
@@ -118,10 +118,10 @@ const usePrayerTimes = (settings, isConnected) => {
 **Backend**: Always use the Winston-based logger from `@utils/logger`. Never use `console.log`, `console.info`, or `console.warn` directly:
 
 ```javascript
-const logger = require('@utils/logger');
+const logger = require("@utils/logger");
 
-logger.info('Prayer times refreshed', { source: 'aladhan', year: 2026 });
-logger.error('TTS generation failed', { error: err.message });
+logger.info("Prayer times refreshed", { source: "aladhan", year: 2026 });
+logger.error("TTS generation failed", { error: err.message });
 ```
 
 **Frontend**: Standard `console` methods are acceptable during development.
@@ -132,8 +132,12 @@ Class methods intended for internal use are prefixed with an underscore (`_`):
 
 ```javascript
 class ConfigService {
-    _stripSecrets(config) { /* ... */ }
-    _loadSources() { /* ... */ }
+  _stripSecrets(config) {
+    /* ... */
+  }
+  _loadSources() {
+    /* ... */
+  }
 }
 ```
 
@@ -146,6 +150,7 @@ npm run lint
 ```
 
 The configuration uses:
+
 - **Backend**: `eslint-plugin-jsdoc` with strict rules for all function types
 - **Frontend**: `eslint-plugin-react`, `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh`, and `eslint-plugin-jsdoc` (hooks only)
 
@@ -155,10 +160,10 @@ Test directories (`src/tests/`, `client/tests/`) are excluded from linting.
 
 ## Branching Strategy
 
-| Branch | Purpose |
-|--------|---------|
-| `main` | Stable, production-ready code. Deployed automatically via CI. |
-| `develop` | Integration branch for features awaiting release. |
+| Branch        | Purpose                                                                |
+| ------------- | ---------------------------------------------------------------------- |
+| `main`        | Stable, production-ready code. Deployed automatically via CI.          |
+| `develop`     | Integration branch for features awaiting release.                      |
 | `feature/xyz` | Individual feature branches. Branch from `develop`, merge back via PR. |
 
 ### Workflow
@@ -216,11 +221,11 @@ src/tests/
 
 #### Test Naming Conventions
 
-| Pattern | Purpose | Example |
-|---------|---------|---------|
-| `*.test.js` | Standard test file | `prayerTimeService.test.js` |
-| `*_Extended.test.js` | Extended coverage for complex modules | `FileManagerView_Extended.test.jsx` |
-| `*_security.test.js` | Security-focused tests | `fileUpload_security.test.js`, `ConfigService_security.test.js` |
+| Pattern              | Purpose                               | Example                                                         |
+| -------------------- | ------------------------------------- | --------------------------------------------------------------- |
+| `*.test.js`          | Standard test file                    | `prayerTimeService.test.js`                                     |
+| `*_Extended.test.js` | Extended coverage for complex modules | `FileManagerView_Extended.test.jsx`                             |
+| `*_security.test.js` | Security-focused tests                | `fileUpload_security.test.js`, `ConfigService_security.test.js` |
 
 #### Using the Mock Factory
 
@@ -228,24 +233,24 @@ Always use `mockFactory.js` for core service mocks. Never create ad-hoc mocks fo
 
 ```javascript
 const {
-    createMockConfigService,
-    createMockPrayerTimeService,
-    createMockSchedulerService,
-    createMockAutomationService,
-    createMockSSEService,
-    createMockAudioAssetService,
-    createMockHealthCheck,
-    createMockConfig,
-    createMockProvider,
-    createMockProviderFactory,
-    createMockEnvManager,
-    createMockAuthUtils,
-    createMockDiagnosticsService
-} = require('../helpers/mockFactory');
+  createMockConfigService,
+  createMockPrayerTimeService,
+  createMockSchedulerService,
+  createMockAutomationService,
+  createMockSSEService,
+  createMockAudioAssetService,
+  createMockHealthCheck,
+  createMockConfig,
+  createMockProvider,
+  createMockProviderFactory,
+  createMockEnvManager,
+  createMockAuthUtils,
+  createMockDiagnosticsService,
+} = require("../helpers/mockFactory");
 
 // Use with custom overrides
 const mockConfig = createMockConfig({
-    location: { timezone: 'Asia/Riyadh', coordinates: { lat: 24.7, long: 46.7 } }
+  location: { timezone: "Asia/Riyadh", coordinates: { lat: 24.7, long: 46.7 } },
 });
 const mockConfigService = createMockConfigService(mockConfig);
 ```
@@ -255,15 +260,15 @@ const mockConfigService = createMockConfigService(mockConfig);
 For integration tests that require authentication, use `authHelper.js`:
 
 ```javascript
-const authHelper = require('../helpers/authHelper');
-const request = require('supertest');
+const authHelper = require("../helpers/authHelper");
+const request = require("supertest");
 
-it('should return settings for authenticated user', async () => {
-    const response = await request(app)
-        .get('/api/settings')
-        .set('Cookie', authHelper.getAuthToken());
+it("should return settings for authenticated user", async () => {
+  const response = await request(app)
+    .get("/api/settings")
+    .set("Cookie", authHelper.getAuthToken());
 
-    expect(response.status).toBe(200);
+  expect(response.status).toBe(200);
 });
 ```
 
@@ -339,72 +344,72 @@ Create a new file in `src/providers/` extending `BaseProvider`:
 ```javascript
 // src/providers/IslamicFinderProvider.js
 
-const BaseProvider = require('./BaseProvider');
+const BaseProvider = require("./BaseProvider");
 
 class IslamicFinderProvider extends BaseProvider {
-    /**
-     * Returns metadata describing this provider for UI discovery.
-     * @returns {Object} Provider metadata.
-     */
-    static getMetadata() {
-        return {
-            id: 'islamicfinder',
-            label: 'IslamicFinder',
-            description: 'Prayer times from IslamicFinder.org API',
-            requiresCoordinates: true,
-            parameters: [
-                {
-                    key: 'apiKey',
-                    type: 'password',       // text | number | select | password
-                    label: 'API Key',
-                    sensitive: true,        // Stripped from local.json, stored in .env
-                    constraints: { required: true }
-                },
-                {
-                    key: 'juristic',
-                    type: 'select',
-                    label: 'Juristic Method',
-                    sensitive: false,
-                    constraints: {
-                        options: [
-                            { value: 0, label: 'Shafi / Hanbali / Maliki' },
-                            { value: 1, label: 'Hanafi' }
-                        ]
-                    }
-                }
-            ]
-        };
-    }
+  /**
+   * Returns metadata describing this provider for UI discovery.
+   * @returns {Object} Provider metadata.
+   */
+  static getMetadata() {
+    return {
+      id: "islamicfinder",
+      label: "IslamicFinder",
+      description: "Prayer times from IslamicFinder.org API",
+      requiresCoordinates: true,
+      parameters: [
+        {
+          key: "apiKey",
+          type: "password", // text | number | select | password
+          label: "API Key",
+          sensitive: true, // Stripped from local.json, stored in .env
+          constraints: { required: true },
+        },
+        {
+          key: "juristic",
+          type: "select",
+          label: "Juristic Method",
+          sensitive: false,
+          constraints: {
+            options: [
+              { value: 0, label: "Shafi / Hanbali / Maliki" },
+              { value: 1, label: "Hanafi" },
+            ],
+          },
+        },
+      ],
+    };
+  }
 
-    /**
-     * Fetches annual prayer times for the given year.
-     * Uses deduplicateRequest to prevent concurrent fetches for the same year.
-     * @param {number} year - The year to fetch.
-     * @returns {Promise<Object>} Prayer times keyed by date (YYYY-MM-DD).
-     */
-    async getAnnualTimes(year) {
-        const key = `islamicfinder-${year}`;
-        return this.deduplicateRequest(key, async () => {
-            const { lat, long } = this.globalConfig.location.coordinates;
-            const apiKey = this.sourceConfig.apiKey;
+  /**
+   * Fetches annual prayer times for the given year.
+   * Uses deduplicateRequest to prevent concurrent fetches for the same year.
+   * @param {number} year - The year to fetch.
+   * @returns {Promise<Object>} Prayer times keyed by date (YYYY-MM-DD).
+   */
+  async getAnnualTimes(year) {
+    const key = `islamicfinder-${year}`;
+    return this.deduplicateRequest(key, async () => {
+      const { lat, long } = this.globalConfig.location.coordinates;
+      const apiKey = this.sourceConfig.apiKey;
 
-            // Fetch from external API...
-            // Return normalised format: { '2026-01-01': { Fajr: '06:15', ... }, ... }
-        });
-    }
+      // Fetch from external API...
+      // Return normalised format: { '2026-01-01': { Fajr: '06:15', ... }, ... }
+    });
+  }
 
-    /**
-     * Verifies API connectivity and credentials.
-     * @returns {Promise<{healthy: boolean, message: string}>} Health status.
-     */
-    async healthCheck() {
-        try {
-            // Test API reachability...
-            return { healthy: true, message: 'IslamicFinder API reachable' };
-        } catch (err) {
-            return { healthy: false, message: err.message };
-        }
+  /**
+   * Verifies API connectivity and credentials.
+   * @returns {Promise<{healthy: boolean, message: string}>} Health status.
+   */
+  async healthCheck() {
+    try {
+      // Test API reachability...
+      return { healthy: true, message: "IslamicFinder API reachable" };
+    } catch (err) {
+      return { healthy: false, message: err.message };
     }
+  }
 }
 
 module.exports = IslamicFinderProvider;
@@ -415,10 +420,10 @@ module.exports = IslamicFinderProvider;
 Open `src/providers/ProviderFactory.js` and add the registration:
 
 ```javascript
-const IslamicFinderProvider = require('./IslamicFinderProvider');
+const IslamicFinderProvider = require("./IslamicFinderProvider");
 
 // Add alongside existing registrations
-ProviderFactory.register('islamicfinder', IslamicFinderProvider);
+ProviderFactory.register("islamicfinder", IslamicFinderProvider);
 ```
 
 ### Step 3: Verify
@@ -430,21 +435,21 @@ ProviderFactory.register('islamicfinder', IslamicFinderProvider);
 
 ### Provider API Contract
 
-| Method | Required | Description |
-|--------|----------|-------------|
-| `static getMetadata()` | **Yes** | Returns `{ id, label, description, requiresCoordinates, parameters: [...] }` |
-| `async getAnnualTimes(year)` | **Yes** | Returns prayer times object keyed by date string |
-| `async healthCheck()` | **Yes** | Returns `{ healthy: boolean, message: string }` |
-| `deduplicateRequest(key, fn)` | Inherited | Prevents concurrent identical requests (use in `getAnnualTimes`) |
+| Method                        | Required  | Description                                                                  |
+| ----------------------------- | --------- | ---------------------------------------------------------------------------- |
+| `static getMetadata()`        | **Yes**   | Returns `{ id, label, description, requiresCoordinates, parameters: [...] }` |
+| `async getAnnualTimes(year)`  | **Yes**   | Returns prayer times object keyed by date string                             |
+| `async healthCheck()`         | **Yes**   | Returns `{ healthy: boolean, message: string }`                              |
+| `deduplicateRequest(key, fn)` | Inherited | Prevents concurrent identical requests (use in `getAnnualTimes`)             |
 
 ### Parameter Types
 
-| `type` Value | Rendered As | Notes |
-|-------------|-------------|-------|
-| `text` | Text input | General string values |
-| `number` | Numeric input | Respects `constraints.min`, `constraints.max` |
-| `select` | Dropdown | Requires `constraints.options: [{ value, label }]` |
-| `password` | Password input | Value masked in UI, `sensitive: true` stores in `.env` |
+| `type` Value | Rendered As    | Notes                                                  |
+| ------------ | -------------- | ------------------------------------------------------ |
+| `text`       | Text input     | General string values                                  |
+| `number`     | Numeric input  | Respects `constraints.min`, `constraints.max`          |
+| `select`     | Dropdown       | Requires `constraints.options: [{ value, label }]`     |
+| `password`   | Password input | Value masked in UI, `sensitive: true` stores in `.env` |
 
 ---
 
@@ -459,62 +464,72 @@ Create a new file in `src/outputs/` extending `BaseOutput`:
 ```javascript
 // src/outputs/MqttOutput.js
 
-const BaseOutput = require('./BaseOutput');
+const BaseOutput = require("./BaseOutput");
 
 class MqttOutput extends BaseOutput {
-    /**
-     * Returns metadata for UI discovery and configuration rendering.
-     * @returns {Object} Strategy metadata.
-     */
-    static getMetadata() {
-        return {
-            id: 'mqtt',                          // Unique identifier
-            label: 'MQTT Broker',                // Display name in UI
-            timeoutMs: 5000,                     // Execution timeout
-            defaultLeadTimeMs: 0,                // Default lead time offset
-            params: [
-                { key: 'brokerUrl', type: 'string', label: 'Broker URL', sensitive: false },
-                { key: 'topic', type: 'string', label: 'Topic Prefix', sensitive: false },
-                { key: 'username', type: 'string', label: 'Username', sensitive: true },
-                { key: 'password', type: 'string', label: 'Password', sensitive: true }
-            ]
-        };
-    }
+  /**
+   * Returns metadata for UI discovery and configuration rendering.
+   * @returns {Object} Strategy metadata.
+   */
+  static getMetadata() {
+    return {
+      id: "mqtt", // Unique identifier
+      label: "MQTT Broker", // Display name in UI
+      timeoutMs: 5000, // Execution timeout
+      defaultLeadTimeMs: 0, // Default lead time offset
+      params: [
+        {
+          key: "brokerUrl",
+          type: "string",
+          label: "Broker URL",
+          sensitive: false,
+        },
+        {
+          key: "topic",
+          type: "string",
+          label: "Topic Prefix",
+          sensitive: false,
+        },
+        { key: "username", type: "string", label: "Username", sensitive: true },
+        { key: "password", type: "string", label: "Password", sensitive: true },
+      ],
+    };
+  }
 
-    /**
-     * Executes the MQTT publish for a prayer event.
-     * @param {Object} payload - Event payload { prayer, event, source: { url, filePath } }.
-     * @param {Object} metadata - Execution metadata { isTest, ... }.
-     * @param {AbortSignal} [signal] - Optional abort signal.
-     * @returns {Promise<void>}
-     */
-    async execute(payload, metadata, signal) {
-        // Publish to MQTT broker...
-    }
+  /**
+   * Executes the MQTT publish for a prayer event.
+   * @param {Object} payload - Event payload { prayer, event, source: { url, filePath } }.
+   * @param {Object} metadata - Execution metadata { isTest, ... }.
+   * @param {AbortSignal} [signal] - Optional abort signal.
+   * @returns {Promise<void>}
+   */
+  async execute(payload, metadata, signal) {
+    // Publish to MQTT broker...
+  }
 
-    /**
-     * Checks MQTT broker connectivity.
-     * @param {Object} requestedParams - Configuration parameters to test with.
-     * @returns {Promise<Object>} Health status.
-     */
-    async healthCheck(requestedParams) {
-        try {
-            // Test broker connection...
-            return { healthy: true, message: 'MQTT broker reachable' };
-        } catch (err) {
-            return { healthy: false, message: err.message };
-        }
+  /**
+   * Checks MQTT broker connectivity.
+   * @param {Object} requestedParams - Configuration parameters to test with.
+   * @returns {Promise<Object>} Health status.
+   */
+  async healthCheck(requestedParams) {
+    try {
+      // Test broker connection...
+      return { healthy: true, message: "MQTT broker reachable" };
+    } catch (err) {
+      return { healthy: false, message: err.message };
     }
+  }
 
-    /**
-     * Verifies MQTT credentials.
-     * @param {Object} credentials - The credentials to verify.
-     * @returns {Promise<Object>} Verification result.
-     */
-    async verifyCredentials(credentials) {
-        // Verify authentication against broker...
-        return { success: true };
-    }
+  /**
+   * Verifies MQTT credentials.
+   * @param {Object} credentials - The credentials to verify.
+   * @returns {Promise<Object>} Verification result.
+   */
+  async verifyCredentials(credentials) {
+    // Verify authentication against broker...
+    return { success: true };
+  }
 }
 
 module.exports = MqttOutput;
@@ -525,7 +540,7 @@ module.exports = MqttOutput;
 Open `src/outputs/index.js` and add the require statement:
 
 ```javascript
-const MqttOutput = require('./MqttOutput');
+const MqttOutput = require("./MqttOutput");
 
 // Registration happens automatically via OutputFactory.register()
 OutputFactory.register(MqttOutput);
@@ -542,27 +557,27 @@ OutputFactory.register(MqttOutput);
 
 ### Output API Contract
 
-| Method | Required | Description |
-|--------|----------|-------------|
-| `static getMetadata()` | **Yes** | Returns `{ id, label, timeoutMs, defaultLeadTimeMs, params: [...] }` |
-| `async execute(payload, metadata, signal)` | **Yes** | Performs the output action (play audio, send request, etc.) |
-| `async healthCheck(requestedParams)` | **Yes** | Tests connectivity with given parameters |
-| `async verifyCredentials(credentials)` | **Yes** | Validates credentials independently |
-| `validateTrigger(trigger, context)` | Optional | Returns `string[]` of warnings for a trigger configuration |
-| `async validateAsset(filePath, metadata)` | Optional | Validates audio file compatibility; defaults to `{ valid: true }` |
-| `augmentAudioMetadata(metadata)` | Optional | Returns additional metadata properties for audio files |
-| `getSecretRequirementKeys()` | Inherited | Auto-extracts `sensitive: true` param keys from metadata |
+| Method                                     | Required  | Description                                                          |
+| ------------------------------------------ | --------- | -------------------------------------------------------------------- |
+| `static getMetadata()`                     | **Yes**   | Returns `{ id, label, timeoutMs, defaultLeadTimeMs, params: [...] }` |
+| `async execute(payload, metadata, signal)` | **Yes**   | Performs the output action (play audio, send request, etc.)          |
+| `async healthCheck(requestedParams)`       | **Yes**   | Tests connectivity with given parameters                             |
+| `async verifyCredentials(credentials)`     | **Yes**   | Validates credentials independently                                  |
+| `validateTrigger(trigger, context)`        | Optional  | Returns `string[]` of warnings for a trigger configuration           |
+| `async validateAsset(filePath, metadata)`  | Optional  | Validates audio file compatibility; defaults to `{ valid: true }`    |
+| `augmentAudioMetadata(metadata)`           | Optional  | Returns additional metadata properties for audio files               |
+| `getSecretRequirementKeys()`               | Inherited | Auto-extracts `sensitive: true` param keys from metadata             |
 
 ### Provider vs Output Registration Comparison
 
-| Aspect | Provider | Output |
-|--------|----------|--------|
-| Base class | `BaseProvider` | `BaseOutput` |
-| Factory | `ProviderFactory` | `OutputFactory` |
-| Registration | `ProviderFactory.register('id', Class)` | `OutputFactory.register(Class)` |
-| ID source | Passed as first argument | Read from `Class.getMetadata().id` |
-| Discovery | `GET /api/system/providers` | `GET /api/system/outputs` |
-| Frontend | `SourceConfigurator` renders fields | Output cards rendered automatically |
+| Aspect       | Provider                                | Output                              |
+| ------------ | --------------------------------------- | ----------------------------------- |
+| Base class   | `BaseProvider`                          | `BaseOutput`                        |
+| Factory      | `ProviderFactory`                       | `OutputFactory`                     |
+| Registration | `ProviderFactory.register('id', Class)` | `OutputFactory.register(Class)`     |
+| ID source    | Passed as first argument                | Read from `Class.getMetadata().id`  |
+| Discovery    | `GET /api/system/providers`             | `GET /api/system/outputs`           |
+| Frontend     | `SourceConfigurator` renders fields     | Output cards rendered automatically |
 
 ---
 
@@ -573,7 +588,7 @@ OutputFactory.register(MqttOutput);
 All configuration flows through `ConfigService` (a singleton). Never read `local.json` or `default.json` directly:
 
 ```javascript
-const configService = require('@config/ConfigService');
+const configService = require("@config/ConfigService");
 
 // Read current configuration
 const config = configService.get();
@@ -600,12 +615,12 @@ The migration system in `src/services/system/migrationService.js` automatically 
 V1 → V2 → V3 → V4 → V5 (current)
 ```
 
-| Migration | Description |
-|-----------|-------------|
-| V1 → V2 | Legacy VoiceMonkey settings → Output Strategy format |
-| V2 → V3 | Global calculation settings → primary source parameters (Aladhan) |
-| V3 → V4 | Added `system.healthChecks` block |
-| V4 → V5 | Added `security.tokenVersion` block |
+| Migration | Description                                                       |
+| --------- | ----------------------------------------------------------------- |
+| V1 → V2   | Legacy VoiceMonkey settings → Output Strategy format              |
+| V2 → V3   | Global calculation settings → primary source parameters (Aladhan) |
+| V3 → V4   | Added `system.healthChecks` block                                 |
+| V4 → V5   | Added `security.tokenVersion` block                               |
 
 #### Writing a New Migration
 
@@ -616,12 +631,12 @@ To add a V5 → V6 migration:
 ```javascript
 migrateV5toV6(config) {
     const v6Config = { ...config, version: 6 };
-    
+
     // Add new fields with sensible defaults
     if (!v6Config.myNewSection) {
         v6Config.myNewSection = { enabled: false };
     }
-    
+
     return v6Config;
 }
 ```
@@ -630,7 +645,7 @@ migrateV5toV6(config) {
 
 ```javascript
 if (newConfig.version === 5) {
-    newConfig = this.migrateV5toV6(newConfig);
+  newConfig = this.migrateV5toV6(newConfig);
 }
 ```
 

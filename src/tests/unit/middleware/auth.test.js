@@ -1,96 +1,104 @@
-const authenticateToken = require('@middleware/auth');
-const jwt = require('jsonwebtoken');
-const configService = require('@config');
+const authenticateToken = require("@middleware/auth");
+const jwt = require("jsonwebtoken");
+const configService = require("@config");
 
-jest.mock('@config', () => ({
-    get: jest.fn(() => ({
-        security: { tokenVersion: 1 }
-    }))
+jest.mock("@config", () => ({
+  get: jest.fn(() => ({
+    security: { tokenVersion: 1 },
+  })),
 }));
 
-describe('Auth Middleware', () => {
-    let req, res, next;
-    let oldEnv;
+describe("Auth Middleware", () => {
+  let req, res, next;
+  let oldEnv;
 
-    beforeEach(() => {
-        oldEnv = process.env;
-        process.env = { ...oldEnv };
-        req = { cookies: {} };
-        res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-        next = jest.fn();
+  beforeEach(() => {
+    oldEnv = process.env;
+    process.env = { ...oldEnv };
+    req = { cookies: {} };
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
+    next = jest.fn();
+  });
+
+  afterEach(() => {
+    process.env = oldEnv;
+    jest.clearAllMocks();
+  });
+
+  test("should return 500 if no JWT_SECRET configured", () => {
+    delete process.env.JWT_SECRET;
+    process.env.ADMIN_PASSWORD = "some-password-hash";
+    req.cookies.auth_token = "some-token";
+
+    const consoleSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    authenticateToken(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Server configuration error",
     });
 
-    afterEach(() => {
-        process.env = oldEnv;
-        jest.clearAllMocks();
+    consoleSpy.mockRestore();
+  });
+
+  test("should call next if valid token using JWT_SECRET", () => {
+    process.env.JWT_SECRET = "secret";
+    const token = jwt.sign({ name: "user", tokenVersion: 1 }, "secret");
+    req.cookies.auth_token = token;
+
+    authenticateToken(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(req.user).toBeDefined();
+  });
+
+  test("should return 401 if token version mismatch", () => {
+    process.env.JWT_SECRET = "secret";
+    const token = jwt.sign({ name: "user", tokenVersion: 0 }, "secret");
+    req.cookies.auth_token = token;
+
+    authenticateToken(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Session expired. Please login again.",
     });
+  });
 
-    test('should return 500 if no JWT_SECRET configured', () => {
-        delete process.env.JWT_SECRET;
-        process.env.ADMIN_PASSWORD = 'some-password-hash';
-        req.cookies.auth_token = 'some-token';
+  test("should NOT use ADMIN_PASSWORD as fallback secret", () => {
+    delete process.env.JWT_SECRET;
+    process.env.ADMIN_PASSWORD = "fallback-secret";
+    const token = jwt.sign({ name: "user" }, "fallback-secret");
+    req.cookies.auth_token = token;
 
-        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
-        authenticateToken(req, res, next);
+    authenticateToken(req, res, next);
 
-        expect(res.status).toHaveBeenCalledWith(500);
-        expect(res.json).toHaveBeenCalledWith({ error: 'Server configuration error' });
-        
-        consoleSpy.mockRestore();
-    });
-    
-    test('should call next if valid token using JWT_SECRET', () => {
-        process.env.JWT_SECRET = 'secret';
-        const token = jwt.sign({ name: 'user', tokenVersion: 1 }, 'secret');
-        req.cookies.auth_token = token;
-        
-        authenticateToken(req, res, next);
-        
-        expect(next).toHaveBeenCalled();
-        expect(req.user).toBeDefined();
-    });
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(next).not.toHaveBeenCalled();
 
-    test('should return 401 if token version mismatch', () => {
-        process.env.JWT_SECRET = 'secret';
-        const token = jwt.sign({ name: 'user', tokenVersion: 0 }, 'secret');
-        req.cookies.auth_token = token;
-        
-        authenticateToken(req, res, next);
-        
-        expect(res.status).toHaveBeenCalledWith(401);
-        expect(res.json).toHaveBeenCalledWith({ error: 'Session expired. Please login again.' });
-    });
+    consoleSpy.mockRestore();
+  });
 
-    test('should NOT use ADMIN_PASSWORD as fallback secret', () => {
-        delete process.env.JWT_SECRET;
-        process.env.ADMIN_PASSWORD = 'fallback-secret';
-        const token = jwt.sign({ name: 'user' }, 'fallback-secret');
-        req.cookies.auth_token = token;
+  test("should return 401 if no token", () => {
+    authenticateToken(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(401);
+  });
 
-        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-        
-        authenticateToken(req, res, next);
-        
-        expect(res.status).toHaveBeenCalledWith(500);
-        expect(next).not.toHaveBeenCalled();
+  test("should return 403 if invalid token", () => {
+    process.env.JWT_SECRET = "secret";
+    req.cookies.auth_token = "invalid-token";
 
-        consoleSpy.mockRestore();
-    });
-
-    test('should return 401 if no token', () => {
-        authenticateToken(req, res, next);
-        expect(res.status).toHaveBeenCalledWith(401);
-    });
-
-    test('should return 403 if invalid token', () => {
-        process.env.JWT_SECRET = 'secret';
-        req.cookies.auth_token = 'invalid-token';
-        
-        authenticateToken(req, res, next);
-        expect(res.status).toHaveBeenCalledWith(403);
-    });
+    authenticateToken(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(403);
+  });
 });

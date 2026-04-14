@@ -1,8 +1,8 @@
-const path = require('path');
-const { isWithinRoot } = require('./pathUtils');
+const path = require("path");
+const { isWithinRoot } = require("./pathUtils");
 
-const AUDIO_ROOT = path.resolve(__dirname, '../../public/audio');
-const PUBLIC_AUDIO_PREFIX = '/public/audio/';
+const AUDIO_ROOT = path.resolve(__dirname, "../../public/audio");
+const PUBLIC_AUDIO_PREFIX = "/public/audio/";
 
 /**
  * Normalizes any source shape into a canonical ExecutionSource.
@@ -21,51 +21,57 @@ const PUBLIC_AUDIO_PREFIX = '/public/audio/';
  * @throws {Error} If source is invalid, contains path traversal, or uses forbidden URL protocol.
  */
 function normalizeSource(source) {
-    if (!source || typeof source !== 'object') {
-        throw new Error('Invalid source: must be a non-null object');
-    }
+  if (!source || typeof source !== "object") {
+    throw new Error("Invalid source: must be a non-null object");
+  }
 
-    if (source.type === 'file') {
-        const hasFilePath = typeof source.filePath === 'string' && source.filePath.length > 0;
-        const hasUrl = typeof source.url === 'string' && source.url.length > 0;
+  if (source.type === "file") {
+    const hasFilePath =
+      typeof source.filePath === "string" && source.filePath.length > 0;
+    const hasUrl = typeof source.url === "string" && source.url.length > 0;
 
-        if (!hasFilePath && !hasUrl) {
-            throw new Error('Invalid source: typed file source requires filePath or url');
-        }
-
-        if (hasUrl && _hasProtocol(source.url)) {
-            _validateUrlProtocol(source.url);
-        }
-
-        return _buildFileSource(source, false, hasFilePath, hasUrl);
-    }
-    if (source.type === 'url') {
-        if (typeof source.url !== 'string' || source.url.length === 0) {
-            throw new Error('Invalid source: typed url source requires url');
-        }
-
-        _validateUrlProtocol(source.url);
-        return { type: 'url', url: source.url };
-    }
-
-    const hasPath = typeof source.path === 'string' && source.path.length > 0;
-    const hasFilePath = typeof source.filePath === 'string' && source.filePath.length > 0;
-    const hasUrl = typeof source.url === 'string' && source.url.length > 0;
-
-    if (!hasPath && !hasFilePath && !hasUrl) {
-        throw new Error('Invalid source: must contain at least one of path, filePath, or url');
+    if (!hasFilePath && !hasUrl) {
+      throw new Error(
+        "Invalid source: typed file source requires filePath or url",
+      );
     }
 
     if (hasUrl && _hasProtocol(source.url)) {
-        _validateUrlProtocol(source.url);
-        return { type: 'url', url: source.url };
+      _validateUrlProtocol(source.url);
     }
 
-    if (hasPath || hasFilePath || hasUrl) {
-        return _buildFileSource(source, hasPath, hasFilePath, hasUrl);
+    return _buildFileSource(source, false, hasFilePath, hasUrl);
+  }
+  if (source.type === "url") {
+    if (typeof source.url !== "string" || source.url.length === 0) {
+      throw new Error("Invalid source: typed url source requires url");
     }
 
-    throw new Error('Invalid source: could not determine source type');
+    _validateUrlProtocol(source.url);
+    return { type: "url", url: source.url };
+  }
+
+  const hasPath = typeof source.path === "string" && source.path.length > 0;
+  const hasFilePath =
+    typeof source.filePath === "string" && source.filePath.length > 0;
+  const hasUrl = typeof source.url === "string" && source.url.length > 0;
+
+  if (!hasPath && !hasFilePath && !hasUrl) {
+    throw new Error(
+      "Invalid source: must contain at least one of path, filePath, or url",
+    );
+  }
+
+  if (hasUrl && _hasProtocol(source.url)) {
+    _validateUrlProtocol(source.url);
+    return { type: "url", url: source.url };
+  }
+
+  if (hasPath || hasFilePath || hasUrl) {
+    return _buildFileSource(source, hasPath, hasFilePath, hasUrl);
+  }
+
+  throw new Error("Invalid source: could not determine source type");
 }
 
 /**
@@ -74,8 +80,8 @@ function normalizeSource(source) {
  * @returns {boolean} True if the URL has a protocol scheme.
  */
 function _hasProtocol(url) {
-     return /^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(url);
- }
+  return /^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(url);
+}
 
 /**
  * Validates that a URL uses http or https protocol.
@@ -83,10 +89,10 @@ function _hasProtocol(url) {
  * @throws {Error} If the URL does not use http or https protocol.
  */
 function _validateUrlProtocol(url) {
-     if (!/^https?:\/\//i.test(url)) {
-         throw new Error('Only http and https URLs are allowed');
-     }
- }
+  if (!/^https?:\/\//i.test(url)) {
+    throw new Error("Only http and https URLs are allowed");
+  }
+}
 
 /**
  * Builds a normalized file source object from various input shapes.
@@ -97,29 +103,29 @@ function _validateUrlProtocol(url) {
  * @returns {{ type: 'file', filePath: string, url: string }} Normalized file source object.
  */
 function _buildFileSource(source, hasPath, hasFilePath, hasUrl) {
-    let relativePath;
+  let relativePath;
 
-    if (hasPath) {
-        relativePath = source.path.replace(/^\//, '');
-    } else if (hasFilePath) {
-        relativePath = path.relative(AUDIO_ROOT, source.filePath);
-    } else if (hasUrl && source.url.startsWith(PUBLIC_AUDIO_PREFIX)) {
-        relativePath = source.url.slice(PUBLIC_AUDIO_PREFIX.length);
-    } else {
-        throw new Error('Invalid source: could not determine source type');
-    }
+  if (hasPath) {
+    relativePath = source.path.replace(/^\//, "");
+  } else if (hasFilePath) {
+    relativePath = path.relative(AUDIO_ROOT, source.filePath);
+  } else if (hasUrl && source.url.startsWith(PUBLIC_AUDIO_PREFIX)) {
+    relativePath = source.url.slice(PUBLIC_AUDIO_PREFIX.length);
+  } else {
+    throw new Error("Invalid source: could not determine source type");
+  }
 
-    // Normalise platform-specific separators to forward slashes for URL safety
-    relativePath = relativePath.split(path.sep).join('/');
+  // Normalise platform-specific separators to forward slashes for URL safety
+  relativePath = relativePath.split(path.sep).join("/");
 
-    const absolutePath = hasFilePath
-        ? path.normalize(source.filePath)
-        : path.normalize(`${AUDIO_ROOT}${path.sep}${relativePath}`);
-    _validatePathTraversal(absolutePath);
+  const absolutePath = hasFilePath
+    ? path.normalize(source.filePath)
+    : path.normalize(`${AUDIO_ROOT}${path.sep}${relativePath}`);
+  _validatePathTraversal(absolutePath);
 
-    const url = hasUrl ? source.url : `${PUBLIC_AUDIO_PREFIX}${relativePath}`;
+  const url = hasUrl ? source.url : `${PUBLIC_AUDIO_PREFIX}${relativePath}`;
 
-    return { type: 'file', filePath: absolutePath, url };
+  return { type: "file", filePath: absolutePath, url };
 }
 
 /**
@@ -128,9 +134,11 @@ function _buildFileSource(source, hasPath, hasFilePath, hasUrl) {
  * @throws {Error} If the path traverses outside the audio directory.
  */
 function _validatePathTraversal(absolutePath) {
-    if (!isWithinRoot(AUDIO_ROOT, absolutePath)) {
-        throw new Error('Path traversal detected: resolved path is outside audio directory');
-    }
+  if (!isWithinRoot(AUDIO_ROOT, absolutePath)) {
+    throw new Error(
+      "Path traversal detected: resolved path is outside audio directory",
+    );
+  }
 }
 
 module.exports = normalizeSource;

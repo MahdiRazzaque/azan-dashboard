@@ -1,122 +1,149 @@
-jest.unmock('@config');
+jest.unmock("@config");
 
-const fs = require('fs/promises');
-const fsHelper = require('../../helpers/fsHelper');
-const configService = require('@config');
-const OutputFactory = require('../../../outputs');
-const encryption = require('@utils/encryption');
-const migrationService = require('@services/system/migrationService');
-const dotenv = require('dotenv');
+const fs = require("fs/promises");
+const fsHelper = require("../../helpers/fsHelper");
+const configService = require("@config");
+const OutputFactory = require("../../../outputs");
+const encryption = require("@utils/encryption");
+const migrationService = require("@services/system/migrationService");
+const dotenv = require("dotenv");
 
-jest.mock('dotenv'); // Prevent loading real .env files
+jest.mock("dotenv"); // Prevent loading real .env files
 
-describe('ConfigService Encryption', () => {
-    let tempDir;
-    const TEST_KEY = 'test-jwt-secret-64-bytes-long-random-string-placeholder-!!!!!!';
+describe("ConfigService Encryption", () => {
+  let tempDir;
+  const TEST_KEY =
+    "test-jwt-secret-64-bytes-long-random-string-placeholder-!!!!!!";
 
-    beforeAll(() => {
-        process.env.ENCRYPTION_SALT = 'test-salt';
-    });
+  beforeAll(() => {
+    process.env.ENCRYPTION_SALT = "test-salt";
+  });
 
-    beforeEach(async () => {
-        tempDir = await fsHelper.createTempConfig();
-        process.env.JWT_SECRET = TEST_KEY;
-        // Explicitly clear env vars that might interfere
-        delete process.env.VOICEMONKEY_TOKEN;
-        delete process.env.VOICEMONKEY_DEVICE;
-        configService.reset();
-        configService.setOutputStrategyResolver((id) => OutputFactory.getStrategy(id));
-        configService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
-        migrationService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
-        await configService.init();
-    });
+  beforeEach(async () => {
+    tempDir = await fsHelper.createTempConfig();
+    process.env.JWT_SECRET = TEST_KEY;
+    // Explicitly clear env vars that might interfere
+    delete process.env.VOICEMONKEY_TOKEN;
+    delete process.env.VOICEMONKEY_DEVICE;
+    configService.reset();
+    configService.setOutputStrategyResolver((id) =>
+      OutputFactory.getStrategy(id),
+    );
+    configService.setOutputSecretKeysResolver(() =>
+      OutputFactory.getSecretRequirementKeys(),
+    );
+    migrationService.setOutputSecretKeysResolver(() =>
+      OutputFactory.getSecretRequirementKeys(),
+    );
+    await configService.init();
+  });
 
-    afterEach(async () => {
-        await fsHelper.cleanupTempConfig();
-        delete process.env.JWT_SECRET;
-    });
+  afterEach(async () => {
+    await fsHelper.cleanupTempConfig();
+    delete process.env.JWT_SECRET;
+  });
 
-    it('should encrypt sensitive fields when saving to local.json', async () => {
-        const updateData = {
-            automation: {
-                outputs: {
-                    voicemonkey: {
-                        params: {
-                            token: 'sensitive-token-123'
-                        }
-                    }
-                }
-            }
-        };
+  it("should encrypt sensitive fields when saving to local.json", async () => {
+    const updateData = {
+      automation: {
+        outputs: {
+          voicemonkey: {
+            params: {
+              token: "sensitive-token-123",
+            },
+          },
+        },
+      },
+    };
 
-        await configService.update(updateData);
+    await configService.update(updateData);
 
-        // Verify file content is encrypted
-        const localContent = await fs.readFile(configService._localPath, 'utf-8');
-        const localConfig = JSON.parse(localContent);
-        const encryptedToken = localConfig.automation.outputs.voicemonkey.params.token;
+    // Verify file content is encrypted
+    const localContent = await fs.readFile(configService._localPath, "utf-8");
+    const localConfig = JSON.parse(localContent);
+    const encryptedToken =
+      localConfig.automation.outputs.voicemonkey.params.token;
 
-        expect(encryptedToken).toContain(':'); // IV:AuthTag:Ciphertext
-        expect(encryptedToken).not.toBe('sensitive-token-123');
-        
-        // Decrypt to verify
-        const decrypted = await encryption.decrypt(encryptedToken, TEST_KEY);
-        expect(decrypted).toBe('sensitive-token-123');
-    });
+    expect(encryptedToken).toContain(":"); // IV:AuthTag:Ciphertext
+    expect(encryptedToken).not.toBe("sensitive-token-123");
 
-    it('should decrypt sensitive fields when loading from local.json', async () => {
-        const encryptedToken = await encryption.encrypt('loaded-token-456', TEST_KEY);
-        const localData = {
-            automation: {
-                outputs: {
-                    voicemonkey: {
-                        params: {
-                            token: encryptedToken
-                        }
-                    }
-                }
-            }
-        };
+    // Decrypt to verify
+    const decrypted = await encryption.decrypt(encryptedToken, TEST_KEY);
+    expect(decrypted).toBe("sensitive-token-123");
+  });
 
-        await fs.writeFile(configService._localPath, JSON.stringify(localData));
-        await configService.reload();
+  it("should decrypt sensitive fields when loading from local.json", async () => {
+    const encryptedToken = await encryption.encrypt(
+      "loaded-token-456",
+      TEST_KEY,
+    );
+    const localData = {
+      automation: {
+        outputs: {
+          voicemonkey: {
+            params: {
+              token: encryptedToken,
+            },
+          },
+        },
+      },
+    };
 
-        const config = configService.get();
-        expect(config.automation.outputs.voicemonkey.params.token).toBe('loaded-token-456');
-    });
+    await fs.writeFile(configService._localPath, JSON.stringify(localData));
+    await configService.reload();
 
-    it('should handle sources without sensitive fields', async () => {
-        const updateData = {
-            sources: {
-                primary: {
-                    type: 'aladhan',
-                    method: 15
-                }
-            }
-        };
+    const config = configService.get();
+    expect(config.automation.outputs.voicemonkey.params.token).toBe(
+      "loaded-token-456",
+    );
+  });
 
-        await configService.update(updateData);
-        const config = configService.get();
-        expect(config.sources.primary.type).toBe('aladhan');
-    });
+  it("should handle sources without sensitive fields", async () => {
+    const updateData = {
+      sources: {
+        primary: {
+          type: "aladhan",
+          method: 15,
+        },
+      },
+    };
 
-    it('should throw error if JWT_SECRET is missing during init', async () => {
-        delete process.env.JWT_SECRET;
-        configService.reset();
-        configService.setOutputStrategyResolver((id) => OutputFactory.getStrategy(id));
-        configService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
-        migrationService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
-        await expect(configService.init()).rejects.toThrow(/JWT_SECRET.*required/);
-    });
+    await configService.update(updateData);
+    const config = configService.get();
+    expect(config.sources.primary.type).toBe("aladhan");
+  });
 
-    it('should throw error if ENCRYPTION_SALT is missing during init', async () => {
-        delete process.env.ENCRYPTION_SALT;
-        configService.reset();
-        configService.setOutputStrategyResolver((id) => OutputFactory.getStrategy(id));
-        configService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
-        migrationService.setOutputSecretKeysResolver(() => OutputFactory.getSecretRequirementKeys());
-        await expect(configService.init()).rejects.toThrow(/ENCRYPTION_SALT.*required/);
-        // Restore salt for other tests (though beforeEach should handle it if moved)
-        process.env.ENCRYPTION_SALT = 'test-salt';
-    });
+  it("should throw error if JWT_SECRET is missing during init", async () => {
+    delete process.env.JWT_SECRET;
+    configService.reset();
+    configService.setOutputStrategyResolver((id) =>
+      OutputFactory.getStrategy(id),
+    );
+    configService.setOutputSecretKeysResolver(() =>
+      OutputFactory.getSecretRequirementKeys(),
+    );
+    migrationService.setOutputSecretKeysResolver(() =>
+      OutputFactory.getSecretRequirementKeys(),
+    );
+    await expect(configService.init()).rejects.toThrow(/JWT_SECRET.*required/);
+  });
+
+  it("should throw error if ENCRYPTION_SALT is missing during init", async () => {
+    delete process.env.ENCRYPTION_SALT;
+    configService.reset();
+    configService.setOutputStrategyResolver((id) =>
+      OutputFactory.getStrategy(id),
+    );
+    configService.setOutputSecretKeysResolver(() =>
+      OutputFactory.getSecretRequirementKeys(),
+    );
+    migrationService.setOutputSecretKeysResolver(() =>
+      OutputFactory.getSecretRequirementKeys(),
+    );
+    await expect(configService.init()).rejects.toThrow(
+      /ENCRYPTION_SALT.*required/,
+    );
+    // Restore salt for other tests (though beforeEach should handle it if moved)
+    process.env.ENCRYPTION_SALT = "test-salt";
+  });
 });

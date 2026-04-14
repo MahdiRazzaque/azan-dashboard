@@ -11,5 +11,5 @@
       "@routes/*": ["src/routes/*"]
     }
   },
-  "exclude": ["node_modules", "dist", "client"] 
+  "exclude": ["node_modules", "dist", "client"]
 }

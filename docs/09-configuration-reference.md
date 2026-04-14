@@ -32,9 +32,9 @@ Defaults (default.json)       →  shipped defaults
 }
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `version` | `number` | `1` | Schema version number. Automatically set by migration service. Do not modify manually. |
+| Field     | Type     | Default | Description                                                                            |
+| --------- | -------- | ------- | -------------------------------------------------------------------------------------- |
+| `version` | `number` | `1`     | Schema version number. Automatically set by migration service. Do not modify manually. |
 
 The current schema version is **5**. See [Migration History](#migration-history) for the full changelog.
 
@@ -56,11 +56,11 @@ Defines the geographical position and timezone for prayer time calculations.
 }
 ```
 
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `timezone` | `string` | Must be a valid [IANA timezone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). Validated via `Intl.DateTimeFormat`. | `"Europe/London"` | The timezone used for all prayer time calculations and display. |
-| `coordinates.lat` | `number` | `-90` to `90` | `51.5074` | Latitude of the mosque or home. |
-| `coordinates.long` | `number` | `-180` to `180` | `-0.1278` | Longitude of the mosque or home. |
+| Field              | Type     | Constraints                                                                                                                         | Default           | Description                                                     |
+| ------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------- | --------------------------------------------------------------- |
+| `timezone`         | `string` | Must be a valid [IANA timezone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). Validated via `Intl.DateTimeFormat`. | `"Europe/London"` | The timezone used for all prayer time calculations and display. |
+| `coordinates.lat`  | `number` | `-90` to `90`                                                                                                                       | `51.5074`         | Latitude of the mosque or home.                                 |
+| `coordinates.long` | `number` | `-180` to `180`                                                                                                                     | `-0.1278`         | Longitude of the mosque or home.                                |
 
 ---
 
@@ -71,11 +71,36 @@ Per-prayer Iqamah calculation settings. Each of the five daily prayers has ident
 ```json
 {
   "prayers": {
-    "fajr":    { "iqamahOffset": 20, "roundTo": 15, "fixedTime": null, "iqamahOverride": false },
-    "dhuhr":   { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null, "iqamahOverride": false },
-    "asr":     { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null, "iqamahOverride": false },
-    "maghrib": { "iqamahOffset": 10, "roundTo": 5,  "fixedTime": null, "iqamahOverride": false },
-    "isha":    { "iqamahOffset": 15, "roundTo": 15, "fixedTime": null, "iqamahOverride": false }
+    "fajr": {
+      "iqamahOffset": 20,
+      "roundTo": 15,
+      "fixedTime": null,
+      "iqamahOverride": false
+    },
+    "dhuhr": {
+      "iqamahOffset": 15,
+      "roundTo": 15,
+      "fixedTime": null,
+      "iqamahOverride": false
+    },
+    "asr": {
+      "iqamahOffset": 15,
+      "roundTo": 15,
+      "fixedTime": null,
+      "iqamahOverride": false
+    },
+    "maghrib": {
+      "iqamahOffset": 10,
+      "roundTo": 5,
+      "fixedTime": null,
+      "iqamahOverride": false
+    },
+    "isha": {
+      "iqamahOffset": 15,
+      "roundTo": 15,
+      "fixedTime": null,
+      "iqamahOverride": false
+    }
   }
 }
 ```
@@ -84,22 +109,22 @@ Per-prayer Iqamah calculation settings. Each of the five daily prayers has ident
 
 Each prayer key (`fajr`, `dhuhr`, `asr`, `maghrib`, `isha`) uses the `prayerSettingSchema`:
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `iqamahOffset` | `number` | See per-prayer defaults | Minutes after the Adhan time to schedule Iqamah. |
-| `roundTo` | `number` | See per-prayer defaults | Round the calculated Iqamah time to the nearest N minutes (e.g., `15` rounds to quarter-hours). |
-| `fixedTime` | `string \| null` | `null` | If set (e.g., `"13:30"`), overrides the calculated Iqamah with a fixed time. |
-| `iqamahOverride` | `boolean` | `false` | When `true`, the fixed time takes precedence over the calculated offset. |
+| Field            | Type             | Default                 | Description                                                                                     |
+| ---------------- | ---------------- | ----------------------- | ----------------------------------------------------------------------------------------------- |
+| `iqamahOffset`   | `number`         | See per-prayer defaults | Minutes after the Adhan time to schedule Iqamah.                                                |
+| `roundTo`        | `number`         | See per-prayer defaults | Round the calculated Iqamah time to the nearest N minutes (e.g., `15` rounds to quarter-hours). |
+| `fixedTime`      | `string \| null` | `null`                  | If set (e.g., `"13:30"`), overrides the calculated Iqamah with a fixed time.                    |
+| `iqamahOverride` | `boolean`        | `false`                 | When `true`, the fixed time takes precedence over the calculated offset.                        |
 
 ### Default Values Per Prayer
 
-| Prayer | `iqamahOffset` | `roundTo` |
-|--------|----------------|-----------|
-| Fajr | 20 | 15 |
-| Dhuhr | 15 | 15 |
-| Asr | 15 | 15 |
-| Maghrib | 10 | 5 |
-| Isha | 15 | 15 |
+| Prayer  | `iqamahOffset` | `roundTo` |
+| ------- | -------------- | --------- |
+| Fajr    | 20             | 15        |
+| Dhuhr   | 15             | 15        |
+| Asr     | 15             | 15        |
+| Maghrib | 10             | 5         |
+| Isha    | 15             | 15        |
 
 ---
 
@@ -122,28 +147,28 @@ Configures where prayer times are fetched from. Supports a primary source and an
 }
 ```
 
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `primary.type` | `string` | Must match a registered provider ID | `"aladhan"` | The prayer time provider to use. |
-| `primary.*` | varies | Provider-specific | — | Additional fields depend on the provider's `getMetadata().parameters`. The schema uses `.passthrough()` to allow provider-specific keys. |
-| `backup` | `object \| null` | Same structure as primary, plus optional `enabled: boolean` | `null` | Optional fallback provider. Set to `null` to disable. |
+| Field          | Type             | Constraints                                                 | Default     | Description                                                                                                                              |
+| -------------- | ---------------- | ----------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `primary.type` | `string`         | Must match a registered provider ID                         | `"aladhan"` | The prayer time provider to use.                                                                                                         |
+| `primary.*`    | varies           | Provider-specific                                           | —           | Additional fields depend on the provider's `getMetadata().parameters`. The schema uses `.passthrough()` to allow provider-specific keys. |
+| `backup`       | `object \| null` | Same structure as primary, plus optional `enabled: boolean` | `null`      | Optional fallback provider. Set to `null` to disable.                                                                                    |
 
 ### Built-in Provider Parameters
 
 #### Aladhan
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `method` | `number` | `15` | Calculation method (see [Aladhan API docs](https://aladhan.com/prayer-times-api#tag/Monthly-Annual-Prayer-Times-Calendar/paths/~1v1~1calendar~1%7Byear%7D/get)). `15` = Muslim World League (adjusted). |
-| `madhab` | `number` | `1` | Juristic school. `1` = Shafi, Maliki, Hanbali. `2` = Hanafi. |
-| `latitudeAdjustmentMethod` | `number` | `0` | High latitude adjustment. `0` = None, `1` = Middle of Night, `2` = One-Seventh, `3` = Angle-Based. |
-| `midnightMode` | `number` | `0` | `0` = Standard (mid Sunset-to-Sunrise), `1` = Jafari (mid Sunset-to-Fajr). |
+| Field                      | Type     | Default | Description                                                                                                                                                                                             |
+| -------------------------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `method`                   | `number` | `15`    | Calculation method (see [Aladhan API docs](https://aladhan.com/prayer-times-api#tag/Monthly-Annual-Prayer-Times-Calendar/paths/~1v1~1calendar~1%7Byear%7D/get)). `15` = Muslim World League (adjusted). |
+| `madhab`                   | `number` | `1`     | Juristic school. `1` = Shafi, Maliki, Hanbali. `2` = Hanafi.                                                                                                                                            |
+| `latitudeAdjustmentMethod` | `number` | `0`     | High latitude adjustment. `0` = None, `1` = Middle of Night, `2` = One-Seventh, `3` = Angle-Based.                                                                                                      |
+| `midnightMode`             | `number` | `0`     | `0` = Standard (mid Sunset-to-Sunrise), `1` = Jafari (mid Sunset-to-Fajr).                                                                                                                              |
 
 #### MyMasjid
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `masjidId` | `string` | — | The UUID of the mosque on the MyMasjid platform. |
+| Field      | Type     | Default | Description                                      |
+| ---------- | -------- | ------- | ------------------------------------------------ |
+| `masjidId` | `string` | —       | The UUID of the mosque on the MyMasjid platform. |
 
 ---
 
@@ -160,10 +185,10 @@ Controls data freshness and storage limits.
 }
 ```
 
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `staleCheckDays` | `number` | — | `7` | Number of days after which cached prayer data is considered stale and re-fetched. |
-| `storageLimit` | `number` | Minimum `0.1` | `1.0` | Maximum disk usage (in GB) for audio files (`public/audio/`). Uploads are rejected when this limit is reached. |
+| Field            | Type     | Constraints   | Default | Description                                                                                                    |
+| ---------------- | -------- | ------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| `staleCheckDays` | `number` | —             | `7`     | Number of days after which cached prayer data is considered stale and re-fetched.                              |
+| `storageLimit`   | `number` | Minimum `0.1` | `1.0`   | Maximum disk usage (in GB) for audio files (`public/audio/`). Uploads are rejected when this limit is reached. |
 
 ---
 
@@ -188,30 +213,30 @@ The largest configuration section. Controls the scheduling engine, audio output 
 
 Master switches for the automation engine.
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | `boolean` | `true` | Master toggle. When `false`, no automated events fire. |
-| `preAdhanEnabled` | `boolean` | `true` | Global toggle for all pre-Adhan announcements. |
-| `adhanEnabled` | `boolean` | `true` | Global toggle for all Adhan announcements. |
-| `preIqamahEnabled` | `boolean` | `true` | Global toggle for all pre-Iqamah announcements. |
-| `iqamahEnabled` | `boolean` | `true` | Global toggle for all Iqamah announcements. |
+| Field              | Type      | Default | Description                                            |
+| ------------------ | --------- | ------- | ------------------------------------------------------ |
+| `enabled`          | `boolean` | `true`  | Master toggle. When `false`, no automated events fire. |
+| `preAdhanEnabled`  | `boolean` | `true`  | Global toggle for all pre-Adhan announcements.         |
+| `adhanEnabled`     | `boolean` | `true`  | Global toggle for all Adhan announcements.             |
+| `preIqamahEnabled` | `boolean` | `true`  | Global toggle for all pre-Iqamah announcements.        |
+| `iqamahEnabled`    | `boolean` | `true`  | Global toggle for all Iqamah announcements.            |
 
 ### `automation.baseUrl`
 
-| Type | Default | Description |
-|------|---------|-------------|
+| Type                | Default                   | Description                                                                                                            |
+| ------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `string` (optional) | `"http://localhost:3000"` | The base URL of this application, used for constructing audio file URLs sent to external services (e.g., VoiceMonkey). |
 
 ### `automation.pythonServiceUrl`
 
-| Type | Default | Description |
-|------|---------|-------------|
+| Type                | Default                   | Description                                   |
+| ------------------- | ------------------------- | --------------------------------------------- |
 | `string` (optional) | `"http://localhost:8000"` | URL of the Python TTS microservice (FastAPI). |
 
 ### `automation.defaultVoice`
 
-| Type | Default | Description |
-|------|---------|-------------|
+| Type                | Default               | Description                                                                   |
+| ------------------- | --------------------- | ----------------------------------------------------------------------------- |
 | `string` (optional) | `"ar-SA-HamedNeural"` | The default edge-tts voice for TTS generation. Can be overridden per trigger. |
 
 ### `automation.outputs`
@@ -241,12 +266,12 @@ A dynamic record of output strategy configurations, keyed by output ID (e.g., `"
 
 #### Per-Output Schema
 
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `enabled` | `boolean` | — | `false` | Whether this output is active. |
-| `verified` | `boolean` | — | `false` | Whether credentials have been verified via health check. |
-| `leadTimeMs` | `number` | `-30000` to `30000` | `0` | Timing offset in milliseconds. Positive = fire early, negative = fire late. Useful for compensating network latency. |
-| `params` | `Record<string, any>` | — | `{}` | Strategy-specific parameters (broker URLs, API keys, device names, etc.). Sensitive values are stored in `.env`. |
+| Field        | Type                  | Constraints         | Default | Description                                                                                                          |
+| ------------ | --------------------- | ------------------- | ------- | -------------------------------------------------------------------------------------------------------------------- |
+| `enabled`    | `boolean`             | —                   | `false` | Whether this output is active.                                                                                       |
+| `verified`   | `boolean`             | —                   | `false` | Whether credentials have been verified via health check.                                                             |
+| `leadTimeMs` | `number`              | `-30000` to `30000` | `0`     | Timing offset in milliseconds. Positive = fire early, negative = fire late. Useful for compensating network latency. |
+| `params`     | `Record<string, any>` | —                   | `{}`    | Strategy-specific parameters (broker URLs, API keys, device names, etc.). Sensitive values are stored in `.env`.     |
 
 ### `automation.triggers`
 
@@ -256,36 +281,36 @@ Per-prayer trigger event configuration. Each prayer has up to four trigger event
 
 Each prayer contains four trigger events:
 
-| Event | When it Fires |
-|-------|---------------|
-| `preAdhan` | N minutes before the Adhan time |
-| `adhan` | At the Adhan time |
+| Event       | When it Fires                    |
+| ----------- | -------------------------------- |
+| `preAdhan`  | N minutes before the Adhan time  |
+| `adhan`     | At the Adhan time                |
 | `preIqamah` | N minutes before the Iqamah time |
-| `iqamah` | At the Iqamah time |
+| `iqamah`    | At the Iqamah time               |
 
 #### Sunrise Triggers
 
 Sunrise has only two events:
 
-| Event | When it Fires |
-|-------|---------------|
+| Event      | When it Fires            |
+| ---------- | ------------------------ |
 | `preAdhan` | N minutes before sunrise |
-| `adhan` | At sunrise |
+| `adhan`    | At sunrise               |
 
 #### Trigger Event Schema (`triggerEventSchema`)
 
 Each trigger event is configured with the following fields:
 
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `enabled` | `boolean` | — | `false` | Whether this specific trigger fires. |
-| `offsetMinutes` | `number` | `0` to `60` | Varies (typically `15` for preAdhan, `5` for preIqamah) | Minutes before the event to fire the trigger. Only meaningful for `preAdhan` and `preIqamah`. |
-| `type` | `enum` | `"tts"`, `"file"`, or `"url"` | `"tts"` | The audio source type. |
-| `template` | `string` | Max length: `TTS_TEMPLATE_MAX_LENGTH` (defined in constants) | Varies | TTS template string. Only used when `type` is `"tts"`. Supports placeholders: `{prayer}`, `{prayerArabic}`, `{minutes}`. |
-| `path` | `string` | — | `""` | Path to a local audio file. Only used when `type` is `"file"`. |
-| `url` | `string` | — | — | URL of a remote audio file. Only used when `type` is `"url"`. |
-| `voice` | `string` | — | — | Override the default TTS voice for this specific trigger. |
-| `targets` | `string[]` | `"browser"` is automatically filtered out | `["local"]` | Output strategy IDs to route this trigger to (e.g., `["local", "voicemonkey"]`). |
+| Field           | Type       | Constraints                                                  | Default                                                 | Description                                                                                                              |
+| --------------- | ---------- | ------------------------------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `enabled`       | `boolean`  | —                                                            | `false`                                                 | Whether this specific trigger fires.                                                                                     |
+| `offsetMinutes` | `number`   | `0` to `60`                                                  | Varies (typically `15` for preAdhan, `5` for preIqamah) | Minutes before the event to fire the trigger. Only meaningful for `preAdhan` and `preIqamah`.                            |
+| `type`          | `enum`     | `"tts"`, `"file"`, or `"url"`                                | `"tts"`                                                 | The audio source type.                                                                                                   |
+| `template`      | `string`   | Max length: `TTS_TEMPLATE_MAX_LENGTH` (defined in constants) | Varies                                                  | TTS template string. Only used when `type` is `"tts"`. Supports placeholders: `{prayer}`, `{prayerArabic}`, `{minutes}`. |
+| `path`          | `string`   | —                                                            | `""`                                                    | Path to a local audio file. Only used when `type` is `"file"`.                                                           |
+| `url`           | `string`   | —                                                            | —                                                       | URL of a remote audio file. Only used when `type` is `"url"`.                                                            |
+| `voice`         | `string`   | —                                                            | —                                                       | Override the default TTS voice for this specific trigger.                                                                |
+| `targets`       | `string[]` | `"browser"` is automatically filtered out                    | `["local"]`                                             | Output strategy IDs to route this trigger to (e.g., `["local", "voicemonkey"]`).                                         |
 
 > **Note:** The `targets` array is automatically transformed to remove the `"browser"` target, as browser audio is handled separately via SSE.
 
@@ -326,11 +351,11 @@ Each trigger event is configured with the following fields:
 
 #### TTS Template Placeholders
 
-| Placeholder | Replaced With | Example |
-|-------------|---------------|---------|
-| `{prayer}` | English prayer name | `Fajr`, `Dhuhr`, `Asr` |
-| `{prayerArabic}` | Arabic prayer name | `الفجر`, `الظهر`, `العصر` |
-| `{minutes}` | Minutes until the event | `15`, `5` |
+| Placeholder      | Replaced With           | Example                   |
+| ---------------- | ----------------------- | ------------------------- |
+| `{prayer}`       | English prayer name     | `Fajr`, `Dhuhr`, `Asr`    |
+| `{prayerArabic}` | Arabic prayer name      | `الفجر`, `الظهر`, `العصر` |
+| `{minutes}`      | Minutes until the event | `15`, `5`                 |
 
 ---
 
@@ -357,19 +382,19 @@ System-level settings for health monitoring and UI state.
 
 A dynamic record of health check toggles. Each key corresponds to a service that can be independently enabled or disabled for monitoring.
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `api` | `boolean` | `true` | Enable health checking for the backend API. |
-| `tts` | `boolean` | `true` | Enable health checking for the Python TTS microservice. |
+| Field | Type      | Default | Description                                             |
+| ----- | --------- | ------- | ------------------------------------------------------- |
+| `api` | `boolean` | `true`  | Enable health checking for the backend API.             |
+| `tts` | `boolean` | `true`  | Enable health checking for the Python TTS microservice. |
 
 ### `system.tours`
 
 Tracks whether the user has seen onboarding tours. Managed by the frontend `useTour` hook.
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `dashboardSeen` | `boolean` | `false` | Whether the dashboard onboarding tour has been completed. |
-| `adminSeen` | `boolean` | `false` | Whether the admin/settings onboarding tour has been completed. |
+| Field           | Type      | Default | Description                                                    |
+| --------------- | --------- | ------- | -------------------------------------------------------------- |
+| `dashboardSeen` | `boolean` | `false` | Whether the dashboard onboarding tour has been completed.      |
+| `adminSeen`     | `boolean` | `false` | Whether the admin/settings onboarding tour has been completed. |
 
 ---
 
@@ -385,9 +410,9 @@ Security-related configuration.
 }
 ```
 
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `tokenVersion` | `integer` | Must be an integer | `1` | JWT token version. Incrementing this value invalidates all existing JWT tokens, effectively logging out all sessions. Used for emergency token revocation. |
+| Field          | Type      | Constraints        | Default | Description                                                                                                                                                |
+| -------------- | --------- | ------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tokenVersion` | `integer` | Must be an integer | `1`     | JWT token version. Incrementing this value invalidates all existing JWT tokens, effectively logging out all sessions. Used for emergency token revocation. |
 
 ---
 
@@ -395,10 +420,10 @@ Security-related configuration.
 
 The `PATCH /api/system/env` endpoint validates environment variable updates against this schema:
 
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| `key` | `string` | Must pass whitelist/blacklist validation (see below) | The environment variable name. |
-| `value` | `string` | — | The value to set. |
+| Field   | Type     | Constraints                                          | Description                    |
+| ------- | -------- | ---------------------------------------------------- | ------------------------------ |
+| `key`   | `string` | Must pass whitelist/blacklist validation (see below) | The environment variable name. |
+| `value` | `string` | —                                                    | The value to set.              |
 
 ### Key Validation Rules
 
@@ -410,16 +435,16 @@ PATH, NODE_OPTIONS, SHELL, USER, HOME, LD_PRELOAD
 
 **Whitelisted patterns** (at least one must match):
 
-| Pattern | Examples |
-|---------|----------|
-| `^AZAN_` | `AZAN_ENCRYPTION_KEY`, `AZAN_ADMIN_PASSWORD` |
-| `_KEY$` | `VOICEMONKEY_KEY`, `API_KEY` |
-| `_TOKEN$` | `VOICEMONKEY_TOKEN`, `ACCESS_TOKEN` |
-| `_SECRET$` | `JWT_SECRET`, `APP_SECRET` |
-| `_URL$` | `WEBHOOK_URL`, `CALLBACK_URL` |
-| `_ID$` | `DEVICE_ID`, `MASJID_ID` |
-| `_DEVICE$` | `VOICEMONKEY_DEVICE` |
-| `^(PORT\|TZ\|LOG_LEVEL)$` | `PORT`, `TZ`, `LOG_LEVEL` |
+| Pattern                   | Examples                                     |
+| ------------------------- | -------------------------------------------- |
+| `^AZAN_`                  | `AZAN_ENCRYPTION_KEY`, `AZAN_ADMIN_PASSWORD` |
+| `_KEY$`                   | `VOICEMONKEY_KEY`, `API_KEY`                 |
+| `_TOKEN$`                 | `VOICEMONKEY_TOKEN`, `ACCESS_TOKEN`          |
+| `_SECRET$`                | `JWT_SECRET`, `APP_SECRET`                   |
+| `_URL$`                   | `WEBHOOK_URL`, `CALLBACK_URL`                |
+| `_ID$`                    | `DEVICE_ID`, `MASJID_ID`                     |
+| `_DEVICE$`                | `VOICEMONKEY_DEVICE`                         |
+| `^(PORT\|TZ\|LOG_LEVEL)$` | `PORT`, `TZ`, `LOG_LEVEL`                    |
 
 ---
 
@@ -427,12 +452,12 @@ PATH, NODE_OPTIONS, SHELL, USER, HOME, LD_PRELOAD
 
 The configuration schema has evolved through five versions. Each migration is applied automatically and sequentially on startup.
 
-| Version | Migration | Description |
-|---------|-----------|-------------|
-| V1 → V2 | `migrateV1toV2` | Converted legacy `automation.voiceMonkey` block into the generic `automation.outputs.voicemonkey` strategy format. Removed the `voiceMonkey` key. |
+| Version | Migration       | Description                                                                                                                                                                |
+| ------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V1 → V2 | `migrateV1toV2` | Converted legacy `automation.voiceMonkey` block into the generic `automation.outputs.voicemonkey` strategy format. Removed the `voiceMonkey` key.                          |
 | V2 → V3 | `migrateV2toV3` | Moved global `calculation` object (method, madhab, latitudeAdjustmentMethod, midnightMode) into `sources.primary` for the Aladhan provider. Removed the `calculation` key. |
-| V3 → V4 | `migrateV3toV4` | Added `system.healthChecks` block with `api: true` and `tts: true` defaults. |
-| V4 → V5 | `migrateV4toV5` | Added `security.tokenVersion` block with default value `1`. |
+| V3 → V4 | `migrateV3toV4` | Added `system.healthChecks` block with `api: true` and `tts: true` defaults.                                                                                               |
+| V4 → V5 | `migrateV4toV5` | Added `security.tokenVersion` block with default value `1`.                                                                                                                |
 
 ### Environment Secret Migration
 

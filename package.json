@@ -66,18 +66,25 @@
   },
   "lint-staged": {
     "src/**/*.js": [
+      "prettier --write",
       "eslint --fix --config .config/eslint.config.mjs",
       "jest --config .config/jest.config.js --findRelatedTests --testPathPatterns=unit --passWithNoTests --forceExit"
     ],
     "client/src/**/*.{js,jsx}": [
+      "prettier --write",
       "eslint --fix --config .config/eslint.config.mjs",
       "vitest related --config .config/vitest.config.mjs --passWithNoTests --reporter=verbose run"
     ],
-    "package*.json": [
+    "package.json": [
+      "prettier --write",
       "npm audit --audit-level=high"
     ],
-    "client/package*.json": [
+    "client/package.json": [
+      "prettier --write",
       "npm audit --prefix client --audit-level=high"
+    ],
+    "*.{md,yml,css}": [
+      "prettier --write"
     ]
   },
   "devDependencies": {

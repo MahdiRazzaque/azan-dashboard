@@ -27,6 +27,7 @@ For detailed installation instructions, please see [Setup & Installation](docs/0
 The easiest way to deploy is using Docker. This packages the Node.js backend, React frontend, and Python TTS service into a single container.
 
 ### 1. Standard Setup (Windows, Mac, Docker Desktop)
+
 Use this if you do not need the server to play audio out of its own physical speakers (e.g., you rely on Browser or Alexa audio).
 
 ```bash
@@ -34,6 +35,7 @@ docker compose -f docker/docker-compose.yml up -d
 ```
 
 ### 2. Linux Setup (Raspberry Pi / Server)
+
 Use this if you want the application to play the Adhan directly through the device's 3.5mm jack or HDMI audio.
 
 ```bash
@@ -48,13 +50,13 @@ docker compose -f docker/docker-compose.yml -f docker/docker-compose.audio.yml u
 
 The container will automatically create these folders in your project root to ensure data survives updates:
 
-*   `config/`: Stores `local.json` (settings) and `.env` (passwords/secrets).
-*   `data/`: Stores the prayer time cache.
-*   `public/audio/`: Stores custom MP3s and generated TTS cache.
+- `config/`: Stores `local.json` (settings) and `.env` (passwords/secrets).
+- `data/`: Stores the prayer time cache.
+- `public/audio/`: Stores custom MP3s and generated TTS cache.
 
 ## 🛠️ Tech Stack
 
-*   **Frontend:** React, Vite, Tailwind CSS
-*   **Backend:** Node.js, Express, file-based JSON cache
-*   **Microservice:** Python (FastAPI, Edge-TTS)
-*   **DevOps:** Docker, Supervisord
+- **Frontend:** React, Vite, Tailwind CSS
+- **Backend:** Node.js, Express, file-based JSON cache
+- **Microservice:** Python (FastAPI, Edge-TTS)
+- **DevOps:** Docker, Supervisord

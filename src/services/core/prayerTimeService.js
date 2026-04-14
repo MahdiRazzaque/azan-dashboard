@@ -1,18 +1,18 @@
-const fsp = require('fs').promises;
-const path = require('path');
-const { ProviderFactory, ProviderValidationError } = require('@providers');
-const { DateTime } = require('luxon');
-const { calculateIqamah, calculateNextPrayer } = require('@utils/calculations');
-const asyncLock = require('@utils/asyncLock');
+const fsp = require("fs").promises;
+const path = require("path");
+const { ProviderFactory, ProviderValidationError } = require("@providers");
+const { DateTime } = require("luxon");
+const { calculateIqamah, calculateNextPrayer } = require("@utils/calculations");
+const asyncLock = require("@utils/asyncLock");
 
-const CACHE_FILE = path.join(process.cwd(), 'data', 'cache.json');
+const CACHE_FILE = path.join(process.cwd(), "data", "cache.json");
 
 /**
  * In-memory cache to reduce disk I/O for prayer time lookups.
  * @type {Object|null}
  */
 let inMemoryCache = null;
-const PRAYER_NAMES = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
+const PRAYER_NAMES = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
 
 /**
  * Ensures the data directory exists.
@@ -30,18 +30,22 @@ async function ensureDataDir() {
 
 /**
  * Gets prayer times for a date with next prayer calculation.
- * 
+ *
  * @param {Object} config - Application configuration.
  * @param {string} timezone - Timezone string.
  * @param {import('luxon').DateTime} [referenceDate] - The request-scoped date/time used for current-day calculations.
  * @returns {Promise<Object>} Object containing meta, prayers, and nextPrayer.
  */
-async function getPrayersWithNext(config, timezone, referenceDate = DateTime.now().setZone(timezone)) {
+async function getPrayersWithNext(
+  config,
+  timezone,
+  referenceDate = DateTime.now().setZone(timezone),
+) {
   const now = referenceDate.setZone(timezone);
-  
+
   // 1. Fetch Data for Today
   const rawData = await module.exports.getPrayerTimes(config, now);
-  
+
   // 2. Process Prayers (Start + Iqamah)
   const prayers = buildPrayerRows(rawData, config, timezone);
 
@@ -50,31 +54,36 @@ async function getPrayersWithNext(config, timezone, referenceDate = DateTime.now
 
   // 4. If no next prayer today (post-Isha), fetch Tomorrow's Fajr
   if (!nextPrayer) {
-      try {
-          const tomorrow = now.plus({ days: 1 });
-          const tomorrowData = await module.exports.getPrayerTimes(config, tomorrow);
-          
-          if (tomorrowData && tomorrowData.prayers && tomorrowData.prayers.fajr) {
-              nextPrayer = {
-                  name: 'fajr',
-                  time: tomorrowData.prayers.fajr,
-                  isTomorrow: true
-              };
-          }
-      } catch (tomorrowError) {
-          console.error(`[PrayerService] Failed to fetch tomorrow's Fajr: ${tomorrowError.message}`);
+    try {
+      const tomorrow = now.plus({ days: 1 });
+      const tomorrowData = await module.exports.getPrayerTimes(
+        config,
+        tomorrow,
+      );
+
+      if (tomorrowData && tomorrowData.prayers && tomorrowData.prayers.fajr) {
+        nextPrayer = {
+          name: "fajr",
+          time: tomorrowData.prayers.fajr,
+          isTomorrow: true,
+        };
       }
+    } catch (tomorrowError) {
+      console.error(
+        `[PrayerService] Failed to fetch tomorrow's Fajr: ${tomorrowError.message}`,
+      );
+    }
   }
-  
+
   return {
     meta: {
       date: rawData.meta.date,
       location: timezone,
       source: rawData.meta.source,
-      cached: rawData.meta.cached
+      cached: rawData.meta.cached,
     },
     prayers,
-    nextPrayer
+    nextPrayer,
   };
 }
 
@@ -89,7 +98,12 @@ async function getPrayersWithNext(config, timezone, referenceDate = DateTime.now
  * @param {import('luxon').DateTime} [referenceDate] - The request-scoped date/time used for default window generation.
  * @returns {Promise<Object>} A map of ISO dates to prayer rows.
  */
-async function getPrayerCalendarWindow(config, timezone, options = {}, referenceDate = DateTime.now().setZone(timezone)) {
+async function getPrayerCalendarWindow(
+  config,
+  timezone,
+  options = {},
+  referenceDate = DateTime.now().setZone(timezone),
+) {
   const { cursorDate, direction } = options;
   const hasDirectionalCursor = Boolean(cursorDate && direction);
   if (hasDirectionalCursor) {
@@ -99,21 +113,30 @@ async function getPrayerCalendarWindow(config, timezone, options = {}, reference
     for (let offset = 0; offset < 7; offset += 1) {
       try {
         const rawData = await module.exports.getPrayerTimes(config, date);
-        calendarEntries.push([date.toISODate(), buildPrayerRows(rawData, config, timezone)]);
-        date = direction === 'past' ? date.minus({ days: 1 }) : date.plus({ days: 1 });
+        calendarEntries.push([
+          date.toISODate(),
+          buildPrayerRows(rawData, config, timezone),
+        ]);
+        date =
+          direction === "past"
+            ? date.minus({ days: 1 })
+            : date.plus({ days: 1 });
       } catch (error) {
         break;
       }
     }
 
-    if (direction === 'past') {
+    if (direction === "past") {
       calendarEntries.reverse();
     }
 
     return Object.fromEntries(calendarEntries);
   }
 
-  const startDate = referenceDate.setZone(timezone).startOf('day').minus({ days: 7 });
+  const startDate = referenceDate
+    .setZone(timezone)
+    .startOf("day")
+    .minus({ days: 7 });
   const calendar = {};
 
   for (let offset = 0; offset < 15; offset += 1) {
@@ -132,7 +155,7 @@ async function getPrayerCalendarWindow(config, timezone, options = {}, reference
 /**
  * Service to orchestrate fetching and caching of prayer times.
  * Supports Annual/Bulk fetching strategy.
- * 
+ *
  * @param {Object} config - Application configuration.
  * @param {import('luxon').DateTime} date - Date to fetch for.
  * @returns {Promise<Object>} Prayer times object + meta.
@@ -153,15 +176,15 @@ async function getPrayerTimes(config, date = DateTime.now()) {
           date: dateKey,
           source: inMemoryCache.meta.source,
           lastFetched: inMemoryCache.meta.lastFetched,
-          cached: true
+          cached: true,
         },
-        prayers: applyOverrides(inMemoryCache.data[dateKey], config)
+        prayers: applyOverrides(inMemoryCache.data[dateKey], config),
       };
     }
 
     // 2. Fallback to Disk Cache
     const cache = await readCache();
-    
+
     // Check hit
     if (cache.data && cache.data[dateKey]) {
       return {
@@ -169,9 +192,9 @@ async function getPrayerTimes(config, date = DateTime.now()) {
           date: dateKey,
           source: cache.meta.source,
           lastFetched: cache.meta.lastFetched,
-          cached: true
+          cached: true,
         },
-        prayers: applyOverrides(cache.data[dateKey], config)
+        prayers: applyOverrides(cache.data[dateKey], config),
       };
     }
 
@@ -189,8 +212,10 @@ async function getPrayerTimes(config, date = DateTime.now()) {
      */
     const tryFetch = async (sourceConfig) => {
       if (!sourceConfig || !sourceConfig.type) return null;
-      console.log(`[PrayerService] Attempting fetch from source: ${sourceConfig.type}`);
-      
+      console.log(
+        `[PrayerService] Attempting fetch from source: ${sourceConfig.type}`,
+      );
+
       const provider = ProviderFactory.create(sourceConfig, config);
       return await provider.getAnnualTimes(year);
     };
@@ -198,15 +223,19 @@ async function getPrayerTimes(config, date = DateTime.now()) {
     try {
       const primary = config.sources.primary;
       newDataMap = await tryFetch(primary);
-      
+
       if (!newDataMap || Object.keys(newDataMap).length === 0) {
-        throw new Error(`Primary source (${primary.type}) returned empty data.`);
+        throw new Error(
+          `Primary source (${primary.type}) returned empty data.`,
+        );
       }
 
       sourceUsed = primary.type;
     } catch (error) {
-      console.error(`Primary source (${config.sources.primary.type}) failed: ${error.message}`);
-      
+      console.error(
+        `Primary source (${config.sources.primary.type}) failed: ${error.message}`,
+      );
+
       if (error instanceof ProviderValidationError) {
         throw error;
       }
@@ -218,34 +247,36 @@ async function getPrayerTimes(config, date = DateTime.now()) {
             const backup = config.sources.backup;
             newDataMap = await tryFetch(backup);
             if (newDataMap && Object.keys(newDataMap).length > 0) {
-                sourceUsed = backup.type;
+              sourceUsed = backup.type;
             }
           } catch (backupError) {
-            console.error(`Backup source (${config.sources.backup.type}) failed: ${backupError.message}`);
+            console.error(
+              `Backup source (${config.sources.backup.type}) failed: ${backupError.message}`,
+            );
           }
         }
       }
-      
+
       if (!newDataMap || Object.keys(newDataMap).length === 0) {
-          throw error;
+        throw error;
       }
     }
 
     const updatedCache = {
       meta: {
         lastFetched: DateTime.now().toISO(),
-        source: sourceUsed
+        source: sourceUsed,
       },
       data: {
         ...(cache.data || {}),
-        ...newDataMap
-      }
+        ...newDataMap,
+      },
     };
 
     await writeCache(updatedCache);
 
     const resultForDate = updatedCache.data[dateKey];
-    
+
     if (!resultForDate) {
       throw new Error(`Data for ${dateKey} not found in bulk response.`);
     }
@@ -255,9 +286,9 @@ async function getPrayerTimes(config, date = DateTime.now()) {
         date: dateKey,
         source: sourceUsed,
         lastFetched: updatedCache.meta.lastFetched,
-        cached: false
+        cached: false,
       },
-      prayers: applyOverrides(resultForDate, config)
+      prayers: applyOverrides(resultForDate, config),
     };
   });
 }
@@ -270,12 +301,12 @@ async function getPrayerTimes(config, date = DateTime.now()) {
 async function readCache() {
   try {
     await fsp.access(CACHE_FILE);
-    const content = await fsp.readFile(CACHE_FILE, 'utf-8');
+    const content = await fsp.readFile(CACHE_FILE, "utf-8");
     try {
       inMemoryCache = JSON.parse(content);
       return inMemoryCache;
     } catch {
-      console.warn('Cache file corrupted, resetting.');
+      console.warn("Cache file corrupted, resetting.");
       inMemoryCache = {};
       return inMemoryCache;
     }
@@ -310,25 +341,29 @@ async function writeCache(data) {
  * @returns {Object} The prayer times object with overrides applied.
  */
 function applyOverrides(prayers, config) {
-    if (!prayers) return prayers;
-    if (!config || !config.prayers) return prayers;
-    const processed = { ...prayers, iqamah: { ...(prayers.iqamah || {}) } };
-    
-    ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].forEach(prayer => {
-        const pConfig = config.prayers[prayer];
-        if (pConfig && pConfig.iqamahOverride) {
-            if (prayers[prayer]) {
-                try {
-                    const iqamah = calculateIqamah(prayers[prayer], pConfig, config.location.timezone);
-                    processed.iqamah[prayer] = iqamah;
-                } catch (e) {
-                    // nosemgrep: unsafe-formatstring -- prayer is from PRAYER_NAMES constant array, not user HTTP input
-                    console.warn(`Failed to override iqamah for ${prayer}:`, e.message);
-                }
-            }
+  if (!prayers) return prayers;
+  if (!config || !config.prayers) return prayers;
+  const processed = { ...prayers, iqamah: { ...(prayers.iqamah || {}) } };
+
+  ["fajr", "dhuhr", "asr", "maghrib", "isha"].forEach((prayer) => {
+    const pConfig = config.prayers[prayer];
+    if (pConfig && pConfig.iqamahOverride) {
+      if (prayers[prayer]) {
+        try {
+          const iqamah = calculateIqamah(
+            prayers[prayer],
+            pConfig,
+            config.location.timezone,
+          );
+          processed.iqamah[prayer] = iqamah;
+        } catch (e) {
+          // nosemgrep: unsafe-formatstring -- prayer is from PRAYER_NAMES constant array, not user HTTP input
+          console.warn(`Failed to override iqamah for ${prayer}:`, e.message);
         }
-    });
-    return processed;
+      }
+    }
+  });
+  return processed;
 }
 
 /**
@@ -350,7 +385,7 @@ function buildPrayerRows(rawData, config, timezone) {
     }
 
     let iqamahISO = null;
-    if (name !== 'sunrise') {
+    if (name !== "sunrise") {
       if (rawData.prayers.iqamah && rawData.prayers.iqamah[name]) {
         iqamahISO = rawData.prayers.iqamah[name];
       } else {
@@ -363,7 +398,7 @@ function buildPrayerRows(rawData, config, timezone) {
 
     prayers[name] = {
       start: startISO,
-      iqamah: iqamahISO
+      iqamah: iqamahISO,
     };
   });
 
@@ -379,9 +414,11 @@ function buildPrayerRows(rawData, config, timezone) {
  * @returns {import('luxon').DateTime} The first day to fetch for the requested chunk.
  */
 function getDirectionalWindowStart(cursorDate, direction, timezone) {
-  const cursor = DateTime.fromISO(cursorDate, { zone: timezone }).startOf('day');
+  const cursor = DateTime.fromISO(cursorDate, { zone: timezone }).startOf(
+    "day",
+  );
 
-  if (direction === 'past') {
+  if (direction === "past") {
     return cursor.minus({ days: 1 });
   }
 
@@ -395,13 +432,13 @@ function getDirectionalWindowStart(cursorDate, direction, timezone) {
  * @returns {Promise<Object>} A promise resolving to the refreshed prayer times for today.
  */
 async function forceRefresh(config) {
-    inMemoryCache = null;
-    try {
-        await fsp.unlink(CACHE_FILE);
-    } catch {
-         // ignore
-    }
-    return module.exports.getPrayerTimes(config, DateTime.now());
+  inMemoryCache = null;
+  try {
+    await fsp.unlink(CACHE_FILE);
+  } catch {
+    // ignore
+  }
+  return module.exports.getPrayerTimes(config, DateTime.now());
 }
 
 module.exports = {
@@ -409,5 +446,5 @@ module.exports = {
   getPrayersWithNext,
   getPrayerCalendarWindow,
   forceRefresh,
-  readCache
+  readCache,
 };

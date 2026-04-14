@@ -1,23 +1,23 @@
 services:
   azan-dashboard:
     build:
-      context: ..              # Correct: Sets build context to project root
+      context: .. # Correct: Sets build context to project root
       dockerfile: docker/Dockerfile # Correct: Finds Dockerfile inside docker folder
     #container_name: azan-dashboard
     restart: unless-stopped
     ports:
       - "${APP_PORT}:3000"
-    volumes:      
+    volumes:
       # Persist configuration and secrets
       - ../config:/app/config
-      
+
       # Persist application data/cache
       - ../data:/app/data
-      
+
       # Persist uploaded and generated audio
       - ../public/audio/custom:/app/public/audio/custom
       - ../public/audio/cache:/app/public/audio/cache
-    
+
     # devices:
     #   - /dev/snd:/dev/snd
     environment:

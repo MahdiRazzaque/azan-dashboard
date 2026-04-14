@@ -3,18 +3,18 @@
  * Triggers failover to backup source.
  */
 class ProviderConnectionError extends Error {
-    /**
-     * Initialises a new ProviderConnectionError instance.
-     * @param {string} message - Error message.
-     * @param {number} [statusCode=500] - HTTP status code from the provider.
-     * @param {string} [source] - Name of the provider source.
-     */
-    constructor(message, statusCode = 500, source) {
-        super(message);
-        this.name = 'ProviderConnectionError';
-        this.statusCode = statusCode;
-        this.source = source;
-    }
+  /**
+   * Initialises a new ProviderConnectionError instance.
+   * @param {string} message - Error message.
+   * @param {number} [statusCode=500] - HTTP status code from the provider.
+   * @param {string} [source] - Name of the provider source.
+   */
+  constructor(message, statusCode = 500, source) {
+    super(message);
+    this.name = "ProviderConnectionError";
+    this.statusCode = statusCode;
+    this.source = source;
+  }
 }
 
 /**
@@ -22,21 +22,21 @@ class ProviderConnectionError extends Error {
  * Does NOT trigger failover as the issue is likely with the configuration.
  */
 class ProviderValidationError extends Error {
-    /**
-     * Initialises a new ProviderValidationError instance.
-     * @param {string} message - Error message.
-     * @param {Object} [validationDetails] - Details of the validation failure.
-     * @param {boolean} [userFriendly=false] - Whether the error message is suitable for end-users.
-     */
-    constructor(message, validationDetails, userFriendly = false) {
-        super(message);
-        this.name = 'ProviderValidationError';
-        this.validationDetails = validationDetails;
-        this.userFriendly = userFriendly;
-    }
+  /**
+   * Initialises a new ProviderValidationError instance.
+   * @param {string} message - Error message.
+   * @param {Object} [validationDetails] - Details of the validation failure.
+   * @param {boolean} [userFriendly=false] - Whether the error message is suitable for end-users.
+   */
+  constructor(message, validationDetails, userFriendly = false) {
+    super(message);
+    this.name = "ProviderValidationError";
+    this.validationDetails = validationDetails;
+    this.userFriendly = userFriendly;
+  }
 }
 
 module.exports = {
-    ProviderConnectionError,
-    ProviderValidationError
+  ProviderConnectionError,
+  ProviderValidationError,
 };
