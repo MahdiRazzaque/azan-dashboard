@@ -19,6 +19,8 @@
     "server:dev": "nodemon --config .config/nodemon.json src/server.js",
     "client:dev": "cd client && npm run dev",
     "client:install": "cd client && npm install",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "lint": "eslint . --config .config/eslint.config.mjs",
     "knip": "knip --config .config/knip.json",
     "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
