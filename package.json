@@ -20,6 +20,7 @@
     "client:dev": "cd client && npm run dev",
     "client:install": "cd client && npm install",
     "lint": "eslint . --config .config/eslint.config.mjs",
+    "knip": "knip --config .config/knip.json",
     "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
     "docker:build": "docker-compose -f docker/docker-compose.yml build",
     "prepare": "[ -f node_modules/.bin/husky ] && husky || true"
@@ -96,6 +97,7 @@
     "husky": "^9.1.7",
     "jest": "^30.2.0",
     "jsdom": "^27.4.0",
+    "knip": "^6.4.1",
     "lint-staged": "^16.4.0",
     "supertest": "^7.2.2",
     "vitest": "^4.0.18"
