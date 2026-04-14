@@ -1,455 +1,514 @@
-const settingsController = require('@controllers/settingsController');
-const configService = require('@config');
-const sseService = require('@services/system/sseService');
-const audioAssetService = require('@services/system/audioAssetService');
-const schedulerService = require('@services/core/schedulerService');
-const healthCheck = require('@services/system/healthCheck');
-const envManager = require('@utils/envManager');
-const systemControllerHelper = require('@controllers/systemController');
-const fs = require('fs');
-const fsAsync = require('fs/promises');
-const path = require('path');
-const OutputFactory = require('../../../outputs');
-const workflowService = require('@services/system/configurationWorkflowService');
+const settingsController = require("@controllers/settingsController");
+const configService = require("@config");
+const sseService = require("@services/system/sseService");
+const audioAssetService = require("@services/system/audioAssetService");
+const schedulerService = require("@services/core/schedulerService");
+const healthCheck = require("@services/system/healthCheck");
+const envManager = require("@utils/envManager");
+const systemControllerHelper = require("@controllers/systemController");
+const fs = require("fs");
+const fsAsync = require("fs/promises");
+const path = require("path");
+const OutputFactory = require("../../../outputs");
+const workflowService = require("@services/system/configurationWorkflowService");
 
-jest.mock('@services/system/sseService');
-jest.mock('@services/system/audioAssetService');
-jest.mock('@services/core/schedulerService', () => ({
-    initScheduler: jest.fn(),
-    stopAll: jest.fn()
+jest.mock("@services/system/sseService");
+jest.mock("@services/system/audioAssetService");
+jest.mock("@services/core/schedulerService", () => ({
+  initScheduler: jest.fn(),
+  stopAll: jest.fn(),
 }));
-jest.mock('@services/system/healthCheck');
-jest.mock('@utils/envManager');
-jest.mock('@controllers/systemController');
-jest.mock('../../../outputs');
-jest.mock('fs');
-jest.mock('fs/promises', () => ({
-    access: jest.fn(),
-    unlink: jest.fn(),
-    readFile: jest.fn(),
-    writeFile: jest.fn(),
-    mkdir: jest.fn(),
-    rename: jest.fn(),
-    readdir: jest.fn(),
-    copyFile: jest.fn()
+jest.mock("@services/system/healthCheck");
+jest.mock("@utils/envManager");
+jest.mock("@controllers/systemController");
+jest.mock("../../../outputs");
+jest.mock("fs");
+jest.mock("fs/promises", () => ({
+  access: jest.fn(),
+  unlink: jest.fn(),
+  readFile: jest.fn(),
+  writeFile: jest.fn(),
+  mkdir: jest.fn(),
+  rename: jest.fn(),
+  readdir: jest.fn(),
+  copyFile: jest.fn(),
 }));
-jest.mock('@utils/audioValidator');
-jest.mock('@services/core/prayerTimeService', () => ({
-    forceRefresh: jest.fn()
+jest.mock("@utils/audioValidator");
+jest.mock("@services/core/prayerTimeService", () => ({
+  forceRefresh: jest.fn(),
 }));
-jest.mock('@services/core/validationService', () => ({
-    validateConfigSource: jest.fn(),
-    validateConfig: jest.fn()
+jest.mock("@services/core/validationService", () => ({
+  validateConfigSource: jest.fn(),
+  validateConfig: jest.fn(),
 }));
-jest.mock('@services/system/configurationWorkflowService', () => ({
-    executeUpdate: jest.fn()
+jest.mock("@services/system/configurationWorkflowService", () => ({
+  executeUpdate: jest.fn(),
 }));
 
-const { forceRefresh } = require('@services/core/prayerTimeService');
-const { validateConfigSource, validateConfig } = require('@services/core/validationService');
-const audioValidator = require('@utils/audioValidator');
+const { forceRefresh } = require("@services/core/prayerTimeService");
+const {
+  validateConfigSource,
+  validateConfig,
+} = require("@services/core/validationService");
+const audioValidator = require("@utils/audioValidator");
 
-describe('settingsController Unit Tests', () => {
-    let req, res;
-    let mockLocalStrategy, mockVMStrategy;
+describe("settingsController Unit Tests", () => {
+  let req, res;
+  let mockLocalStrategy, mockVMStrategy;
 
-    beforeEach(() => {
-        req = { body: {} };
-        res = {
-            json: jest.fn().mockReturnThis(),
-            status: jest.fn().mockReturnThis()
-        };
-        jest.clearAllMocks();
-        validateConfig.mockReturnValue({ value: {} });
-        validateConfigSource.mockResolvedValue();
-        audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
-        audioAssetService.enrichMetadata.mockResolvedValue({ duration: 10 });
-        audioValidator.analyseAudioFile.mockResolvedValue({ duration: 10, mimeType: 'audio/mpeg' });
-        systemControllerHelper._getAudioFilesWithMetadata.mockResolvedValue([]);
-        fsAsync.mkdir.mockResolvedValue();
-        fsAsync.readdir.mockResolvedValue([]);
-        fsAsync.rename.mockResolvedValue();
-        fsAsync.unlink.mockResolvedValue();
-        fsAsync.copyFile.mockResolvedValue();
-        fsAsync.writeFile.mockResolvedValue();
+  beforeEach(() => {
+    req = { body: {} };
+    res = {
+      json: jest.fn().mockReturnThis(),
+      status: jest.fn().mockReturnThis(),
+    };
+    jest.clearAllMocks();
+    validateConfig.mockReturnValue({ value: {} });
+    validateConfigSource.mockResolvedValue();
+    audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
+    audioAssetService.enrichMetadata.mockResolvedValue({ duration: 10 });
+    audioValidator.analyseAudioFile.mockResolvedValue({
+      duration: 10,
+      mimeType: "audio/mpeg",
+    });
+    systemControllerHelper._getAudioFilesWithMetadata.mockResolvedValue([]);
+    fsAsync.mkdir.mockResolvedValue();
+    fsAsync.readdir.mockResolvedValue([]);
+    fsAsync.rename.mockResolvedValue();
+    fsAsync.unlink.mockResolvedValue();
+    fsAsync.copyFile.mockResolvedValue();
+    fsAsync.writeFile.mockResolvedValue();
 
-        // Default health state for mocks
-        let currentHealth = {
-            tts: { healthy: true },
-            local: { healthy: true },
-            voicemonkey: { healthy: true },
-            primarySource: { healthy: true },
-            backupSource: { healthy: true }
-        };
+    // Default health state for mocks
+    let currentHealth = {
+      tts: { healthy: true },
+      local: { healthy: true },
+      voicemonkey: { healthy: true },
+      primarySource: { healthy: true },
+      backupSource: { healthy: true },
+    };
 
-        healthCheck.getHealth.mockImplementation(() => currentHealth);
-        healthCheck.refresh.mockImplementation(async (target, params) => {
-            if (target === 'all') {
-                return currentHealth;
-            }
-            return currentHealth; // Simplified for basic tests
-        });
-        
-        mockLocalStrategy = {
-            id: 'local',
-            label: 'Local Audio',
-            validateTrigger: jest.fn().mockReturnValue([]),
-            augmentAudioMetadata: jest.fn().mockReturnValue({})
-        };
-        mockVMStrategy = {
-            id: 'voicemonkey',
-            label: 'VoiceMonkey (Alexa)',
-            validateTrigger: jest.fn().mockReturnValue([]),
-            augmentAudioMetadata: jest.fn().mockReturnValue({})
-        };
-
-        OutputFactory.getAllStrategies.mockReturnValue([
-            { id: 'local', label: 'Local Audio' },
-            { id: 'voicemonkey', label: 'VoiceMonkey (Alexa)' }
-        ]);
-        OutputFactory.getAllStrategyInstances.mockReturnValue([mockLocalStrategy, mockVMStrategy]);
-        OutputFactory.getStrategy.mockImplementation((id) => {
-            if (id === 'local') return mockLocalStrategy;
-            if (id === 'voicemonkey') return mockVMStrategy;
-            throw new Error('Not found');
-        });
-        OutputFactory.getSecretRequirementKeys.mockReturnValue([
-            { strategyId: 'voicemonkey', key: 'token' },
-            { strategyId: 'voicemonkey', key: 'device' }
-        ]);
-
-        jest.spyOn(console, 'log').mockImplementation(() => {});
-        jest.spyOn(console, 'error').mockImplementation(() => {});
+    healthCheck.getHealth.mockImplementation(() => currentHealth);
+    healthCheck.refresh.mockImplementation(async (target, params) => {
+      if (target === "all") {
+        return currentHealth;
+      }
+      return currentHealth; // Simplified for basic tests
     });
 
-    describe('getSettings', () => {
-        it('should reload and return settings', async () => {
-            const mockConfig = { key: 'value' };
-            configService.get.mockReturnValue(mockConfig);
-            await settingsController.getSettings(req, res);
-            expect(configService.reload).toHaveBeenCalled();
-            expect(res.json).toHaveBeenCalledWith(mockConfig);
-        });
+    mockLocalStrategy = {
+      id: "local",
+      label: "Local Audio",
+      validateTrigger: jest.fn().mockReturnValue([]),
+      augmentAudioMetadata: jest.fn().mockReturnValue({}),
+    };
+    mockVMStrategy = {
+      id: "voicemonkey",
+      label: "VoiceMonkey (Alexa)",
+      validateTrigger: jest.fn().mockReturnValue([]),
+      augmentAudioMetadata: jest.fn().mockReturnValue({}),
+    };
+
+    OutputFactory.getAllStrategies.mockReturnValue([
+      { id: "local", label: "Local Audio" },
+      { id: "voicemonkey", label: "VoiceMonkey (Alexa)" },
+    ]);
+    OutputFactory.getAllStrategyInstances.mockReturnValue([
+      mockLocalStrategy,
+      mockVMStrategy,
+    ]);
+    OutputFactory.getStrategy.mockImplementation((id) => {
+      if (id === "local") return mockLocalStrategy;
+      if (id === "voicemonkey") return mockVMStrategy;
+      throw new Error("Not found");
+    });
+    OutputFactory.getSecretRequirementKeys.mockReturnValue([
+      { strategyId: "voicemonkey", key: "token" },
+      { strategyId: "voicemonkey", key: "device" },
+    ]);
+
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  describe("getSettings", () => {
+    it("should reload and return settings", async () => {
+      const mockConfig = { key: "value" };
+      configService.get.mockReturnValue(mockConfig);
+      await settingsController.getSettings(req, res);
+      expect(configService.reload).toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith(mockConfig);
+    });
+  });
+
+  describe("getPublicSettings", () => {
+    it("should reload and return sanitised settings for public access", async () => {
+      const mockConfig = {
+        location: { city: "London" },
+        prayers: { fajr: {} },
+        sources: { primary: { type: "aladhan" } },
+        automation: {
+          outputs: {
+            voicemonkey: {
+              enabled: true,
+              params: {
+                token: "secret-token",
+                device: "secret-device",
+              },
+            },
+          },
+        },
+      };
+      configService.get.mockReturnValue(mockConfig);
+
+      await settingsController.getPublicSettings(req, res);
+
+      expect(configService.reload).toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          location: mockConfig.location,
+          prayers: mockConfig.prayers,
+          sources: mockConfig.sources,
+          automation: {
+            outputs: {
+              voicemonkey: {
+                enabled: true,
+                params: {},
+              },
+            },
+          },
+        }),
+      );
     });
 
-    describe('getPublicSettings', () => {
-        it('should reload and return sanitised settings for public access', async () => {
-            const mockConfig = {
-                location: { city: 'London' },
-                prayers: { fajr: {} },
-                sources: { primary: { type: 'aladhan' } },
-                automation: {
-                    outputs: {
-                        voicemonkey: {
-                            enabled: true,
-                            params: {
-                                token: 'secret-token',
-                                device: 'secret-device'
-                            }
-                        }
-                    }
-                }
-            };
-            configService.get.mockReturnValue(mockConfig);
-            
-            await settingsController.getPublicSettings(req, res);
-            
-            expect(configService.reload).toHaveBeenCalled();
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-                location: mockConfig.location,
-                prayers: mockConfig.prayers,
-                sources: mockConfig.sources,
-                automation: {
-                    outputs: {
-                        voicemonkey: {
-                            enabled: true,
-                            params: {}
-                        }
-                    }
-                }
-            }));
-        });
+    it("should handle missing outputs in public settings", async () => {
+      const mockConfig = {
+        location: { city: "London" },
+        automation: {},
+      };
+      configService.get.mockReturnValue(mockConfig);
 
-        it('should handle missing outputs in public settings', async () => {
-            const mockConfig = {
-                location: { city: 'London' },
-                automation: {}
-            };
-            configService.get.mockReturnValue(mockConfig);
-            
-            await settingsController.getPublicSettings(req, res);
-            
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-                automation: {}
-            }));
-        });
+      await settingsController.getPublicSettings(req, res);
 
-        it('should include system.tours in public response', async () => {
-            const mockConfig = {
-                location: { city: 'London' },
-                prayers: {},
-                sources: {},
-                automation: {},
-                system: { tours: { dashboardSeen: true, adminSeen: false }, healthChecks: {} }
-            };
-            configService.get.mockReturnValue(mockConfig);
-            await settingsController.getPublicSettings(req, res);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-                system: { tours: { dashboardSeen: true, adminSeen: false } }
-            }));
-        });
-
-        it('should NOT expose full system object — only tours sub-field', async () => {
-            const mockConfig = {
-                location: {},
-                prayers: {},
-                sources: {},
-                automation: {},
-                system: { tours: { dashboardSeen: false }, healthChecks: { sensitive: true } }
-            };
-            configService.get.mockReturnValue(mockConfig);
-            await settingsController.getPublicSettings(req, res);
-            const callArg = res.json.mock.calls[0][0];
-            expect(callArg.system.healthChecks).toBeUndefined();
-            expect(callArg.system.tours).toEqual({ dashboardSeen: false });
-        });
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          automation: {},
+        }),
+      );
     });
 
-    describe('updateSettings', () => {
-        it('should return 400 if result is missing (mocked failure)', async () => {
-            // This is just to keep some coverage of the 400 path if needed
-        });
-
-        it('should successfully update settings via workflowService', async () => {
-            const result = { message: 'Settings updated', meta: {}, warnings: [] };
-            workflowService.executeUpdate.mockResolvedValue(result);
-            req.body = { some: 'config' };
-            
-            await settingsController.updateSettings(req, res);
-            
-            expect(workflowService.executeUpdate).toHaveBeenCalledWith(req.body);
-            expect(res.json).toHaveBeenCalledWith(result);
-        });
-
-        it('should handle validation errors from workflowService', async () => {
-            workflowService.executeUpdate.mockRejectedValue(new Error('Validation Failed: Error'));
-            await settingsController.updateSettings(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Update Failed' }));
-        });
-
-        it('should handle generic errors from workflowService', async () => {
-            workflowService.executeUpdate.mockRejectedValue(new Error('Internal Oops'));
-            await settingsController.updateSettings(req, res);
-            expect(res.status).toHaveBeenCalledWith(500);
-        });
+    it("should include system.tours in public response", async () => {
+      const mockConfig = {
+        location: { city: "London" },
+        prayers: {},
+        sources: {},
+        automation: {},
+        system: {
+          tours: { dashboardSeen: true, adminSeen: false },
+          healthChecks: {},
+        },
+      };
+      configService.get.mockReturnValue(mockConfig);
+      await settingsController.getPublicSettings(req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          system: { tours: { dashboardSeen: true, adminSeen: false } },
+        }),
+      );
     });
 
-    describe('updateTourState', () => {
-        it('should update dashboardSeen and return 200', async () => {
-            req.body = { dashboardSeen: true };
-            configService.update.mockResolvedValue();
-            await settingsController.updateTourState(req, res);
-            expect(configService.update).toHaveBeenCalledWith({ system: { tours: { dashboardSeen: true } } });
-            expect(res.json).toHaveBeenCalledWith({ success: true });
-        });
+    it("should NOT expose full system object — only tours sub-field", async () => {
+      const mockConfig = {
+        location: {},
+        prayers: {},
+        sources: {},
+        automation: {},
+        system: {
+          tours: { dashboardSeen: false },
+          healthChecks: { sensitive: true },
+        },
+      };
+      configService.get.mockReturnValue(mockConfig);
+      await settingsController.getPublicSettings(req, res);
+      const callArg = res.json.mock.calls[0][0];
+      expect(callArg.system.healthChecks).toBeUndefined();
+      expect(callArg.system.tours).toEqual({ dashboardSeen: false });
+    });
+  });
 
-        it('should update adminSeen and return 200', async () => {
-            req.body = { adminSeen: true };
-            configService.update.mockResolvedValue();
-            await settingsController.updateTourState(req, res);
-            expect(configService.update).toHaveBeenCalledWith({ system: { tours: { adminSeen: true } } });
-            expect(res.json).toHaveBeenCalledWith({ success: true });
-        });
-
-        it('should return 400 if dashboardSeen is not a boolean', async () => {
-            req.body = { dashboardSeen: 'yes' };
-            await settingsController.updateTourState(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith({ error: 'Invalid tour state' });
-        });
+  describe("updateSettings", () => {
+    it("should return 400 if result is missing (mocked failure)", async () => {
+      // This is just to keep some coverage of the 400 path if needed
     });
 
-    describe('resetSettings', () => {
-        it('should successfully reset settings and trigger deep clean', async () => {
-            fsAsync.access.mockResolvedValue();
-            fsAsync.unlink.mockResolvedValue();
-            configService.get.mockReturnValue({ some: 'default' });
-            forceRefresh.mockResolvedValue({ meta: { reset: true } });
-            audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
-            
-            await settingsController.resetSettings(req, res);
-            expect(fsAsync.unlink).toHaveBeenCalled();
-            expect(audioAssetService.syncAudioAssets).toHaveBeenCalledWith(true);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: 'Settings reset to defaults.' }));
-        });
+    it("should successfully update settings via workflowService", async () => {
+      const result = { message: "Settings updated", meta: {}, warnings: [] };
+      workflowService.executeUpdate.mockResolvedValue(result);
+      req.body = { some: "config" };
 
-        it('should handle sync errors during reset', async () => {
-            fsAsync.access.mockResolvedValue();
-            forceRefresh.mockResolvedValue({ meta: {} });
-            audioAssetService.syncAudioAssets.mockRejectedValue(new Error('Reset Sync Fail'));
-            
-            await settingsController.resetSettings(req, res);
-            
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Sync Failed' }));
-        });
+      await settingsController.updateSettings(req, res);
+
+      expect(workflowService.executeUpdate).toHaveBeenCalledWith(req.body);
+      expect(res.json).toHaveBeenCalledWith(result);
     });
 
-    describe('deleteFile', () => {
-        it('should return 400 if filename is missing', async () => {
-            req.body.filename = undefined;
-            await settingsController.deleteFile(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 400 on invalid characters (traversal)', async () => {
-            req.body.filename = '../test.mp3';
-            await settingsController.deleteFile(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 400 on backslash (traversal)', async () => {
-            req.body.filename = 'subdir\\test.mp3';
-            await settingsController.deleteFile(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 404 if file not found', async () => {
-            req.body.filename = 'test.mp3';
-            fsAsync.access.mockRejectedValue(new Error('ENOENT'));
-            await settingsController.deleteFile(req, res);
-            expect(res.status).toHaveBeenCalledWith(404);
-        });
-
-        it('should return 403 if file is protected', async () => {
-            req.body.filename = 'azan.mp3';
-            fsAsync.access.mockResolvedValue(); // meta exists
-            fsAsync.readFile.mockResolvedValue(JSON.stringify({ protected: true }));
-            
-            await settingsController.deleteFile(req, res);
-            
-            expect(res.status).toHaveBeenCalledWith(403);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('protected') }));
-        });
-
-        it('should return 200 on successful deletion', async () => {
-            req.body.filename = 'test.mp3';
-            fsAsync.access.mockResolvedValue();
-            fsAsync.readFile.mockResolvedValue(JSON.stringify({ protected: false }));
-            fsAsync.unlink.mockResolvedValue();
-            await settingsController.deleteFile(req, res);
-            expect(fsAsync.unlink).toHaveBeenCalled();
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-        });
-
-        it('should return 500 if unlink fails', async () => {
-            req.body.filename = 'test.mp3';
-            fsAsync.access.mockResolvedValue();
-            fsAsync.readFile.mockResolvedValue(JSON.stringify({ protected: false }));
-            fsAsync.unlink.mockRejectedValue(new Error('Delete fail'));
-            await settingsController.deleteFile(req, res);
-            expect(res.status).toHaveBeenCalledWith(500);
-        });
+    it("should handle validation errors from workflowService", async () => {
+      workflowService.executeUpdate.mockRejectedValue(
+        new Error("Validation Failed: Error"),
+      );
+      await settingsController.updateSettings(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Update Failed" }),
+      );
     });
 
-    describe('refreshCache', () => {
-        it('should return 503 if all sources are offline', async () => {
-             configService.get.mockReturnValue({ sources: { backup: { enabled: true } } });
-             healthCheck.checkSource.mockResolvedValue({ healthy: false });
-             
-             await settingsController.refreshCache(req, res);
-             expect(res.status).toHaveBeenCalledWith(503);
-        });
+    it("should handle generic errors from workflowService", async () => {
+      workflowService.executeUpdate.mockRejectedValue(
+        new Error("Internal Oops"),
+      );
+      await settingsController.updateSettings(req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
 
-        it('should successfully refresh if primary is online', async () => {
-             configService.get.mockReturnValue({ sources: { backup: { enabled: false } } });
-             healthCheck.checkSource.mockResolvedValue({ healthy: true });
-             forceRefresh.mockResolvedValue({ meta: { lastUpdated: 'now' } });
-             
-             await settingsController.refreshCache(req, res);
-             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ meta: { lastUpdated: 'now' } }));
-        });
-
-        it('should handle stop scheduler failures', async () => {
-             healthCheck.checkSource.mockResolvedValue({ healthy: true });
-             forceRefresh.mockResolvedValue({ meta: {} });
-             schedulerService.stopAll.mockRejectedValue(new Error('Stop Fail'));
-             
-             await settingsController.refreshCache(req, res);
-             expect(console.error).toHaveBeenCalled();
-             expect(res.json).toHaveBeenCalled();
-        });
-
-        it('should handle audio sync failures', async () => {
-             healthCheck.checkSource.mockResolvedValue({ healthy: true });
-             forceRefresh.mockResolvedValue({ meta: {} });
-             audioAssetService.syncAudioAssets.mockRejectedValue(new Error('Sync Fail'));
-             
-             await settingsController.refreshCache(req, res);
-             expect(res.status).toHaveBeenCalledWith(400);
-             expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Sync Failed' }));
-        });
+  describe("updateTourState", () => {
+    it("should update dashboardSeen and return 200", async () => {
+      req.body = { dashboardSeen: true };
+      configService.update.mockResolvedValue();
+      await settingsController.updateTourState(req, res);
+      expect(configService.update).toHaveBeenCalledWith({
+        system: { tours: { dashboardSeen: true } },
+      });
+      expect(res.json).toHaveBeenCalledWith({ success: true });
     });
 
-    describe('uploadFile', () => {
-        it('should return 400 if no file', async () => {
-             await settingsController.uploadFile(req, res);
-             expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 400 if file validation fails (Magic Bytes)', async () => {
-            req.file = { filename: 'fake.mp3', path: '/tmp/fake.mp3' };
-            audioValidator.analyseAudioFile.mockResolvedValue({ mimeType: 'text/plain' });
-            
-            await settingsController.uploadFile(req, res);
-            
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Invalid File' }));
-            expect(fsAsync.unlink).toHaveBeenCalledWith('/tmp/fake.mp3');
-       });
-
-        it('should return 400 if upload fails during analysis', async () => {
-             req.file = { filename: 'real.mp3', path: '/tmp/real.mp3' };
-             audioValidator.analyseAudioFile.mockRejectedValue(new Error('Upload fail'));
-             await settingsController.uploadFile(req, res);
-             expect(res.status).toHaveBeenCalledWith(400);
-        });
+    it("should update adminSeen and return 200", async () => {
+      req.body = { adminSeen: true };
+      configService.update.mockResolvedValue();
+      await settingsController.updateTourState(req, res);
+      expect(configService.update).toHaveBeenCalledWith({
+        system: { tours: { adminSeen: true } },
+      });
+      expect(res.json).toHaveBeenCalledWith({ success: true });
     });
 
-    describe('revalidateFile', () => {
-        it('should return 400 if filename or type missing', async () => {
-            req.body = { filename: 'test.mp3' };
-            await settingsController.revalidateFile(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 400 on forward slash (traversal)', async () => {
-            req.body = { filename: 'subdir/test.mp3', type: 'custom' };
-            await settingsController.revalidateFile(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 400 on backslash (traversal)', async () => {
-            req.body = { filename: 'subdir\\test.mp3', type: 'custom' };
-            await settingsController.revalidateFile(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 404 if file not found', async () => {
-            req.body = { filename: 'missing.mp3', type: 'custom' };
-            fsAsync.access.mockRejectedValue({ code: 'ENOENT' });
-            await settingsController.revalidateFile(req, res);
-            expect(res.status).toHaveBeenCalledWith(404);
-        });
-
-        it('should return 200 and metadata on success', async () => {
-            req.body = { filename: 'valid.mp3', type: 'custom' };
-            fsAsync.access.mockResolvedValue();
-            const mockMeta = { duration: 5 };
-            audioAssetService.analyzeFile.mockResolvedValue(mockMeta);
-            await settingsController.revalidateFile(req, res);
-            expect(res.json).toHaveBeenCalledWith(mockMeta);
-        });
+    it("should return 400 if dashboardSeen is not a boolean", async () => {
+      req.body = { dashboardSeen: "yes" };
+      await settingsController.updateTourState(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "Invalid tour state" });
     });
+  });
+
+  describe("resetSettings", () => {
+    it("should successfully reset settings and trigger deep clean", async () => {
+      fsAsync.access.mockResolvedValue();
+      fsAsync.unlink.mockResolvedValue();
+      configService.get.mockReturnValue({ some: "default" });
+      forceRefresh.mockResolvedValue({ meta: { reset: true } });
+      audioAssetService.syncAudioAssets.mockResolvedValue({ warnings: [] });
+
+      await settingsController.resetSettings(req, res);
+      expect(fsAsync.unlink).toHaveBeenCalled();
+      expect(audioAssetService.syncAudioAssets).toHaveBeenCalledWith(true);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "Settings reset to defaults." }),
+      );
+    });
+
+    it("should handle sync errors during reset", async () => {
+      fsAsync.access.mockResolvedValue();
+      forceRefresh.mockResolvedValue({ meta: {} });
+      audioAssetService.syncAudioAssets.mockRejectedValue(
+        new Error("Reset Sync Fail"),
+      );
+
+      await settingsController.resetSettings(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Sync Failed" }),
+      );
+    });
+  });
+
+  describe("deleteFile", () => {
+    it("should return 400 if filename is missing", async () => {
+      req.body.filename = undefined;
+      await settingsController.deleteFile(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 400 on invalid characters (traversal)", async () => {
+      req.body.filename = "../test.mp3";
+      await settingsController.deleteFile(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 400 on backslash (traversal)", async () => {
+      req.body.filename = "subdir\\test.mp3";
+      await settingsController.deleteFile(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 404 if file not found", async () => {
+      req.body.filename = "test.mp3";
+      fsAsync.access.mockRejectedValue(new Error("ENOENT"));
+      await settingsController.deleteFile(req, res);
+      expect(res.status).toHaveBeenCalledWith(404);
+    });
+
+    it("should return 403 if file is protected", async () => {
+      req.body.filename = "azan.mp3";
+      fsAsync.access.mockResolvedValue(); // meta exists
+      fsAsync.readFile.mockResolvedValue(JSON.stringify({ protected: true }));
+
+      await settingsController.deleteFile(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining("protected"),
+        }),
+      );
+    });
+
+    it("should return 200 on successful deletion", async () => {
+      req.body.filename = "test.mp3";
+      fsAsync.access.mockResolvedValue();
+      fsAsync.readFile.mockResolvedValue(JSON.stringify({ protected: false }));
+      fsAsync.unlink.mockResolvedValue();
+      await settingsController.deleteFile(req, res);
+      expect(fsAsync.unlink).toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true }),
+      );
+    });
+
+    it("should return 500 if unlink fails", async () => {
+      req.body.filename = "test.mp3";
+      fsAsync.access.mockResolvedValue();
+      fsAsync.readFile.mockResolvedValue(JSON.stringify({ protected: false }));
+      fsAsync.unlink.mockRejectedValue(new Error("Delete fail"));
+      await settingsController.deleteFile(req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
+
+  describe("refreshCache", () => {
+    it("should return 503 if all sources are offline", async () => {
+      configService.get.mockReturnValue({
+        sources: { backup: { enabled: true } },
+      });
+      healthCheck.checkSource.mockResolvedValue({ healthy: false });
+
+      await settingsController.refreshCache(req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+    });
+
+    it("should successfully refresh if primary is online", async () => {
+      configService.get.mockReturnValue({
+        sources: { backup: { enabled: false } },
+      });
+      healthCheck.checkSource.mockResolvedValue({ healthy: true });
+      forceRefresh.mockResolvedValue({ meta: { lastUpdated: "now" } });
+
+      await settingsController.refreshCache(req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ meta: { lastUpdated: "now" } }),
+      );
+    });
+
+    it("should handle stop scheduler failures", async () => {
+      healthCheck.checkSource.mockResolvedValue({ healthy: true });
+      forceRefresh.mockResolvedValue({ meta: {} });
+      schedulerService.stopAll.mockRejectedValue(new Error("Stop Fail"));
+
+      await settingsController.refreshCache(req, res);
+      expect(console.error).toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalled();
+    });
+
+    it("should handle audio sync failures", async () => {
+      healthCheck.checkSource.mockResolvedValue({ healthy: true });
+      forceRefresh.mockResolvedValue({ meta: {} });
+      audioAssetService.syncAudioAssets.mockRejectedValue(
+        new Error("Sync Fail"),
+      );
+
+      await settingsController.refreshCache(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Sync Failed" }),
+      );
+    });
+  });
+
+  describe("uploadFile", () => {
+    it("should return 400 if no file", async () => {
+      await settingsController.uploadFile(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 400 if file validation fails (Magic Bytes)", async () => {
+      req.file = { filename: "fake.mp3", path: "/tmp/fake.mp3" };
+      audioValidator.analyseAudioFile.mockResolvedValue({
+        mimeType: "text/plain",
+      });
+
+      await settingsController.uploadFile(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Invalid File" }),
+      );
+      expect(fsAsync.unlink).toHaveBeenCalledWith("/tmp/fake.mp3");
+    });
+
+    it("should return 400 if upload fails during analysis", async () => {
+      req.file = { filename: "real.mp3", path: "/tmp/real.mp3" };
+      audioValidator.analyseAudioFile.mockRejectedValue(
+        new Error("Upload fail"),
+      );
+      await settingsController.uploadFile(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+  });
+
+  describe("revalidateFile", () => {
+    it("should return 400 if filename or type missing", async () => {
+      req.body = { filename: "test.mp3" };
+      await settingsController.revalidateFile(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 400 on forward slash (traversal)", async () => {
+      req.body = { filename: "subdir/test.mp3", type: "custom" };
+      await settingsController.revalidateFile(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 400 on backslash (traversal)", async () => {
+      req.body = { filename: "subdir\\test.mp3", type: "custom" };
+      await settingsController.revalidateFile(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 404 if file not found", async () => {
+      req.body = { filename: "missing.mp3", type: "custom" };
+      fsAsync.access.mockRejectedValue({ code: "ENOENT" });
+      await settingsController.revalidateFile(req, res);
+      expect(res.status).toHaveBeenCalledWith(404);
+    });
+
+    it("should return 200 and metadata on success", async () => {
+      req.body = { filename: "valid.mp3", type: "custom" };
+      fsAsync.access.mockResolvedValue();
+      const mockMeta = { duration: 5 };
+      audioAssetService.analyzeFile.mockResolvedValue(mockMeta);
+      await settingsController.revalidateFile(req, res);
+      expect(res.json).toHaveBeenCalledWith(mockMeta);
+    });
+  });
 });

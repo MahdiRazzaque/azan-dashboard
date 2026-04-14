@@ -1,4 +1,4 @@
-require('module-alias/register');
+require("module-alias/register");
 // Global setup file to suppress console logs
 global.console = {
   ...console,
@@ -12,8 +12,8 @@ global.console = {
 };
 
 // Set test environment variables
-process.env.JWT_SECRET = 'test-secret';
-process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = "test-secret";
+process.env.NODE_ENV = "test";
 
-jest.mock('@config');
-jest.mock('axios');
+jest.mock("@config");
+jest.mock("axios");

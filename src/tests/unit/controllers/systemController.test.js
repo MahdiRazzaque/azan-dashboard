@@ -1,492 +1,576 @@
-const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
-const dns = require('dns');
-const systemController = require('@controllers/systemController');
-const healthCheck = require('@services/system/healthCheck');
-const schedulerService = require('@services/core/schedulerService');
-const sseService = require('@services/system/sseService');
-const automationService = require('@services/core/automationService');
-const audioAssetService = require('@services/system/audioAssetService');
-const diagnosticsService = require('@services/system/diagnosticsService');
-const voiceService = require('@services/system/voiceService');
-const configService = require('@config');
-const { ProviderFactory } = require('@providers');
-const OutputFactory = require('@outputs');
+const fs = require("fs");
+const path = require("path");
+const axios = require("axios");
+const dns = require("dns");
+const systemController = require("@controllers/systemController");
+const healthCheck = require("@services/system/healthCheck");
+const schedulerService = require("@services/core/schedulerService");
+const sseService = require("@services/system/sseService");
+const automationService = require("@services/core/automationService");
+const audioAssetService = require("@services/system/audioAssetService");
+const diagnosticsService = require("@services/system/diagnosticsService");
+const voiceService = require("@services/system/voiceService");
+const configService = require("@config");
+const { ProviderFactory } = require("@providers");
+const OutputFactory = require("@outputs");
 
 // Mock all dependencies
-jest.mock('fs', () => ({
-    promises: {
-        readdir: jest.fn(),
-        readFile: jest.fn(),
-        access: jest.fn(),
-        mkdir: jest.fn()
-    },
-    existsSync: jest.fn(),
-    mkdirSync: jest.fn(),
-    readdirSync: jest.fn(),
-    readFileSync: jest.fn()
+jest.mock("fs", () => ({
+  promises: {
+    readdir: jest.fn(),
+    readFile: jest.fn(),
+    access: jest.fn(),
+    mkdir: jest.fn(),
+  },
+  existsSync: jest.fn(),
+  mkdirSync: jest.fn(),
+  readdirSync: jest.fn(),
+  readFileSync: jest.fn(),
 }));
 
-jest.mock('dns', () => ({
-    promises: {
-        lookup: jest.fn()
-    }
+jest.mock("dns", () => ({
+  promises: {
+    lookup: jest.fn(),
+  },
 }));
 
-jest.mock('@services/system/healthCheck');
-jest.mock('@services/core/schedulerService');
-jest.mock('@services/system/sseService');
-jest.mock('@services/core/automationService');
-jest.mock('@services/system/audioAssetService');
-jest.mock('@services/system/diagnosticsService');
-jest.mock('@services/system/voiceService');
-jest.mock('@providers');
-jest.mock('@outputs');
+jest.mock("@services/system/healthCheck");
+jest.mock("@services/core/schedulerService");
+jest.mock("@services/system/sseService");
+jest.mock("@services/core/automationService");
+jest.mock("@services/system/audioAssetService");
+jest.mock("@services/system/diagnosticsService");
+jest.mock("@services/system/voiceService");
+jest.mock("@providers");
+jest.mock("@outputs");
 
-describe('SystemController', () => {
-    let req, res;
+describe("SystemController", () => {
+  let req, res;
 
-    beforeEach(() => {
-        req = { body: {}, query: {}, params: {} };
-        res = {
-            json: jest.fn().mockReturnThis(),
-            status: jest.fn().mockReturnThis(),
-            setHeader: jest.fn().mockReturnThis()
-        };
-        jest.clearAllMocks();
-        systemController.invalidateFileCache();
-        // Default DNS mock
-        dns.promises.lookup.mockResolvedValue({ address: '8.8.8.8' });
-        // Default Config mock
-        configService.get.mockReturnValue({
-            sources: { primary: { type: 'aladhan' }, backup: { enabled: true } },
-            location: { timezone: 'UTC' },
-            security: { tokenVersion: 1 }
-        });
+  beforeEach(() => {
+    req = { body: {}, query: {}, params: {} };
+    res = {
+      json: jest.fn().mockReturnThis(),
+      status: jest.fn().mockReturnThis(),
+      setHeader: jest.fn().mockReturnThis(),
+    };
+    jest.clearAllMocks();
+    systemController.invalidateFileCache();
+    // Default DNS mock
+    dns.promises.lookup.mockResolvedValue({ address: "8.8.8.8" });
+    // Default Config mock
+    configService.get.mockReturnValue({
+      sources: { primary: { type: "aladhan" }, backup: { enabled: true } },
+      location: { timezone: "UTC" },
+      security: { tokenVersion: 1 },
+    });
+  });
+
+  describe("Output Strategies", () => {
+    it("should get output registry", () => {
+      const mockStrategies = [{ id: "local", name: "Local" }];
+      OutputFactory.getAllStrategies.mockReturnValue(mockStrategies);
+      systemController.getOutputRegistry(req, res);
+      expect(res.json).toHaveBeenCalledWith(mockStrategies);
     });
 
-    describe('Output Strategies', () => {
-        it('should get output registry', () => {
-            const mockStrategies = [{ id: 'local', name: 'Local' }];
-            OutputFactory.getAllStrategies.mockReturnValue(mockStrategies);
-            systemController.getOutputRegistry(req, res);
-            expect(res.json).toHaveBeenCalledWith(mockStrategies);
-        });
+    it("should verify output credentials", async () => {
+      const mockStrategy = {
+        verifyCredentials: jest.fn().mockResolvedValue({ success: true }),
+      };
+      OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+      req.params.strategyId = "voicemonkey";
+      req.body = { api_key: "test" };
 
-        it('should verify output credentials', async () => {
-            const mockStrategy = { verifyCredentials: jest.fn().mockResolvedValue({ success: true }) };
-            OutputFactory.getStrategy.mockReturnValue(mockStrategy);
-            req.params.strategyId = 'voicemonkey';
-            req.body = { api_key: 'test' };
-            
-            await systemController.verifyOutput(req, res);
-            expect(mockStrategy.verifyCredentials).toHaveBeenCalledWith(req.body);
-            expect(res.json).toHaveBeenCalledWith({ success: true });
-        });
-
-        it('should return 400 if source is missing in testOutput', async () => {
-            const mockStrategy = { execute: jest.fn() };
-            OutputFactory.getStrategy.mockReturnValue(mockStrategy);
-            req.params.strategyId = 'voicemonkey';
-            
-            await systemController.testOutput(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('Audio source is required') }));
-        });
-
-        it('should pass raw source to strategy.execute in testOutput', async () => {
-            const mockStrategy = { execute: jest.fn().mockResolvedValue({ success: true }) };
-            OutputFactory.getStrategy.mockReturnValue(mockStrategy);
-            req.params.strategyId = 'voicemonkey';
-            req.body = { source: { path: 'custom/test.mp3' } };
-            configService.get.mockReturnValue({
-                sources: { primary: { type: 'aladhan' }, backup: { enabled: true } },
-                location: { timezone: 'UTC' },
-                security: { tokenVersion: 1 },
-                automation: { baseUrl: 'https://test.com' }
-            });
-            
-            await systemController.testOutput(req, res);
-            expect(mockStrategy.execute).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    source: { path: 'custom/test.mp3' },
-                    baseUrl: 'https://test.com'
-                }),
-                { isTest: true }
-            );
-            expect(res.json).toHaveBeenCalledWith({ success: true });
-        });
-
-        it('should return 400 when strategy.execute rejects with validation error in testOutput', async () => {
-            const mockStrategy = { execute: jest.fn().mockRejectedValue(new Error('Path traversal detected: resolved path is outside audio directory')) };
-            OutputFactory.getStrategy.mockReturnValue(mockStrategy);
-            req.params.strategyId = 'voicemonkey';
-            req.body = { source: { path: '../../../etc/passwd' } };
-            
-            await systemController.testOutput(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('Path traversal') }));
-        });
-
-        it('should return 400 when strategy.execute rejects with protocol error in testOutput', async () => {
-            const mockStrategy = { execute: jest.fn().mockRejectedValue(new Error('Only http and https URLs are allowed')) };
-            OutputFactory.getStrategy.mockReturnValue(mockStrategy);
-            req.params.strategyId = 'voicemonkey';
-            req.body = { source: { type: 'url', url: 'file:///etc/passwd' } };
-
-            await systemController.testOutput(req, res);
-
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('Only http and https URLs are allowed') }));
-        });
+      await systemController.verifyOutput(req, res);
+      expect(mockStrategy.verifyCredentials).toHaveBeenCalledWith(req.body);
+      expect(res.json).toHaveBeenCalledWith({ success: true });
     });
 
-    describe('getHealth', () => {
-        it('should return 200 if all critical services are healthy', () => {
-            healthCheck.getHealth.mockReturnValue({
-                local: { healthy: true },
-                tts: { healthy: true },
-                primarySource: { healthy: true }
-            });
-            systemController.getHealth(req, res);
-            expect(res.json).toHaveBeenCalled();
-        });
+    it("should return 400 if source is missing in testOutput", async () => {
+      const mockStrategy = { execute: jest.fn() };
+      OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+      req.params.strategyId = "voicemonkey";
 
-        it('should return 503 if a critical service is unhealthy', () => {
-            healthCheck.getHealth.mockReturnValue({
-                local: { healthy: false },
-                tts: { healthy: true },
-                primarySource: { healthy: true }
-            });
-            systemController.getHealth(req, res);
-            expect(res.status).toHaveBeenCalledWith(503);
-        });
-
-        it('should return 200 if primary is unhealthy but backup is healthy and needed', () => {
-             healthCheck.getHealth.mockReturnValue({
-                local: { healthy: true },
-                tts: { healthy: true },
-                primarySource: { healthy: false },
-                backupSource: { healthy: true }
-            });
-            systemController.getHealth(req, res);
-            expect(res.json).toHaveBeenCalled();
-        });
-
-        it('should return 503 if primary is unhealthy and backup is disabled', () => {
-            configService.get.mockReturnValue({
-                sources: { primary: { type: 'aladhan' }, backup: { enabled: false } }
-            });
-            healthCheck.getHealth.mockReturnValue({
-                local: { healthy: true },
-                tts: { healthy: true },
-                primarySource: { healthy: false },
-                backupSource: { healthy: true }
-            });
-            systemController.getHealth(req, res);
-            expect(res.status).toHaveBeenCalledWith(503);
-        });
+      await systemController.testOutput(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining("Audio source is required"),
+        }),
+      );
     });
 
-    describe('refreshHealth', () => {
-        it('should call healthCheck.refresh with defaults', async () => {
-            healthCheck.refresh.mockResolvedValue({ success: true });
-            await systemController.refreshHealth(req, res);
-            expect(healthCheck.refresh).toHaveBeenCalledWith('all', undefined);
-            expect(res.json).toHaveBeenCalled();
-        });
+    it("should pass raw source to strategy.execute in testOutput", async () => {
+      const mockStrategy = {
+        execute: jest.fn().mockResolvedValue({ success: true }),
+      };
+      OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+      req.params.strategyId = "voicemonkey";
+      req.body = { source: { path: "custom/test.mp3" } };
+      configService.get.mockReturnValue({
+        sources: { primary: { type: "aladhan" }, backup: { enabled: true } },
+        location: { timezone: "UTC" },
+        security: { tokenVersion: 1 },
+        automation: { baseUrl: "https://test.com" },
+      });
 
-        it('should use provided target', async () => {
-            req.body = { target: 'tts' };
-            await systemController.refreshHealth(req, res);
-            expect(healthCheck.refresh).toHaveBeenCalledWith('tts', undefined);
-        });
+      await systemController.testOutput(req, res);
+      expect(mockStrategy.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: { path: "custom/test.mp3" },
+          baseUrl: "https://test.com",
+        }),
+        { isTest: true },
+      );
+      expect(res.json).toHaveBeenCalledWith({ success: true });
     });
 
-    describe('getJobs', () => {
-        it('should return jobs from schedulerService', () => {
-            const jobs = { maintenance: [], automation: [] };
-            schedulerService.getJobs.mockReturnValue(jobs);
-            systemController.getJobs(req, res);
-            expect(res.json).toHaveBeenCalledWith(jobs);
-        });
+    it("should return 400 when strategy.execute rejects with validation error in testOutput", async () => {
+      const mockStrategy = {
+        execute: jest
+          .fn()
+          .mockRejectedValue(
+            new Error(
+              "Path traversal detected: resolved path is outside audio directory",
+            ),
+          ),
+      };
+      OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+      req.params.strategyId = "voicemonkey";
+      req.body = { source: { path: "../../../etc/passwd" } };
 
-        it('should return empty jobs if schedulerService.getJobs is missing', () => {
-            const original = schedulerService.getJobs;
-            delete schedulerService.getJobs;
-            systemController.getJobs(req, res);
-            expect(res.json).toHaveBeenCalledWith({ maintenance: [], automation: [] });
-            schedulerService.getJobs = original;
-        });
+      await systemController.testOutput(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining("Path traversal"),
+        }),
+      );
     });
 
-    describe('getLogs', () => {
-        it('should call sseService.addClient', () => {
-            systemController.getLogs(req, res);
-            expect(sseService.addClient).toHaveBeenCalledWith(res);
-        });
+    it("should return 400 when strategy.execute rejects with protocol error in testOutput", async () => {
+      const mockStrategy = {
+        execute: jest
+          .fn()
+          .mockRejectedValue(new Error("Only http and https URLs are allowed")),
+      };
+      OutputFactory.getStrategy.mockReturnValue(mockStrategy);
+      req.params.strategyId = "voicemonkey";
+      req.body = { source: { type: "url", url: "file:///etc/passwd" } };
+
+      await systemController.testOutput(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining(
+            "Only http and https URLs are allowed",
+          ),
+        }),
+      );
+    });
+  });
+
+  describe("getHealth", () => {
+    it("should return 200 if all critical services are healthy", () => {
+      healthCheck.getHealth.mockReturnValue({
+        local: { healthy: true },
+        tts: { healthy: true },
+        primarySource: { healthy: true },
+      });
+      systemController.getHealth(req, res);
+      expect(res.json).toHaveBeenCalled();
     });
 
-    describe('getAudioFiles', () => {
-        it('should return paginated list of audio files', async () => {
-            fs.promises.mkdir.mockResolvedValue(undefined);
-            fs.promises.access.mockResolvedValue(undefined);
-            
-            const customFiles = ['c1.mp3', 'c2.mp3', 'c3.mp3'];
-            const cacheFiles = ['ca1.mp3', 'ca2.mp3'];
-            
-            fs.promises.readdir.mockImplementation((dir) => {
-                if (dir.includes('custom')) return Promise.resolve(customFiles);
-                if (dir.includes('cache')) return Promise.resolve(cacheFiles);
-                return Promise.resolve([]);
-            });
-            
-            fs.promises.readFile.mockResolvedValue(JSON.stringify({}));
-            
-            req.query = { page: 1, limit: 2 };
-            await systemController.getAudioFiles(req, res);
-            
-            expect(res.json).toHaveBeenCalled();
-            const response = res.json.mock.calls[0][0];
-            expect(response.files.length).toBe(2);
-            expect(response.total).toBe(5);
-            expect(response.page).toBe(1);
-            expect(response.totalPages).toBe(3);
-        });
-
-        it('should filter out hidden files after pagination processing', async () => {
-            fs.promises.readdir.mockResolvedValue(['f1.mp3', 'f2.mp3']);
-            // f1 is hidden, f2 is not
-            fs.promises.readFile.mockImplementation((path) => {
-                if (path.includes('f1.mp3')) return Promise.resolve(JSON.stringify({ hidden: true }));
-                return Promise.resolve(JSON.stringify({}));
-            });
-
-            req.query = { page: 1, limit: 10 };
-            await systemController.getAudioFiles(req, res);
-            
-            const response = res.json.mock.calls[0][0];
-            expect(response.files.length).toBe(2); 
-        });
+    it("should return 503 if a critical service is unhealthy", () => {
+      healthCheck.getHealth.mockReturnValue({
+        local: { healthy: false },
+        tts: { healthy: true },
+        primarySource: { healthy: true },
+      });
+      systemController.getHealth(req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
     });
 
-    describe('validateUrl SSRF protection', () => {
-        it('should use custom agents with lookup', async () => {
-            axios.head.mockResolvedValue({ status: 200 });
-            req.body = { url: 'http://example.com' };
-            await systemController.validateUrl(req, res);
-            
-            const axiosOptions = axios.head.mock.calls[0][1];
-            expect(axiosOptions.httpAgent).toBeDefined();
-            expect(axiosOptions.httpsAgent).toBeDefined();
-            expect(axiosOptions.httpAgent.options.lookup).toBeDefined();
-        });
+    it("should return 200 if primary is unhealthy but backup is healthy and needed", () => {
+      healthCheck.getHealth.mockReturnValue({
+        local: { healthy: true },
+        tts: { healthy: true },
+        primarySource: { healthy: false },
+        backupSource: { healthy: true },
+      });
+      systemController.getHealth(req, res);
+      expect(res.json).toHaveBeenCalled();
     });
 
-    describe('getConstants', () => {
-        it('should return sorted constants', () => {
-            systemController.getConstants(req, res);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-                calculationMethods: expect.any(Array),
-                madhabs: expect.any(Array)
-            }));
-        });
+    it("should return 503 if primary is unhealthy and backup is disabled", () => {
+      configService.get.mockReturnValue({
+        sources: { primary: { type: "aladhan" }, backup: { enabled: false } },
+      });
+      healthCheck.getHealth.mockReturnValue({
+        local: { healthy: true },
+        tts: { healthy: true },
+        primarySource: { healthy: false },
+        backupSource: { healthy: true },
+      });
+      systemController.getHealth(req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+    });
+  });
 
-        it('_toSortedArray should handle null', () => {
-            const res = systemController._toSortedArray(null);
-            expect(res).toEqual([]);
-        });
+  describe("refreshHealth", () => {
+    it("should call healthCheck.refresh with defaults", async () => {
+      healthCheck.refresh.mockResolvedValue({ success: true });
+      await systemController.refreshHealth(req, res);
+      expect(healthCheck.refresh).toHaveBeenCalledWith("all", undefined);
+      expect(res.json).toHaveBeenCalled();
     });
 
-    describe('getAutomationStatus', () => {
-        it('should return automation status', async () => {
-            diagnosticsService.getAutomationStatus.mockResolvedValue({ status: 'ok' });
-            await systemController.getAutomationStatus(req, res);
-            expect(res.json).toHaveBeenCalledWith({ status: 'ok' });
-        });
+    it("should use provided target", async () => {
+      req.body = { target: "tts" };
+      await systemController.refreshHealth(req, res);
+      expect(healthCheck.refresh).toHaveBeenCalledWith("tts", undefined);
+    });
+  });
+
+  describe("getJobs", () => {
+    it("should return jobs from schedulerService", () => {
+      const jobs = { maintenance: [], automation: [] };
+      schedulerService.getJobs.mockReturnValue(jobs);
+      systemController.getJobs(req, res);
+      expect(res.json).toHaveBeenCalledWith(jobs);
     });
 
-    describe('getTTSStatus', () => {
-        it('should return TTS status', async () => {
-            diagnosticsService.getTTSStatus.mockResolvedValue({ status: 'ok' });
-            await systemController.getTTSStatus(req, res);
-            expect(res.json).toHaveBeenCalledWith({ status: 'ok' });
-        });
+    it("should return empty jobs if schedulerService.getJobs is missing", () => {
+      const original = schedulerService.getJobs;
+      delete schedulerService.getJobs;
+      systemController.getJobs(req, res);
+      expect(res.json).toHaveBeenCalledWith({
+        maintenance: [],
+        automation: [],
+      });
+      schedulerService.getJobs = original;
+    });
+  });
+
+  describe("getLogs", () => {
+    it("should call sseService.addClient", () => {
+      systemController.getLogs(req, res);
+      expect(sseService.addClient).toHaveBeenCalledWith(res);
+    });
+  });
+
+  describe("getAudioFiles", () => {
+    it("should return paginated list of audio files", async () => {
+      fs.promises.mkdir.mockResolvedValue(undefined);
+      fs.promises.access.mockResolvedValue(undefined);
+
+      const customFiles = ["c1.mp3", "c2.mp3", "c3.mp3"];
+      const cacheFiles = ["ca1.mp3", "ca2.mp3"];
+
+      fs.promises.readdir.mockImplementation((dir) => {
+        if (dir.includes("custom")) return Promise.resolve(customFiles);
+        if (dir.includes("cache")) return Promise.resolve(cacheFiles);
+        return Promise.resolve([]);
+      });
+
+      fs.promises.readFile.mockResolvedValue(JSON.stringify({}));
+
+      req.query = { page: 1, limit: 2 };
+      await systemController.getAudioFiles(req, res);
+
+      expect(res.json).toHaveBeenCalled();
+      const response = res.json.mock.calls[0][0];
+      expect(response.files.length).toBe(2);
+      expect(response.total).toBe(5);
+      expect(response.page).toBe(1);
+      expect(response.totalPages).toBe(3);
     });
 
-    describe('restartScheduler', () => {
-        it('should restart scheduler', async () => {
-            await systemController.restartScheduler(req, res);
-            expect(schedulerService.hotReload).toHaveBeenCalled();
-            expect(res.json).toHaveBeenCalledWith({ success: true, message: 'Scheduler restarted.' });
-        });
+    it("should filter out hidden files after pagination processing", async () => {
+      fs.promises.readdir.mockResolvedValue(["f1.mp3", "f2.mp3"]);
+      // f1 is hidden, f2 is not
+      fs.promises.readFile.mockImplementation((path) => {
+        if (path.includes("f1.mp3"))
+          return Promise.resolve(JSON.stringify({ hidden: true }));
+        return Promise.resolve(JSON.stringify({}));
+      });
+
+      req.query = { page: 1, limit: 10 };
+      await systemController.getAudioFiles(req, res);
+
+      const response = res.json.mock.calls[0][0];
+      expect(response.files.length).toBe(2);
+    });
+  });
+
+  describe("validateUrl SSRF protection", () => {
+    it("should use custom agents with lookup", async () => {
+      axios.head.mockResolvedValue({ status: 200 });
+      req.body = { url: "http://example.com" };
+      await systemController.validateUrl(req, res);
+
+      const axiosOptions = axios.head.mock.calls[0][1];
+      expect(axiosOptions.httpAgent).toBeDefined();
+      expect(axiosOptions.httpsAgent).toBeDefined();
+      expect(axiosOptions.httpAgent.options.lookup).toBeDefined();
+    });
+  });
+
+  describe("getConstants", () => {
+    it("should return sorted constants", () => {
+      systemController.getConstants(req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          calculationMethods: expect.any(Array),
+          madhabs: expect.any(Array),
+        }),
+      );
     });
 
-    describe('regenerateTTS', () => {
-        it('should resync audio assets', async () => {
-            await systemController.regenerateTTS(req, res);
-            expect(audioAssetService.syncAudioAssets).toHaveBeenCalledWith(true);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-        });
+    it("_toSortedArray should handle null", () => {
+      const res = systemController._toSortedArray(null);
+      expect(res).toEqual([]);
+    });
+  });
 
-        it('should handle errors', async () => {
-            audioAssetService.syncAudioAssets.mockRejectedValue(new Error('Sync failed'));
-            await systemController.regenerateTTS(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
+  describe("getAutomationStatus", () => {
+    it("should return automation status", async () => {
+      diagnosticsService.getAutomationStatus.mockResolvedValue({
+        status: "ok",
+      });
+      await systemController.getAutomationStatus(req, res);
+      expect(res.json).toHaveBeenCalledWith({ status: "ok" });
+    });
+  });
+
+  describe("getTTSStatus", () => {
+    it("should return TTS status", async () => {
+      diagnosticsService.getTTSStatus.mockResolvedValue({ status: "ok" });
+      await systemController.getTTSStatus(req, res);
+      expect(res.json).toHaveBeenCalledWith({ status: "ok" });
+    });
+  });
+
+  describe("restartScheduler", () => {
+    it("should restart scheduler", async () => {
+      await systemController.restartScheduler(req, res);
+      expect(schedulerService.hotReload).toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith({
+        success: true,
+        message: "Scheduler restarted.",
+      });
+    });
+  });
+
+  describe("regenerateTTS", () => {
+    it("should resync audio assets", async () => {
+      await systemController.regenerateTTS(req, res);
+      expect(audioAssetService.syncAudioAssets).toHaveBeenCalledWith(true);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true }),
+      );
     });
 
-    describe('testSource', () => {
-        it('should reject invalid target', async () => {
-            req.body = { target: 'invalid' };
-            await systemController.testSource(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
+    it("should handle errors", async () => {
+      audioAssetService.syncAudioAssets.mockRejectedValue(
+        new Error("Sync failed"),
+      );
+      await systemController.regenerateTTS(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+  });
 
-        it('should reject if source not configured', async () => {
-            configService.get.mockReturnValue({ sources: {} });
-            req.body = { target: 'primary' };
-            await systemController.testSource(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should reject if backup disabled', async () => {
-            configService.get.mockReturnValue({ sources: { backup: { enabled: false } } });
-            req.body = { target: 'backup' };
-            await systemController.testSource(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should test aladhan successfully', async () => {
-            healthCheck.refresh.mockResolvedValue({ primarySource: { healthy: true, message: 'OK' } });
-            req.body = { target: 'primary' };
-            await systemController.testSource(req, res);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-            expect(healthCheck.refresh).toHaveBeenCalledWith('primarySource', null, { force: true });
-        });
-
-        it('should test mymasjid successfully', async () => {
-            healthCheck.refresh.mockResolvedValue({ backupSource: { healthy: true, message: 'OK' } });
-            req.body = { target: 'backup' };
-            await systemController.testSource(req, res);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-            expect(healthCheck.refresh).toHaveBeenCalledWith('backupSource', null, { force: true });
-        });
-
-        it('should fail on unsupported source type', async () => {
-            ProviderFactory.create.mockImplementation(() => { throw new Error('Unknown provider type'); });
-            req.body = { target: 'primary' };
-            await systemController.testSource(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should handle failed testSource', async () => {
-            healthCheck.refresh.mockResolvedValue({ primarySource: { healthy: false, message: 'Fetch error' } });
-            req.body = { target: 'primary' };
-            
-            await systemController.testSource(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: 'Fetch error' }));
-        });
+  describe("testSource", () => {
+    it("should reject invalid target", async () => {
+      req.body = { target: "invalid" };
+      await systemController.testSource(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    describe('getStorageStatus', () => {
-        it('should return storage status', async () => {
-            const storageService = require('@services/system/storageService');
-            jest.mock('@services/system/storageService', () => ({
-                getUsage: jest.fn().mockResolvedValue({ total: 100, custom: 50, cache: 50 }),
-                getSystemStats: jest.fn().mockResolvedValue(1000),
-                calculateRecommendedLimit: jest.fn().mockReturnValue(0.5)
-            }), { virtual: true });
-
-            await systemController.getStorageStatus(req, res);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-                usedBytes: 100,
-                systemFreeBytes: 1000
-            }));
-        });
+    it("should reject if source not configured", async () => {
+      configService.get.mockReturnValue({ sources: {} });
+      req.body = { target: "primary" };
+      await systemController.testSource(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    describe('getVoices', () => {
-        it('should return voices from voiceService', async () => {
-            const voices = [{ id: 'v1', name: 'Voice 1' }];
-            voiceService.getVoices.mockReturnValue(voices);
-            await systemController.getVoices(req, res);
-            expect(res.json).toHaveBeenCalledWith(voices);
-        });
+    it("should reject if backup disabled", async () => {
+      configService.get.mockReturnValue({
+        sources: { backup: { enabled: false } },
+      });
+      req.body = { target: "backup" };
+      await systemController.testSource(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    describe('previewTTS', () => {
-        it('should return 400 if missing fields', async () => {
-            req.body = { template: 'test' };
-            await systemController.previewTTS(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 400 if template exceeds 50 characters', async () => {
-            req.body = { template: 'A'.repeat(51), prayerKey: 'fajr', voice: 'v1' };
-            await systemController.previewTTS(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith({ error: 'TTS template must be 50 characters or less' });
-        });
-
-        it('should return data from audioAssetService', async () => {
-            req.body = { template: 'test', prayerKey: 'fajr', voice: 'v1' };
-            audioAssetService.previewTTS.mockResolvedValue({ url: 'test.mp3' });
-            await systemController.previewTTS(req, res);
-            expect(res.json).toHaveBeenCalledWith({ url: 'test.mp3' });
-        });
-
-        it('should handle errors and return 500', async () => {
-            req.body = { template: 'test', prayerKey: 'fajr', voice: 'v1' };
-            audioAssetService.previewTTS.mockRejectedValue(new Error('Preview Error'));
-            await systemController.previewTTS(req, res);
-            expect(res.status).toHaveBeenCalledWith(500);
-        });
+    it("should test aladhan successfully", async () => {
+      healthCheck.refresh.mockResolvedValue({
+        primarySource: { healthy: true, message: "OK" },
+      });
+      req.body = { target: "primary" };
+      await systemController.testSource(req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true }),
+      );
+      expect(healthCheck.refresh).toHaveBeenCalledWith("primarySource", null, {
+        force: true,
+      });
     });
 
-    describe('cleanupTempTTS', () => {
-        it('should call cleanup and return 200', async () => {
-            await systemController.cleanupTempTTS(req, res);
-            expect(audioAssetService.cleanupTempAudio).toHaveBeenCalledWith(true);
-            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
-        });
-
-        it('should handle errors and return 500', async () => {
-            audioAssetService.cleanupTempAudio.mockRejectedValue(new Error('Cleanup Error'));
-            await systemController.cleanupTempTTS(req, res);
-            expect(res.status).toHaveBeenCalledWith(500);
-        });
+    it("should test mymasjid successfully", async () => {
+      healthCheck.refresh.mockResolvedValue({
+        backupSource: { healthy: true, message: "OK" },
+      });
+      req.body = { target: "backup" };
+      await systemController.testSource(req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true }),
+      );
+      expect(healthCheck.refresh).toHaveBeenCalledWith("backupSource", null, {
+        force: true,
+      });
     });
 
-    describe('runJob', () => {
-        it('should return 400 if jobName is missing', async () => {
-            req.body = {};
-            await systemController.runJob(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should call schedulerService.runJob and return result', async () => {
-            req.body = { jobName: 'testJob' };
-            schedulerService.runJob.mockResolvedValue({ success: true });
-            await systemController.runJob(req, res);
-            expect(schedulerService.runJob).toHaveBeenCalledWith('testJob');
-            expect(res.json).toHaveBeenCalledWith({ success: true });
-        });
-
-        it('should return 400 if scheduler returns failure', async () => {
-            req.body = { jobName: 'testJob' };
-            schedulerService.runJob.mockResolvedValue({ success: false, message: 'fail' });
-            await systemController.runJob(req, res);
-            expect(res.status).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 500 on unexpected error', async () => {
-            req.body = { jobName: 'testJob' };
-            schedulerService.runJob.mockRejectedValue(new Error('Fatal'));
-            await systemController.runJob(req, res);
-            expect(res.status).toHaveBeenCalledWith(500);
-        });
+    it("should fail on unsupported source type", async () => {
+      ProviderFactory.create.mockImplementation(() => {
+        throw new Error("Unknown provider type");
+      });
+      req.body = { target: "primary" };
+      await systemController.testSource(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
     });
+
+    it("should handle failed testSource", async () => {
+      healthCheck.refresh.mockResolvedValue({
+        primarySource: { healthy: false, message: "Fetch error" },
+      });
+      req.body = { target: "primary" };
+
+      await systemController.testSource(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, error: "Fetch error" }),
+      );
+    });
+  });
+
+  describe("getStorageStatus", () => {
+    it("should return storage status", async () => {
+      const storageService = require("@services/system/storageService");
+      jest.mock(
+        "@services/system/storageService",
+        () => ({
+          getUsage: jest
+            .fn()
+            .mockResolvedValue({ total: 100, custom: 50, cache: 50 }),
+          getSystemStats: jest.fn().mockResolvedValue(1000),
+          calculateRecommendedLimit: jest.fn().mockReturnValue(0.5),
+        }),
+        { virtual: true },
+      );
+
+      await systemController.getStorageStatus(req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          usedBytes: 100,
+          systemFreeBytes: 1000,
+        }),
+      );
+    });
+  });
+
+  describe("getVoices", () => {
+    it("should return voices from voiceService", async () => {
+      const voices = [{ id: "v1", name: "Voice 1" }];
+      voiceService.getVoices.mockReturnValue(voices);
+      await systemController.getVoices(req, res);
+      expect(res.json).toHaveBeenCalledWith(voices);
+    });
+  });
+
+  describe("previewTTS", () => {
+    it("should return 400 if missing fields", async () => {
+      req.body = { template: "test" };
+      await systemController.previewTTS(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 400 if template exceeds 50 characters", async () => {
+      req.body = { template: "A".repeat(51), prayerKey: "fajr", voice: "v1" };
+      await systemController.previewTTS(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "TTS template must be 50 characters or less",
+      });
+    });
+
+    it("should return data from audioAssetService", async () => {
+      req.body = { template: "test", prayerKey: "fajr", voice: "v1" };
+      audioAssetService.previewTTS.mockResolvedValue({ url: "test.mp3" });
+      await systemController.previewTTS(req, res);
+      expect(res.json).toHaveBeenCalledWith({ url: "test.mp3" });
+    });
+
+    it("should handle errors and return 500", async () => {
+      req.body = { template: "test", prayerKey: "fajr", voice: "v1" };
+      audioAssetService.previewTTS.mockRejectedValue(
+        new Error("Preview Error"),
+      );
+      await systemController.previewTTS(req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
+
+  describe("cleanupTempTTS", () => {
+    it("should call cleanup and return 200", async () => {
+      await systemController.cleanupTempTTS(req, res);
+      expect(audioAssetService.cleanupTempAudio).toHaveBeenCalledWith(true);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true }),
+      );
+    });
+
+    it("should handle errors and return 500", async () => {
+      audioAssetService.cleanupTempAudio.mockRejectedValue(
+        new Error("Cleanup Error"),
+      );
+      await systemController.cleanupTempTTS(req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
+
+  describe("runJob", () => {
+    it("should return 400 if jobName is missing", async () => {
+      req.body = {};
+      await systemController.runJob(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should call schedulerService.runJob and return result", async () => {
+      req.body = { jobName: "testJob" };
+      schedulerService.runJob.mockResolvedValue({ success: true });
+      await systemController.runJob(req, res);
+      expect(schedulerService.runJob).toHaveBeenCalledWith("testJob");
+      expect(res.json).toHaveBeenCalledWith({ success: true });
+    });
+
+    it("should return 400 if scheduler returns failure", async () => {
+      req.body = { jobName: "testJob" };
+      schedulerService.runJob.mockResolvedValue({
+        success: false,
+        message: "fail",
+      });
+      await systemController.runJob(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 500 on unexpected error", async () => {
+      req.body = { jobName: "testJob" };
+      schedulerService.runJob.mockRejectedValue(new Error("Fatal"));
+      await systemController.runJob(req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
 });
