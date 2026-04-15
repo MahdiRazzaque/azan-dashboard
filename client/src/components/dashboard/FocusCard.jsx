@@ -161,42 +161,45 @@ const FocusCard = ({
   return (
     <div
       id="tour-focus-card"
-      className="bg-app-card rounded-3xl h-auto lg:h-full flex flex-col items-center justify-center text-center p-8 shadow-2xl relative overflow-hidden"
+      className="bg-app-card rounded-3xl h-auto lg:h-full flex flex-col items-center justify-center text-center p-[clamp(1.5rem,3vw,4rem)] shadow-2xl relative overflow-hidden"
     >
       {/* Background Decoration */}
       <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/30 pointer-events-none" />
 
-      {/* Date Display */}
-      <div className="text-xl lg:text-3xl text-app-dim font-light tracking-wide mb-6 z-10">
-        {now.toFormat("cccc, d MMMM")}
-      </div>
-
-      {/* Main Clock */}
-      <div className="font-bold text-app-text tracking-widest leading-none z-10 select-none pb-8 text-6xl lg:text-9xl flex items-baseline">
-        <span>{now.toFormat(clockFormat === "12h" ? "hh:mm" : "HH:mm")}</span>
-        {showSeconds && (
-          <span className="text-2xl lg:text-4xl text-app-dim font-medium opacity-40 ml-4">
-            {now.toFormat("ss")}
-          </span>
-        )}
-        {clockFormat === "12h" && (
-          <span className="text-xl lg:text-3xl text-app-dim font-medium ml-4 uppercase">
-            {now.toFormat("a")}
-          </span>
-        )}
-      </div>
-
-      {/* Countdown Section */}
-      {effectiveNextPrayer && (
-        <div className="flex flex-col items-center space-y-4 z-10 mt-4">
-          <div className="text-lg lg:text-2xl text-app-accent font-semibold uppercase tracking-[0.3em] opacity-90 drop-shadow-md">
-            Upcoming: {nextName}
-          </div>
-          <div className="text-3xl lg:text-6xl min-w-[250px] lg:min-w-[500px] text-center font-mono text-app-text bg-app-bg/40 px-6 lg:px-10 py-2 lg:py-4 rounded-2xl backdrop-blur-lg border border-app-border shadow-inner">
-            {getCountdown()}
-          </div>
+      {/* Content wrapper with max-width for ultrawide screens */}
+      <div className="z-10 w-full max-w-[900px] mx-auto flex flex-col items-center justify-center">
+        {/* Date Display */}
+        <div className="text-[clamp(1.1rem,1.8vw+0.3rem,2.5rem)] text-app-dim font-light tracking-wide mb-[clamp(0.75rem,1.5vw,1.5rem)] w-full text-center">
+          {now.toFormat("cccc, d MMMM")}
         </div>
-      )}
+
+        {/* Main Clock */}
+        <div className="font-bold text-app-text tracking-widest leading-none select-none pb-[clamp(1rem,2vw,2rem)] text-[clamp(3.5rem,8vw+1rem,10rem)] flex items-baseline justify-center w-full">
+          <span>{now.toFormat(clockFormat === "12h" ? "hh:mm" : "HH:mm")}</span>
+          {showSeconds && (
+            <span className="text-[clamp(1.25rem,2.5vw,3rem)] text-app-dim font-medium opacity-40 ml-[clamp(0.5rem,1vw,1rem)]">
+              {now.toFormat("ss")}
+            </span>
+          )}
+          {clockFormat === "12h" && (
+            <span className="text-[clamp(1.1rem,2vw,2.5rem)] text-app-dim font-medium ml-[clamp(0.5rem,1vw,1rem)] uppercase">
+              {now.toFormat("a")}
+            </span>
+          )}
+        </div>
+
+        {/* Countdown Section */}
+        {effectiveNextPrayer && (
+          <div className="flex flex-col items-center space-y-[clamp(0.5rem,1vw,1.5rem)] mt-[clamp(0.5rem,1vw,1.5rem)] w-full">
+            <div className="text-[clamp(1rem,1.5vw+0.3rem,2rem)] text-app-accent font-semibold uppercase tracking-[0.3em] opacity-90 drop-shadow-md text-center w-full">
+              Upcoming: {nextName}
+            </div>
+            <div className="text-[clamp(1.75rem,4vw+0.5rem,5rem)] text-center font-mono text-app-text bg-app-bg/40 px-[clamp(1.5rem,2.5vw,3.5rem)] py-[clamp(0.5rem,1vw,1.5rem)] rounded-2xl backdrop-blur-lg border border-app-border shadow-inner">
+              {getCountdown()}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

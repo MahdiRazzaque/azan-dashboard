@@ -72,7 +72,7 @@ const PrayerRow = ({
   prayerNameLanguage,
 }) => {
   const baseClass =
-    "flex items-center justify-between py-3 px-4 lg:py-6 lg:px-10 text-2xl lg:text-5xl font-medium border-b border-white/5 last:border-0 transition-all duration-500";
+    "flex items-center justify-between py-[clamp(0.6rem,1.2vh,2rem)] px-[clamp(1rem,2.5vw,3.5rem)] text-[clamp(1.35rem,2.8vw+0.3rem,3.75rem)] font-medium border-b border-white/5 last:border-0 transition-all duration-500";
 
   let colorClass = "text-app-text";
   let bgClass = "";
@@ -91,15 +91,15 @@ const PrayerRow = ({
     <div
       className={`${baseClass} ${colorClass} ${bgClass} border-app-border/10`}
     >
-      <span className="w-1/3 text-left">{label}</span>
+      <span className="w-[30%] text-left">{label}</span>
       <PrayerTimeValue
         time={time}
         clockFormat={clockFormat}
-        className="w-1/3 text-center"
+        className="w-[35%] text-center"
       />
-      <span className="w-1/3 text-right text-xl lg:text-4xl opacity-60">
+      <span className="w-[35%] text-right text-[clamp(1.1rem,2.2vw+0.2rem,3rem)] opacity-60">
         {name === "sunrise" ? (
-          <span className="text-app-dim opacity-30 tracking-widest text-2xl lg:text-3xl">
+          <span className="text-app-dim opacity-30 tracking-widest text-[clamp(1.25rem,2vw+0.3rem,2.5rem)]">
             ---
           </span>
         ) : iqamah ? (
@@ -122,7 +122,7 @@ const PrayerTablePanel = ({
   clockFormat,
   prayerNameLanguage,
 }) => (
-  <div className="min-w-full">
+  <div className="min-w-full h-full flex flex-col justify-evenly">
     {PRAYER_LIST.map((key) => (
       <PrayerRow
         key={key}
@@ -353,20 +353,20 @@ const PrayerCard = ({
   return (
     <div
       id="tour-prayer-card"
-      className="bg-app-card rounded-3xl h-auto lg:h-full flex flex-col overflow-hidden shadow-2xl p-4"
+      className="bg-app-card rounded-3xl h-auto lg:h-full flex flex-col overflow-hidden shadow-2xl p-[clamp(0.75rem,1.5vw,2rem)]"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
       <div className="flex-1 flex flex-col justify-center space-y-2">
         {enableDateNavigation ? (
-          <div className="px-4 lg:px-10 pb-4 border-b border-app-border/20">
+          <div className="px-[clamp(1rem,2.5vw,3.5rem)] pb-[clamp(0.5rem,1vw,1rem)] border-b border-app-border/20">
             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 text-app-text mb-4">
               <button
                 type="button"
                 aria-label="Previous Day"
                 disabled={!canNavigateBackward || isTransitioning}
                 onClick={() => onNavigate?.(-1)}
-                className="h-10 w-10 rounded-full border border-app-border bg-app-bg/60 text-app-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:border-app-accent"
+                className="size-[clamp(2rem,3vw,3.5rem)] rounded-full border border-app-border bg-app-bg/60 text-app-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:border-app-accent"
               >
                 {"<"}
               </button>
@@ -377,7 +377,7 @@ const PrayerCard = ({
                     className="inline-flex h-6 w-6 animate-spin rounded-full border-2 border-app-border/40 border-t-app-accent lg:h-8 lg:w-8"
                   />
                 ) : (
-                  <div className="text-base lg:text-2xl font-semibold tracking-wide">
+                  <div className="text-[clamp(1rem,1.5vw+0.3rem,2rem)] font-semibold tracking-wide">
                     {formattedDate}
                   </div>
                 )}
@@ -388,7 +388,7 @@ const PrayerCard = ({
                       type="button"
                       onClick={onResetToday}
                       disabled={isTransitioning}
-                      className="shrink-0 rounded-full border border-app-accent/40 bg-app-accent/10 px-3 py-1 text-xs lg:text-sm font-semibold text-app-accent transition-colors hover:bg-app-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="shrink-0 rounded-full border border-app-accent/40 bg-app-accent/10 px-[clamp(0.5rem,1vw,0.75rem)] py-1 text-[clamp(0.7rem,0.8vw,1.1rem)] font-semibold text-app-accent transition-colors hover:bg-app-accent/20 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       ↺ Today
                     </button>
@@ -399,34 +399,34 @@ const PrayerCard = ({
                 aria-label="Next Day"
                 disabled={!canNavigateForward || isTransitioning}
                 onClick={() => onNavigate?.(1)}
-                className="h-10 w-10 rounded-full border border-app-border bg-app-bg/60 text-app-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:border-app-accent"
+                className="size-[clamp(2rem,3vw,3.5rem)] rounded-full border border-app-border bg-app-bg/60 text-app-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:border-app-accent"
               >
                 {">"}
               </button>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <div className="flex-1 text-app-dim text-sm lg:text-xl uppercase tracking-widest font-semibold opacity-50 flex justify-between">
-                <span className="w-1/3 text-left">Prayer</span>
-                <span className="w-1/3 text-center">Start Time</span>
-                <span className="w-1/3 text-right">Iqamah</span>
+              <div className="flex-1 text-app-dim text-[clamp(0.75rem,1vw+0.2rem,1.75rem)] uppercase tracking-widest font-semibold opacity-50 flex justify-between">
+                <span className="w-[30%] text-left">Prayer</span>
+                <span className="w-[35%] text-center">Start Time</span>
+                <span className="w-[35%] text-right">Iqamah</span>
               </div>
             </div>
           </div>
         ) : (
-          <div className="flex justify-between px-4 lg:px-10 pb-4 text-app-dim text-sm lg:text-xl uppercase tracking-widest font-semibold opacity-50 border-b border-app-border/20">
-            <span className="w-1/3 text-left">Prayer</span>
-            <span className="w-1/3 text-center">Start Time</span>
-            <span className="w-1/3 text-right">Iqamah</span>
+          <div className="flex justify-between px-[clamp(1rem,2.5vw,3.5rem)] pb-[clamp(0.5rem,1vw,1rem)] text-app-dim text-[clamp(0.75rem,1vw+0.2rem,1.75rem)] uppercase tracking-widest font-semibold opacity-50 border-b border-app-border/20 w-full">
+            <span className="w-[30%] text-left">Prayer</span>
+            <span className="w-[35%] text-center">Start Time</span>
+            <span className="w-[35%] text-right">Iqamah</span>
           </div>
         )}
 
         <div
-          className="relative overflow-hidden"
+          className="relative overflow-hidden w-full flex-1"
           data-testid="prayer-table-viewport"
         >
           <div
             ref={trackRef}
-            className="flex transform-gpu will-change-transform"
+            className="flex transform-gpu will-change-transform h-full"
             data-testid="prayer-table-track"
           >
             {panels.map((panel) => (
