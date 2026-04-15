@@ -194,7 +194,7 @@ const FocusCard = ({
             <div className="text-[clamp(1rem,1.5vw+0.3rem,2rem)] text-app-accent font-semibold uppercase tracking-[0.3em] opacity-90 drop-shadow-md text-center w-full">
               Upcoming: {nextName}
             </div>
-            <div className="text-[clamp(1.75rem,4vw+0.5rem,5rem)] text-center font-mono text-app-text bg-app-bg/40 px-[clamp(1.5rem,2.5vw,3.5rem)] py-[clamp(0.5rem,1vw,1.5rem)] rounded-2xl backdrop-blur-lg border border-app-border shadow-inner">
+            <div className="text-[clamp(1.75rem,3vw+0.5rem,4rem)] text-center font-mono text-app-text bg-app-bg/40 px-[clamp(1.5rem,2.5vw,3.5rem)] py-[clamp(0.5rem,1vw,1.5rem)] rounded-2xl backdrop-blur-lg border border-app-border shadow-inner">
               {getCountdown()}
             </div>
           </div>
