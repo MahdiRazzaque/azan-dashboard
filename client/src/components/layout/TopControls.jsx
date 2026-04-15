@@ -127,12 +127,12 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
   };
 
   return (
-    <div className="absolute top-2 right-2 lg:top-6 lg:right-6 flex gap-1.5 lg:gap-3 z-50">
+    <div className="absolute top-[clamp(1.25rem,2vw,2.5rem)] right-[clamp(1.25rem,2vw,2.5rem)] flex gap-[clamp(0.375rem,0.7vw,0.75rem)] z-50">
       <button
         id="tour-wake-lock"
         onClick={handleWakeLockToggle}
         disabled={!wakeLock.isSupported}
-        className={`p-1.5 lg:p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
+        className={`p-[clamp(0.375rem,0.7vw,0.75rem)] rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
           !wakeLock.isSupported
             ? "bg-app-card/50 text-app-dim cursor-not-allowed opacity-50"
             : wakeLock.error
@@ -143,13 +143,16 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
         }`}
         title={getWakeLockTitle()}
       >
-        <Power size={18} className="lg:size-5" />
+        <Power
+          size={18}
+          className="size-[clamp(1.125rem,1.2vw+0.2rem,1.25rem)]"
+        />
       </button>
 
       <button
         id="tour-mute-btn"
         onClick={toggleMute}
-        className={`p-1.5 lg:p-3 rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
+        className={`p-[clamp(0.375rem,0.7vw,0.75rem)] rounded-full transition-all duration-300 shadow-lg backdrop-blur-md ${
           blocked
             ? "bg-app-danger animate-pulse text-white"
             : isMuted
@@ -165,40 +168,55 @@ const TopControls = ({ isMuted, toggleMute, blocked }) => {
         }
       >
         {isMuted || blocked ? (
-          <VolumeX size={18} className="lg:size-5" />
+          <VolumeX
+            size={18}
+            className="size-[clamp(1.125rem,1.2vw+0.2rem,1.25rem)]"
+          />
         ) : (
-          <Volume2 size={18} className="lg:size-5" />
+          <Volume2
+            size={18}
+            className="size-[clamp(1.125rem,1.2vw+0.2rem,1.25rem)]"
+          />
         )}
       </button>
 
       <button
         id="tour-display-settings"
         onClick={() => setShowSettings(true)}
-        className="p-1.5 lg:p-3 rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
+        className="p-[clamp(0.375rem,0.7vw,0.75rem)] rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
         title="Display Settings"
       >
-        <Monitor size={18} className="lg:size-5" />
+        <Monitor
+          size={18}
+          className="size-[clamp(1.125rem,1.2vw+0.2rem,1.25rem)]"
+        />
       </button>
 
       <div className="relative">
         <button
           id="tour-admin-settings"
           onClick={() => navigate("/settings")}
-          className="p-1.5 lg:p-3 rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
+          className="p-[clamp(0.375rem,0.7vw,0.75rem)] rounded-full bg-app-card hover:bg-app-card/80 transition-all duration-300 shadow-lg backdrop-blur-md text-app-dim hover:text-white"
           title={
             isDegraded
               ? `System Warning:\n${healthIssues.join("\n")}`
               : "Settings"
           }
         >
-          <Settings size={18} className="lg:size-5" />
+          <Settings
+            size={18}
+            className="size-[clamp(1.125rem,1.2vw+0.2rem,1.25rem)]"
+          />
         </button>
         {isDegraded && (
           <div
             className="absolute -top-1 -right-1 bg-amber-500 text-app-bg rounded-full p-0.5 border-2 border-app-bg shadow-sm animate-pulse"
             title={`System Warning:\n${healthIssues.join("\n")}`}
           >
-            <AlertTriangle size={10} className="lg:size-3" />
+            <AlertTriangle
+              size={10}
+              className="size-[clamp(0.625rem,0.8vw,0.75rem)]"
+            />
           </div>
         )}
       </div>

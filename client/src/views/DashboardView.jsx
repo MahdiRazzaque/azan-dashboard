@@ -85,7 +85,7 @@ const DashboardView = ({
 
   return (
     <div
-      className="relative h-screen w-screen overflow-y-auto lg:overflow-hidden bg-app-bg text-app-text font-sans antialiased selection:bg-app-accent selection:text-app-bg"
+      className="relative h-dvh w-screen overflow-y-auto lg:overflow-hidden bg-app-bg text-app-text font-sans antialiased selection:bg-app-accent selection:text-app-bg"
       style={{ WebkitOverflowScrolling: "touch" }}
     >
       {showWelcomeModal && (
