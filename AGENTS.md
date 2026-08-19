@@ -119,7 +119,7 @@ docker compose -f docker/docker-compose.yml -f docker/docker-compose.audio.yml u
 
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **azan-dashboard** (1848 symbols, 3655 relationships, 135 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **azan-dashboard** (1968 symbols, 3796 relationships, 145 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
