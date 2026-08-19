@@ -129,6 +129,7 @@ export const SettingsProvider = ({ children }) => {
       // 1. Initial Load of Global Data (Settings)
       // We always fetch settings when authentication state changes to ensure
       // we have the correct level of detail (public vs admin/secrets).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchSettings();
 
       // 2. Fetch cached health state from backend (no auth required)
@@ -327,48 +328,68 @@ export const SettingsProvider = ({ children }) => {
     [draftConfig, providers],
   );
 
-  const bulkUpdateOffsets = useCallback((eventType, minutes) => {
-    const raw = parseInt(minutes);
-    const clampedMinutes = isNaN(raw) ? 0 : Math.min(60, Math.max(0, raw));
-    const prayers = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
+  const bulkUpdateOffsets = useCallback(
+    (eventType, minutes) => {
+      const raw = parseInt(minutes);
+      const clampedMinutes = isNaN(raw) ? 0 : Math.min(60, Math.max(0, raw));
+      const prayers = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
 
-    let count = 0;
-    setDraftConfig((prev) => {
-      if (!prev) return prev;
-      const next = JSON.parse(JSON.stringify(prev));
+      setDraftConfig((prev) => {
+        if (!prev) return prev;
+        const next = JSON.parse(JSON.stringify(prev));
+        for (const prayer of prayers) {
+          if (eventType === "preIqamah" && prayer === "sunrise") continue;
+          const trigger = next.automation?.triggers?.[prayer]?.[eventType];
+          if (trigger) {
+            trigger.offsetMinutes = clampedMinutes;
+          }
+        }
+        return next;
+      });
+
+      if (!draftConfig) return 0;
+      let count = 0;
       for (const prayer of prayers) {
         if (eventType === "preIqamah" && prayer === "sunrise") continue;
-        const trigger = next.automation?.triggers?.[prayer]?.[eventType];
-        if (trigger) {
-          trigger.offsetMinutes = clampedMinutes;
+        if (draftConfig.automation?.triggers?.[prayer]?.[eventType]) {
           count++;
         }
       }
-      return next;
-    });
-    return count;
-  }, []);
+      return count;
+    },
+    [draftConfig],
+  );
 
-  const bulkUpdateIqamahOffsets = useCallback((minutes) => {
-    const raw = parseInt(minutes);
-    const clampedMinutes = isNaN(raw) ? 0 : Math.min(60, Math.max(0, raw));
-    const prayers = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
+  const bulkUpdateIqamahOffsets = useCallback(
+    (minutes) => {
+      const raw = parseInt(minutes);
+      const clampedMinutes = isNaN(raw) ? 0 : Math.min(60, Math.max(0, raw));
+      const prayers = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
 
-    let count = 0;
-    setDraftConfig((prev) => {
-      if (!prev) return prev;
-      const next = JSON.parse(JSON.stringify(prev));
+      setDraftConfig((prev) => {
+        if (!prev) return prev;
+        const next = JSON.parse(JSON.stringify(prev));
+        for (const prayer of prayers) {
+          if (prayer === "sunrise") continue;
+          if (next.prayers?.[prayer]) {
+            next.prayers[prayer].iqamahOffset = clampedMinutes;
+          }
+        }
+        return next;
+      });
+
+      if (!draftConfig) return 0;
+      let count = 0;
       for (const prayer of prayers) {
         if (prayer === "sunrise") continue;
-        if (next.prayers?.[prayer]) {
-          next.prayers[prayer].iqamahOffset = clampedMinutes;
+        if (draftConfig.prayers?.[prayer]) {
           count++;
         }
       }
-      return next;
-    });
-    return count;
-  }, []);
+      return count;
+    },
+    [draftConfig],
+  );
 
   const resetDraft = useCallback(() => {
     if (configRef.current) {

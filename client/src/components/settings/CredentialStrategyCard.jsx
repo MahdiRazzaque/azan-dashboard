@@ -50,11 +50,10 @@ export default function CredentialStrategyCard({
   const [saving, setSaving] = useState(false);
 
   // Reset the local override when the server-provided `verified` prop changes.
-  // This avoids the "derived state in useEffect" anti-pattern by comparing
-  // against the previous prop value during render.
-  const prevVerifiedRef = useRef(verified);
-  if (prevVerifiedRef.current !== verified) {
-    prevVerifiedRef.current = verified;
+  // Compare against the previous prop value during render using state.
+  const [prevVerified, setPrevVerified] = useState(verified);
+  if (prevVerified !== verified) {
+    setPrevVerified(verified);
     setVerifiedOverride(null);
   }
 
@@ -63,15 +62,15 @@ export default function CredentialStrategyCard({
     verifiedOverride !== null ? verifiedOverride : verified || false;
 
   // Sync local state when server config finishes loading.
-  // Uses JSON.stringify for stable deep comparison.
+  // Uses JSON.stringify for stable deep comparison during render phase.
   const initialValuesJson = JSON.stringify(initialValues || {});
-  useEffect(() => {
-    const parsed = JSON.parse(initialValuesJson);
-    // Populate the fields whenever server values change.
-    // We also reset isDirty because these values now match the server.
-    setValues(parsed);
+  const [prevInitialValuesJson, setPrevInitialValuesJson] =
+    useState(initialValuesJson);
+  if (prevInitialValuesJson !== initialValuesJson) {
+    setPrevInitialValuesJson(initialValuesJson);
+    setValues(JSON.parse(initialValuesJson));
     setIsDirty(false);
-  }, [initialValuesJson]);
+  }
 
   const { id, label, params } = strategy;
   const sensitiveParams = params.filter((p) => p.sensitive);

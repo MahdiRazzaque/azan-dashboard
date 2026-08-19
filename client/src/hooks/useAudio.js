@@ -39,6 +39,7 @@ export const useAudio = ({ autoUnmute = false } = {}) => {
   useEffect(() => {
     if (!autoUnmute) return;
 
+    let timerId;
     const attemptAutoUnmute = async () => {
       const ctx = initContext();
       if (ctx.state === "running") return;
@@ -48,7 +49,7 @@ export const useAudio = ({ autoUnmute = false } = {}) => {
       ctx.resume().catch(() => {});
 
       // Brief delay to see if the browser allowed it
-      setTimeout(() => {
+      timerId = setTimeout(() => {
         const isStillBlocked = ctx.state !== "running";
         setIsMuted(isStillBlocked);
         setBlocked(isStillBlocked);
@@ -56,6 +57,9 @@ export const useAudio = ({ autoUnmute = false } = {}) => {
     };
 
     attemptAutoUnmute();
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
   }, [autoUnmute, initContext]);
 
   // Synchronize state with context

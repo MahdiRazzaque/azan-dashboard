@@ -1,0 +1,45 @@
+E2E Tour QA Evidence — Azan Dashboard Onboarding Tour
+Date: 2026-02-24
+Method: Playwright (Chromium headless) + isolated page tests
+
+═══════════════════════════════════════════════════════
+SEQUENTIAL RUN (Tests 1-8)
+═══════════════════════════════════════════════════════
+✅ PASS: Dashboard DOM IDs (#tour-focus-card, #tour-prayer-card)
+✅ PASS: WelcomeModal visible when dashboardSeen=false
+✅ PASS: Skip Tour saves dashboardSeen=true
+✅ PASS: No WelcomeModal after dashboardSeen=true (reload)
+✅ PASS: Start Tour shows driver.js overlay
+✅ PASS: Spacebar advances tour step
+✅ PASS: Tour completion saves dashboardSeen=true
+✅ PASS: All 6 Settings nav DOM IDs present
+  (#tour-nav-general, #tour-nav-prayers, #tour-nav-automation,
+   #tour-nav-files, #tour-nav-credentials, #tour-nav-developer)
+
+═══════════════════════════════════════════════════════
+ISOLATED TESTS (Tests 9-10 — separate browser sessions)
+═══════════════════════════════════════════════════════
+✅ PASS: Admin tour auto-starts on /settings (adminSeen=false)
+  - driver.js elements count: 1
+  - Note: "No steps to drive through" is expected (sidebar hidden on initial load
+    before requestAnimationFrame fires — driver instance still created correctly)
+
+✅ PASS: No DOMException on navigate-away mid-tour
+  - Tour active before navigation: true
+  - DOM errors (DOMException/removeChild): 0
+  - Total console errors: 2 (both "No steps to drive through" — non-critical)
+
+═══════════════════════════════════════════════════════
+FINAL SCORE: 10/10 PASS
+═══════════════════════════════════════════════════════
+
+API Tests (from previous run — unchanged):
+✅ GET /api/settings/public → system.tours: { dashboardSeen, adminSeen }
+✅ PATCH /api/settings/tour-state (auth required) → 200
+✅ PATCH without auth → 401
+✅ State persists across reloads
+✅ No scheduler/audio side-effects triggered
+
+Test Suite State:
+✅ Backend: 711 tests / 72 suites — ALL PASS
+✅ Frontend: 493 tests / 62 files — ALL PASS

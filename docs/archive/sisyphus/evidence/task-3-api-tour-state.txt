@@ -1,0 +1,8 @@
+=== T12 QA: API Tests ===
+
+--- Test: GET /api/settings/public includes system.tours ---
+PASS: system.tours = {'dashboardSeen': False, 'adminSeen': False}
+
+--- Test: PATCH /api/settings/tour-state without auth returns 401 ---
+HTTP Status: 401 (expected: 401)
+PASS: 401 returned
