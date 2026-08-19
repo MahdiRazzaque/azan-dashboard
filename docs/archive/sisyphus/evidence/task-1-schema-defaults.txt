@@ -1,0 +1,62 @@
+TASK 1: Backend Schema + Defaults for system.tours — TDD (RED-GREEN-REFACTOR)
+============================================================================
+
+COMPLETION STATUS: ✅ COMPLETE
+
+FILES CREATED:
+- src/tests/unit/config/toursSchema.test.js (71 lines)
+  - 5 test cases covering all requirements
+  - All tests PASSING
+
+FILES MODIFIED:
+- src/config/schemas.js
+  - Added tours field to systemSchema (lines 76-79)
+  - Added tours to systemSchema.default() (lines 85-88)
+  - Exported systemSchema in module.exports (line 152)
+
+- src/config/default.json
+  - Added system.tours defaults (lines 87-90)
+  - Structure: { dashboardSeen: false, adminSeen: false }
+
+TEST RESULTS:
+============
+✅ npm run test:src: 705 passed, 0 failed
+✅ All 5 tours schema tests passing:
+   1. should return default tours when parsing empty object
+   2. should merge partial tours with defaults
+   3. should reject invalid tours type
+   4. should reject non-boolean dashboardSeen value
+   5. should be accessible via configSchema integration
+
+SCHEMA VALIDATION:
+==================
+✅ systemSchema.parse({}) returns:
+   {
+     "healthChecks": { "api": true, "tts": true },
+     "tours": { "dashboardSeen": false, "adminSeen": false }
+   }
+
+✅ systemSchema is now exported and accessible in tests
+✅ configSchema integration test passes
+✅ LSP diagnostics: 0 errors on modified files
+
+GIT COMMIT:
+===========
+✅ Commit created: feat(config): add system.tours schema and defaults
+   - 3 files changed
+   - 84 insertions
+   - Commit hash: f70c8cb
+
+VERIFICATION CHECKLIST:
+=======================
+✅ TDD approach: RED → GREEN → REFACTOR
+✅ Test file created with failing tests first
+✅ Schema implementation added
+✅ Defaults added to default.json
+✅ systemSchema exported
+✅ All tests passing (705/705)
+✅ No LSP diagnostics errors
+✅ Git commit created with proper message
+✅ No modifications to workflow code
+✅ No API endpoints added
+✅ No frontend code touched
