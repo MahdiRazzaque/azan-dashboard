@@ -53,7 +53,7 @@ fi
 # --- Conditional: React Doctor (only if client/ files changed) ---
 if echo "$CHANGED_FILES" | grep -q "^client/"; then
   echo "▶ Running React Doctor (client changes detected)..."
-  npx -y react-doctor@latest . --fail-on error --yes
+  npx -y react-doctor@latest client --fail-on error --yes
   if [ $? -ne 0 ]; then
     echo "❌ React Doctor found errors. Push aborted."
     exit 1

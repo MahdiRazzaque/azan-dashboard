@@ -5,7 +5,6 @@ export const useTour = () => {
   const [isActive, setIsActive] = useState(false);
   const [currentTour, setCurrentTour] = useState(null);
   const driverRef = useRef(null);
-  const keydownHandlerRef = useRef(null);
 
   const stopTour = useCallback(() => {
     const driverInstance = driverRef.current;
@@ -16,13 +15,6 @@ export const useTour = () => {
       } catch {
         // driver.js may throw during destroy if already cleaned up — safe to ignore
       }
-    }
-
-    if (keydownHandlerRef.current) {
-      document.removeEventListener("keydown", keydownHandlerRef.current, {
-        capture: true,
-      });
-      keydownHandlerRef.current = null;
     }
 
     driverRef.current = null;
@@ -64,6 +56,10 @@ export const useTour = () => {
     setCurrentTour(tourName);
     setIsActive(true);
     driverInstance.drive();
+  }, []);
+
+  useEffect(() => {
+    if (!isActive) return;
 
     const handleKeyDown = (event) => {
       if (event.code === "Space" && driverRef.current?.isActive()) {
@@ -73,9 +69,11 @@ export const useTour = () => {
       }
     };
 
-    keydownHandlerRef.current = handleKeyDown;
     document.addEventListener("keydown", handleKeyDown, { capture: true });
-  }, []);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown, { capture: true });
+    };
+  }, [isActive]);
 
   useEffect(
     () => () => {

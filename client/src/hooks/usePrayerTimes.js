@@ -78,7 +78,7 @@ export const usePrayerTimes = () => {
   const [loading, setLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(true);
   const [error, setError] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(Date.now());
+  const [lastUpdated, setLastUpdated] = useState(() => Date.now());
   const [calendar, setCalendar] = useState({});
   const [initialReferenceDate, setInitialReferenceDate] = useState(null);
   const [viewedDate, setViewedDateState] = useState(null);
@@ -129,11 +129,9 @@ export const usePrayerTimes = () => {
           : currentViewedDate;
       const nextPrayers = calendarRef.current[nextReferenceDate] || null;
 
-      setCalendar((currentCalendar) => {
-        const nextCalendar = pruneCalendar(currentCalendar, nextReferenceDate);
-        calendarRef.current = nextCalendar;
-        return nextCalendar;
-      });
+      setCalendar((currentCalendar) =>
+        pruneCalendar(currentCalendar, nextReferenceDate),
+      );
       setInitialReferenceDate((currentInitialReferenceDate) =>
         getLaterDate(currentInitialReferenceDate, nextReferenceDate),
       );
@@ -230,10 +228,8 @@ export const usePrayerTimes = () => {
             }
           : {},
       );
-      setCalendar(() => {
-        calendarRef.current = mergedCalendar;
-        return mergedCalendar;
-      });
+      calendarRef.current = mergedCalendar;
+      setCalendar(() => mergedCalendar);
       setTimezone(payload.meta?.location || null);
       setInitialReferenceDate((currentInitialReferenceDate) =>
         getLaterDate(currentInitialReferenceDate, nextReference),
@@ -243,12 +239,9 @@ export const usePrayerTimes = () => {
       setLastUpdated(Date.now());
 
       setViewedDateState((currentViewedDate) => {
-        const nextViewedDate =
-          preserveViewedDate || isStalePayload
-            ? currentViewedDate || nextReference || null
-            : nextReference || null;
-        viewedDateRef.current = nextViewedDate;
-        return nextViewedDate;
+        return preserveViewedDate || isStalePayload
+          ? currentViewedDate || nextReference || null
+          : nextReference || null;
       });
     },
     [initialReferenceDate],
@@ -316,14 +309,10 @@ export const usePrayerTimes = () => {
           return null;
         }
 
-        setCalendar((currentCalendar) => {
-          const nextCalendar = {
-            ...currentCalendar,
-            ...chunk,
-          };
-          calendarRef.current = nextCalendar;
-          return nextCalendar;
-        });
+        setCalendar((currentCalendar) => ({
+          ...currentCalendar,
+          ...chunk,
+        }));
         setNavigationBoundaries((current) => ({
           ...current,
           [direction]: reachedBoundary,
@@ -350,15 +339,11 @@ export const usePrayerTimes = () => {
   );
 
   const setViewedDate = useCallback((nextViewedDate) => {
-    setViewedDateState((currentViewedDate) => {
-      const resolvedViewedDate =
-        typeof nextViewedDate === "function"
-          ? nextViewedDate(currentViewedDate)
-          : nextViewedDate;
-
-      viewedDateRef.current = resolvedViewedDate;
-      return resolvedViewedDate;
-    });
+    setViewedDateState((currentViewedDate) =>
+      typeof nextViewedDate === "function"
+        ? nextViewedDate(currentViewedDate)
+        : nextViewedDate,
+    );
   }, []);
 
   const orderedDates = useMemo(() => sortDateKeys(calendar), [calendar]);
@@ -473,6 +458,7 @@ export const usePrayerTimes = () => {
   }, [maxCachedDate, navigationBoundaries.future, viewedDate]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPrayers({ isInitial: true, preserveViewedDate: false });
     const intervalId = setInterval(() => {
       fetchPrayers({ preserveViewedDate: true });

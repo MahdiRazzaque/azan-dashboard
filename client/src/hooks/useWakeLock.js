@@ -21,12 +21,6 @@ export const useWakeLock = () => {
 
     try {
       const sentinel = await navigator.wakeLock.request("screen");
-
-      sentinel.addEventListener("release", () => {
-        setIsActive(false);
-        sentinelRef.current = null;
-      });
-
       sentinelRef.current = sentinel;
       setIsActive(true);
       setError(null);
@@ -38,14 +32,31 @@ export const useWakeLock = () => {
   }, [isSupported]);
 
   const release = useCallback(async () => {
-    if (sentinelRef.current) {
+    const sentinel = sentinelRef.current;
+    if (sentinel) {
       try {
-        await sentinelRef.current.release();
+        await sentinel.release();
       } catch (err) {
         console.error("Wake Lock Release Error:", err);
       }
     }
   }, []);
+
+  // Sync sentinel release listener
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!isActive || !sentinel) return;
+
+    const handleRelease = () => {
+      setIsActive(false);
+      sentinelRef.current = null;
+    };
+
+    sentinel.addEventListener("release", handleRelease);
+    return () => {
+      sentinel.removeEventListener?.("release", handleRelease);
+    };
+  }, [isActive]);
 
   // Re-acquire lock on visibility change
   useEffect(() => {

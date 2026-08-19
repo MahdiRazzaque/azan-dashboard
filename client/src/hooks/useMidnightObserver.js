@@ -20,23 +20,17 @@ export const useMidnightObserver = ({
   const [observedReferenceDate, setObservedReferenceDate] = useState(null);
 
   useEffect(() => {
-    let timeoutId;
-
-    const scheduleNextTick = () => {
-      timeoutId = setTimeout(() => {
-        const nextReferenceDate = getReferenceDate(timezone);
-        setObservedReferenceDate(nextReferenceDate);
-        onMidnight?.(nextReferenceDate);
-        scheduleNextTick();
-      }, getDelayUntilMidnight(timezone));
-    };
-
-    scheduleNextTick();
+    const delay = getDelayUntilMidnight(timezone);
+    const timeoutId = setTimeout(() => {
+      const nextReferenceDate = getReferenceDate(timezone);
+      setObservedReferenceDate(nextReferenceDate);
+      onMidnight?.(nextReferenceDate);
+    }, delay);
 
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [timezone, onMidnight]);
+  }, [timezone, onMidnight, observedReferenceDate]);
 
   const referenceDate = (() => {
     if (observedReferenceDate) {
