@@ -4,6 +4,12 @@ const Bottleneck = require("bottleneck");
 const ConfigService = require("../config");
 
 /**
+ * Base URL for the VoiceMonkey v3 API. v2 (`api-v2`) is deprecated and
+ * accounts created after the v3 launch cannot use it.
+ */
+const VOICEMONKEY_API_BASE = "https://api-v3.voicemonkey.io";
+
+/**
  * Strategy for triggering audio playback via the VoiceMonkey API (Alexa).
  */
 class VoiceMonkeyOutput extends BaseOutput {
@@ -166,11 +172,14 @@ class VoiceMonkeyOutput extends BaseOutput {
 
     try {
       await VoiceMonkeyOutput.queue.schedule(() =>
-        axios.get("https://api-v2.voicemonkey.io/announcement", {
-          params: { token, device, audio: audioUrl },
-          signal, // REQ-007: Support aborting network requests on timeout
-          maxContentLength: 5000000,
-        }),
+        axios.post(
+          `${VOICEMONKEY_API_BASE}/announce`,
+          { token, device, audio: audioUrl },
+          {
+            signal, // REQ-007: Support aborting network requests on timeout
+            maxContentLength: 5000000,
+          },
+        ),
       );
       console.log(`${prefix} Announcement triggered successfully`);
     } catch (error) {
@@ -210,17 +219,12 @@ class VoiceMonkeyOutput extends BaseOutput {
       return { healthy: false, message: "Token Missing" };
     }
 
-    // Always use a random device for health checks to ensure they are silent (REQ-004)
-    const deviceToCheck = `azan_check_${Date.now()}`;
-
+    // REQ-004: Use the silent GET /devices endpoint. It validates the token
+    // without announcing anything (v3 rejects unknown device IDs with 404).
     try {
       const response = await VoiceMonkeyOutput.queue.schedule(() =>
-        axios.get("https://api-v2.voicemonkey.io/announcement", {
-          params: {
-            token: token,
-            device: deviceToCheck,
-            text: "Test",
-          },
+        axios.get(`${VOICEMONKEY_API_BASE}/devices`, {
+          headers: { Authorization: `Bearer ${token}` },
           timeout: 5000,
           maxContentLength: 5000000,
         }),
@@ -258,23 +262,30 @@ class VoiceMonkeyOutput extends BaseOutput {
     }
 
     try {
+      // Silent check: list speakers on the account instead of announcing.
       const response = await VoiceMonkeyOutput.queue.schedule(() =>
-        axios.get("https://api-v2.voicemonkey.io/announcement", {
-          params: {
-            token: credentials.token,
-            device: credentials.device,
-            text: "Test",
-          },
+        axios.get(`${VOICEMONKEY_API_BASE}/devices`, {
+          headers: { Authorization: `Bearer ${credentials.token}` },
           timeout: 5000,
           maxContentLength: 5000000,
         }),
       );
-      if (response.data && response.data.success === true) {
-        console.log("[Output: VoiceMonkey] Verification: OK");
-        return { success: true };
-      } else {
+      if (!response.data || response.data.success !== true) {
         throw new Error(response.data?.error || "Verification Failed");
       }
+
+      const devices = Array.isArray(response.data.data)
+        ? response.data.data
+        : [];
+      const found = devices.some(
+        (d) => d.id === credentials.device && d.capability === "speakers",
+      );
+      if (!found) {
+        throw new Error("Device ID not found on this account");
+      }
+
+      console.log("[Output: VoiceMonkey] Verification: OK");
+      return { success: true };
     } catch (error) {
       console.log(
         `[Output: VoiceMonkey] Verification failed: ${error.message}`,
