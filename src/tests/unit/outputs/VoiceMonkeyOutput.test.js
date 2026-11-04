@@ -90,15 +90,14 @@ describe("VoiceMonkeyOutput", () => {
     it("should send file source to API with constructed public URL", async () => {
       axios.get.mockResolvedValue({ data: { success: true } });
       await output._executeFromFile(filePayload, {});
-      expect(axios.get).toHaveBeenCalledWith(
-        "https://api-v2.voicemonkey.io/announcement",
-        expect.objectContaining({
-          params: expect.objectContaining({
-            audio: "https://test.com/public/audio/custom/test.mp3",
-            token: "t1",
-            device: "d1",
-          }),
-        }),
+      expect(axios.post).toHaveBeenCalledWith(
+        "https://api-v3.voicemonkey.io/announce",
+        {
+          audio: "https://test.com/public/audio/custom/test.mp3",
+          token: "t1",
+          device: "d1",
+        },
+        expect.anything(),
       );
     });
 
@@ -147,13 +146,12 @@ describe("VoiceMonkeyOutput", () => {
       };
       axios.get.mockResolvedValue({ data: { success: true } });
       await output._executeFromUrl(payload, {});
-      expect(axios.get).toHaveBeenCalledWith(
-        "https://api-v2.voicemonkey.io/announcement",
+      expect(axios.post).toHaveBeenCalledWith(
+        "https://api-v3.voicemonkey.io/announce",
         expect.objectContaining({
-          params: expect.objectContaining({
-            audio: "https://cdn.example.com/audio.mp3",
-          }),
+          audio: "https://cdn.example.com/audio.mp3",
         }),
+        expect.anything(),
       );
     });
 
@@ -190,7 +188,7 @@ describe("VoiceMonkeyOutput", () => {
         },
         {},
       );
-      expect(axios.get).toHaveBeenCalled();
+      expect(axios.post).toHaveBeenCalled();
     });
 
     it("should dispatch URL source to _executeFromUrl", async () => {
@@ -202,13 +200,12 @@ describe("VoiceMonkeyOutput", () => {
         },
         {},
       );
-      expect(axios.get).toHaveBeenCalledWith(
-        "https://api-v2.voicemonkey.io/announcement",
+      expect(axios.post).toHaveBeenCalledWith(
+        "https://api-v3.voicemonkey.io/announce",
         expect.objectContaining({
-          params: expect.objectContaining({
-            audio: "https://cdn.example.com/audio.mp3",
-          }),
+          audio: "https://cdn.example.com/audio.mp3",
         }),
+        expect.anything(),
       );
     });
   });
@@ -224,21 +221,20 @@ describe("VoiceMonkeyOutput", () => {
         { params: { token: "p-token", device: "p-device" } },
         "[Test]",
       );
-      expect(axios.get).toHaveBeenCalledWith(
+      expect(axios.post).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
-          params: expect.objectContaining({
-            token: "p-token",
-            device: "p-device",
-          }),
+          token: "p-token",
+          device: "p-device",
         }),
+        expect.anything(),
       );
     });
 
     it("should handle abort error without throwing", async () => {
       const err = new Error("Aborted");
       err.name = "AbortError";
-      axios.get.mockRejectedValue(err);
+      axios.post.mockRejectedValue(err);
       await output._sendToApi(
         "https://test.com/audio.mp3",
         { params: { token: "t", device: "d" } },
@@ -249,7 +245,7 @@ describe("VoiceMonkeyOutput", () => {
     it("should handle CanceledError without throwing", async () => {
       const err = new Error("Canceled");
       err.name = "CanceledError";
-      axios.get.mockRejectedValue(err);
+      axios.post.mockRejectedValue(err);
       await output._sendToApi(
         "https://test.com/audio.mp3",
         { params: { token: "t", device: "d" } },
@@ -258,7 +254,7 @@ describe("VoiceMonkeyOutput", () => {
     });
 
     it("should throw on non-abort errors", async () => {
-      axios.get.mockRejectedValue(new Error("Network Error"));
+      axios.post.mockRejectedValue(new Error("Network Error"));
       await expect(
         output._sendToApi(
           "https://test.com/audio.mp3",
@@ -270,14 +266,15 @@ describe("VoiceMonkeyOutput", () => {
 
     it("should pass abort signal to axios", async () => {
       const controller = new AbortController();
-      axios.get.mockResolvedValue({ data: { success: true } });
+      axios.post.mockResolvedValue({ data: { success: true } });
       await output._sendToApi(
         "https://test.com/audio.mp3",
         { params: { token: "t", device: "d" } },
         "[Test]",
         controller.signal,
       );
-      expect(axios.get).toHaveBeenCalledWith(
+      expect(axios.post).toHaveBeenCalledWith(
+        expect.anything(),
         expect.anything(),
         expect.objectContaining({ signal: controller.signal }),
       );
@@ -370,22 +367,58 @@ describe("VoiceMonkeyOutput", () => {
       const result = await output.healthCheck({ token: "override-token" });
       expect(result.healthy).toBe(true);
       expect(axios.get).toHaveBeenCalledWith(
-        expect.anything(),
+        "https://api-v3.voicemonkey.io/devices",
         expect.objectContaining({
-          params: expect.objectContaining({ token: "override-token" }),
+          headers: { Authorization: "Bearer override-token" },
         }),
       );
     });
   });
 
   describe("verifyCredentials", () => {
-    it("should return success if API returns success", async () => {
-      axios.get.mockResolvedValue({ data: { success: true } });
+    it("should return success if token is valid and device is a speaker on the account", async () => {
+      axios.get.mockResolvedValue({
+        data: {
+          success: true,
+          data: [{ id: "d", name: "Living Room", capability: "speakers" }],
+        },
+      });
       const result = await output.verifyCredentials({
         token: "t",
         device: "d",
       });
       expect(result.success).toBe(true);
+      expect(axios.get).toHaveBeenCalledWith(
+        "https://api-v3.voicemonkey.io/devices",
+        expect.objectContaining({
+          headers: { Authorization: "Bearer t" },
+        }),
+      );
+      expect(axios.post).not.toHaveBeenCalled();
+    });
+
+    it("should throw if device is not on the account", async () => {
+      axios.get.mockResolvedValue({
+        data: {
+          success: true,
+          data: [{ id: "other", name: "Other", capability: "speakers" }],
+        },
+      });
+      await expect(
+        output.verifyCredentials({ token: "t", device: "d" }),
+      ).rejects.toThrow("Device ID not found on this account");
+    });
+
+    it("should throw if device exists but is not a speaker", async () => {
+      axios.get.mockResolvedValue({
+        data: {
+          success: true,
+          data: [{ id: "d", name: "Routine", capability: "routines" }],
+        },
+      });
+      await expect(
+        output.verifyCredentials({ token: "t", device: "d" }),
+      ).rejects.toThrow("Device ID not found on this account");
     });
 
     it("should throw if token or device missing", async () => {
